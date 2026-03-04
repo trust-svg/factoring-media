@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Threads トークン管理{% endblock %}
+{% block content %}
+<div class="card">
+  <h3>Threads トークン管理</h3>
+  <p class="meta">現在の状態: <strong>{{ token_status }}</strong></p>
+</div>
+
+{% if message %}
+<div class="card" style="border-left: 4px solid {% if '成功' in message or '交換して保存' in message %}#27ae60{% else %}#e67e22{% endif %};">
+  <p style="font-size: 0.9rem;">{{ message }}</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <p class="section-label">トークンを貼り付け</p>
+  <p style="font-size: 0.8rem; color: #888; margin-bottom: 12px;">
+    Meta for Developersの「ユースケース」→「アクセストークンを生成」で取得したトークンを貼り付けてください。
+    自動で長期トークン（60日有効）への交換を試みます。
+  </p>
+  <form method="post" action="/admin/threads-token?key={{ key }}">
+    <textarea name="token" rows="3" placeholder="THAAdBeW..." style="min-height: 80px; font-size: 0.85rem;"></textarea>
+    <div style="height: 12px;"></div>
+    <button type="submit" class="btn btn-primary btn-block">保存する</button>
+  </form>
+</div>
+
+<div class="card">
+  <p class="section-label">仕組み</p>
+  <ul style="font-size: 0.8rem; color: #666; line-height: 1.8; padding-left: 1.2em;">
+    <li>貼り付けたトークンを自動で長期トークン（60日有効）に交換</li>
+    <li>交換に失敗した場合はそのまま保存されます</li>
+    <li>長期トークンは毎週月曜3:00に自動リフレッシュされます</li>
+    <li>環境変数よりDB保存トークンが優先されます</li>
+  </ul>
+</div>
+
+<div style="text-align: center; margin-top: 12px;">
+  <a href="/admin/dashboard?key={{ key }}" class="btn" style="color: #6a0dad;">← ダッシュボードに戻る</a>
+</div>
+{% endblock %}

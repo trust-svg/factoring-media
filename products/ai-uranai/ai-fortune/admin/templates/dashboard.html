@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}保留中の鑑定 — Sion 管理{% endblock %}
+{% block content %}
+<h2 style="font-size:1.1rem; margin-bottom:12px;">📋 保留中の鑑定（{{ readings|length }}件）</h2>
+
+{% if readings %}
+  {% for r in readings %}
+  <a href="/admin/reading/{{ r.id }}?key={{ key }}" style="text-decoration:none; color:inherit;">
+    <div class="card">
+      <span class="label">{{ r.reading_type }}</span>
+      <h3>{{ r.line_user_id[:8] }}…</h3>
+      <p>{{ r.user_message[:80] if r.user_message else '(メッセージなし)' }}{% if r.user_message and r.user_message|length > 80 %}…{% endif %}</p>
+      <p class="meta">{{ r.created_at.strftime('%m/%d %H:%M') }}</p>
+    </div>
+  </a>
+  {% endfor %}
+{% else %}
+  <div class="empty">
+    <p>✨ 保留中の鑑定はありません</p>
+    <p style="margin-top:8px; font-size:0.85rem;">新しい鑑定が入ると、ここに表示されます。</p>
+  </div>
+{% endif %}
+
+<div style="text-align: center; margin-top: 16px;">
+  <a href="/admin/threads-token?key={{ key }}" class="btn" style="color: #6a0dad; font-size: 0.9rem;">⚙ Threads トークン管理</a>
+</div>
+
+<script>
+  // 30秒ごとに自動リロード
+  setTimeout(() => location.reload(), 30000);
+</script>
+{% endblock %}
