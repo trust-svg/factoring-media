@@ -1,4 +1,5 @@
 """数秘術プロンプト定義"""
+from __future__ import annotations
 
 NUMEROLOGY_SYSTEM_PROMPT = """あなたは数秘術の専門家です。
 生年月日から導き出された「運命数」をもとに、その人の本質と今のエネルギーを鑑定します。

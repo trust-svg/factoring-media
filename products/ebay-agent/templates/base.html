@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}eBay Agent Hub{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="app-layout">
+        {% include "components/nav.html" %}
+        <main class="main-content">
+            <div class="page-header">
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                <span class="status">● <span data-en="Active" data-ja="稼働中">Active</span></span>
+            </div>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script src="/static/js/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

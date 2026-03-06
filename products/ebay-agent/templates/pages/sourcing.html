@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Sourcing — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Sourcing & Procurement" data-ja="仕入れ・調達管理">Sourcing & Procurement</span>{% endblock %}
+
+{% block content %}
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Procurement Tracker" data-ja="調達管理">Procurement Tracker</h2>
+        <button class="btn btn-sm" onclick="document.getElementById('addForm').style.display=document.getElementById('addForm').style.display==='none'?'block':'none'" data-en="+ Record Purchase" data-ja="+ 仕入れ記録">+ Record Purchase</button>
+    </div>
+
+    <div id="addForm" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-primary);border-radius:8px;border:1px solid var(--border);">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div class="form-group"><label data-en="Platform" data-ja="プラットフォーム">Platform</label>
+                <select class="form-input" id="procPlatform">
+                    <option value="ヤフオク">ヤフオク</option>
+                    <option value="メルカリ">メルカリ</option>
+                    <option value="PayPayフリマ">PayPayフリマ</option>
+                    <option value="ラクマ">ラクマ</option>
+                    <option value="オフモール">オフモール</option>
+                    <option value="その他">その他</option>
+                </select>
+            </div>
+            <div class="form-group"><label data-en="Title" data-ja="タイトル">Title</label><input class="form-input" id="procTitle" placeholder="Product name" data-placeholder-en="Product name" data-placeholder-ja="商品名"></div>
+            <div class="form-group"><label data-en="SKU (optional)" data-ja="SKU (任意)">SKU (optional)</label><input class="form-input" id="procSku" placeholder="eBay SKU"></div>
+            <div class="form-group"><label data-en="Purchase Price (JPY)" data-ja="仕入れ価格 (円)">Purchase Price (JPY)</label><input class="form-input" id="procPrice" type="number" placeholder="0"></div>
+            <div class="form-group"><label data-en="Shipping (JPY)" data-ja="送料 (円)">Shipping (JPY)</label><input class="form-input" id="procShipping" type="number" placeholder="0" value="0"></div>
+            <div class="form-group"><label data-en="Purchase Date" data-ja="購入日">Purchase Date</label><input class="form-input" id="procDate" type="date"></div>
+        </div>
+        <div class="form-group"><label>URL</label><input class="form-input" id="procUrl" placeholder="https://..."></div>
+        <div class="form-group"><label data-en="Notes" data-ja="メモ">Notes</label><input class="form-input" id="procNotes" placeholder="Optional notes" data-placeholder-en="Optional notes" data-placeholder-ja="メモ（任意）"></div>
+        <button class="btn" onclick="submitProcurement()" style="margin-top:8px;" data-en="Save" data-ja="保存">Save</button>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" data-tab="all" onclick="filterProc('all')" data-en="All" data-ja="すべて">All</button>
+        <button class="tab" data-tab="purchased" onclick="filterProc('purchased')" data-en="Purchased" data-ja="購入済">Purchased</button>
+        <button class="tab" data-tab="shipped" onclick="filterProc('shipped')" data-en="Shipped" data-ja="発送済">Shipped</button>
+        <button class="tab" data-tab="received" onclick="filterProc('received')" data-en="Received" data-ja="受取済">Received</button>
+    </div>
+
+    <div id="procList"><div class="empty-state">Loading...</div></div>
+</div>
+
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Margin Calculator" data-ja="マージン計算">Margin Calculator</h2>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group"><label data-en="Source (JPY)" data-ja="仕入れ (円)">Source (JPY)</label><input class="form-input" id="calcSource" type="number" placeholder="10000" style="width:140px;"></div>
+        <div class="form-group"><label data-en="Shipping (JPY)" data-ja="送料 (円)">Shipping (JPY)</label><input class="form-input" id="calcShip" type="number" placeholder="2000" value="2000" style="width:120px;"></div>
+        <div class="form-group"><label data-en="Sale Price (USD)" data-ja="販売価格 (USD)">Sale Price (USD)</label><input class="form-input" id="calcSale" type="number" step="0.01" placeholder="150.00" style="width:140px;"></div>
+        <button class="btn" onclick="calcMargin()" data-en="Calculate" data-ja="計算">Calculate</button>
+        <span id="calcResult" style="font-size:14px;color:var(--accent-green);font-weight:600;"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let procData = [];
+
+async function loadProcurements() {
+    try {
+        procData = await apiFetch('/api/procurements');
+        renderProc('all');
+    } catch (e) {
+        document.getElementById('procList').innerHTML = '<div class="empty-state">No procurement data</div>';
+    }
+}
+
+function renderProc(filter) {
+    const filtered = filter === 'all' ? procData : procData.filter(p => p.status === filter);
+    if (!filtered.length) {
+        document.getElementById('procList').innerHTML = '<div class="empty-state">No items</div>';
+        return;
+    }
+    let html = `<table class="data-table"><thead><tr><th>ID</th><th>${t('Platform','プラットフォーム')}</th><th>${t('Title','タイトル')}</th><th>${t('Cost','原価')}</th><th>SKU</th><th>${t('Status','ステータス')}</th><th>${t('Date','日付')}</th><th></th></tr></thead><tbody>`;
+    for (const p of filtered) {
+        html += `<tr>
+            <td>#${p.id}</td>
+            <td>${escapeHtml(p.platform)}</td>
+            <td>${escapeHtml(p.title.substring(0,40))}</td>
+            <td>${formatJPY(p.total_cost_jpy)}</td>
+            <td style="font-family:monospace;font-size:11px;">${escapeHtml(p.sku || '-')}</td>
+            <td>${statusBadge(p.status)}</td>
+            <td style="font-size:12px;">${formatDate(p.purchase_date)}</td>
+            <td><button class="btn btn-sm btn-outline" onclick="updateStatus(${p.id},'${nextStatus(p.status)}')">${nextStatus(p.status)}</button></td>
+        </tr>`;
+    }
+    html += '</tbody></table>';
+    document.getElementById('procList').innerHTML = html;
+}
+
+function nextStatus(s) {
+    return { purchased: 'shipped', shipped: 'received', received: 'listed' }[s] || 'received';
+}
+
+function filterProc(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    renderProc(tab);
+}
+
+async function updateStatus(id, status) {
+    await apiFetch(`/api/procurements/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+    loadProcurements();
+}
+
+async function submitProcurement() {
+    const body = {
+        platform: document.getElementById('procPlatform').value,
+        title: document.getElementById('procTitle').value,
+        sku: document.getElementById('procSku').value,
+        purchase_price_jpy: parseInt(document.getElementById('procPrice').value) || 0,
+        shipping_cost_jpy: parseInt(document.getElementById('procShipping').value) || 0,
+        purchase_date: document.getElementById('procDate').value,
+        url: document.getElementById('procUrl').value,
+        notes: document.getElementById('procNotes').value,
+    };
+    if (!body.title || !body.purchase_price_jpy) { alert('Title and price are required'); return; }
+    await apiFetch('/api/procurements', { method: 'POST', body: JSON.stringify(body) });
+    document.getElementById('addForm').style.display = 'none';
+    loadProcurements();
+}
+
+async function calcMargin() {
+    const body = {
+        source_price_jpy: parseInt(document.getElementById('calcSource').value) || 0,
+        sale_price_usd: parseFloat(document.getElementById('calcSale').value) || 0,
+        shipping_cost_jpy: parseInt(document.getElementById('calcShip').value) || 0,
+    };
+    const r = await apiFetch('/api/margin', { method: 'POST', body: JSON.stringify(body) });
+    const color = r.profitable ? 'var(--accent-green)' : 'var(--accent-red)';
+    document.getElementById('calcResult').innerHTML = `${t('Profit','利益')}: <span style="color:${color}">${formatUSD(r.profit_usd)}</span> (${formatPct(r.margin_pct)} ${t('margin','マージン')})`;
+}
+
+loadProcurements();
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Listing Detail — eBay SEO Optimizer{% endblock %}
+
+{% block content %}
+<a href="/" class="back-link">&larr; Back to Dashboard</a>
+
+<div id="detail-content">
+  <!-- Detail Info -->
+  <div id="detail-info">
+    <div class="loading"><span class="spinner"></span> Loading...</div>
+  </div>
+
+  <!-- Score Breakdown -->
+  <div class="section">
+    <h3>SEO Score</h3>
+    <div class="score-breakdown" id="score-breakdown"></div>
+    <div class="actions-bar">
+      <button class="btn btn-secondary" onclick="runAnalysis('{{ sku }}')">Re-Analyze</button>
+    </div>
+  </div>
+
+  <!-- Issues & Suggestions -->
+  <div class="section">
+    <h3>Issues & Suggestions</h3>
+    <ul class="issue-list" id="issues-list"></ul>
+  </div>
+
+  <!-- AI Optimization -->
+  <div class="section">
+    <h3>AI Optimization</h3>
+    <div class="actions-bar">
+      <button class="btn btn-primary" id="btn-optimize" onclick="runOptimization('{{ sku }}')">Generate AI Optimization</button>
+    </div>
+    <div id="optimization-result"></div>
+  </div>
+
+  <!-- Competitor Analysis -->
+  <div class="section">
+    <h3>Competitor Analysis</h3>
+    <div class="actions-bar">
+      <button class="btn btn-secondary" onclick="runCompetitorAnalysis('{{ sku }}')">Run Competitor Analysis</button>
+    </div>
+    <div id="competitor-results"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  loadListingDetail("{{ sku }}");
+});
+</script>
+{% endblock %}

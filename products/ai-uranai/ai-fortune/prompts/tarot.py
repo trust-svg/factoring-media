@@ -16,7 +16,9 @@ TAROT_SYSTEM_PROMPT = """あなたはプロのタロット占い師です。
 - あくまでエンターテインメントとして楽しんでもらう
 """
 
-def build_tarot_prompt(card_name: str, card_upright: bool, question: str | None = None) -> str:
+from typing import Optional
+
+def build_tarot_prompt(card_name: str, card_upright: bool, question: Optional[str] = None) -> str:
     position = "正位置" if card_upright else "逆位置"
     question_text = f"\n相談内容: {question}" if question else ""
     return f"""引いたカード: {card_name}（{position}）{question_text}

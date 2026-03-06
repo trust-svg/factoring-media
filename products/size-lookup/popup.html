@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📦 サイズ＆梱包チェッカー</h1>
+      <p class="subtitle">型番から商品サイズ・梱包サイズを自動算出</p>
+    </header>
+
+    <div class="input-section">
+      <div class="input-group">
+        <input type="text" id="modelNumber" placeholder="型番を入力（例: PS5, iPhone 15 Pro）" autocomplete="off">
+        <button id="searchBtn">検索</button>
+      </div>
+    </div>
+
+    <div id="frequentSection" class="frequent-section" style="display:none;">
+      <div id="frequentList" class="frequent-list"></div>
+    </div>
+
+    <div id="noApiKey" class="message-box warning" style="display:none;">
+      <p>APIキーが未設定です。<a href="#" id="openOptions">設定画面</a>からGemini APIキーを登録してください。</p>
+    </div>
+
+    <div id="loading" class="loading" style="display:none;">
+      <div class="spinner"></div>
+      <p>AI が商品情報を分析中...</p>
+    </div>
+
+    <div id="error" class="message-box error" style="display:none;">
+      <p id="errorText"></p>
+    </div>
+
+    <div id="results" style="display:none;">
+      <!-- Product Info -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🏷️</span>
+          <h2>商品情報</h2>
+          <span id="confidence" class="badge"></span>
+        </div>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="label">商品名</span>
+            <span id="productName" class="value"></span>
+          </div>
+          <div class="info-row">
+            <span class="label">メーカー</span>
+            <span id="brand" class="value"></span>
+          </div>
+          <div class="info-row">
+            <span class="label">カテゴリ</span>
+            <span id="category" class="value"></span>
+          </div>
+          <div class="info-row">
+            <span class="label">HSコード</span>
+            <span id="hsCode" class="value code"></span>
+          </div>
+          <div class="info-row">
+            <span class="label">HTSコード（米国）<span id="htsSource" class="source-badge"></span></span>
+            <span id="htsCode" class="value code"></span>
+          </div>
+          <div id="hsDescRow" class="info-row">
+            <span class="label">品目</span>
+            <span id="hsDesc" class="value small"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Product Dimensions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📐</span>
+          <h2>商品サイズ</h2>
+        </div>
+        <div class="card-body">
+          <div class="dimensions-display">
+            <div class="dim-item">
+              <span class="dim-value" id="prodLength">-</span>
+              <span class="dim-label">縦 cm</span>
+            </div>
+            <span class="dim-separator">×</span>
+            <div class="dim-item">
+              <span class="dim-value" id="prodWidth">-</span>
+              <span class="dim-label">横 cm</span>
+            </div>
+            <span class="dim-separator">×</span>
+            <div class="dim-item">
+              <span class="dim-value" id="prodHeight">-</span>
+              <span class="dim-label">高さ cm</span>
+            </div>
+          </div>
+          <div class="info-row">
+            <span class="label">重量</span>
+            <span id="weight" class="value"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fragility -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">⚠️</span>
+          <h2>壊れやすさ</h2>
+        </div>
+        <div class="card-body">
+          <div id="fragilityBar" class="fragility-bar">
+            <div class="fragility-level" data-level="1">1</div>
+            <div class="fragility-level" data-level="2">2</div>
+            <div class="fragility-level" data-level="3">3</div>
+            <div class="fragility-level" data-level="4">4</div>
+            <div class="fragility-level" data-level="5">5</div>
+          </div>
+          <div class="fragility-labels">
+            <span>頑丈</span>
+            <span>壊れやすい</span>
+          </div>
+          <p id="fragilityReason" class="fragility-reason"></p>
+        </div>
+      </div>
+
+      <!-- Packaging Recommendation -->
+      <div class="card highlight">
+        <div class="card-header">
+          <span class="card-icon">📦</span>
+          <h2>梱包サイズ（海外発送用）</h2>
+        </div>
+        <div class="card-body">
+          <div id="innerBoxSection">
+            <h3 class="section-title" id="boxLabel">推奨ダンボールサイズ</h3>
+            <div class="dimensions-display package">
+              <div class="dim-item">
+                <span class="dim-value" id="boxLength">-</span>
+                <span class="dim-label">縦 cm</span>
+              </div>
+              <span class="dim-separator">×</span>
+              <div class="dim-item">
+                <span class="dim-value" id="boxWidth">-</span>
+                <span class="dim-label">横 cm</span>
+              </div>
+              <span class="dim-separator">×</span>
+              <div class="dim-item">
+                <span class="dim-value" id="boxHeight">-</span>
+                <span class="dim-label">高さ cm</span>
+              </div>
+            </div>
+            <p class="padding-info" id="paddingInfo"></p>
+          </div>
+
+          <div id="outerBoxSection" style="display:none;">
+            <h3 class="section-title">外箱サイズ（二重梱包）</h3>
+            <div class="dimensions-display package outer">
+              <div class="dim-item">
+                <span class="dim-value" id="outerLength">-</span>
+                <span class="dim-label">縦 cm</span>
+              </div>
+              <span class="dim-separator">×</span>
+              <div class="dim-item">
+                <span class="dim-value" id="outerWidth">-</span>
+                <span class="dim-label">横 cm</span>
+              </div>
+              <span class="dim-separator">×</span>
+              <div class="dim-item">
+                <span class="dim-value" id="outerHeight">-</span>
+                <span class="dim-label">高さ cm</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="shipping-info">
+            <div class="info-row">
+              <span class="label">容積重量</span>
+              <span id="volWeight" class="value"></span>
+            </div>
+            <div class="info-row">
+              <span class="label">実重量（梱包込）</span>
+              <span id="actualWeight" class="value"></span>
+            </div>
+            <div class="info-row highlight-row">
+              <span class="label">課金重量</span>
+              <span id="billableWeight" class="value bold"></span>
+            </div>
+          </div>
+
+          <div id="packingTips" class="packing-tips"></div>
+        </div>
+      </div>
+
+      <div id="notes" class="notes" style="display:none;">
+        <p id="notesText"></p>
+      </div>
+    </div>
+
+    <div id="historySection" class="history-section" style="display:none;">
+      <div class="history-header">
+        <h3>検索履歴</h3>
+        <button id="clearHistory" class="clear-btn">クリア</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <h1>設定</h1>
+
+    <div class="form-group">
+      <label for="apiKey">Gemini API キー</label>
+      <p class="hint">Google AI Studio から無料で取得できます</p>
+      <div class="input-wrapper">
+        <input type="password" id="apiKey" placeholder="AIza...">
+        <button id="toggleKey" class="toggle-btn" title="表示/非表示">👁️</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="model">使用モデル</label>
+      <select id="model">
+        <option value="gemini-2.5-flash">Gemini 2.5 Flash（高速・無料枠あり）</option>
+        <option value="gemini-2.5-flash-lite-preview-06-17">Gemini 2.5 Flash Lite（最速・軽量）</option>
+        <option value="gemini-2.5-pro">Gemini 2.5 Pro（高精度）</option>
+      </select>
+    </div>
+
+    <button id="saveBtn" class="save-btn">保存</button>
+    <p id="status" class="status"></p>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

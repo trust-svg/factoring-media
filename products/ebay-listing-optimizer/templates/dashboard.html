@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — eBay SEO Optimizer{% endblock %}
+
+{% block content %}
+<h1 style="font-size:24px;margin-bottom:20px">Dashboard</h1>
+
+<!-- Summary Cards -->
+<div class="summary-cards">
+  <div class="card">
+    <div class="card-value" id="stat-total">-</div>
+    <div class="card-label">Total Listings</div>
+  </div>
+  <div class="card">
+    <div class="card-value" id="stat-low">-</div>
+    <div class="card-label">Score &lt; 50</div>
+  </div>
+  <div class="card">
+    <div class="card-value" id="stat-scored">-</div>
+    <div class="card-label">Analyzed</div>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="actions-bar">
+  <button class="btn btn-primary" id="btn-fetch" onclick="fetchFromEbay()">Fetch from eBay</button>
+  <button class="btn btn-secondary" onclick="analyzeAll()">Analyze All</button>
+</div>
+
+<!-- Listings Table -->
+<div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:32px"><input type="checkbox" id="select-all"></th>
+        <th style="width:60px">Image</th>
+        <th>Title</th>
+        <th style="width:80px">Score</th>
+        <th style="width:80px">Price</th>
+        <th>Category</th>
+        <th style="width:80px">Action</th>
+      </tr>
+    </thead>
+    <tbody id="listings-table">
+      <tr><td colspan="7" class="loading"><span class="spinner"></span> Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById("select-all").addEventListener("change", function() {
+  document.querySelectorAll(".listing-check").forEach(cb => cb.checked = this.checked);
+});
+</script>
+{% endblock %}

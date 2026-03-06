@@ -26,10 +26,19 @@
 </div>
 
 <div class="card">
+  <p class="section-label">方法2: OAuth認証（推奨）</p>
+  <p style="font-size: 0.8rem; color: #888; margin-bottom: 12px;">
+    Threads公式OAuth認証で長期トークンを自動取得します。<br>
+    Meta for DevelopersでリダイレクトURIの設定が必要です。
+  </p>
+  <a href="/admin/threads-auth?key={{ key }}" class="btn btn-primary btn-block">Threads OAuth認証を開始</a>
+</div>
+
+<div class="card">
   <p class="section-label">仕組み</p>
   <ul style="font-size: 0.8rem; color: #666; line-height: 1.8; padding-left: 1.2em;">
-    <li>貼り付けたトークンを自動で長期トークン（60日有効）に交換</li>
-    <li>交換に失敗した場合はそのまま保存されます</li>
+    <li>OAuth認証で取得 → 自動で長期トークン（60日有効）に変換</li>
+    <li>手動貼り付けの場合、Meta UIトークンは交換できません（短期のまま保存）</li>
     <li>長期トークンは毎週月曜3:00に自動リフレッシュされます</li>
     <li>環境変数よりDB保存トークンが優先されます</li>
   </ul>

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}コメント返信管理{% endblock %}
+{% block content %}
+<header>
+  <h1>Threads コメント返信</h1>
+</header>
+
+<h2 style="font-size:1.1rem; margin-bottom:12px;">保留中の返信（{{ replies|length }}件）</h2>
+
+{% if replies %}
+  {% for r in replies %}
+  <div class="card">
+    <div class="label">@{{ r.comment_username }}</div>
+    <div class="section-label" style="margin-top:8px;">コメント</div>
+    <div class="user-msg">{{ r.comment_text }}</div>
+
+    <form method="POST" action="/admin/reply/{{ r.id }}/send?key={{ key }}">
+      <div class="section-label">返信（編集可能）</div>
+      <textarea name="final_text" rows="3">{{ r.draft_reply }}</textarea>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button type="submit" class="btn btn-primary" style="flex:1;">返信する</button>
+      </div>
+    </form>
+    <form method="POST" action="/admin/reply/{{ r.id }}/skip?key={{ key }}" style="margin-top:4px;">
+      <button type="submit" class="btn" style="width:100%; background:#eee; color:#666;">スキップ</button>
+    </form>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="empty">
+    <p>保留中のコメント返信はありません</p>
+    <p style="margin-top:8px; font-size:0.85rem;">新しいコメントが検出されると、ここにAI下書きと共に表示されます。</p>
+  </div>
+{% endif %}
+
+<div style="text-align:center; margin-top:16px;">
+  <a href="/admin/dashboard?key={{ key }}" class="btn btn-primary" style="display:inline-block; font-size:0.9rem;">ダッシュボードに戻る</a>
+</div>
+{% endblock %}

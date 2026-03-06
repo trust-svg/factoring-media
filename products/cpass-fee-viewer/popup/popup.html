@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <div class="popup-header">
+      <img src="../icons/icon48.png" alt="" class="popup-logo">
+      <div>
+        <h1 class="popup-title">CPASS Fee Viewer</h1>
+        <p class="popup-subtitle">SpeedPAK 料金明細ビューア</p>
+      </div>
+    </div>
+
+    <div class="popup-status">
+      <span class="status-dot idle" id="statusDot"></span>
+      <span id="statusText">未接続</span>
+    </div>
+
+    <div class="popup-info" id="infoSection" style="display:none">
+      <div class="info-row">
+        <span class="info-label">取得件数</span>
+        <span class="info-value" id="itemCount">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">エラー</span>
+        <span class="info-value" id="errorCount">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">最終取得</span>
+        <span class="info-value" id="lastRun">-</span>
+      </div>
+    </div>
+
+    <div class="popup-actions">
+      <button class="btn btn-primary" id="btnDashboard" disabled>結果を表示</button>
+      <button class="btn btn-secondary" id="btnClear">データクリア</button>
+    </div>
+
+    <p class="popup-hint">
+      SpeedPAKの取引明細ページを開いて使用してください
+    </p>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

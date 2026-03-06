@@ -1,0 +1,37 @@
+<nav class="sidebar">
+    <div class="sidebar-logo">
+        <span class="logo-icon">📦</span>
+        <span class="logo-text">eBay Agent Hub</span>
+    </div>
+    <ul class="nav-links">
+        <li class="{{ 'active' if request.url.path == '/' }}">
+            <a href="/"><span class="nav-icon">📊</span><span data-en="Overview" data-ja="概要">Overview</span></a>
+        </li>
+        <li class="{{ 'active' if request.url.path == '/inventory' }}">
+            <a href="/inventory"><span class="nav-icon">📋</span><span data-en="Inventory" data-ja="在庫管理">Inventory</span></a>
+        </li>
+        <li class="{{ 'active' if request.url.path == '/pricing' }}">
+            <a href="/pricing"><span class="nav-icon">💰</span><span data-en="Pricing" data-ja="価格分析">Pricing</span></a>
+        </li>
+        <li class="{{ 'active' if request.url.path == '/sourcing' }}">
+            <a href="/sourcing"><span class="nav-icon">🔍</span><span data-en="Sourcing" data-ja="仕入れ">Sourcing</span></a>
+        </li>
+        <li class="{{ 'active' if request.url.path == '/analytics' }}">
+            <a href="/analytics"><span class="nav-icon">📈</span><span data-en="Analytics" data-ja="売上分析">Analytics</span></a>
+        </li>
+        <li class="{{ 'active' if request.url.path == '/messages' }}">
+            <a href="/messages"><span class="nav-icon">💬</span><span data-en="Messages" data-ja="メッセージ">Messages</span></a>
+        </li>
+        <li class="{{ 'active' if request.url.path == '/instagram' }}">
+            <a href="/instagram"><span class="nav-icon">📸</span><span data-en="Instagram" data-ja="Instagram">Instagram</span></a>
+        </li>
+        <li class="{{ 'active' if request.url.path == '/agent' }}">
+            <a href="/agent"><span class="nav-icon">🤖</span><span data-en="AI Agent" data-ja="AIエージェント">AI Agent</span></a>
+        </li>
+    </ul>
+    <div class="sidebar-footer">
+        <button class="lang-toggle" onclick="toggleLang()" title="言語切替">
+            <span class="lang-label" id="langLabel">EN</span>
+        </button>
+    </div>
+</nav>

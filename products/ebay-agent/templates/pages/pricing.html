@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Pricing — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Price Intelligence" data-ja="価格分析">Price Intelligence</span>{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Price Alerts" data-ja="価格アラート">Price Alerts</h2>
+        <button class="btn btn-sm" onclick="loadAlerts()" data-en="Refresh" data-ja="更新">Refresh</button>
+    </div>
+    <div id="alertsContent"><div class="empty-state">Loading alerts...</div></div>
+</div>
+
+<div class="section" id="historySection" style="display:none;">
+    <div class="section-header">
+        <h2><span data-en="Price History" data-ja="価格履歴">Price History</span>: <span id="historySku"></span></h2>
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('historySection').style.display='none'" data-en="Close" data-ja="閉じる">Close</button>
+    </div>
+    <div class="chart-container" style="max-height:300px;">
+        <canvas id="historyChart"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let historyChartInstance = null;
+
+async function loadAlerts() {
+    const container = document.getElementById('alertsContent');
+    try {
+        const alerts = await apiFetch('/api/pricing/alerts');
+        if (!alerts.length) {
+            container.innerHTML = `<div class="empty-state">${t('No price alerts. Run price monitor via AI Agent first.','価格アラートがありません。AIエージェントで価格モニターを実行してください。')}</div>`;
+            return;
+        }
+        let html = '<div class="alert-grid">';
+        for (const a of alerts) {
+            const isHigh = a.diff_pct > 0;
+            html += `
+            <div class="alert-card ${isHigh ? 'lower' : 'raise'}">
+                <div class="alert-title" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</div>
+                <div class="alert-prices">
+                    <div><small>${t('Ours','自社')}</small><br><span class="price-val">${formatUSD(a.our_price)}</span></div>
+                    <div><small>${t('Avg','平均')}</small><br><span class="price-val">${formatUSD(a.avg_competitor)}</span></div>
+                    <div><small>${t('Low','最安')}</small><br><span class="price-val">${formatUSD(a.lowest_competitor)}</span></div>
+                </div>
+                <div class="alert-action">
+                    <span class="diff ${isHigh ? 'down' : 'up'}">${a.diff_pct > 0 ? '+' : ''}${a.diff_pct}%</span>
+                    <div>
+                        <button class="btn btn-sm btn-outline" onclick="showHistory('${a.sku}')">${t('History','履歴')}</button>
+                        <button class="btn btn-sm" onclick="window.location='/agent'">${t('AI Advice','AI提案')}</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="empty-state">Error loading alerts</div>';
+    }
+}
+
+async function showHistory(sku) {
+    document.getElementById('historySection').style.display = 'block';
+    document.getElementById('historySku').textContent = sku;
+    try {
+        const data = await apiFetch(`/api/pricing/history/${sku}?days=30`);
+        if (historyChartInstance) historyChartInstance.destroy();
+        historyChartInstance = new Chart(document.getElementById('historyChart'), {
+            type: 'line',
+            data: {
+                labels: data.map(d => d.recorded_at.slice(5, 10)),
+                datasets: [
+                    { label: t('Our Price','自社価格'), data: data.map(d => d.our_price), borderColor: '#38bdf8', tension: 0.3 },
+                    { label: t('Competitor Avg','競合平均'), data: data.map(d => d.avg_competitor), borderColor: '#fbbf24', tension: 0.3 },
+                    { label: t('Competitor Low','競合最安'), data: data.map(d => d.lowest_competitor), borderColor: '#f87171', borderDash: [5,5], tension: 0.3 },
+                ],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8' } } },
+                scales: {
+                    x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                    y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                },
+            },
+        });
+    } catch (e) {
+        document.getElementById('historyChart').parentElement.innerHTML = '<div class="empty-state">No history data</div>';
+    }
+}
+
+loadAlerts();
+</script>
+{% endblock %}

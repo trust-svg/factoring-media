@@ -1,4 +1,5 @@
 """STORES連携 — アップグレードコード管理"""
+from __future__ import annotations
 
 import hmac
 import logging
@@ -57,7 +58,7 @@ async def handle_upgrade_code(line_user_id: str, code: str) -> str:
 
     return (
         f"✨ {plan_label}へのアップグレード完了！\n\n"
-        f"これからAI占いを無制限でお楽しみください🌟{extra}"
+        f"これから占いをお楽しみください🌟{extra}"
     )
 
 

@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "eBay SEO Optimizer",
+  "description": "AI-powered SEO optimization for eBay listings",
+  "version": "1.0.0",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.ebay.com/*",
+    "https://www.ebay.co.uk/*",
+    "https://www.ebay.de/*",
+    "https://www.ebay.co.jp/*",
+    "http://127.0.0.1:8080/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.ebay.com/sh/lst/*",
+        "https://www.ebay.com/sh/lst",
+        "https://www.ebay.com/sl/list*",
+        "https://www.ebay.com/myebay/selling*",
+        "https://www.ebay.com/itm/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel/panel.html"
+  },
+  "action": {
+    "default_title": "eBay SEO Optimizer",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

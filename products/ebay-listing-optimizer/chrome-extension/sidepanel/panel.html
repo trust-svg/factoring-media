@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eBay SEO Optimizer</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-title">eBay SEO Optimizer</div>
+    <div class="header-status" id="status-dot" title="Backend status">
+      <span class="dot dot-checking"></span>
+    </div>
+  </header>
+
+  <!-- Connection Error -->
+  <div class="error-banner" id="error-banner" style="display:none">
+    <span id="error-text">Backend not connected</span>
+  </div>
+
+  <!-- Tab Navigation -->
+  <nav class="tabs">
+    <button class="tab active" data-tab="current">Current Page</button>
+    <button class="tab" data-tab="all">All Listings</button>
+    <button class="tab" data-tab="history">History</button>
+  </nav>
+
+  <!-- ============================================================ -->
+  <!-- Tab: Current Page -->
+  <!-- ============================================================ -->
+  <section class="tab-content active" id="tab-current">
+    <div id="no-page-data" class="empty-state">
+      <div class="empty-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="1"/>
+        </svg>
+      </div>
+      <p>Open an eBay listing page and click the optimizer button</p>
+    </div>
+
+    <div id="page-data" style="display:none">
+      <!-- Listing Info -->
+      <div class="listing-card">
+        <div class="listing-images" id="listing-images"></div>
+        <h2 class="listing-title" id="listing-title"></h2>
+        <div class="listing-meta">
+          <span id="listing-price"></span>
+          <span id="listing-condition"></span>
+          <span class="char-count" id="listing-chars"></span>
+        </div>
+      </div>
+
+      <!-- Quick Score -->
+      <div class="score-card" id="score-card">
+        <div class="score-main">
+          <div class="score-circle" id="score-circle">
+            <span class="score-number" id="score-number">-</span>
+          </div>
+          <div class="score-label">SEO Score</div>
+        </div>
+        <div class="score-details">
+          <div class="score-row">
+            <span>Title</span>
+            <div class="score-bar"><div class="score-bar-fill" id="bar-title"></div></div>
+            <span class="score-val" id="val-title">-</span>
+          </div>
+          <div class="score-row">
+            <span>Photos</span>
+            <div class="score-bar"><div class="score-bar-fill" id="bar-photos"></div></div>
+            <span class="score-val" id="val-photos">-</span>
+          </div>
+          <div class="score-row">
+            <span>Specifics</span>
+            <div class="score-bar"><div class="score-bar-fill" id="bar-specifics"></div></div>
+            <span class="score-val" id="val-specifics">-</span>
+          </div>
+          <div class="score-row">
+            <span>Description</span>
+            <div class="score-bar"><div class="score-bar-fill" id="bar-desc"></div></div>
+            <span class="score-val" id="val-desc">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Issues -->
+      <div class="section" id="issues-section" style="display:none">
+        <h3>Issues & Suggestions</h3>
+        <ul class="issue-list" id="issue-list"></ul>
+      </div>
+
+      <!-- AI Optimization -->
+      <div class="section">
+        <h3>AI Optimization</h3>
+        <button class="btn btn-primary btn-full" id="btn-optimize">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+          Generate AI Optimization
+        </button>
+        <div id="optimize-loading" class="loading" style="display:none">
+          <span class="spinner"></span> Optimizing with Claude AI...
+        </div>
+        <div id="optimize-result" style="display:none"></div>
+      </div>
+
+      <!-- Competitor Analysis -->
+      <div class="section">
+        <h3>Competitor Analysis</h3>
+        <button class="btn btn-secondary btn-full" id="btn-competitor">Analyze Competitors</button>
+        <div id="competitor-loading" class="loading" style="display:none">
+          <span class="spinner"></span> Searching competitors...
+        </div>
+        <div id="competitor-result"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- Tab: All Listings -->
+  <!-- ============================================================ -->
+  <section class="tab-content" id="tab-all">
+    <div class="actions-bar">
+      <button class="btn btn-primary btn-sm" id="btn-fetch-all">Fetch from eBay</button>
+      <button class="btn btn-secondary btn-sm" id="btn-analyze-all">Analyze All</button>
+    </div>
+    <div id="all-listings-stats" class="mini-stats"></div>
+    <div id="all-listings-list" class="listing-list">
+      <div class="empty-state"><p>Click "Fetch from eBay" to load listings</p></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- Tab: History -->
+  <!-- ============================================================ -->
+  <section class="tab-content" id="tab-history">
+    <div id="history-list" class="history-list">
+      <div class="empty-state"><p>No changes applied yet</p></div>
+    </div>
+  </section>
+
+  <script src="panel.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "CPASS Fee Viewer",
+  "description": "SpeedPAK取引明細の料金内訳を一括取得・集計するツール",
+  "version": "1.0.0",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*.orangeconnex.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://ebay-jp.orangeconnex.com/*"],
+      "js": ["content/content.js"],
+      "css": ["content/ui.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "CPASS Fee Viewer",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content/interceptor.js"],
+      "matches": ["https://ebay-jp.orangeconnex.com/*"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

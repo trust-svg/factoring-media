@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}鑑定編集 — Sion 管理{% endblock %}
+{% block content %}
+<a href="/admin/dashboard?key={{ key }}" style="color:#6a0dad; font-size:0.9rem;">← 一覧に戻る</a>
+
+<div class="card" style="margin-top:12px;">
+  <span class="label">{{ reading.reading_type }}</span>
+  <h3>ユーザー: {{ reading.line_user_id[:12] }}…</h3>
+  <p class="meta">{{ reading.created_at.strftime('%Y/%m/%d %H:%M') }}</p>
+
+  {% if reading.user_message %}
+  <div style="margin-top:12px;">
+    <p class="section-label">💬 お客様のメッセージ</p>
+    <div class="user-msg">{{ reading.user_message }}</div>
+  </div>
+  {% endif %}
+
+  <form action="/admin/reading/{{ reading.id }}/approve?key={{ key }}" method="post">
+    <p class="section-label">🔮 鑑定テキスト（編集可能）</p>
+    <textarea name="final_text">{{ reading.draft_text or '' }}</textarea>
+
+    <div style="margin-top:16px;">
+      <button type="submit" class="btn btn-primary btn-block">
+        ✅ 承認してLINE送信
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

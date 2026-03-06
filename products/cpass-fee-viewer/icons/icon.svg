@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20" fill="#4361ee"/>
+  <text x="64" y="48" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white" text-anchor="middle">FEE</text>
+  <rect x="20" y="58" width="88" height="2" fill="rgba(255,255,255,0.3)"/>
+  <text x="28" y="78" font-family="Arial, sans-serif" font-size="11" fill="rgba(255,255,255,0.8)">送料</text>
+  <rect x="52" y="69" width="36" height="10" rx="2" fill="rgba(255,255,255,0.25)"/>
+  <text x="28" y="96" font-family="Arial, sans-serif" font-size="11" fill="rgba(255,255,255,0.8)">関税</text>
+  <rect x="52" y="87" width="48" height="10" rx="2" fill="rgba(255,255,255,0.25)"/>
+  <text x="28" y="114" font-family="Arial, sans-serif" font-size="11" fill="rgba(255,255,255,0.8)">合計</text>
+  <rect x="52" y="105" width="56" height="10" rx="2" fill="rgba(255,255,255,0.4)"/>
+</svg>

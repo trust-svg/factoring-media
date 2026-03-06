@@ -1,0 +1,47 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+tokens/
+!tokens/.gitkeep
+
+# Logs & Reports
+logs/*.log
+!logs/.gitkeep
+reports/*.csv
+reports/*.html
+!reports/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code
+.claude/settings.local.json
+.mcp.json
+
+# Separate git repos (managed independently)
+products/ebay-inventory-tool/
+products/ebay-listing-generator/
+products/video-text-remover/
+reusable/matching-lp/

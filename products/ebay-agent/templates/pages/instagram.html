@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}Instagram — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Instagram" data-ja="Instagram管理">Instagram</span>{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label" data-en="Total Posts" data-ja="総投稿数">Total Posts</div>
+        <div class="value blue" id="statTotal">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Drafts" data-ja="ドラフト">Drafts</div>
+        <div class="value yellow" id="statDraft">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Scheduled" data-ja="予約済み">Scheduled</div>
+        <div class="value purple" id="statScheduled">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Published" data-ja="公開済み">Published</div>
+        <div class="value green" id="statPublished">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Total Impressions" data-ja="総インプレッション">Total Impressions</div>
+        <div class="value blue" id="statImpressions">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Avg Engagement" data-ja="平均エンゲージメント">Avg Engagement</div>
+        <div class="value green" id="statEngagement">-</div>
+    </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 data-en="Generate New Post" data-ja="新規投稿生成">Generate New Post</h2>
+    </div>
+    <div class="form-row" style="display: flex; gap: 12px; margin-top: 12px;">
+        <input type="text" id="genSku" placeholder="SKU" class="input" style="flex: 2;">
+        <select id="genType" class="input" style="flex: 1;">
+            <option value="carousel">Carousel</option>
+            <option value="single">Single</option>
+            <option value="reel_script">Reel Script</option>
+            <option value="story">Story</option>
+        </select>
+        <select id="genTone" class="input" style="flex: 1;">
+            <option value="showcase">Showcase</option>
+            <option value="educational">Educational</option>
+            <option value="behind_scenes">Behind the Scenes</option>
+            <option value="urgency">Urgency / FOMO</option>
+        </select>
+        <button class="btn btn-primary" onclick="generatePost()" id="genBtn">
+            <span data-en="Generate" data-ja="生成">Generate</span>
+        </button>
+    </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 data-en="DM Reply Generator" data-ja="DM返信ジェネレーター">DM Reply Generator</h2>
+    </div>
+    <div style="margin-top: 12px;">
+        <textarea id="dmText" placeholder="Paste DM message here..." class="input" rows="3" style="width: 100%;"></textarea>
+        <div class="form-row" style="display: flex; gap: 12px; margin-top: 8px;">
+            <input type="text" id="dmSender" placeholder="Sender name (optional)" class="input" style="flex: 1;">
+            <button class="btn btn-primary" onclick="generateDmReply()" id="dmBtn">
+                <span data-en="Generate Reply" data-ja="返信生成">Generate Reply</span>
+            </button>
+        </div>
+        <div id="dmResult" style="margin-top: 12px; display: none;">
+            <div class="card" style="padding: 16px;">
+                <h3 data-en="AI Reply Draft" data-ja="AI返信ドラフト">AI Reply Draft</h3>
+                <pre id="dmReplyText" style="white-space: pre-wrap; margin-top: 8px;"></pre>
+                <div id="dmMeta" style="margin-top: 8px; color: #94a3b8; font-size: 13px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 data-en="Post Drafts & History" data-ja="投稿ドラフト・履歴">Post Drafts & History</h2>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm" onclick="filterPosts('')" data-en="All" data-ja="全て">All</button>
+            <button class="btn btn-sm" onclick="filterPosts('draft')" data-en="Drafts" data-ja="ドラフト">Drafts</button>
+            <button class="btn btn-sm" onclick="filterPosts('published')" data-en="Published" data-ja="公開済">Published</button>
+        </div>
+    </div>
+    <div id="postsList" style="margin-top: 12px;">
+        <div class="empty-state">Loading...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadStats() {
+    try {
+        const data = await apiFetch('/api/instagram/analytics?days=30');
+        document.getElementById('statTotal').textContent = data.total_posts || 0;
+        document.getElementById('statDraft').textContent = data.draft || 0;
+        document.getElementById('statScheduled').textContent = data.scheduled || 0;
+        document.getElementById('statPublished').textContent = data.published || 0;
+        document.getElementById('statImpressions').textContent = (data.total_impressions || 0).toLocaleString();
+        document.getElementById('statEngagement').textContent = data.avg_engagement || 0;
+    } catch (e) {
+        console.error('Stats load failed:', e);
+    }
+}
+
+async function loadPosts(status = '') {
+    try {
+        const url = status ? `/api/instagram/posts?status=${status}` : '/api/instagram/posts';
+        const posts = await apiFetch(url);
+        const container = document.getElementById('postsList');
+
+        if (!posts.length) {
+            container.innerHTML = `<div class="empty-state">${t(
+                'No posts yet. Generate your first Instagram post above!',
+                'まだ投稿がありません。上のフォームから最初の投稿を生成しましょう！'
+            )}</div>`;
+            return;
+        }
+
+        container.innerHTML = posts.map(p => `
+            <div class="card" style="padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
+                        <span class="badge ${p.status === 'published' ? 'badge-green' : p.status === 'scheduled' ? 'badge-purple' : 'badge-yellow'}">${p.status}</span>
+                        <span class="badge badge-blue">${p.content_type}</span>
+                        <span class="badge">${p.tone}</span>
+                        <span style="color: #64748b; font-size: 12px;">SKU: ${escapeHtml(p.sku)}</span>
+                    </div>
+                    <div style="color: #e2e8f0; font-size: 14px;">${escapeHtml(p.caption_preview)}</div>
+                    <div style="color: #64748b; font-size: 12px; margin-top: 4px;">
+                        ${p.image_count} ${t('images', '画像')} · ${p.hashtag_count} ${t('hashtags', 'タグ')}
+                        ${p.published_at ? ' · ' + t('Published', '公開') + ': ' + formatDateTime(p.published_at) : ''}
+                        ${!p.published_at ? ' · ' + t('Created', '作成') + ': ' + formatDateTime(p.created_at) : ''}
+                    </div>
+                    ${p.status === 'published' ? `
+                    <div style="margin-top: 6px; display: flex; gap: 16px; color: #94a3b8; font-size: 13px;">
+                        <span>👁 ${p.impressions.toLocaleString()}</span>
+                        <span>❤️ ${p.likes}</span>
+                        <span>🔖 ${p.saves}</span>
+                    </div>` : ''}
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    ${p.status === 'draft' ? `<button class="btn btn-sm btn-primary" onclick="publishPost(${p.id})">${t('Publish', '公開')}</button>` : ''}
+                    <button class="btn btn-sm" onclick="viewPost(${p.id})">${t('Detail', '詳細')}</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        document.getElementById('postsList').innerHTML = '<div class="empty-state">Could not load posts</div>';
+    }
+}
+
+async function generatePost() {
+    const sku = document.getElementById('genSku').value.trim();
+    if (!sku) return alert(t('Please enter a SKU', 'SKUを入力してください'));
+
+    const btn = document.getElementById('genBtn');
+    btn.disabled = true;
+    btn.textContent = t('Generating...', '生成中...');
+
+    try {
+        const result = await apiFetch('/api/instagram/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                sku: sku,
+                content_type: document.getElementById('genType').value,
+                tone: document.getElementById('genTone').value,
+            }),
+        });
+
+        if (result.error) {
+            alert(result.error);
+        } else {
+            alert(t(
+                `Post draft created! (ID: ${result.instagram_post_id})`,
+                `投稿ドラフトを作成しました！ (ID: ${result.instagram_post_id})`
+            ));
+            loadPosts();
+            loadStats();
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = t('Generate', '生成');
+    }
+}
+
+async function generateDmReply() {
+    const text = document.getElementById('dmText').value.trim();
+    if (!text) return alert(t('Please paste the DM message', 'DMメッセージを貼り付けてください'));
+
+    const btn = document.getElementById('dmBtn');
+    btn.disabled = true;
+    btn.textContent = t('Generating...', '生成中...');
+
+    try {
+        const result = await apiFetch('/api/instagram/dm-reply', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                dm_text: text,
+                sender_name: document.getElementById('dmSender').value.trim(),
+            }),
+        });
+
+        if (result.error) {
+            alert(result.error);
+        } else {
+            document.getElementById('dmResult').style.display = 'block';
+            document.getElementById('dmReplyText').textContent = result.reply;
+            const meta = [];
+            if (result.is_purchase_inquiry) meta.push(t('Purchase inquiry detected', '購入問合せ'));
+            if (result.matched_sku) meta.push(`${t('Matched SKU', 'マッチSKU')}: ${result.matched_sku}`);
+            if (result.suggested_price_usd > 0) meta.push(`${t('Suggested price', '提案価格')}: $${result.suggested_price_usd.toFixed(2)}`);
+            document.getElementById('dmMeta').textContent = meta.join(' · ');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = t('Generate Reply', '返信生成');
+    }
+}
+
+async function publishPost(id) {
+    if (!confirm(t('Publish this post to Instagram?', 'この投稿をInstagramに公開しますか？'))) return;
+    try {
+        const result = await apiFetch('/api/instagram/publish', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({instagram_post_id: id}),
+        });
+        alert(result.message || 'Published!');
+        loadPosts();
+        loadStats();
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function viewPost(id) {
+    try {
+        const post = await apiFetch(`/api/instagram/posts/${id}`);
+        const hashtags = post.hashtags.map(t => `#${t}`).join(' ');
+        alert(
+            `--- Caption ---\n${post.caption}\n\n` +
+            `--- Hashtags (${post.hashtags.length}) ---\n${hashtags}\n\n` +
+            `--- CTA ---\n${post.cta}\n\n` +
+            `Images: ${post.image_urls.length} | Status: ${post.status}`
+        );
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+function filterPosts(status) {
+    loadPosts(status);
+}
+
+// Init
+loadStats();
+loadPosts();
+</script>
+{% endblock %}

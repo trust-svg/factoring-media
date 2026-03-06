@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "サイズ＆梱包チェッカー",
+  "description": "型番を入力するだけで商品サイズと海外発送用の梱包サイズを自動算出",
+  "version": "1.0.0",
+  "permissions": ["storage"],
+  "host_permissions": ["https://generativelanguage.googleapis.com/*", "https://hts.usitc.gov/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "サイズ＆梱包チェッカー"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  }
+}

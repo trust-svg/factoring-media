@@ -1,4 +1,5 @@
 """Threads投稿生成エージェント（Claude tool_use パターン）"""
+from __future__ import annotations
 
 import json
 import random
@@ -7,10 +8,16 @@ from typing import Any
 
 import anthropic
 
-from database.crud import AsyncSessionLocal, get_recent_posts, record_threads_post
+from database.crud import (
+    AsyncSessionLocal,
+    get_recent_posts,
+    get_top_performing_posts,
+    record_threads_post,
+)
 from prompts.threads_content import (
     AFTERNOON_THEME_PROMPT,
-    EVENING_THEME_PROMPT,
+    CHALLENGE_FORMATS,
+    EVENING_THEMES,
     MORNING_THEME_PROMPT,
     THREADS_CONTENT_SYSTEM_PROMPT,
 )
@@ -32,7 +39,7 @@ CONTENT_TOOLS: list[dict] = [
             "properties": {
                 "post_slot": {
                     "type": "string",
-                    "enum": ["morning", "afternoon", "evening"],
+                    "enum": ["morning", "afternoon", "challenge", "evening"],
                     "description": "投稿スロット",
                 },
             },
@@ -55,6 +62,21 @@ CONTENT_TOOLS: list[dict] = [
         },
     },
     {
+        "name": "get_top_posts",
+        "description": "エンゲージメントが高かった過去の投稿を取得する（参考にして改善する）",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "取得件数",
+                    "default": 5,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
         "name": "publish_to_threads",
         "description": "Threads APIを使って投稿を公開する",
         "input_schema": {
@@ -67,7 +89,7 @@ CONTENT_TOOLS: list[dict] = [
                 "theme": {"type": "string", "description": "投稿テーマ（DB記録用）"},
                 "post_slot": {
                     "type": "string",
-                    "enum": ["morning", "afternoon", "evening"],
+                    "enum": ["morning", "afternoon", "challenge", "evening"],
                 },
             },
             "required": ["text", "theme", "post_slot"],
@@ -88,8 +110,16 @@ async def _execute_content_tool(name: str, tool_input: dict[str, Any]) -> str:
             card = random.choice(TAROT_CARDS)
             position = random.choice(["正位置", "逆位置"])
             return AFTERNOON_THEME_PROMPT.format(card_name=card, position=position)
-        else:  # evening
-            return EVENING_THEME_PROMPT.format(tomorrow=tomorrow.strftime("%Y年%m月%d日"))
+        elif slot == "challenge":
+            fmt = random.choice(CHALLENGE_FORMATS)
+            return (
+                f"【チャレンジ枠 — {fmt['format_name']}】\n"
+                f"{fmt['prompt']}"
+            )
+        else:  # evening — 5テーマローテーション
+            day_index = today.toordinal() % len(EVENING_THEMES)
+            theme = EVENING_THEMES[day_index]
+            return theme["prompt"].format(tomorrow=tomorrow.strftime("%Y年%m月%d日"))
 
     elif name == "get_recent_post_themes":
         days = tool_input.get("days", 7)
@@ -97,6 +127,23 @@ async def _execute_content_tool(name: str, tool_input: dict[str, Any]) -> str:
             posts = await get_recent_posts(session, days)
             themes = [p.theme for p in posts]
         return json.dumps({"recent_themes": themes, "count": len(themes)})
+
+    elif name == "get_top_posts":
+        limit = tool_input.get("limit", 5)
+        async with AsyncSessionLocal() as session:
+            top_posts = await get_top_performing_posts(session, limit)
+            results = [
+                {
+                    "theme": p.theme,
+                    "slot": p.post_slot,
+                    "content": p.content[:100],
+                    "likes": p.likes,
+                    "replies": p.replies_count,
+                    "views": p.views,
+                }
+                for p in top_posts
+            ]
+        return json.dumps({"top_posts": results, "count": len(results)}, ensure_ascii=False)
 
     elif name == "publish_to_threads":
         threads_client = ThreadsClient()
@@ -123,7 +170,11 @@ async def run_content_agent(post_slot: str) -> str:
 
     user_message = (
         f"投稿スロット「{post_slot}」のThreads投稿を作成して公開してください。\n"
-        "まず過去7日間のテーマを確認してから、重複しないテーマで投稿を作成してください。\n"
+        "手順:\n"
+        "1. まず過去のエンゲージメントが高い投稿を確認する（get_top_posts）\n"
+        "2. 過去7日間のテーマを確認して重複を防ぐ（get_recent_post_themes）\n"
+        "3. テーマプロンプトを取得する（get_content_theme）\n"
+        "4. 反応が良かった投稿の文体・構成を参考に、新しい投稿を作成して公開する\n"
         "投稿が完了したら結果を教えてください。"
     )
 

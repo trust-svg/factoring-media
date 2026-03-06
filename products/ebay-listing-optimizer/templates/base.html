@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}eBay SEO Optimizer{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">eBay SEO Optimizer</a>
+      <nav class="nav">
+        <a href="/" class="nav-link">Dashboard</a>
+        <a href="/batch" class="nav-link">Batch</a>
+      </nav>
+    </div>
+  </header>
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,4 +1,5 @@
 """星座占いプロンプト定義"""
+from __future__ import annotations
 
 ZODIAC_SIGNS: dict[str, str] = {
     "牡羊座": "3/21-4/19",
@@ -35,7 +36,9 @@ def build_horoscope_prompt(sign: str, date_str: str) -> str:
     return f"星座: {sign}\n日付: {date_str}\n\n今日の運勢を鑑定してください。"
 
 
-def detect_zodiac_from_text(text: str) -> str | None:
+from typing import Optional
+
+def detect_zodiac_from_text(text: str) -> Optional[str]:
     """テキストから星座名を検出する"""
     for sign in ZODIAC_SIGNS:
         if sign in text:

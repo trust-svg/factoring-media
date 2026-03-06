@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Messages — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Buyer Messages" data-ja="バイヤーメッセージ">Buyer Messages</span>{% endblock %}
+
+{% block content %}
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Messages" data-ja="メッセージ">Messages</h2>
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm btn-outline" onclick="loadMessages()" data-en="Refresh" data-ja="更新">Refresh</button>
+            <button class="btn btn-sm" onclick="processAll()" data-en="AI Draft All" data-ja="AI一括下書き">AI Draft All</button>
+        </div>
+    </div>
+
+    <div id="messagesList"><div class="empty-state">Loading messages...</div></div>
+</div>
+
+<div class="section" id="draftSection" style="display:none;">
+    <div class="section-header">
+        <h2 data-en="AI Draft Reply" data-ja="AI返信ドラフト">AI Draft Reply</h2>
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('draftSection').style.display='none'" data-en="Close" data-ja="閉じる">Close</button>
+    </div>
+    <div id="draftContent"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadMessages() {
+    try {
+        const data = await apiFetch('/api/messages?days=14');
+        const msgs = data.messages || [];
+        if (!msgs.length) {
+            document.getElementById('messagesList').innerHTML = '<div class="empty-state">No messages in the last 14 days</div>';
+            return;
+        }
+        let html = `<table class="data-table"><thead><tr><th>${t('From','送信者')}</th><th>${t('Subject','件名')}</th><th>${t('Status','ステータス')}</th><th></th></tr></thead><tbody>`;
+        for (const m of msgs) {
+            const read = m.is_read ? '' : '<span class="badge stock">New</span>';
+            html += `<tr>
+                <td>${escapeHtml(m.sender || 'Unknown')}</td>
+                <td>${escapeHtml(m.subject || 'No subject')}</td>
+                <td>${read}</td>
+                <td><button class="btn btn-sm" onclick='draftReply(${JSON.stringify(m).replace(/'/g,"&#39;")})'>${t('AI Reply','AI返信')}</button></td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
+        document.getElementById('messagesList').innerHTML = html;
+    } catch (e) {
+        document.getElementById('messagesList').innerHTML = '<div class="empty-state">Could not load messages: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function draftReply(msg) {
+    document.getElementById('draftSection').style.display = 'block';
+    document.getElementById('draftContent').innerHTML = '<div class="empty-state"><span class="spinner"></span> Generating AI draft...</div>';
+    try {
+        const data = await apiFetch('/api/messages/draft', {
+            method: 'POST',
+            body: JSON.stringify(msg),
+        });
+        document.getElementById('draftContent').innerHTML = `
+            <div style="margin-bottom:12px;">
+                <div style="font-size:12px;color:var(--text-secondary);">From: ${escapeHtml(data.sender)} | Category: ${escapeHtml(data.category)} | Tone: ${escapeHtml(data.tone)}</div>
+            </div>
+            <div style="background:var(--bg-primary);padding:14px;border-radius:8px;border:1px solid var(--border);font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(data.draft_reply)}</div>
+        `;
+    } catch (e) {
+        document.getElementById('draftContent').innerHTML = '<div class="empty-state">Error generating draft</div>';
+    }
+}
+
+async function processAll() {
+    document.getElementById('draftSection').style.display = 'block';
+    document.getElementById('draftContent').innerHTML = '<div class="empty-state"><span class="spinner"></span> Processing all unread messages...</div>';
+    try {
+        const data = await apiFetch('/api/messages/process', { method: 'POST' });
+        let html = `<p style="margin-bottom:12px;">Processed ${data.drafts_generated} of ${data.unread} unread messages</p>`;
+        for (const d of (data.drafts || [])) {
+            html += `<div style="background:var(--bg-primary);padding:12px;border-radius:8px;border:1px solid var(--border);margin-bottom:8px;">
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${escapeHtml(d.sender)} — ${escapeHtml(d.subject)}</div>
+                <div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(d.draft_reply)}</div>
+            </div>`;
+        }
+        document.getElementById('draftContent').innerHTML = html;
+    } catch (e) {
+        document.getElementById('draftContent').innerHTML = '<div class="empty-state">Error: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+loadMessages();
+</script>
+{% endblock %}

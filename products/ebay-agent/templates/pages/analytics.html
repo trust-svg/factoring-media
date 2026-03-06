@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Analytics — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Sales Analytics" data-ja="売上分析">Sales Analytics</span>{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;gap:8px;margin-bottom:20px;">
+    <button class="btn btn-outline active" data-days="7" onclick="loadAnalytics(7)" data-en="7 Days" data-ja="7日間">7 Days</button>
+    <button class="btn btn-outline" data-days="30" onclick="loadAnalytics(30)" data-en="30 Days" data-ja="30日間">30 Days</button>
+    <button class="btn btn-outline" data-days="90" onclick="loadAnalytics(90)" data-en="90 Days" data-ja="90日間">90 Days</button>
+</div>
+
+<div class="stats-grid" id="summaryCards"></div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div class="section">
+        <h2 data-en="Daily Revenue & Profit" data-ja="日次売上・利益">Daily Revenue & Profit</h2>
+        <div class="chart-container" style="margin-top:12px;"><canvas id="dailyChart"></canvas></div>
+    </div>
+    <div class="section">
+        <h2 data-en="Top Products" data-ja="トップ商品">Top Products</h2>
+        <div id="topProducts"><div class="empty-state">Loading...</div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let dailyChartInstance = null;
+
+async function loadAnalytics(days) {
+    document.querySelectorAll('[data-days]').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days) === days));
+
+    try {
+        const data = await apiFetch(`/api/sales/analytics?days=${days}`);
+        const s = data.summary;
+
+        document.getElementById('summaryCards').innerHTML = `
+            <div class="stat-card"><div class="label">${t('Total Sales','総売上件数')}</div><div class="value blue">${s.total_sales}</div></div>
+            <div class="stat-card"><div class="label">${t('Revenue','売上')}</div><div class="value green">${formatUSD(s.total_revenue_usd)}</div></div>
+            <div class="stat-card"><div class="label">${t('Profit','利益')}</div><div class="value green">${formatUSD(s.total_profit_usd)}</div></div>
+            <div class="stat-card"><div class="label">${t('Avg Margin','平均マージン')}</div><div class="value ${s.avg_margin_pct > 20 ? 'green' : 'yellow'}">${formatPct(s.avg_margin_pct)}</div></div>
+            <div class="stat-card"><div class="label">${t('Avg Profit/Sale','平均利益/件')}</div><div class="value blue">${formatUSD(s.avg_profit_per_sale_usd)}</div></div>
+            <div class="stat-card"><div class="label">${t('Source Cost','仕入れ原価')}</div><div class="value purple">${formatJPY(s.total_source_cost_jpy)}</div></div>
+        `;
+
+        // Daily Chart
+        const trend = data.daily_trend || [];
+        if (dailyChartInstance) dailyChartInstance.destroy();
+        if (trend.length > 0) {
+            dailyChartInstance = new Chart(document.getElementById('dailyChart'), {
+                type: 'bar',
+                data: {
+                    labels: trend.map(d => d.date.slice(5)),
+                    datasets: [
+                        { label: t('Revenue','売上'), data: trend.map(d => d.revenue_usd), backgroundColor: 'rgba(56,189,248,0.6)', borderRadius: 4, order: 2 },
+                        { label: t('Profit','利益'), data: trend.map(d => d.profit_usd), type: 'line', borderColor: '#4ade80', backgroundColor: 'transparent', tension: 0.3, order: 1 },
+                    ],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8' } } },
+                    scales: {
+                        x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                        y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                    },
+                },
+            });
+        }
+
+        // Top Products
+        const tp = data.top_products || [];
+        if (tp.length) {
+            let html = `<table class="data-table"><thead><tr><th>${t('Product','商品')}</th><th>${t('Revenue','売上')}</th><th>${t('Profit','利益')}</th><th>${t('Qty','数量')}</th></tr></thead><tbody>`;
+            for (const p of tp.slice(0, 10)) {
+                html += `<tr>
+                    <td>${escapeHtml(p.title)}</td>
+                    <td>${formatUSD(p.revenue_usd)}</td>
+                    <td>${formatUSD(p.profit_usd)}</td>
+                    <td>${p.sales_count}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            document.getElementById('topProducts').innerHTML = html;
+        } else {
+            document.getElementById('topProducts').innerHTML = '<div class="empty-state">No sales data</div>';
+        }
+    } catch (e) {
+        document.getElementById('summaryCards').innerHTML = '<div class="empty-state">Could not load analytics</div>';
+    }
+}
+
+loadAnalytics(30);
+</script>
+{% endblock %}

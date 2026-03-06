@@ -1,0 +1,178 @@
+/* CPASS Fee Viewer — 注入UI スタイル */
+
+.cpass-fv-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 99999;
+  background: #fff;
+  border: 1px solid #e0e3eb;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  padding: 16px;
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-size: 13px;
+  color: #1a1a2e;
+  transition: all 0.2s ease;
+}
+
+.cpass-fv-panel.minimized {
+  width: auto;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.cpass-fv-panel.minimized .cpass-fv-body {
+  display: none;
+}
+
+.cpass-fv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.minimized .cpass-fv-header {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.cpass-fv-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #4361ee;
+}
+
+.cpass-fv-minimize {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: #888;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.cpass-fv-minimize:hover {
+  background: #f0f0f0;
+}
+
+.cpass-fv-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #666;
+}
+
+.cpass-fv-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cpass-fv-status-dot.idle { background: #aaa; }
+.cpass-fv-status-dot.ready { background: #22c55e; }
+.cpass-fv-status-dot.collecting { background: #f59e0b; animation: cpass-pulse 1s infinite; }
+.cpass-fv-status-dot.done { background: #4361ee; }
+.cpass-fv-status-dot.error { background: #ef4444; }
+
+@keyframes cpass-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.cpass-fv-progress {
+  margin-bottom: 12px;
+}
+
+.cpass-fv-progress-bar {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.cpass-fv-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4361ee, #7c3aed);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.cpass-fv-progress-text {
+  font-size: 11px;
+  color: #888;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.cpass-fv-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cpass-fv-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.cpass-fv-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cpass-fv-btn-primary {
+  background: #4361ee;
+  color: white;
+}
+
+.cpass-fv-btn-primary:hover:not(:disabled) {
+  background: #3651d4;
+}
+
+.cpass-fv-btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.cpass-fv-btn-secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.cpass-fv-hint {
+  margin-top: 10px;
+  padding: 8px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.cpass-fv-error {
+  margin-top: 10px;
+  padding: 8px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #991b1b;
+  line-height: 1.5;
+}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Overview — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Overview" data-ja="概要">Overview</span>{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label" data-en="Total Listings" data-ja="総出品数">Total Listings</div>
+        <div class="value blue">{{ stats.total_listings }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="In Stock" data-ja="在庫あり">In Stock</div>
+        <div class="value green">{{ stats.in_stock }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Out of Stock" data-ja="在庫切れ">Out of Stock</div>
+        <div class="value red">{{ stats.out_of_stock }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Source Candidates" data-ja="仕入れ候補">Source Candidates</div>
+        <div class="value yellow">{{ stats.source_candidates }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Pending Procurement" data-ja="調達中">Pending Procurement</div>
+        <div class="value purple">{{ stats.pending_procurements }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="30d Revenue" data-ja="30日売上">30d Revenue</div>
+        <div class="value green">${{ "%.0f"|format(stats.sales_30d.total_revenue_usd) }}</div>
+        <div class="sub"><span data-en="Profit" data-ja="利益">Profit</span>: ${{ "%.0f"|format(stats.sales_30d.total_profit_usd) }} ({{ stats.sales_30d.total_sales }} <span data-en="sales" data-ja="件">sales</span>)</div>
+    </div>
+</div>
+
+<div class="overview-grid">
+    <div class="section">
+        <h2 data-en="30-Day Revenue & Profit" data-ja="30日間の売上・利益">30-Day Revenue & Profit</h2>
+        <div class="chart-container" style="margin-top: 12px;">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 data-en="Recent Activity" data-ja="最近のアクティビティ">Recent Activity</h2>
+        <div id="activityFeed">
+            <div class="empty-state">Loading...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function initOverview() {
+    // Revenue Chart
+    try {
+        const data = await apiFetch('/api/sales/analytics?days=30');
+        const trend = data.daily_trend || [];
+        if (trend.length > 0) {
+            new Chart(document.getElementById('revenueChart'), {
+                type: 'line',
+                data: {
+                    labels: trend.map(d => d.date.slice(5)),
+                    datasets: [
+                        {
+                            label: t('Revenue ($)', '売上 ($)'),
+                            data: trend.map(d => d.revenue_usd),
+                            borderColor: '#38bdf8',
+                            backgroundColor: 'rgba(56,189,248,0.1)',
+                            fill: true,
+                            tension: 0.3,
+                        },
+                        {
+                            label: t('Profit ($)', '利益 ($)'),
+                            data: trend.map(d => d.profit_usd),
+                            borderColor: '#4ade80',
+                            backgroundColor: 'rgba(74,222,128,0.1)',
+                            fill: true,
+                            tension: 0.3,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8' } } },
+                    scales: {
+                        x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                        y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                    },
+                },
+            });
+        } else {
+            document.getElementById('revenueChart').parentElement.innerHTML = `<div class="empty-state">${t('No sales data yet. Sync sales first.','売上データがありません。まず売上を同期してください。')}</div>`;
+        }
+    } catch (e) {
+        document.getElementById('revenueChart').parentElement.innerHTML = '<div class="empty-state">Could not load chart data</div>';
+    }
+
+    // Activity Feed
+    try {
+        const activities = await apiFetch('/api/activity/recent?limit=10');
+        const container = document.getElementById('activityFeed');
+        if (!activities.length) {
+            container.innerHTML = `<div class="empty-state">${t('No recent activity','最近のアクティビティはありません')}</div>`;
+            return;
+        }
+        container.innerHTML = activities.map(a => `
+            <div class="activity-item">
+                <span class="activity-icon">${a.type === 'sale' ? '💰' : '🔧'}</span>
+                <div>
+                    <div class="activity-text">${escapeHtml(a.text)}</div>
+                    <div class="activity-time">${formatDateTime(a.time)}</div>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        document.getElementById('activityFeed').innerHTML = '<div class="empty-state">Could not load activity</div>';
+    }
+}
+initOverview();
+</script>
+{% endblock %}

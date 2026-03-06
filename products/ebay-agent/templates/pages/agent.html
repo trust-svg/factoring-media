@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}AI Agent — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="AI Agent" data-ja="AIエージェント">AI Agent</span>{% endblock %}
+
+{% block content %}
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+    <button class="btn btn-sm btn-outline" onclick="quickAction('Check inventory status')" data-en="Inventory" data-ja="在庫確認">Inventory</button>
+    <button class="btn btn-sm btn-outline" onclick="quickAction('Sync sales data')" data-en="Sync Sales" data-ja="売上同期">Sync Sales</button>
+    <button class="btn btn-sm btn-outline" onclick="quickAction('Run competitor price monitor with limit 10')" data-en="Price Check" data-ja="価格チェック">Price Check</button>
+    <button class="btn btn-sm btn-outline" onclick="quickAction('Show sales analytics for the last 30 days')" data-en="Analytics" data-ja="分析">Analytics</button>
+    <button class="btn btn-sm btn-outline" onclick="quickAction('Check buyer messages')" data-en="Messages" data-ja="メッセージ">Messages</button>
+</div>
+
+<div class="chat-container" style="height:calc(100vh - 200px);">
+    <div class="chat-messages" id="chatMessages" style="height:calc(100% - 56px);">
+        <div class="chat-message agent">
+            <div class="bubble">
+<span data-en="eBay Agent Hub AI Assistant" data-ja="eBay Agent Hub AIアシスタント">eBay Agent Hub AI Assistant</span><br><br>
+                <span data-en="Natural language commands:" data-ja="自然言語コマンド:">Natural language commands:</span><br>
+                - <span data-en="Inventory, pricing, sourcing" data-ja="在庫管理、価格分析、仕入れ">Inventory, pricing, sourcing</span><br>
+                - <span data-en="Sales analytics and reporting" data-ja="売上分析とレポート">Sales analytics and reporting</span><br>
+                - <span data-en="Market research and demand analysis" data-ja="市場調査と需要分析">Market research and demand analysis</span><br>
+                - <span data-en="Buyer message handling" data-ja="バイヤーメッセージ対応">Buyer message handling</span><br>
+                - <span data-en="Procurement tracking" data-ja="調達管理">Procurement tracking</span>
+            </div>
+        </div>
+    </div>
+    <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Type your instruction..." data-placeholder-en="Type your instruction..." data-placeholder-ja="指示を入力..." onkeypress="if(event.key==='Enter')sendMessage()">
+        <button id="sendBtn" onclick="sendMessage()" data-en="Send" data-ja="送信">Send</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function quickAction(msg) {
+    document.getElementById('chatInput').value = msg;
+    sendMessage();
+}
+
+async function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const messages = document.getElementById('chatMessages');
+    const btn = document.getElementById('sendBtn');
+    const text = input.value.trim();
+    if (!text) return;
+
+    messages.innerHTML += `<div class="chat-message user"><div class="bubble">${escapeHtml(text)}</div></div>`;
+    input.value = '';
+    btn.disabled = true;
+    btn.textContent = t('Processing...', '処理中...');
+
+    const loadingId = 'loading-' + Date.now();
+    messages.innerHTML += `<div class="chat-message agent" id="${loadingId}"><div class="bubble"><span class="spinner"></span> ${t('Thinking...','考え中...')}</div></div>`;
+    messages.scrollTop = messages.scrollHeight;
+
+    try {
+        const resp = await fetch('/api/agent', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: text}),
+        });
+        document.getElementById(loadingId)?.remove();
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({detail: `HTTP ${resp.status}`}));
+            messages.innerHTML += `<div class="chat-message agent"><div class="bubble" style="border:1px solid var(--accent-red);">${escapeHtml(err.detail || 'Server error')}</div></div>`;
+        } else {
+            const data = await resp.json();
+            let html = escapeHtml(data.response || 'Done.').replace(/\n/g, '<br>');
+            if (data.tool_calls?.length) {
+                html += `<div class="meta" style="margin-top:8px;">Tools: ${data.tool_calls.map(t => t.tool).join(', ')} (${data.iterations} iterations)</div>`;
+            }
+            messages.innerHTML += `<div class="chat-message agent"><div class="bubble">${html}</div></div>`;
+        }
+    } catch (err) {
+        document.getElementById(loadingId)?.remove();
+        messages.innerHTML += `<div class="chat-message agent"><div class="bubble" style="border:1px solid var(--accent-red);">Error: ${escapeHtml(err.message)}</div></div>`;
+    }
+
+    btn.disabled = false;
+    btn.textContent = t('Send', '送信');
+    messages.scrollTop = messages.scrollHeight;
+}
+</script>
+{% endblock %}

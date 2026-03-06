@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Inventory — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Inventory" data-ja="在庫管理">Inventory</span> ({{ listings|length }} <span data-en="items" data-ja="件">items</span>){% endblock %}
+
+{% block content %}
+<div class="section">
+    <div class="filter-bar">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search by title or SKU..." data-placeholder-en="Search by title or SKU..." data-placeholder-ja="タイトルまたはSKUで検索..." oninput="filterTable()">
+        <div class="filter-buttons">
+            <button class="btn btn-sm btn-outline" data-filter="all" onclick="setFilter('all')" data-en="All" data-ja="すべて">All</button>
+            <button class="btn btn-sm btn-outline" data-filter="in_stock" onclick="setFilter('in_stock')" data-en="In Stock" data-ja="在庫あり">In Stock</button>
+            <button class="btn btn-sm btn-outline" data-filter="oos" onclick="setFilter('oos')" data-en="Out of Stock" data-ja="在庫切れ">Out of Stock</button>
+        </div>
+    </div>
+    {% if listings %}
+    <div style="overflow-x: auto;">
+        <table class="data-table" id="listingsTable">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th data-en="Title" data-ja="タイトル">Title</th>
+                    <th data-en="Price" data-ja="価格">Price</th>
+                    <th data-en="Stock" data-ja="在庫">Stock</th>
+                    <th>SEO</th>
+                    <th data-en="Category" data-ja="カテゴリ">Category</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in listings %}
+                <tr data-stock="{{ 'in_stock' if l.quantity > 0 else 'oos' }}">
+                    <td style="font-family: monospace; font-size: 11px;">{{ l.sku[:20] }}</td>
+                    <td>{{ l.title[:55] }}{% if l.title|length > 55 %}...{% endif %}</td>
+                    <td>${{ "%.2f"|format(l.price_usd) }}</td>
+                    <td>
+                        {% if l.quantity > 0 %}
+                        <span class="badge stock">{{ l.quantity }}</span>
+                        {% else %}
+                        <span class="badge oos">OOS</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ l.seo_score }}/100</td>
+                    <td style="font-size:12px;color:#94a3b8;">{{ l.category_name[:25] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state" data-en="No inventory data yet. Use the AI Agent to sync inventory." data-ja="在庫データがありません。AIエージェントで同期してください。">No inventory data yet. Use the AI Agent to sync inventory.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentFilter = 'all';
+function setFilter(f) {
+    currentFilter = f;
+    document.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+    filterTable();
+}
+function filterTable() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('#listingsTable tbody tr').forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const stockMatch = currentFilter === 'all' || row.dataset.stock === currentFilter;
+        const searchMatch = !query || text.includes(query);
+        row.style.display = stockMatch && searchMatch ? '' : 'none';
+    });
+}
+setFilter('all');
+</script>
+{% endblock %}

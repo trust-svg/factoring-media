@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CPASS Fee Viewer - ダッシュボード</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <h1 class="header-title">CPASS Fee Viewer</h1>
+      <span class="header-subtitle">SpeedPAK 料金明細ダッシュボード</span>
+    </div>
+    <div class="header-actions">
+      <div class="column-toggle-wrap">
+        <button class="btn btn-outline" id="btnColumnToggle">表示列</button>
+        <div class="column-toggle-panel" id="columnTogglePanel">
+          <div class="col-toggle-header">表示列の選択・並び替え</div>
+          <div id="columnToggles"></div>
+        </div>
+      </div>
+      <button class="btn btn-outline" id="btnExportAll">CSV出力 (全件)</button>
+      <button class="btn btn-outline" id="btnExportMonthly">CSV出力 (月別)</button>
+      <button class="btn btn-primary" id="btnRefresh">再読み込み</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- 集計サマリー -->
+    <section class="section">
+      <h2 class="section-title">集計サマリー</h2>
+      <div class="summary-cards" id="summaryCards"></div>
+    </section>
+
+    <!-- フィルタ -->
+    <section class="section">
+      <div class="filters">
+        <div class="filter-group">
+          <label class="filter-label">期間</label>
+          <input type="month" id="filterFrom" class="filter-input">
+          <span class="filter-sep">~</span>
+          <input type="month" id="filterTo" class="filter-input">
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">キャリア</label>
+          <select id="filterCarrier" class="filter-input">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">送付先</label>
+          <select id="filterDest" class="filter-input">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">確定状態</label>
+          <select id="filterConfirmed" class="filter-input">
+            <option value="">すべて</option>
+            <option value="confirmed">確定のみ</option>
+            <option value="unconfirmed">未確定あり</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">検索</label>
+          <input type="text" id="filterSearch" class="filter-input" placeholder="注文番号・商品名">
+        </div>
+        <button class="btn btn-sm" id="btnResetFilter">リセット</button>
+      </div>
+    </section>
+
+    <!-- 月別内訳 -->
+    <section class="section">
+      <h2 class="section-title">月別内訳</h2>
+      <div class="table-wrap">
+        <table class="table" id="monthlyTable">
+          <thead id="monthlyHead"></thead>
+          <tbody id="monthlyBody"></tbody>
+          <tfoot id="monthlyFoot"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- 全取引明細 -->
+    <section class="section">
+      <h2 class="section-title">
+        全取引明細
+        <span class="section-count" id="detailCount"></span>
+      </h2>
+      <div class="table-wrap">
+        <table class="table" id="detailTable">
+          <thead id="detailHead"></thead>
+          <tbody id="detailBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>CPASS Fee Viewer v1.0.0</p>
+  </footer>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
