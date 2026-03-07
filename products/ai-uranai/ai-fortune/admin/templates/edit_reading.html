@@ -26,7 +26,7 @@
     </div>
   </form>
 
-  {% if reading.status == 'pending' and reading.user_message %}
+  {% if reading.user_message %}
   <form action="/admin/reading/{{ reading.id }}/regenerate?key={{ key }}" method="post"
         onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='生成中...';">
     <button type="submit" class="btn btn-block"
