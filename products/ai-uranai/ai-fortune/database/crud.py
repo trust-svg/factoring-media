@@ -5,18 +5,25 @@ import os
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .models import AppSetting, Base, Reading, ThreadsPost, ThreadsReply, User
 
-# sqlite:///./uranai.db → sqlite+aiosqlite:///./uranai.db に自動変換
+# DB URL を非同期ドライバ対応に変換
 _raw_url = os.environ.get("DATABASE_URL", "sqlite:///./uranai.db")
-DATABASE_URL = (
-    _raw_url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
-    if _raw_url.startswith("sqlite:///") and "aiosqlite" not in _raw_url
-    else _raw_url
-)
+
+def _convert_db_url(url: str) -> str:
+    """DB URLを非同期ドライバ対応に変換する"""
+    if url.startswith("sqlite:///") and "aiosqlite" not in url:
+        return url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
+    if url.startswith("postgresql://") and "asyncpg" not in url:
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgres://") and "asyncpg" not in url:
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
+
+DATABASE_URL = _convert_db_url(_raw_url)
 
 engine = create_async_engine(DATABASE_URL)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
@@ -26,6 +33,35 @@ async def init_db() -> None:
     """テーブルを初期化する（起動時に一度呼ぶ）"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # SQLiteの場合のみ: 既存テーブルに不足カラムを追加
+    if DATABASE_URL.startswith("sqlite"):
+        await _migrate_add_columns()
+
+
+async def _migrate_add_columns() -> None:
+    """ALTER TABLE で不足カラムを安全に追加する"""
+    migrations = [
+        ("readings", "user_message", "TEXT"),
+        ("readings", "draft_text", "TEXT"),
+        ("readings", "status", "VARCHAR(16) DEFAULT 'pending'"),
+        ("readings", "approved_at", "DATETIME"),
+        ("readings", "sent_at", "DATETIME"),
+        ("threads_posts", "likes", "INTEGER DEFAULT 0"),
+        ("threads_posts", "replies_count", "INTEGER DEFAULT 0"),
+        ("threads_posts", "reposts", "INTEGER DEFAULT 0"),
+        ("threads_posts", "quotes", "INTEGER DEFAULT 0"),
+        ("threads_posts", "views", "INTEGER DEFAULT 0"),
+    ]
+    async with engine.begin() as conn:
+        for table, column, col_type in migrations:
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+                    )
+                )
+            except Exception:
+                pass  # カラムが既に存在する場合は無視
 
 
 async def get_or_create_user(session: AsyncSession, line_user_id: str) -> User:
@@ -83,10 +119,10 @@ async def record_reading(
 
 
 async def get_pending_readings(session: AsyncSession) -> list[Reading]:
-    """保留中の鑑定一覧を取得"""
+    """保留中の鑑定一覧を取得（statusがNULLの旧レコードも含む）"""
     result = await session.execute(
         select(Reading)
-        .where(Reading.status == "pending")
+        .where(or_(Reading.status == "pending", Reading.status.is_(None)))
         .order_by(Reading.created_at.asc())
     )
     return list(result.scalars().all())
@@ -99,6 +135,17 @@ async def get_reading_by_id(session: AsyncSession, reading_id: int) -> Optional[
     return result.scalar_one_or_none()
 
 
+async def dismiss_reading(session: AsyncSession, reading_id: int) -> Optional[Reading]:
+    """鑑定を対応済み（LINE手動返信済み等）にする"""
+    reading = await get_reading_by_id(session, reading_id)
+    if reading is None:
+        return None
+    reading.status = "dismissed"
+    await session.commit()
+    await session.refresh(reading)
+    return reading
+
+
 async def approve_reading(
     session: AsyncSession,
     reading_id: int,
@@ -106,7 +153,7 @@ async def approve_reading(
 ) -> Optional[Reading]:
     """鑑定を承認する（編集後テキストを保存）"""
     reading = await get_reading_by_id(session, reading_id)
-    if reading is None or reading.status != "pending":
+    if reading is None or reading.status not in ("pending", None):
         return None
     reading.result_text = final_text
     reading.status = "approved"

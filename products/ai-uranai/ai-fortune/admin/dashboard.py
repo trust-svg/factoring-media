@@ -14,6 +14,7 @@ from database.crud import (
     AsyncSessionLocal,
     approve_reading,
     approve_reply,
+    dismiss_reading,
     get_pending_readings,
     get_pending_replies,
     get_reading_by_id,
@@ -90,6 +91,15 @@ async def approve_and_send(request: Request, reading_id: int, key: str = Query("
     )
 
 
+@router.post("/admin/reading/{reading_id}/dismiss")
+async def dismiss_reading_action(request: Request, reading_id: int, key: str = Query("")):
+    """鑑定を対応済みにする（LINE手動返信済み等）"""
+    _check_admin(key)
+    async with AsyncSessionLocal() as session:
+        await dismiss_reading(session, reading_id)
+    return RedirectResponse(url=f"/admin/dashboard?key={key}", status_code=303)
+
+
 @router.post("/admin/reading/{reading_id}/regenerate")
 async def regenerate_reading(request: Request, reading_id: int, key: str = Query("")):
     """新プロンプトで鑑定テキストを再生成する"""
@@ -97,11 +107,12 @@ async def regenerate_reading(request: Request, reading_id: int, key: str = Query
 
     async with AsyncSessionLocal() as session:
         reading = await get_reading_by_id(session, reading_id)
-        if reading is None or reading.status != "pending":
+        if reading is None or reading.status not in ("pending", None):
             raise HTTPException(status_code=400, detail="再生成できません")
 
+        user_msg = reading.user_message or reading.draft_text or "占いをお願いします"
         from agents.fortune_agent import run_fortune_agent
-        result = await run_fortune_agent(reading.line_user_id, reading.user_message)
+        result = await run_fortune_agent(reading.line_user_id, user_msg)
 
         reading.draft_text = result.draft_text
         await session.commit()

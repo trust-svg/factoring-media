@@ -26,7 +26,6 @@
     </div>
   </form>
 
-  {% if reading.user_message %}
   <form action="/admin/reading/{{ reading.id }}/regenerate?key={{ key }}" method="post"
         onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='生成中...';">
     <button type="submit" class="btn btn-block"
@@ -34,6 +33,13 @@
       🔄 新プロンプトで再生成
     </button>
   </form>
-  {% endif %}
+
+  <form action="/admin/reading/{{ reading.id }}/dismiss?key={{ key }}" method="post"
+        onsubmit="return confirm('対応済みにしますか？一覧から消えます。');">
+    <button type="submit" class="btn btn-block"
+      style="margin-top:8px; background:#fff; color:#999; border:1px solid #ccc; font-size:0.85rem;">
+      対応済みにする（LINE手動返信済み等）
+    </button>
+  </form>
 </div>
 {% endblock %}

@@ -5,14 +5,20 @@
 
 {% if readings %}
   {% for r in readings %}
-  <a href="/admin/reading/{{ r.id }}?key={{ key }}" style="text-decoration:none; color:inherit;">
-    <div class="card">
+  <div class="card" style="display:flex; align-items:center; gap:8px;">
+    <a href="/admin/reading/{{ r.id }}?key={{ key }}" style="text-decoration:none; color:inherit; flex:1;">
       <span class="label">{{ r.reading_type }}</span>
       <h3>{{ r.line_user_id[:8] }}…</h3>
       <p>{{ r.user_message[:80] if r.user_message else '(メッセージなし)' }}{% if r.user_message and r.user_message|length > 80 %}…{% endif %}</p>
       <p class="meta">{{ r.created_at.strftime('%m/%d %H:%M') }}</p>
-    </div>
-  </a>
+    </a>
+    <form action="/admin/reading/{{ r.id }}/dismiss?key={{ key }}" method="post"
+          onsubmit="return confirm('対応済みにしますか？');" style="margin:0;">
+      <button type="submit" style="background:none; border:1px solid #ccc; border-radius:6px; padding:6px 10px; font-size:0.75rem; color:#888; cursor:pointer; white-space:nowrap;">
+        対応済み
+      </button>
+    </form>
+  </div>
   {% endfor %}
 {% else %}
   <div class="empty">
