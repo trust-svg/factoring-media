@@ -182,7 +182,7 @@ async def run_content_agent(post_slot: str) -> str:
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=800,
+        max_tokens=2000,
         system=THREADS_CONTENT_SYSTEM_PROMPT,
         tools=CONTENT_TOOLS,
         messages=messages,
@@ -206,7 +206,7 @@ async def run_content_agent(post_slot: str) -> str:
 
         response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=800,
+            max_tokens=2000,
             system=THREADS_CONTENT_SYSTEM_PROMPT,
             tools=CONTENT_TOOLS,
             messages=messages,
