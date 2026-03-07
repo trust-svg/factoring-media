@@ -17,13 +17,23 @@
 
   <form action="/admin/reading/{{ reading.id }}/approve?key={{ key }}" method="post">
     <p class="section-label">🔮 鑑定テキスト（編集可能）</p>
-    <textarea name="final_text">{{ reading.draft_text or '' }}</textarea>
+    <textarea name="final_text" id="draft-text">{{ reading.draft_text or '' }}</textarea>
 
-    <div style="margin-top:16px;">
+    <div style="margin-top:16px; display:flex; flex-direction:column; gap:8px;">
       <button type="submit" class="btn btn-primary btn-block">
         ✅ 承認してLINE送信
       </button>
     </div>
   </form>
+
+  {% if reading.status == 'pending' and reading.user_message %}
+  <form action="/admin/reading/{{ reading.id }}/regenerate?key={{ key }}" method="post"
+        onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='生成中...';">
+    <button type="submit" class="btn btn-block"
+      style="margin-top:8px; background:#fff; color:#6a0dad; border:2px solid #6a0dad;">
+      🔄 新プロンプトで再生成
+    </button>
+  </form>
+  {% endif %}
 </div>
 {% endblock %}

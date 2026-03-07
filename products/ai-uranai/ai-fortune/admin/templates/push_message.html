@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}LINE Push送信 — Sion 管理{% endblock %}
+{% block content %}
+<h2 style="font-size:1.1rem; margin-bottom:12px;">📨 LINEプッシュ送信</h2>
+
+{% if message %}
+<div class="card" style="background: #e8f5e9; border-left: 4px solid #4caf50;">
+  <p style="font-size:0.9rem;">{{ message }}</p>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="card" style="background: #fbe9e7; border-left: 4px solid #e53935;">
+  <p style="font-size:0.9rem;">{{ error }}</p>
+</div>
+{% endif %}
+
+<form method="post" action="/admin/push-message?key={{ key }}">
+  <div class="card">
+    <div class="section-label">LINE User ID</div>
+    <input type="text" name="user_id" value="{{ user_id or '' }}" placeholder="U1234abcd..."
+      style="width:100%; border:1px solid #ddd; border-radius:8px; padding:10px; font-size:0.9rem; margin-bottom:12px; font-family:inherit;">
+
+    <div class="section-label">送信メッセージ</div>
+    <textarea name="text" rows="10" placeholder="メッセージを入力...">{{ text or default_text }}</textarea>
+
+    <div style="margin-top:12px;">
+      <button type="submit" class="btn btn-primary btn-block">送信する</button>
+    </div>
+  </div>
+</form>
+
+<div style="text-align:center; margin-top:12px;">
+  <a href="/admin/dashboard?key={{ key }}" style="color:#6a0dad; font-size:0.9rem;">← ダッシュボードに戻る</a>
+</div>
+{% endblock %}

@@ -32,6 +32,20 @@ class ThreadsClient:
             self._token = await _get_threads_token()
         return self._token
 
+    async def get_my_username(self) -> str:
+        """自分のThreadsユーザー名を取得する"""
+        token = await self._ensure_token()
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{THREADS_API_BASE}/{self.user_id}",
+                params={
+                    "fields": "username",
+                    "access_token": token,
+                },
+            )
+            resp.raise_for_status()
+            return resp.json().get("username", "")
+
     async def create_text_post(self, text: str) -> str:
         """テキスト投稿を作成して投稿IDを返す"""
         token = await self._ensure_token()

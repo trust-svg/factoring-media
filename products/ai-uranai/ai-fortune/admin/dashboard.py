@@ -90,6 +90,94 @@ async def approve_and_send(request: Request, reading_id: int, key: str = Query("
     )
 
 
+@router.post("/admin/reading/{reading_id}/regenerate")
+async def regenerate_reading(request: Request, reading_id: int, key: str = Query("")):
+    """新プロンプトで鑑定テキストを再生成する"""
+    _check_admin(key)
+
+    async with AsyncSessionLocal() as session:
+        reading = await get_reading_by_id(session, reading_id)
+        if reading is None or reading.status != "pending":
+            raise HTTPException(status_code=400, detail="再生成できません")
+
+        from agents.fortune_agent import run_fortune_agent
+        result = await run_fortune_agent(reading.line_user_id, reading.user_message)
+
+        reading.draft_text = result.draft_text
+        await session.commit()
+
+    return RedirectResponse(
+        url=f"/admin/reading/{reading_id}?key={key}",
+        status_code=303,
+    )
+
+
+# ===================== LINE プッシュ送信 =====================
+
+DEFAULT_FOLLOWUP_TEXT = (
+    "ご連絡ありがとうございます\u2728\n\n"
+    "初回の簡易鑑定は無料ですので、まずはお気軽にお悩みをお聞かせください\U0001f319\n\n"
+    "恋愛のこと、お仕事のこと、人間関係のこと\u2026\n"
+    "どんな些細なことでも大丈夫です。\n\n"
+    "あなたの縁の流れを、祈音が視させていただきます。\n\n"
+    "メッセージをお待ちしていますね\U0001f60a"
+)
+
+
+@router.get("/admin/push-message", response_class=HTMLResponse)
+async def push_message_page(request: Request, key: str = Query("")):
+    """LINEプッシュ送信ページ"""
+    _check_admin(key)
+    return templates.TemplateResponse(
+        "push_message.html",
+        {"request": request, "key": key, "default_text": DEFAULT_FOLLOWUP_TEXT,
+         "message": "", "error": "", "user_id": "", "text": ""},
+    )
+
+
+@router.post("/admin/push-message")
+async def push_message_send(request: Request, key: str = Query("")):
+    """LINEプッシュメッセージを送信する"""
+    _check_admin(key)
+
+    form = await request.form()
+    user_id = str(form.get("user_id", "")).strip()
+    text = str(form.get("text", "")).strip()
+
+    if not user_id:
+        return templates.TemplateResponse(
+            "push_message.html",
+            {"request": request, "key": key, "default_text": "",
+             "message": "", "error": "User IDを入力してください",
+             "user_id": user_id, "text": text},
+        )
+    if not text:
+        return templates.TemplateResponse(
+            "push_message.html",
+            {"request": request, "key": key, "default_text": "",
+             "message": "", "error": "メッセージを入力してください",
+             "user_id": user_id, "text": text},
+        )
+
+    from main import _push_message
+    try:
+        _push_message(user_id, text)
+        return templates.TemplateResponse(
+            "push_message.html",
+            {"request": request, "key": key, "default_text": DEFAULT_FOLLOWUP_TEXT,
+             "message": "送信完了しました", "error": "",
+             "user_id": "", "text": ""},
+        )
+    except Exception as e:
+        logger.error(f"LINE Push送信エラー: {e}")
+        return templates.TemplateResponse(
+            "push_message.html",
+            {"request": request, "key": key, "default_text": "",
+             "message": "", "error": f"送信エラー: {e}",
+             "user_id": user_id, "text": text},
+        )
+
+
 # ===================== Threads コメント返信管理 =====================
 
 

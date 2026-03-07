@@ -8,6 +8,7 @@ import anthropic
 
 from database.crud import (
     AsyncSessionLocal,
+    get_recent_posts,
     get_recent_thread_post_ids,
     get_reply_by_comment_id,
     record_threads_reply,
@@ -64,8 +65,14 @@ async def generate_reply_draft(comment_text: str, post_content: str) -> str:
 async def check_and_draft_replies() -> int:
     """直近投稿のコメントをチェックし、未対応のものにAI下書きを生成する"""
     threads_client = ThreadsClient()
-    my_user_id = threads_client.user_id
     new_count = 0
+
+    # 自分のusernameを取得して自分の返信を除外する
+    try:
+        my_username = await threads_client.get_my_username()
+    except Exception as e:
+        logger.warning(f"自分のusername取得失敗: {e}")
+        my_username = ""
 
     async with AsyncSessionLocal() as session:
         post_ids = await get_recent_thread_post_ids(session, days=3)
@@ -76,15 +83,22 @@ async def check_and_draft_replies() -> int:
 
     for post_id in post_ids:
         try:
-            replies = await threads_client.get_replies(post_id)
+            # get_conversation で返信への返信（ネスト）も含めて全ツリーを取得
+            replies = await threads_client.get_conversation(post_id)
         except Exception as e:
             logger.warning(f"コメント取得失敗 post_id={post_id}: {e}")
             continue
 
         for reply in replies:
             comment_id = reply.get("id", "")
-            # 自分自身の返信はスキップ
             if not comment_id:
+                continue
+            # 元投稿自体はスキップ
+            if comment_id == post_id:
+                continue
+            # 自分自身の返信はスキップ
+            username = reply.get("username", "")
+            if my_username and username == my_username:
                 continue
 
             async with AsyncSessionLocal() as session:
@@ -93,13 +107,11 @@ async def check_and_draft_replies() -> int:
                 continue
 
             comment_text = reply.get("text", "")
-            username = reply.get("username", "")
 
             if not comment_text.strip():
                 continue
 
             # 元投稿の内容を取得（DBから）
-            from database.crud import get_recent_posts
             async with AsyncSessionLocal() as session:
                 posts = await get_recent_posts(session, days=3)
                 post_content = ""
