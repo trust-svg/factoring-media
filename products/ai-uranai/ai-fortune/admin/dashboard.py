@@ -123,6 +123,123 @@ async def regenerate_reading(request: Request, reading_id: int, key: str = Query
     )
 
 
+# ===================== Threads 分析 =====================
+
+
+@router.get("/admin/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request, key: str = Query("")):
+    """Threads投稿の分析ページ"""
+    _check_admin(key)
+
+    from threads.api import ThreadsClient
+    import json
+
+    posts_data = []
+    error_msg = ""
+
+    try:
+        client = ThreadsClient()
+        token = await client._ensure_token()
+
+        # 直近の投稿一覧を取得
+        async with httpx.AsyncClient(timeout=30.0) as http:
+            resp = await http.get(
+                f"https://graph.threads.net/v1.0/{client.user_id}/threads",
+                params={
+                    "fields": "id,text,timestamp,is_quote_post",
+                    "limit": 20,
+                    "access_token": token,
+                },
+            )
+            resp.raise_for_status()
+            posts = resp.json().get("data", [])
+
+        # 各投稿のInsightsを取得
+        for post in posts:
+            try:
+                metrics = await client.get_post_insights(post["id"])
+                posts_data.append({
+                    "id": post["id"],
+                    "text": post.get("text", "")[:100],
+                    "timestamp": post.get("timestamp", ""),
+                    "likes": metrics.get("likes", 0),
+                    "replies": metrics.get("replies", 0),
+                    "reposts": metrics.get("reposts", 0),
+                    "quotes": metrics.get("quotes", 0),
+                    "views": metrics.get("views", 0),
+                })
+            except Exception:
+                posts_data.append({
+                    "id": post["id"],
+                    "text": post.get("text", "")[:100],
+                    "timestamp": post.get("timestamp", ""),
+                    "likes": "-", "replies": "-", "reposts": "-",
+                    "quotes": "-", "views": "-",
+                })
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Analytics取得エラー: {e}")
+
+    # 集計
+    total_views = sum(p["views"] for p in posts_data if isinstance(p["views"], int))
+    total_likes = sum(p["likes"] for p in posts_data if isinstance(p["likes"], int))
+    total_replies = sum(p["replies"] for p in posts_data if isinstance(p["replies"], int))
+    post_count = len(posts_data)
+    avg_views = round(total_views / post_count) if post_count else 0
+    avg_likes = round(total_likes / post_count, 1) if post_count else 0
+
+    html = f"""
+    <!DOCTYPE html>
+    <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Threads分析 — Sion管理</title>
+    <style>
+      body {{ font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 16px; background: #faf8ff; }}
+      h2 {{ color: #6a0dad; font-size: 1.1rem; }}
+      .summary {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 16px 0; }}
+      .stat {{ background: #fff; border-radius: 8px; padding: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
+      .stat .num {{ font-size: 1.4rem; font-weight: bold; color: #6a0dad; }}
+      .stat .label {{ font-size: 0.75rem; color: #888; }}
+      table {{ width: 100%; border-collapse: collapse; font-size: 0.8rem; background: #fff; border-radius: 8px; overflow: hidden; }}
+      th {{ background: #6a0dad; color: #fff; padding: 8px 4px; text-align: left; }}
+      td {{ padding: 6px 4px; border-bottom: 1px solid #eee; }}
+      tr:hover {{ background: #f5f0ff; }}
+      a {{ color: #6a0dad; }}
+      .back {{ font-size: 0.9rem; }}
+    </style></head><body>
+    <a href="/admin/dashboard?key={key}" class="back">← ダッシュボードに戻る</a>
+    <h2>📊 Threads 投稿分析（直近{post_count}件）</h2>
+    """
+
+    if error_msg:
+        html += f"<p style='color:red;'>エラー: {error_msg}</p>"
+
+    html += f"""
+    <div class="summary">
+      <div class="stat"><div class="num">{total_views:,}</div><div class="label">総ビュー</div></div>
+      <div class="stat"><div class="num">{total_likes}</div><div class="label">総いいね</div></div>
+      <div class="stat"><div class="num">{total_replies}</div><div class="label">総返信</div></div>
+    </div>
+    <div class="summary">
+      <div class="stat"><div class="num">{avg_views:,}</div><div class="label">平均ビュー/投稿</div></div>
+      <div class="stat"><div class="num">{avg_likes}</div><div class="label">平均いいね/投稿</div></div>
+      <div class="stat"><div class="num">{post_count}</div><div class="label">投稿数</div></div>
+    </div>
+
+    <table>
+    <tr><th>投稿</th><th>👁</th><th>❤️</th><th>💬</th><th>🔁</th></tr>
+    """
+
+    for p in posts_data:
+        ts = p["timestamp"][:10] if p["timestamp"] else ""
+        text_preview = p["text"][:40] + ("..." if len(p["text"]) > 40 else "")
+        html += f"<tr><td><b>{ts}</b><br>{text_preview}</td>"
+        html += f"<td>{p['views']}</td><td>{p['likes']}</td>"
+        html += f"<td>{p['replies']}</td><td>{p['reposts']}</td></tr>"
+
+    html += "</table></body></html>"
+    return HTMLResponse(html)
+
+
 # ===================== LINE プッシュ送信 =====================
 
 DEFAULT_FOLLOWUP_TEXT = (
