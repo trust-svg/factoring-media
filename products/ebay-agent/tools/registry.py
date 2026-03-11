@@ -24,7 +24,7 @@ AGENT_TOOLS: list[dict] = [
     # ── 仕入れ検索 ──
     {
         "name": "search_sources",
-        "description": "日本のマーケットプレイス5サイト（ヤフオク、メルカリ、PayPayフリマ、ラクマ、オフモール）で商品を検索する。",
+        "description": "日本のマーケットプレイス6サイト（ヤフオク、メルカリ、PayPayフリマ、ラクマ、オフモール、駿河屋）で商品を検索し、AI画像比較＋スコアリングで最適な仕入れ候補を返す。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -41,6 +41,15 @@ AGENT_TOOLS: list[dict] = [
                     "type": "boolean",
                     "description": "ジャンク品を含むか",
                     "default": False,
+                },
+                "ebay_image_url": {
+                    "type": "string",
+                    "description": "eBay出品画像URL（AI画像比較に使用）",
+                },
+                "top_n": {
+                    "type": "integer",
+                    "description": "返す候補数（デフォルト5）",
+                    "default": 5,
                 },
             },
             "required": ["keyword"],
@@ -624,7 +633,169 @@ AGENT_TOOLS: list[dict] = [
             "required": ["dm_text"],
         },
     },
+    # ── カテゴリ Aspects ──
+    {
+        "name": "get_category_aspects",
+        "description": "eBay Taxonomy APIでカテゴリの必須/推奨Item Specificsを取得する。出品時のItem Specifics設定に使用。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "category_id": {
+                    "type": "string",
+                    "description": "eBayカテゴリID（例: '38071' = Synthesizers）",
+                },
+            },
+            "required": ["category_id"],
+        },
+    },
+    # ── スプレッドシート読み取り ──
+    {
+        "name": "read_listing_sheet",
+        "description": "Google Sheets/CSVから出品データを読み取る。リサーチスプレッドシートの商品名・カテゴリ・価格等を一覧取得。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Google Sheets URL/ID、またはCSVファイルパス",
+                },
+                "sheet_name": {
+                    "type": "string",
+                    "description": "シート名（省略時は最初のシート）",
+                    "default": "",
+                },
+            },
+            "required": ["source"],
+        },
+    },
+    # ── 新規出品（下書き） ──
+    {
+        "name": "create_draft_listing",
+        "description": "1件の新規eBay出品を下書き状態で作成する。AIがタイトル・説明文・Item Specificsを生成し、eBayに下書き登録。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "product_name": {
+                    "type": "string",
+                    "description": "商品名（ブランド名+モデル名）",
+                },
+                "price_usd": {
+                    "type": "number",
+                    "description": "販売価格（USD）",
+                },
+                "category_id": {
+                    "type": "string",
+                    "description": "eBayカテゴリID",
+                },
+                "condition": {
+                    "type": "string",
+                    "description": "状態 (NEW, USED_EXCELLENT, USED_VERY_GOOD, USED_GOOD等)",
+                    "default": "USED_EXCELLENT",
+                },
+                "sku": {
+                    "type": "string",
+                    "description": "SKU（省略時は自動生成）",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "出品タイトル（省略時はAI生成）",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "説明文HTML（省略時はAI生成）",
+                },
+                "aspects": {
+                    "type": "object",
+                    "description": "Item Specifics（省略時はAI生成）",
+                },
+                "image_urls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "商品画像URL（最大12枚）",
+                    "default": [],
+                },
+            },
+            "required": ["product_name", "price_usd", "category_id"],
+        },
+    },
+    # ── バッチ出品（一括下書き） ──
+    {
+        "name": "batch_create_drafts",
+        "description": "スプレッドシート/CSVから複数商品を一括で下書き登録する。「出品して」の中核機能。サマリーテーブルを返す。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Google Sheets URL/ID、またはCSVファイルパス",
+                },
+                "sheet_name": {
+                    "type": "string",
+                    "description": "シート名（省略時は最初のシート）",
+                    "default": "",
+                },
+                "row_numbers": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "出品する行番号リスト（省略時は全行）",
+                    "default": [],
+                },
+            },
+            "required": ["source"],
+        },
+    },
+    # ── 下書き公開 ──
+    {
+        "name": "publish_draft_listings",
+        "description": "[破壊的操作] 下書き状態のeBay出品を一括公開する。確認後「公開して」で使用。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "offer_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "公開するOffer IDリスト（省略時は全未公開を対象）",
+                    "default": [],
+                },
+            },
+        },
+    },
+    # ── 利益管理 ──
+    {
+        "name": "profit_summary",
+        "description": "月別の利益サマリーを取得する。売上・経費・純利益・利益率を月単位で集計。「今月の利益は？」で使用。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "months": {
+                    "type": "integer",
+                    "description": "取得する月数",
+                    "default": 3,
+                },
+            },
+        },
+    },
+    {
+        "name": "export_tax_report",
+        "description": "税務申告用のCSVデータを生成する。売上明細(税理士用)・月次集計(確定申告用)・仕入明細(消費税還付用)の3種類。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "report_type": {
+                    "type": "string",
+                    "enum": ["sales", "monthly", "procurement"],
+                    "description": "レポート種類: sales=売上明細, monthly=月次集計, procurement=仕入明細",
+                    "default": "monthly",
+                },
+                "year": {
+                    "type": "string",
+                    "description": "対象年 (例: 2025)",
+                    "default": "",
+                },
+            },
+        },
+    },
 ]
 
 # 破壊的ツール（人間確認必須）
-DESTRUCTIVE_TOOLS = {"update_listing", "apply_price_change", "publish_instagram_post"}
+DESTRUCTIVE_TOOLS = {"update_listing", "apply_price_change", "publish_instagram_post", "publish_draft_listings"}

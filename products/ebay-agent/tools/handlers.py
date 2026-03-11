@@ -18,6 +18,13 @@ from ebay_core.client import (
     get_out_of_stock_items,
     search_ebay,
     update_listing as ebay_update_listing,
+    get_category_aspects,
+    create_inventory_item,
+    create_offer,
+    publish_offer,
+    get_fulfillment_policies,
+    get_return_policies,
+    get_payment_policies,
 )
 from ebay_core.exchange_rate import get_usd_to_jpy, jpy_to_usd
 from listing.generator import generate_listing
@@ -85,13 +92,16 @@ async def _check_inventory(params: dict) -> dict:
 
 
 async def _search_sources(params: dict) -> dict:
-    """日本マーケットプレイス検索（ebay-inventory-tool スクレイパー統合）"""
+    """日本マーケットプレイス検索（スコアリング・画像比較・型番フィルタ付き）"""
     import sys
     import os
+    from sourcing.scorer import pick_best_candidates
 
     keyword = params["keyword"]
     max_price = params.get("max_price_jpy", 50000)
     junk_ok = params.get("junk_ok", False)
+    ebay_image_url = params.get("ebay_image_url", "")
+    top_n = params.get("top_n", 5)
 
     # ebay-inventory-tool のスクレイパーをインポート
     inv_tool_path = os.path.abspath(
@@ -103,7 +113,7 @@ async def _search_sources(params: dict) -> dict:
     all_results = []
     errors = []
 
-    # 1) ヤフオク (requests — 軽量)
+    # 1) ヤフオク (requests)
     try:
         from scrapers.yahoo_auction import YahooAuctionScraper
         results = await YahooAuctionScraper().search(keyword, max_price, junk_ok, limit=10)
@@ -112,7 +122,7 @@ async def _search_sources(params: dict) -> dict:
         errors.append(f"ヤフオク: {e}")
         logger.warning(f"ヤフオク検索エラー: {e}")
 
-    # 2) ブックオフ (requests — 軽量)
+    # 2) ブックオフ (requests)
     try:
         from scrapers.offmall import OffmallScraper
         results = await OffmallScraper().search(keyword, max_price, junk_ok, limit=10)
@@ -121,7 +131,16 @@ async def _search_sources(params: dict) -> dict:
         errors.append(f"ブックオフ: {e}")
         logger.warning(f"ブックオフ検索エラー: {e}")
 
-    # 3) メルカリ (Playwright)
+    # 3) 駿河屋 (requests)
+    try:
+        from scrapers.surugaya import SurugayaScraper
+        results = await SurugayaScraper().search(keyword, max_price, junk_ok, limit=10)
+        all_results.extend(results)
+    except Exception as e:
+        errors.append(f"駿河屋: {e}")
+        logger.warning(f"駿河屋検索エラー: {e}")
+
+    # 4) メルカリ (Playwright)
     try:
         from scrapers.mercari import MercariScraper
         results = await MercariScraper().search(keyword, max_price, junk_ok, limit=10)
@@ -132,7 +151,7 @@ async def _search_sources(params: dict) -> dict:
         errors.append(f"メルカリ: {e}")
         logger.warning(f"メルカリ検索エラー: {e}")
 
-    # 4) Yahoo!フリマ (Playwright)
+    # 5) Yahoo!フリマ (Playwright)
     try:
         from scrapers.paypay_flea import PayPayFleaScraper
         results = await PayPayFleaScraper().search(keyword, max_price, junk_ok, limit=10)
@@ -143,7 +162,7 @@ async def _search_sources(params: dict) -> dict:
         errors.append(f"Yahoo!フリマ: {e}")
         logger.warning(f"Yahoo!フリマ検索エラー: {e}")
 
-    # 5) ラクマ (Playwright)
+    # 6) ラクマ (Playwright)
     try:
         from scrapers.rakuma import RakumaScraper
         results = await RakumaScraper().search(keyword, max_price, junk_ok, limit=10)
@@ -154,10 +173,18 @@ async def _search_sources(params: dict) -> dict:
         errors.append(f"ラクマ: {e}")
         logger.warning(f"ラクマ検索エラー: {e}")
 
-    # 価格順にソート
-    all_results.sort(key=lambda r: r.price_jpy)
+    platforms_searched = 6 - len([e for e in errors if "未インストール" in e])
 
-    # DB に保存
+    # スコアリング＆フィルタリング（型番フィルタ・画像比較・プラットフォーム分散）
+    best_candidates = pick_best_candidates(
+        results=all_results,
+        keyword=keyword,
+        max_price_jpy=max_price,
+        ebay_image_url=ebay_image_url,
+        top_n=top_n,
+    )
+
+    # DB に保存（全結果）
     db = get_db()
     try:
         for r in all_results:
@@ -179,9 +206,11 @@ async def _search_sources(params: dict) -> dict:
         "keyword": keyword,
         "max_price_jpy": max_price,
         "junk_ok": junk_ok,
-        "total": len(all_results),
-        "platforms_searched": 5 - len([e for e in errors if "未インストール" in e]),
-        "candidates": [
+        "total_raw": len(all_results),
+        "total_scored": len(best_candidates),
+        "platforms_searched": platforms_searched,
+        "best_candidates": best_candidates,
+        "all_candidates": [
             {
                 "platform": r.platform,
                 "title": r.title,
@@ -191,7 +220,7 @@ async def _search_sources(params: dict) -> dict:
                 "image_url": r.image_url,
                 "is_junk": r.is_junk,
             }
-            for r in all_results[:30]
+            for r in sorted(all_results, key=lambda r: r.price_jpy)[:30]
         ],
         "errors": errors if errors else None,
     }
@@ -865,6 +894,308 @@ async def _generate_dm_reply_handler(params: dict) -> dict:
     )
 
 
+# ── 出品作成（バッチ対応） ────────────────────────────────
+
+async def _get_category_aspects_handler(params: dict) -> dict:
+    """カテゴリの必須/推奨 Item Specifics を取得"""
+    category_id = params["category_id"]
+    return get_category_aspects(category_id)
+
+
+async def _read_listing_sheet(params: dict) -> dict:
+    """スプレッドシート/CSVから出品データを読み取る"""
+    from sheets.reader import read_listing_data
+    source = params["source"]
+    sheet_name = params.get("sheet_name", "")
+
+    try:
+        rows = read_listing_data(source, sheet_name=sheet_name)
+    except ImportError as e:
+        return {"error": str(e)}
+    except FileNotFoundError as e:
+        return {"error": str(e)}
+
+    return {
+        "source": source,
+        "total_rows": len(rows),
+        "rows": [
+            {
+                "row": r.row_number,
+                "product_name": r.product_name,
+                "category_id": r.category_id,
+                "price_usd": r.price_usd,
+                "condition": r.condition,
+                "source_url": r.source_url,
+                "ebay_url": r.ebay_url,
+                "source_price_jpy": r.source_price_jpy,
+                "notes": r.notes,
+            }
+            for r in rows
+        ],
+    }
+
+
+async def _create_draft_listing(params: dict) -> dict:
+    """
+    1件の新規出品を下書き作成する。
+    InventoryItem作成 → Offer作成（未公開状態）
+    """
+    import uuid
+
+    sku = params.get("sku") or f"ITEM-{uuid.uuid4().hex[:8].upper()}"
+    product_name = params["product_name"]
+    price_usd = params["price_usd"]
+    category_id = params["category_id"]
+    condition = params.get("condition", "USED_EXCELLENT")
+    description = params.get("description", "")
+    aspects = params.get("aspects", {})
+    image_urls = params.get("image_urls", [])
+
+    # 1) AI生成が必要な場合
+    if not description or not aspects:
+        listing_data = await _generate_listing({
+            "product_name": product_name,
+            "category": category_id,
+            "condition": condition,
+        })
+        if not description:
+            description = listing_data.get("description_html", "")
+        if not aspects:
+            aspects = {k: [v] if isinstance(v, str) else v for k, v in listing_data.get("specs", {}).items()}
+
+    title = params.get("title", "")
+    if not title:
+        # AI生成タイトルを使用（最初のバリアント）
+        listing_data = await _generate_listing({
+            "product_name": product_name,
+            "category": category_id,
+            "condition": condition,
+        })
+        titles = listing_data.get("titles", [])
+        title = titles[0] if titles else product_name
+
+    # 2) Inventory Item 作成
+    inv_result = create_inventory_item(
+        sku=sku,
+        product={
+            "title": title,
+            "description": description,
+            "aspects": aspects,
+            "imageUrls": image_urls,
+        },
+        condition=condition,
+        quantity=1,
+    )
+    if not inv_result.get("success"):
+        return {"success": False, "sku": sku, "error": inv_result.get("error", "Inventory作成失敗")}
+
+    # 3) Offer 作成（ビジネスポリシーを自動取得）
+    fulfillment_policies = get_fulfillment_policies()
+    return_policies = get_return_policies()
+    payment_policies = get_payment_policies()
+
+    offer_result = create_offer(
+        sku=sku,
+        category_id=category_id,
+        price_usd=price_usd,
+        condition=condition,
+        fulfillment_policy_id=fulfillment_policies[0]["id"] if fulfillment_policies else "",
+        return_policy_id=return_policies[0]["id"] if return_policies else "",
+        payment_policy_id=payment_policies[0]["id"] if payment_policies else "",
+        listing_description=description,
+    )
+    if not offer_result.get("success"):
+        return {"success": False, "sku": sku, "error": offer_result.get("error", "Offer作成失敗")}
+
+    # 4) DB に記録
+    db = get_db()
+    try:
+        crud.upsert_listing(
+            db,
+            sku=sku,
+            listing_id="",
+            title=title,
+            price_usd=price_usd,
+            quantity=1,
+            category_id=category_id,
+            condition=condition,
+            image_urls_json=json.dumps(image_urls),
+            item_specifics_json=json.dumps(aspects),
+            description=description,
+            offer_id=offer_result.get("offer_id", ""),
+        )
+    finally:
+        db.close()
+
+    return {
+        "success": True,
+        "sku": sku,
+        "title": title,
+        "price_usd": price_usd,
+        "offer_id": offer_result.get("offer_id", ""),
+        "status": "draft",
+        "message": f"下書き作成完了: {title[:50]}... (${price_usd})",
+    }
+
+
+async def _batch_create_drafts(params: dict) -> dict:
+    """
+    スプレッドシート/CSVから複数商品を一括で下書き登録する。
+    投稿画像のように「全N件の下書き登録が完了しました」＋サマリーテーブルを返す。
+    """
+    from sheets.reader import read_listing_data
+
+    source = params["source"]
+    sheet_name = params.get("sheet_name", "")
+    row_numbers = params.get("row_numbers", [])  # 空なら全行
+
+    try:
+        rows = read_listing_data(source, sheet_name=sheet_name)
+    except Exception as e:
+        return {"error": str(e)}
+
+    if row_numbers:
+        rows = [r for r in rows if r.row_number in row_numbers]
+
+    if not rows:
+        return {"error": "出品データが見つかりません"}
+
+    results = []
+    success_count = 0
+    error_count = 0
+
+    for row in rows:
+        try:
+            result = await _create_draft_listing({
+                "product_name": row.product_name,
+                "price_usd": row.price_usd,
+                "category_id": row.category_id,
+                "condition": row.condition,
+                "image_urls": row.image_urls,
+            })
+            results.append({
+                "row": row.row_number,
+                "product_name": row.product_name,
+                "price_usd": row.price_usd,
+                "sku": result.get("sku", ""),
+                "offer_id": result.get("offer_id", ""),
+                "success": result.get("success", False),
+                "error": result.get("error"),
+            })
+            if result.get("success"):
+                success_count += 1
+            else:
+                error_count += 1
+        except Exception as e:
+            results.append({
+                "row": row.row_number,
+                "product_name": row.product_name,
+                "price_usd": row.price_usd,
+                "success": False,
+                "error": str(e),
+            })
+            error_count += 1
+
+    return {
+        "total": len(results),
+        "success": success_count,
+        "errors": error_count,
+        "results": results,
+        "message": f"全{success_count}件の下書き登録が完了しました。" + (
+            f"（{error_count}件エラー）" if error_count else ""
+        ),
+        "next_step": "eBay Seller Hub（スケジュール済みリスト）で内容をご確認ください。確認後「公開して」と指示いただければ順次出品を開始します。",
+    }
+
+
+async def _publish_draft_listings(params: dict) -> dict:
+    """
+    下書き状態の Offer を一括公開する。
+    offer_ids を指定するか、DBから未公開のものを自動取得。
+    """
+    offer_ids = params.get("offer_ids", [])
+
+    if not offer_ids:
+        # DBから未公開（listing_id が空）の offer を取得
+        db = get_db()
+        try:
+            from database.models import Listing
+            drafts = db.query(Listing).filter(
+                Listing.offer_id != "",
+                Listing.listing_id == "",
+            ).all()
+            offer_ids = [d.offer_id for d in drafts if d.offer_id]
+        finally:
+            db.close()
+
+    if not offer_ids:
+        return {"error": "公開する下書きが見つかりません"}
+
+    results = []
+    success_count = 0
+
+    for offer_id in offer_ids:
+        pub_result = publish_offer(offer_id)
+        success = pub_result.get("success", False)
+        listing_id = pub_result.get("listing_id", "")
+
+        if success:
+            success_count += 1
+            # DB 更新
+            db = get_db()
+            try:
+                from database.models import Listing
+                listing = db.query(Listing).filter(Listing.offer_id == offer_id).first()
+                if listing:
+                    listing.listing_id = listing_id
+                    db.commit()
+            finally:
+                db.close()
+
+        results.append({
+            "offer_id": offer_id,
+            "listing_id": listing_id,
+            "success": success,
+            "error": pub_result.get("error") if not success else None,
+        })
+
+    return {
+        "total": len(results),
+        "published": success_count,
+        "results": results,
+        "message": f"全{success_count}件の出品を公開しました。",
+    }
+
+
+# ── 利益管理 ────────────────────────────────────────────
+
+async def _profit_summary(params: dict) -> dict:
+    """月別利益サマリー"""
+    months = params.get("months", 3)
+    db = get_db()
+    try:
+        summary = crud.get_profit_summary(db, months=months)
+        return {"months": months, "summary": summary, "count": len(summary)}
+    finally:
+        db.close()
+
+
+async def _export_tax_report(params: dict) -> dict:
+    """税務レポート用データ生成（ダッシュボードのCSVエクスポートへ誘導）"""
+    report_type = params.get("report_type", "monthly")
+    year = params.get("year", "")
+    base_url = f"/api/export/tax-report?type={report_type}"
+    if year:
+        base_url += f"&year={year}"
+    return {
+        "message": f"税務レポートが準備できました。以下のURLからCSVをダウンロードしてください。",
+        "download_url": base_url,
+        "report_type": report_type,
+        "year": year or "全期間",
+        "note": "ダッシュボードの利益管理ページ（/profit）からもエクスポートできます。",
+    }
+
+
 # ── ハンドラーマッピング ──────────────────────────────────
 
 HANDLERS = {
@@ -903,4 +1234,13 @@ HANDLERS = {
     "publish_instagram_post": _publish_instagram_post,
     "get_instagram_analytics": _get_instagram_analytics,
     "generate_dm_reply": _generate_dm_reply_handler,
+    # 出品作成（バッチ対応）
+    "get_category_aspects": _get_category_aspects_handler,
+    "read_listing_sheet": _read_listing_sheet,
+    "create_draft_listing": _create_draft_listing,
+    "batch_create_drafts": _batch_create_drafts,
+    "publish_draft_listings": _publish_draft_listings,
+    # 利益管理
+    "profit_summary": _profit_summary,
+    "export_tax_report": _export_tax_report,
 }
