@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JoyRide｜50代からの逆転マッチング JoyRide</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- AOS -->
+  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+
+  <!-- Swiper CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#FF6B35',
+            'primary-dark': '#E0521C',
+            accent: '#FFD700',
+            'accent-dark': '#E6C200',
+            navy: '#1A1A2E',
+            'navy-light': '#16213E',
+            'warm-white': '#FFF8F0',
+            'line-green': '#06C755',
+            'line-green-dark': '#05A847',
+          },
+          fontFamily: {
+            jp: ['"Noto Sans JP"', 'sans-serif'],
+          },
+          animation: {
+            'float': 'float 6s ease-in-out infinite',
+            'float-slow': 'float 9s ease-in-out infinite',
+            'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+            'bounce-slow': 'bounceSlow 3s ease-in-out infinite',
+            'heart-fly': 'heartFly 4s ease-in-out infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-14px)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { boxShadow: '0 0 20px rgba(6,199,85,0.5), 0 0 40px rgba(6,199,85,0.2)' },
+              '50%': { boxShadow: '0 0 30px rgba(6,199,85,0.8), 0 0 60px rgba(6,199,85,0.4)' },
+            },
+            bounceSlow: {
+              '0%, 100%': { transform: 'translateY(0) scale(1)' },
+              '50%': { transform: 'translateY(-8px) scale(1.05)' },
+            },
+            heartFly: {
+              '0%': { transform: 'translateY(0) scale(1)', opacity: '0.8' },
+              '50%': { transform: 'translateY(-80px) scale(1.3)', opacity: '0.5' },
+              '100%': { transform: 'translateY(-160px) scale(0.5)', opacity: '0' },
+            },
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    html, body { font-size: 18px; overflow-x: hidden; width: 100%; max-width: 100vw; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: #FFF8F0; color: #1A1A2E; }
+    h1, h2, h3, p { overflow-wrap: break-word; }
+    @media (max-width: 639px) {
+      br.hidden { display: none !important; }
+      section, .inline-block, .inline-flex { max-width: 100vw; overflow-x: hidden; }
+      .glass, .glass-dark { max-width: 100%; }
+    }
+
+    /* Gradient Text */
+    .gradient-text {
+      background: linear-gradient(135deg, #FF6B35, #FFD700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .gradient-text-white {
+      background: linear-gradient(135deg, #ffffff, #FFD700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Glassmorphism */
+    .glass {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .glass-dark {
+      background: rgba(26, 26, 46, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* CTA Buttons */
+    .btn-line {
+      background: linear-gradient(135deg, #06C755, #05A847);
+      color: #fff;
+      font-weight: 900;
+      border-radius: 9999px;
+      padding: 16px 36px;
+      font-size: 1.1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 24px rgba(6, 199, 85, 0.5);
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+    }
+    .btn-line:hover {
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 14px 36px rgba(6, 199, 85, 0.6);
+    }
+
+    .btn-orange {
+      background: linear-gradient(135deg, #FF6B35, #FFD700);
+      color: #fff;
+      font-weight: 900;
+      border-radius: 9999px;
+      padding: 16px 36px;
+      font-size: 1.1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 24px rgba(255, 107, 53, 0.5);
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+    }
+    .btn-orange:hover {
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 14px 36px rgba(255, 107, 53, 0.6);
+    }
+
+    /* Hero Particles */
+    .heart-particle {
+      position: absolute;
+      font-size: 1.4rem;
+      animation: heartFly 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes heartFly {
+      0% { transform: translateY(0) scale(1); opacity: 0.7; }
+      50% { transform: translateY(-100px) scale(1.2); opacity: 0.4; }
+      100% { transform: translateY(-220px) scale(0.4); opacity: 0; }
+    }
+
+    /* Sticky Header */
+    #main-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    #main-header.scrolled {
+      background: rgba(26, 26, 46, 0.97);
+      box-shadow: 0 2px 24px rgba(0,0,0,0.3);
+    }
+
+    /* Counter */
+    .counter-num {
+      font-size: 2.8rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    /* Swiper custom */
+    .swiper-pagination-bullet-active { background: #FF6B35 !important; }
+    .swiper-button-next, .swiper-button-prev { color: #FF6B35 !important; }
+
+    /* FAQ Accordion */
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.3s ease;
+    }
+    .faq-answer.open {
+      max-height: 400px;
+    }
+    .faq-icon { transition: transform 0.3s ease; }
+    .faq-icon.open { transform: rotate(180deg); }
+
+    /* Card hover */
+    .card-hover {
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 48px rgba(0,0,0,0.18);
+    }
+
+    /* Floating LINE Button */
+    #floating-line {
+      position: fixed;
+      bottom: 28px;
+      right: 24px;
+      z-index: 9998;
+      border-radius: 9999px;
+      box-shadow: 0 6px 28px rgba(6, 199, 85, 0.6);
+      animation: bounceSlow 3s ease-in-out infinite, pulseGlow 2s ease-in-out infinite;
+    }
+    @keyframes bounceSlow {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-8px) scale(1.05); }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 6px 28px rgba(6,199,85,0.5); }
+      50% { box-shadow: 0 6px 40px rgba(6,199,85,0.85); }
+    }
+
+    /* Section decoration */
+    .section-divider {
+      width: 60px;
+      height: 4px;
+      background: linear-gradient(135deg, #FF6B35, #FFD700);
+      border-radius: 9999px;
+      margin: 0 auto 20px;
+    }
+
+    /* Image card overlay */
+    .img-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+    }
+    .img-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(26,26,46,0.7) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .img-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+    .img-card:hover img {
+      transform: scale(1.07);
+    }
+
+    /* Pulse badge */
+    @keyframes pulseBadge {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    .pulse-badge { animation: pulseBadge 2s ease-in-out infinite; }
+
+    /* Section gradient backgrounds */
+    .bg-hero-gradient {
+      background: linear-gradient(145deg, #1A1A2E 0%, #16213E 40%, #0F3460 100%);
+    }
+    .bg-pain-gradient {
+      background: linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%);
+    }
+    .bg-solution-gradient {
+      background: linear-gradient(160deg, #FFF8F0 0%, #FFE8D6 100%);
+    }
+    .bg-stats-gradient {
+      background: linear-gradient(135deg, #FF6B35 0%, #FFD700 100%);
+    }
+    .bg-cta-gradient {
+      background: linear-gradient(135deg, #1A1A2E 0%, #FF6B35 60%, #FFD700 100%);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #FFF8F0; }
+    ::-webkit-scrollbar-thumb { background: #FF6B35; border-radius: 3px; }
+
+    /* Responsive img placeholder */
+    .img-placeholder {
+      background: linear-gradient(135deg, #f3b84c22, #FF6B3522);
+      border: 2px dashed #FF6B3555;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      color: #FF6B3599;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===========================
+     FLOATING LINE BUTTON
+=========================== -->
+<a href="https://lin.ee/PLACEHOLDER" id="floating-line" class="btn-line" style="padding:14px 22px; font-size:0.95rem;">
+  <i class="fab fa-line text-xl"></i>
+  <span class="hidden sm:inline">無料でLINE登録</span>
+  <span class="inline sm:hidden">LINE登録</span>
+</a>
+
+<!-- ===========================
+     STICKY HEADER
+=========================== -->
+<header id="main-header" class="py-3 px-4">
+  <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <div class="gradient-text-white text-2xl font-black tracking-widest" style="-webkit-text-fill-color: transparent; background: linear-gradient(135deg,#FF6B35,#FFD700); -webkit-background-clip: text; background-clip: text;">
+      JoyRide
+    </div>
+    <a href="#final-cta" class="btn-line" style="padding:10px 22px; font-size:0.85rem; box-shadow:none;">
+      <i class="fab fa-line"></i>無料登録
+    </a>
+  </div>
+</header>
+
+<!-- ===========================
+     HERO SECTION
+=========================== -->
+<section class="bg-hero-gradient min-h-screen flex items-center relative overflow-hidden pt-16">
+
+  <!-- Background removed -->
+
+
+  <div class="max-w-6xl mx-auto px-4 pt-12 pb-12 lg:py-16 w-full relative z-10">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+
+      <!-- Copy -->
+      <div id="hero-copy">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6 text-white text-sm font-bold pulse-badge">
+          <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse inline-block"></span>
+          30代女性 4,200名以上がマッチング待ち
+        </div>
+
+        <h1 class="text-2xl sm:text-4xl lg:text-4xl font-black text-white leading-tight mb-4" id="hero-h1">
+          今<span class="gradient-text">50代以上</span>の男性がモテる！<br class="hidden sm:inline">
+          <span class="whitespace-nowrap">ヤれる女性</span>とマッチング。
+        </h1>
+        <p class="text-lg sm:text-xl text-gray-300 mb-3 font-bold" id="hero-sub">
+          「年上男性がいい」という<span class="text-yellow-300">女性たち</span>が、あなたを待っています。
+        </p>
+        <p class="text-gray-400 mb-8 leading-relaxed" id="hero-desc">
+          若さもルックスも関係ない。<br class="hidden sm:inline">
+          あなたが積み上げてきた<strong class="text-white">経験・大人の落ち着き</strong>こそが、<br class="hidden sm:inline">
+          JoyRideでは最大の武器になります。
+        </p>
+
+        <div class="flex flex-col sm:flex-row gap-3 mb-4" id="hero-cta">
+          <a href="https://lin.ee/PLACEHOLDER" class="btn-line text-center justify-center" style="font-size:1.05rem; padding:18px 32px;">
+            <i class="fab fa-line text-2xl"></i>
+            今すぐLINEで無料登録する
+          </a>
+        </div>
+        <p class="text-gray-500 text-xs">※登録3分・匿名利用OK</p>
+      </div>
+
+      <!-- Hero Image -->
+      <div class="relative flex justify-center overflow-hidden" id="hero-img">
+        <div class="relative w-full max-w-sm" style="animation: float 6s ease-in-out infinite;">
+          <div class="img-card shadow-2xl" style="height:420px;">
+            <img src="assets/hero-main.png" alt="JoyRideでマッチングした30代女性と50代以上の男性" class="img-placeholder" />
+            <div class="img-placeholder" style="height:420px; display:none;" id="hero-placeholder">
+              <i class="fas fa-heart fa-3x text-pink-400"></i>
+              <span>hero image</span>
+            </div>
+          </div>
+          <!-- Floating card -->
+          <div class="absolute -bottom-4 -left-4 glass-dark rounded-2xl px-4 py-3 text-white text-sm font-bold shadow-xl">
+            <span class="text-green-400">●</span> 今日のマッチング数
+            <div class="gradient-text text-2xl font-black">+247件</div>
+          </div>
+          <div class="absolute -top-4 -right-4 glass-dark rounded-2xl px-3 py-2 text-white text-xs font-bold shadow-xl">
+            <div class="text-yellow-300 text-lg">⭐⭐⭐⭐⭐</div>
+            満足度 94%
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scroll indicator -->
+  <div class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white opacity-40 animate-bounce">
+    <i class="fas fa-chevron-down text-2xl"></i>
+  </div>
+</section>
+
+
+<!-- ===========================
+     PAIN POINTS
+=========================== -->
+<section class="bg-pain-gradient py-20 px-4 relative overflow-hidden">
+  <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+  <div class="max-w-5xl mx-auto relative z-10">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-orange-400 text-sm font-bold tracking-widest mb-2 uppercase">Reality Check</p>
+      <h2 class="text-2xl sm:text-3xl lg:text-4xl font-black text-white text-center mb-3 leading-tight">
+        今この瞬間も、あなたの周りの<br class="hidden sm:inline">
+        <span class="gradient-text">"同世代おじさん"</span>が<br class="hidden sm:inline">
+        欲求不満女子とお楽しみです。
+      </h2>
+      <p class="text-gray-400 text-center mb-10 max-w-xl mx-auto">
+        何も変えなければ、何も変わらない。<br class="hidden sm:inline">
+        「あの時始めておけば…」と後悔するのは、もう少し先の話かもしれません。
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-10">
+      <div class="glass-dark rounded-2xl p-5 card-hover" data-aos="fade-up" data-aos-delay="0">
+        <div class="img-card mb-4" style="height:200px;">
+          <img src="assets/problem-alone.png" alt="一人の夜" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="img-placeholder" style="height:200px; display:none; border-radius:12px;">
+            <i class="fas fa-user-alt fa-2x"></i><span>problem-alone.png</span>
+          </div>
+        </div>
+        <p class="text-white font-bold mb-1">新しい出会いがほぼゼロ</p>
+        <p class="text-gray-400 text-sm">マッチングアプリを入れてみたけど、20代ばかりで完全スルー。自分には関係ないと諦めていませんか？</p>
+      </div>
+
+      <div class="glass-dark rounded-2xl p-5 card-hover" data-aos="fade-up" data-aos-delay="100">
+        <div class="img-card mb-4" style="height:200px;">
+          <img src="assets/problem-couple.png" alt="街中のカップル" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="img-placeholder" style="height:200px; display:none; border-radius:12px;">
+            <i class="fas fa-heart-broken fa-2x"></i><span>problem-couple.png</span>
+          </div>
+        </div>
+        <p class="text-white font-bold mb-1">同世代のあいつだけが得をしている</p>
+        <p class="text-gray-400 text-sm">SNSで見かける同年代の男が楽しそうに女性と遊んでいる。あいつと自分、何が違うのか正直モヤモヤする。</p>
+      </div>
+
+      <div class="glass-dark rounded-2xl p-5 card-hover" data-aos="fade-up" data-aos-delay="200">
+        <div class="img-card mb-4" style="height:200px;">
+          <img src="assets/problem-office.png" alt="通勤するサラリーマン" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="img-placeholder" style="height:200px; display:none; border-radius:12px;">
+            <i class="fas fa-briefcase fa-2x"></i><span>problem-office.png</span>
+          </div>
+        </div>
+        <p class="text-white font-bold mb-1">家と職場の往復で終わる毎日</p>
+        <p class="text-gray-400 text-sm">仕事一筋で気がついたら50代。毎日が同じことの繰り返しで、このまま終わっていくのか…という虚しさ。</p>
+      </div>
+
+      <div class="glass-dark rounded-2xl p-5 card-hover" data-aos="fade-up" data-aos-delay="300">
+        <div class="img-card mb-4" style="height:200px;">
+          <img src="assets/problem-bar.png" alt="飲み屋での一夜限りの出会い" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="img-placeholder" style="height:200px; display:none; border-radius:12px;">
+            <i class="fas fa-glass-cheers fa-2x"></i><span>problem-bar.png</span>
+          </div>
+        </div>
+        <p class="text-white font-bold mb-1">飲み屋でチヤホヤされてもその場限り</p>
+        <p class="text-gray-400 text-sm">たまに女性と話す機会があっても発展しない。「おじさんだから仕方ない」と自分に言い聞かせていませんか？</p>
+      </div>
+    </div>
+
+    <div class="text-center" data-aos="fade-up">
+      <div class="glass rounded-2xl inline-block px-8 py-5 text-white">
+        <p class="text-lg font-black mb-1">でも、<span class="gradient-text">JoyRideを知っている男性</span>は</p>
+        <p class="text-gray-300">今この瞬間も、ヤりたい女性とメッセージを交わしています。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     SOLUTION
+=========================== -->
+<section class="bg-solution-gradient py-20 px-4">
+  <div class="max-w-5xl mx-auto">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-primary text-sm font-bold tracking-widest mb-2 uppercase">Why JoyRide Works</p>
+      <h2 class="text-2xl sm:text-3xl lg:text-4xl font-black text-navy text-center mb-3 leading-tight">
+        なぜJoyRideだと<br class="hidden sm:inline">
+        <span class="gradient-text">"非モテおじさん"</span>でも<br class="hidden sm:inline">
+        選ばれるのか
+      </h2>
+      <p class="text-gray-500 text-center mb-12 max-w-xl mx-auto">
+        若いイケメンより、落ち着きと包容力。<br class="hidden sm:inline">JoyRideの女性会員が求めているのは、あなたが今まで積み上げてきたものです。
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-white rounded-3xl p-7 shadow-lg card-hover border border-orange-100 text-center" data-aos="fade-up" data-aos-delay="0">
+        <div class="w-14 h-14 rounded-2xl mb-5 mx-auto flex items-center justify-center text-2xl" style="background:linear-gradient(135deg,#FF6B35,#FFD700);"><i class="fas fa-fire" style="font-size:1.3rem;color:#fff;"></i></div>
+        <h3 class="text-lg font-black text-navy mb-3">年上男性が「武器」になる場所</h3>
+        <p class="text-gray-600 text-sm leading-relaxed text-left">「余裕のある年上がいい」という女性が中心。若い男性に埋もれず、あなたの経験値が最大限に活きます。</p>
+      </div>
+      <div class="bg-white rounded-3xl p-7 shadow-lg card-hover border border-orange-100 text-center" data-aos="fade-up" data-aos-delay="150">
+        <div class="w-14 h-14 rounded-2xl mb-5 mx-auto flex items-center justify-center text-2xl" style="background:linear-gradient(135deg,#FF6B35,#FFD700);"><i class="fas fa-comments" style="font-size:1.3rem;color:#fff;"></i></div>
+        <h3 class="text-lg font-black text-navy mb-3">会話ベタでも自然と仲が深まる</h3>
+        <p class="text-gray-600 text-sm leading-relaxed text-left">「何て送れば…」で止まることなく、自然に会話が続く仕組みがあります。</p>
+      </div>
+      <div class="bg-white rounded-3xl p-7 shadow-lg card-hover border border-orange-100 text-center" data-aos="fade-up" data-aos-delay="300">
+        <div class="w-14 h-14 rounded-2xl mb-5 mx-auto flex items-center justify-center text-2xl" style="background:linear-gradient(135deg,#FF6B35,#FFD700);"><i class="fas fa-shield-alt" style="font-size:1.3rem;color:#fff;"></i></div>
+        <h3 class="text-lg font-black text-navy mb-3">バレずにこっそり楽しめる</h3>
+        <p class="text-gray-600 text-sm leading-relaxed text-left">実名公開なし・顔写真の公開範囲も自分で設定OK。職場や家族に知られず、安心して大人の出会いを楽しめます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     GALLERY (Women Images)
+=========================== -->
+<section class="bg-navy py-20 px-4 overflow-hidden">
+  <div class="max-w-5xl mx-auto">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-orange-400 text-sm font-bold tracking-widest mb-2 uppercase">Members</p>
+      <h2 class="text-2xl sm:text-3xl font-black text-white text-center mb-3">
+        こんな女性が<span class="gradient-text">あなたを待っています</span>
+      </h2>
+      <p class="text-gray-400 text-center mb-10">JoyRideには「年上男性を求める」欲求不満女性が多数登録中</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div class="img-card card-hover shadow-2xl" style="height:360px;" data-aos="fade-up" data-aos-delay="0">
+        <img src="assets/chat-smartphone.png" alt="スマホを見ながら微笑む40代女性" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="img-placeholder" style="height:360px; display:none;">
+          <i class="fas fa-mobile-alt fa-3x text-pink-400"></i><span style="color:#FF6B35;">chat-smartphone.png</span>
+        </div>
+        <div class="absolute bottom-4 left-4 z-10 text-white">
+          <div class="font-bold text-sm">ユキ / 38歳</div>
+          <div class="text-xs text-gray-300">会社員</div>
+        </div>
+      </div>
+      <div class="img-card card-hover shadow-2xl" style="height:360px;" data-aos="fade-up" data-aos-delay="150">
+        <img src="assets/date-restaurant.png" alt="レストランで微笑む女性" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="img-placeholder" style="height:360px; display:none;">
+          <i class="fas fa-utensils fa-3x text-yellow-400"></i><span style="color:#FF6B35;">date-restaurant.png</span>
+        </div>
+        <div class="absolute bottom-4 left-4 z-10 text-white">
+          <div class="font-bold text-sm">美香 / 48歳</div>
+          <div class="text-xs text-gray-300">自営業</div>
+        </div>
+      </div>
+      <div class="img-card card-hover shadow-2xl" style="height:360px;" data-aos="fade-up" data-aos-delay="300">
+        <img src="assets/night-city.png" alt="夜の街を歩く女性" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="img-placeholder" style="height:360px; display:none;">
+          <i class="fas fa-city fa-3x text-blue-400"></i><span style="color:#FF6B35;">night-city.png</span>
+        </div>
+        <div class="absolute bottom-4 left-4 z-10 text-white">
+          <div class="font-bold text-sm">りな / 41歳</div>
+          <div class="text-xs text-gray-300">保育士</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-8" data-aos="fade-up">
+      <p class="text-gray-400 text-sm mb-4">※他にも4,000名以上が登録中</p>
+      <a href="https://lin.ee/PLACEHOLDER" class="btn-line">
+        <i class="fab fa-line"></i>LINEで登録してもっと見る
+      </a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     WHY OLDER MEN ARE ATTRACTIVE (心理学的根拠)
+=========================== -->
+<section class="bg-solution-gradient py-20 px-4">
+  <div class="max-w-5xl mx-auto">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-primary text-sm font-bold tracking-widest mb-2 uppercase">Psychology & Data</p>
+      <h2 class="text-2xl sm:text-3xl lg:text-4xl font-black text-navy text-center mb-3 leading-tight">
+        「50代以上の男性が選ばれる」<br class="hidden sm:inline">
+        <span class="gradient-text">ちゃんとした理由がある</span>
+      </h2>
+      <p class="text-gray-500 text-center mb-12 max-w-2xl mx-auto">
+        これは偶然でも例外でもありません。心理学・行動科学・女性の本音データが、<br class="hidden sm:inline">「50代以上の男性が選ばれる理由」を明確に示しています。
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+
+      <!-- 根拠1 -->
+      <div class="bg-white rounded-3xl p-8 shadow-lg card-hover border-l-4 border-primary" data-aos="fade-right" data-aos-delay="0">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black text-white flex-shrink-0" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">01</div>
+          <h3 class="text-lg font-black text-navy">安定・安心感は若さより強い</h3>
+        </div>
+        <p class="text-gray-600 text-sm leading-relaxed mb-3">
+          心理学の研究によると、30代以上の女性の約<strong class="text-primary">68%</strong>が「安定感・経済力・精神的余裕」を恋愛相手に求める最重要条件に挙げています。若さや外見は<strong>3位以下</strong>。
+        </p>
+        <p class="text-gray-600 text-sm leading-relaxed">
+          仕事で結果を出し、人生経験を積んだ50代以上の男性が放つ「どっしりとした余裕」は、女性が本能的に求める「守ってもらえる安心感」に直結します。
+        </p>
+        <div class="mt-4 p-3 rounded-xl text-sm font-bold text-primary" style="background:#FFF3EE;">
+          📊 30代以上の女性の68%が「安定感・経済力」を最優先
+        </div>
+      </div>
+
+      <!-- 根拠2 -->
+      <div class="bg-white rounded-3xl p-8 shadow-lg card-hover border-l-4 border-accent" data-aos="fade-left" data-aos-delay="100">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black text-white flex-shrink-0" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">02</div>
+          <h3 class="text-lg font-black text-navy">「話を聞いてくれる男」が圧倒的不足</h3>
+        </div>
+        <p class="text-gray-600 text-sm leading-relaxed mb-3">
+          40代女性へのアンケートで「同年代の男性への不満」の1位は<strong class="text-primary">「話を聞かない・共感がない」</strong>。20〜30代男性は自分の話ばかりで、女性の気持ちに寄り添えない傾向があります。
+        </p>
+        <p class="text-gray-600 text-sm leading-relaxed">
+          人生経験豊富な50代は、相手の話をじっくり聞き、的確なアドバイスができる。それが「この人といると楽」という感情を生み、距離が縮まる最大の武器になります。
+        </p>
+        <div class="mt-4 p-3 rounded-xl text-sm font-bold text-accent-dark" style="background:#FFFAE0;">
+          💬 「話を聞いてくれる」は40代女性の恋愛条件 No.1
+        </div>
+      </div>
+
+      <!-- 根拠3 -->
+      <div class="bg-white rounded-3xl p-8 shadow-lg card-hover border-l-4 border-green-400" data-aos="fade-right" data-aos-delay="200">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black text-white flex-shrink-0" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">03</div>
+          <h3 class="text-lg font-black text-navy">意外にも多くの女性は「大人の関係」を求めている</h3>
+        </div>
+        <p class="text-gray-600 text-sm leading-relaxed mb-3">
+          結婚・子育て・仕事を経験した40代女性は、「ドキドキするだけの恋愛」より<strong class="text-primary">「大人として対等に楽しめる関係」</strong>を求めています。気を使わず、リラックスして過ごせる相手が理想。
+        </p>
+        <p class="text-gray-600 text-sm leading-relaxed">
+          余計なプライドを持たず、女性を立てることができる50代以上の男性のスタンスは、まさにこのニーズにドンピシャでハマります。
+        </p>
+        <div class="mt-4 p-3 rounded-xl text-sm font-bold text-green-600" style="background:#F0FDF4;">
+          💚 40代女性の73%が「大人の余裕がある男性」に惹かれると回答
+        </div>
+      </div>
+
+      <!-- 根拠4 -->
+      <div class="bg-white rounded-3xl p-8 shadow-lg card-hover border-l-4 border-blue-400" data-aos="fade-left" data-aos-delay="300">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black text-white flex-shrink-0" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">04</div>
+          <h3 class="text-lg font-black text-navy">年の差カップルは「満足度が高い」</h3>
+        </div>
+        <p class="text-gray-600 text-sm leading-relaxed mb-3">
+          マッチングサービス各社のデータによると、男性が女性より<strong class="text-primary">10〜15歳年上のカップル</strong>は、同年代カップルより関係満足度が平均<strong>22%高い</strong>という結果が出ています。
+        </p>
+        <p class="text-gray-600 text-sm leading-relaxed">
+          年齢差があることで互いの役割が明確になり、「尊敬と甘え」のバランスが自然に生まれる。これが長続きする関係の秘訣です。
+        </p>
+        <div class="mt-4 p-3 rounded-xl text-sm font-bold text-blue-600" style="background:#EFF6FF;">
+          📈 年の差10〜15歳のカップルは関係満足度22%高い
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 締めのメッセージ -->
+    <div class="rounded-3xl p-8 text-center" style="background:linear-gradient(135deg,#1A1A2E,#2D1B4E);" data-aos="zoom-in">
+      <p class="text-2xl sm:text-3xl font-black text-white mb-3 leading-tight">
+        つまり——<span class="gradient-text">あなたはすでに</span><br class="hidden sm:inline">
+        「選ばれる条件」を持っている。
+      </p>
+      <p class="text-gray-300 mb-6 max-w-xl mx-auto">あとは、その条件を正しく見せられる「場所」に行くだけ。JoyRideはその場所です。</p>
+      <a href="https://lin.ee/PLACEHOLDER" class="btn-line inline-flex">
+        <i class="fab fa-line"></i>今すぐ無料で試してみる
+      </a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     WHAT WOMEN WANT (40代女性のホンネ)
+=========================== -->
+<section class="bg-pain-gradient py-20 px-4 relative overflow-hidden">
+  <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+  <div class="max-w-5xl mx-auto relative z-10">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-orange-400 text-sm font-bold tracking-widest mb-2 uppercase">Women's Real Voice</p>
+      <h2 class="text-2xl sm:text-3xl lg:text-4xl font-black text-white text-center mb-3 leading-tight">
+        女性が<span class="gradient-text">50代以上の男性に惹かれる</span><br class="hidden sm:inline">
+        本当の理由
+      </h2>
+      <p class="text-gray-400 text-center mb-12 max-w-2xl mx-auto">
+        実際にJoyRideで出会いを経験した女性会員へのアンケート。<br class="hidden sm:inline">彼女たちの「本音」を全部お見せします。
+      </p>
+    </div>
+
+    <!-- 女性の声カード -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
+
+      <div class="glass-dark rounded-2xl p-6 card-hover" data-aos="fade-up" data-aos-delay="0">
+        <div class="text-3xl mb-3">💝</div>
+        <p class="text-white font-bold text-base mb-2">「余裕があって、焦らない」</p>
+        <p class="text-gray-400 text-sm leading-relaxed">「同世代の男性はどこか必死で疲れる。50代の方は落ち着いていて、一緒にいてホッとします。」</p>
+        <div class="mt-4 text-xs text-orange-400 font-bold">けいこ / 34歳 / 会社員</div>
+      </div>
+
+      <div class="glass-dark rounded-2xl p-6 card-hover" data-aos="fade-up" data-aos-delay="100">
+        <div class="text-3xl mb-3">🔥</div>
+        <p class="text-white font-bold text-base mb-2">「大人のリードがたまらない」</p>
+        <p class="text-gray-400 text-sm leading-relaxed">「こっちが求める前に、自然にリードしてくれる。若い男性にはない大人の余裕で、毎回すごく満足してます。」</p>
+        <div class="mt-4 text-xs text-orange-400 font-bold">なな / 28歳 / 事務職</div>
+      </div>
+
+      <div class="glass-dark rounded-2xl p-6 card-hover" data-aos="fade-up" data-aos-delay="200">
+        <div class="text-3xl mb-3">💋</div>
+        <p class="text-white font-bold text-base mb-2">「経験豊富で、全部知ってる感じ」</p>
+        <p class="text-gray-400 text-sm leading-relaxed">「女性の扱い方を知ってるっていうか…体のことも含めて、こんなに気持ちよくしてもらえるとは思っていなかった。」</p>
+        <div class="mt-4 text-xs text-orange-400 font-bold">さゆり / 32歳 / フリーランス</div>
+      </div>
+
+      <div class="glass-dark rounded-2xl p-6 card-hover" data-aos="fade-up" data-aos-delay="0">
+        <div class="text-3xl mb-3">🎩</div>
+        <p class="text-white font-bold text-base mb-2">「エスコートが自然にできる」</p>
+        <p class="text-gray-400 text-sm leading-relaxed">「ドアを開けてくれたり、歩く側を気にしてくれたり。昔ながらの紳士的な振る舞いがキュンとします。」</p>
+        <div class="mt-4 text-xs text-orange-400 font-bold">ともみ / 31歳 / 看護師</div>
+      </div>
+
+      <div class="glass-dark rounded-2xl p-6 card-hover" data-aos="fade-up" data-aos-delay="100">
+        <div class="text-3xl mb-3">💰</div>
+        <p class="text-white font-bold text-base mb-2">「気前よくて、全部任せられる」</p>
+        <p class="text-gray-400 text-sm leading-relaxed">「食事もホテルも、サッと手配してくれる。こちらが気を使わなくていいのがすごくありがたい。頼れる男性ってこういう人かと思った。」</p>
+        <div class="mt-4 text-xs text-orange-400 font-bold">あきこ / 50歳 / 自営業</div>
+      </div>
+
+      <div class="glass-dark rounded-2xl p-6 card-hover" data-aos="fade-up" data-aos-delay="200">
+        <div class="text-3xl mb-3">❤️‍🔥</div>
+        <p class="text-white font-bold text-base mb-2">「欲求不満、全部解消してくれた」</p>
+        <p class="text-gray-400 text-sm leading-relaxed">「ずっと満たされない日々だったけど、JoyRideで出会ってから毎週が楽しい。これが大人の恋愛なんだと思った。」</p>
+        <div class="mt-4 text-xs text-orange-400 font-bold">ゆみ / 36歳 / 美容師</div>
+      </div>
+
+    </div>
+
+    <div class="text-center" data-aos="fade-up">
+      <div class="glass rounded-2xl inline-block px-8 py-6 text-white max-w-2xl">
+        <p class="text-xl font-black mb-2">女性たちは<span class="gradient-text">あなたのような男性</span>を、ずっと探しています。</p>
+        <p class="text-gray-300 text-sm mb-5">JoyRideにはこういった「年上男性の価値を知る女性」が4,000名以上登録中。あなたを待っています。</p>
+        <a href="https://lin.ee/PLACEHOLDER" class="btn-line inline-flex">
+          <i class="fab fa-line"></i>女性プロフィールを無料で見る
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     MOTER 50DAI (モテる50代の共通点)
+=========================== -->
+<section class="bg-solution-gradient py-20 px-4">
+  <div class="max-w-5xl mx-auto">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-primary text-sm font-bold tracking-widest mb-2 uppercase">Common Traits</p>
+      <h2 class="text-2xl sm:text-3xl font-black text-navy text-center mb-3 leading-tight">
+        JoyRideで<span class="gradient-text">実際にモテている</span><br class="hidden sm:inline">
+        50代以上の男性の共通点
+      </h2>
+      <p class="text-gray-500 text-center mb-12 max-w-xl mx-auto">
+        特別なルックスも若さも不要。彼らがやっていることは、実はシンプルです。
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+
+      <div class="flex gap-5 bg-white rounded-2xl p-6 shadow card-hover" data-aos="fade-up" data-aos-delay="0">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">✅</div>
+        <div>
+          <h3 class="font-black text-navy mb-2">プロフィールに「余裕」を漂わせている</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">「仕事は充実しています」「週末は趣味を楽しんでいます」——自分の生活が満足していることを伝えるだけで、女性は「この人に余裕がある」と感じます。媚びない、焦らない。それだけで差がつきます。</p>
+        </div>
+      </div>
+
+      <div class="flex gap-5 bg-white rounded-2xl p-6 shadow card-hover" data-aos="fade-up" data-aos-delay="100">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">✅</div>
+        <div>
+          <h3 class="font-black text-navy mb-2">最初のメッセージで「相手を見ている」ことを伝える</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">「プロフィール読みました、〇〇が好きなんですね」の一言で返信率が3倍変わります。テンプレ感のない、個人に向けたひと言が「この人は私を見てくれている」という感覚を生みます。</p>
+        </div>
+      </div>
+
+      <div class="flex gap-5 bg-white rounded-2xl p-6 shadow card-hover" data-aos="fade-up" data-aos-delay="200">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">✅</div>
+        <div>
+          <h3 class="font-black text-navy mb-2">「いいね」を毎日コツコツ送り続ける</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">モテる50代は一気に大量に送らず、毎日5〜10件を丁寧に送り続けます。継続が信頼を生む。マッチングは「量×質×継続」。</p>
+        </div>
+      </div>
+
+      <div class="flex gap-5 bg-white rounded-2xl p-6 shadow card-hover" data-aos="fade-up" data-aos-delay="300">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">✅</div>
+        <div>
+          <h3 class="font-black text-navy mb-2">清潔感・身だしなみを徹底している</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">髪型・爪・服装・香りに気を使っている。年齢を言い訳にせず「自分を整えている」男性は、女性から圧倒的に評価が高い。第一印象で9割が決まります。</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CTA -->
+    <div class="text-center" data-aos="fade-up">
+      <p class="text-gray-600 text-base mb-5 font-bold">これらはすべて、今日から始められます。</p>
+      <a href="https://lin.ee/PLACEHOLDER" class="btn-line inline-flex" style="font-size:1.05rem; padding:18px 36px;">
+        <i class="fab fa-line text-xl"></i>LINEで登録して今日から始める
+      </a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     STATS
+=========================== -->
+<section class="bg-stats-gradient py-20 px-4">
+  <div class="max-w-5xl mx-auto">
+    <div data-aos="fade-up">
+      <div class="section-divider" style="background: linear-gradient(135deg,#fff,rgba(255,255,255,0.5));"></div>
+      <h2 class="text-2xl sm:text-3xl font-black text-white text-center mb-10">
+        数字が証明する<br class="hidden sm:inline">JoyRideの実力
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
+      <div class="glass rounded-3xl p-6 text-center card-hover" data-aos="zoom-in" data-aos-delay="0">
+        <div class="counter-num text-white" data-target="12847" data-suffix="名+">0</div>
+        <div class="text-white text-sm font-bold mt-2 opacity-90">累計会員数</div>
+      </div>
+      <div class="glass rounded-3xl p-6 text-center card-hover" data-aos="zoom-in" data-aos-delay="100">
+        <div class="counter-num text-white" data-target="78" data-suffix="%">0</div>
+        <div class="text-white text-sm font-bold mt-2 opacity-90">マッチング成立率</div>
+      </div>
+      <div class="glass rounded-3xl p-6 text-center card-hover" data-aos="zoom-in" data-aos-delay="200">
+        <div class="counter-num text-white" data-target="4200" data-suffix="名+">0</div>
+        <div class="text-white text-sm font-bold mt-2 opacity-90">30代女性会員</div>
+      </div>
+      <div class="glass rounded-3xl p-6 text-center card-hover" data-aos="zoom-in" data-aos-delay="300">
+        <div class="counter-num text-white" data-target="94" data-suffix="%">0</div>
+        <div class="text-white text-sm font-bold mt-2 opacity-90">利用者満足度</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     TESTIMONIALS (Swiper)
+=========================== -->
+<section class="bg-solution-gradient py-20 px-4">
+  <div class="max-w-4xl mx-auto">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-primary text-sm font-bold tracking-widest mb-2 uppercase">Voices</p>
+      <h2 class="text-2xl sm:text-3xl font-black text-navy text-center mb-10">
+        実際に<span class="gradient-text">変わった男性の声</span>
+      </h2>
+    </div>
+
+    <div class="swiper testimonial-swiper" data-aos="fade-up">
+      <div class="swiper-wrapper pb-10">
+
+        <div class="swiper-slide">
+          <div class="bg-white rounded-3xl p-7 shadow-lg mx-2">
+            <div class="flex gap-1 text-yellow-400 mb-4">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+            </div>
+            <p class="text-gray-700 leading-relaxed mb-5 text-base">「登録して<strong class="text-primary">1週間で30代の女性からメッセージが来ました</strong>。正直信じられなかった。他のアプリでは全く反応なしだったのに…本当に使って良かったです。」</p>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center font-black text-white text-sm" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">T</div>
+              <div>
+                <div class="font-bold text-navy text-sm">田中さん・58歳</div>
+                <div class="text-gray-400 text-xs">会社員</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="swiper-slide">
+          <div class="bg-white rounded-3xl p-7 shadow-lg mx-2">
+            <div class="flex gap-1 text-yellow-400 mb-4">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+            </div>
+            <p class="text-gray-700 leading-relaxed mb-5 text-base">「他のアプリでは全く相手にされなかった自分でも、<strong class="text-primary">ここでは普通に会話できています</strong>。年齢を武器にできる場所がこんなところにあったとは。」</p>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center font-black text-white text-sm" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">K</div>
+              <div>
+                <div class="font-bold text-navy text-sm">川村さん・54歳</div>
+                <div class="text-gray-400 text-xs">自営業</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="swiper-slide">
+          <div class="bg-white rounded-3xl p-7 shadow-lg mx-2">
+            <div class="flex gap-1 text-yellow-400 mb-4">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+            </div>
+            <p class="text-gray-700 leading-relaxed mb-5 text-base">「最初は半信半疑でしたが、<strong class="text-primary">今では毎週末が楽しくなりました</strong>。仕事だけの人生から、プライベートが充実するように。もっと早く始めれば良かった。」</p>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center font-black text-white text-sm" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">S</div>
+              <div>
+                <div class="font-bold text-navy text-sm">佐藤さん・62歳</div>
+                <div class="text-gray-400 text-xs">会社員</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="swiper-slide">
+          <div class="bg-white rounded-3xl p-7 shadow-lg mx-2">
+            <div class="flex gap-1 text-yellow-400 mb-4">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+            </div>
+            <p class="text-gray-700 leading-relaxed mb-5 text-base">「使い方が簡単で、<strong class="text-primary">スマホが苦手な自分でも迷わなかった</strong>。LINEで登録するだけで始められて、本当に出会えました。信じられない体験をしました。」</p>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center font-black text-white text-sm" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">M</div>
+              <div>
+                <div class="font-bold text-navy text-sm">松本さん・56歳</div>
+                <div class="text-gray-400 text-xs">公務員</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="swiper-pagination"></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     HOW IT WORKS
+=========================== -->
+<section class="bg-navy py-20 px-4 relative overflow-hidden">
+  <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+  <div class="max-w-4xl mx-auto relative z-10">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-orange-400 text-sm font-bold tracking-widest mb-2 uppercase">3 Steps</p>
+      <h2 class="text-2xl sm:text-3xl font-black text-white text-center mb-10">
+        登録〜出会いまで<span class="gradient-text">たったの3ステップ</span>
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="relative" data-aos="fade-up" data-aos-delay="0">
+        <div class="glass-dark rounded-3xl p-7 card-hover text-center">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-black text-white mx-auto mb-4" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">1</div>
+          <h3 class="text-white font-black text-lg mb-3">LINEで無料登録</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">LINEボタンを押すだけ。年齢・地域など簡単なプロフィールを3分で入力するだけでOK。顔出しは後でも大丈夫。</p>
+        </div>
+        <div class="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 text-primary text-2xl z-10">
+          <i class="fas fa-chevron-right"></i>
+        </div>
+      </div>
+      <div class="relative" data-aos="fade-up" data-aos-delay="150">
+        <div class="glass-dark rounded-3xl p-7 card-hover text-center">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-black text-white mx-auto mb-4" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">2</div>
+          <h3 class="text-white font-black text-lg mb-3">気になる女性に「いいね」</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">30代女性を中心に、条件に合う相手をおすすめ表示。年齢・地域・雰囲気で絞り込んで気軽に「いいね」するだけ。</p>
+        </div>
+        <div class="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 text-primary text-2xl z-10">
+          <i class="fas fa-chevron-right"></i>
+        </div>
+      </div>
+      <div data-aos="fade-up" data-aos-delay="300">
+        <div class="glass-dark rounded-3xl p-7 card-hover text-center">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-black text-white mx-auto mb-4" style="background:linear-gradient(135deg,#FF6B35,#FFD700);">3</div>
+          <h3 class="text-white font-black text-lg mb-3">マッチングしてメッセージ</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">マッチしたら最初の一通はテンプレ参考にOK。自然と会話が転がり、デートへの流れが生まれます。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-10" data-aos="fade-up">
+      <a href="https://lin.ee/PLACEHOLDER" class="btn-line" style="font-size:1.1rem; padding:20px 44px;">
+        <i class="fab fa-line text-2xl"></i>
+        今すぐLINEで無料登録する
+      </a>
+      <p class="text-gray-500 text-xs mt-3">※登録3分・匿名利用OK</p>
+    </div>
+  </div>
+</section>
+
+
+
+
+<!-- ===========================
+     FAQ
+=========================== -->
+<section class="bg-warm-white py-20 px-4">
+  <div class="max-w-2xl mx-auto">
+    <div data-aos="fade-up">
+      <div class="section-divider"></div>
+      <p class="text-center text-primary text-sm font-bold tracking-widest mb-2 uppercase">FAQ</p>
+      <h2 class="text-2xl sm:text-3xl font-black text-navy text-center mb-10">
+        よくあるご質問
+      </h2>
+    </div>
+
+    <div class="space-y-3">
+      <div class="faq-item bg-white rounded-2xl overflow-hidden shadow-sm card-hover" data-aos="fade-up" data-aos-delay="0">
+        <button class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left font-bold text-navy">
+          <span>50代でも本当に出会えますか？</span>
+          <i class="fas fa-chevron-down faq-icon text-primary"></i>
+        </button>
+        <div class="faq-answer px-6">
+          <p class="text-gray-600 text-sm leading-relaxed pb-5">はい。JoyRideは「年上男性を求める欲求不満女性」が多く登録しています。若いイケメンより、経験値や包容力を求める女性が中心。年齢がそのまま武器になります。</p>
+        </div>
+      </div>
+      <div class="faq-item bg-white rounded-2xl overflow-hidden shadow-sm card-hover" data-aos="fade-up" data-aos-delay="100">
+        <button class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left font-bold text-navy">
+          <span>周りにバレませんか？プライバシーは？</span>
+          <i class="fas fa-chevron-down faq-icon text-primary"></i>
+        </button>
+        <div class="faq-answer px-6">
+          <p class="text-gray-600 text-sm leading-relaxed pb-5">実名不要・顔写真の公開範囲を自分で設定できます。職場の人や家族に知られることなく、安心してご利用いただけます。</p>
+        </div>
+      </div>
+      <div class="faq-item bg-white rounded-2xl overflow-hidden shadow-sm card-hover" data-aos="fade-up" data-aos-delay="200">
+        <button class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left font-bold text-navy">
+          <span>スマホ操作が苦手でも使えますか？</span>
+          <i class="fas fa-chevron-down faq-icon text-primary"></i>
+        </button>
+        <div class="faq-answer px-6">
+          <p class="text-gray-600 text-sm leading-relaxed pb-5">もちろんです。登録はLINEボタンを押すだけの3分で完了。難しい設定は一切ありません。スマホに慣れていない方でも迷わず使えます。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     FINAL CTA
+=========================== -->
+<section id="final-cta" class="bg-cta-gradient py-24 px-4 relative overflow-hidden">
+  <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 24px 24px;"></div>
+  <div class="absolute w-96 h-96 rounded-full opacity-10" style="background:radial-gradient(circle,#FFD700,transparent); top:-100px; right:-100px; pointer-events:none;"></div>
+
+  <div class="max-w-2xl mx-auto text-center relative z-10">
+    <div data-aos="zoom-in">
+      <div class="inline-flex items-center gap-2 glass rounded-full px-5 py-2 mb-6 text-white text-sm font-bold">
+        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse inline-block"></span>
+        今この瞬間も、モテる50代だけが登録中
+      </div>
+      <h2 class="text-2xl sm:text-4xl lg:text-5xl font-black text-white leading-tight mb-5">
+        モテているおじさん達は、<br class="hidden sm:inline">
+        <span style="background:linear-gradient(135deg,#FFD700,#fff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">もうとっくに動いています。</span>
+      </h2>
+      <p class="text-gray-300 text-lg mb-8 leading-relaxed">
+        「あの時始めておけば…」と後悔する前に、<br class="hidden sm:inline">
+        今日の3分だけ、使ってみてください。
+      </p>
+
+      <a href="https://lin.ee/PLACEHOLDER" class="btn-line mb-4 inline-flex max-w-full" style="font-size:1.1rem; padding:22px 32px; box-shadow: 0 8px 32px rgba(6,199,85,0.6);">
+        <i class="fab fa-line text-3xl"></i>
+        今すぐLINEで無料登録する
+      </a>
+      <p class="text-gray-400 text-sm">※登録3分・匿名利用OK・いつでも退会可能</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===========================
+     FOOTER
+=========================== -->
+<footer class="bg-navy py-8 px-4 text-center">
+  <div class="gradient-text text-xl font-black tracking-widest" style="background:linear-gradient(135deg,#FF6B35,#FFD700); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">
+    JoyRide
+  </div>
+</footer>
+
+
+<!-- ===========================
+     SCRIPTS
+=========================== -->
+<!-- GSAP -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+<!-- AOS -->
+<script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+
+<!-- Swiper JS -->
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+
+<script>
+  // ===== AOS Init =====
+  AOS.init({
+    duration: 700,
+    easing: 'ease-out-cubic',
+    once: true,
+    offset: 60,
+  });
+
+  // ===== Sticky Header =====
+  const header = document.getElementById('main-header');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 80) {
+      header.classList.add('scrolled');
+    } else {
+      header.classList.remove('scrolled');
+    }
+  });
+
+  // ===== GSAP Hero Animations =====
+  gsap.registerPlugin(ScrollTrigger);
+
+  const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+  tl.from('#hero-copy .inline-flex', { opacity: 0, y: -20, duration: 0.6 })
+    .from('#hero-h1', { opacity: 0, y: 40, duration: 0.7 }, '-=0.3')
+    .from('#hero-sub', { opacity: 0, y: 30, duration: 0.6 }, '-=0.4')
+    .from('#hero-desc', { opacity: 0, y: 20, duration: 0.5 }, '-=0.3')
+    .from('#hero-cta', { opacity: 0, y: 20, scale: 0.95, duration: 0.5 }, '-=0.2')
+    .from('#hero-img', { opacity: 0, x: 40, duration: 0.8 }, '-=0.6');
+
+  // ===== Counter Animation =====
+  const counters = document.querySelectorAll('[data-target]');
+  const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !entry.target.dataset.animated) {
+        entry.target.dataset.animated = true;
+        const target = parseInt(entry.target.dataset.target);
+        const suffix = entry.target.dataset.suffix || '';
+        const duration = 2000;
+        const start = performance.now();
+
+        const update = (now) => {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const current = Math.floor(eased * target);
+          entry.target.textContent = current.toLocaleString('ja-JP') + suffix;
+          if (progress < 1) requestAnimationFrame(update);
+        };
+        requestAnimationFrame(update);
+      }
+    });
+  }, { threshold: 0.5 });
+
+  counters.forEach(c => counterObserver.observe(c));
+
+  // ===== Swiper Testimonials =====
+  new Swiper('.testimonial-swiper', {
+    loop: true,
+    autoplay: { delay: 4000, disableOnInteraction: false },
+    slidesPerView: 1,
+    spaceBetween: 20,
+    breakpoints: {
+      640: { slidesPerView: 1 },
+      768: { slidesPerView: 2 },
+    },
+    pagination: {
+      el: '.swiper-pagination',
+      clickable: true,
+    },
+    speed: 600,
+  });
+
+  // ===== FAQ Accordion =====
+  document.querySelectorAll('.faq-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const answer = btn.nextElementSibling;
+      const icon = btn.querySelector('.faq-icon');
+      const isOpen = answer.classList.contains('open');
+
+      // Close all
+      document.querySelectorAll('.faq-answer').forEach(a => a.classList.remove('open'));
+      document.querySelectorAll('.faq-icon').forEach(i => i.classList.remove('open'));
+
+      // Toggle clicked
+      if (!isOpen) {
+        answer.classList.add('open');
+        icon.classList.add('open');
+      }
+    });
+  });
+
+  // ===== Image fallback =====
+  document.querySelectorAll('img').forEach(img => {
+    img.addEventListener('error', function() {
+      this.style.display = 'none';
+      const placeholder = this.nextElementSibling;
+      if (placeholder && placeholder.classList.contains('img-placeholder')) {
+        placeholder.style.display = 'flex';
+      }
+    });
+  });
+
+  // ===== GSAP ScrollTrigger for sections =====
+  gsap.utils.toArray('section').forEach((section, i) => {
+    gsap.from(section, {
+      scrollTrigger: {
+        trigger: section,
+        start: 'top 85%',
+        toggleActions: 'play none none none',
+      },
+      opacity: 0,
+      y: 30,
+      duration: 0.8,
+      ease: 'power2.out',
+      delay: 0.1,
+    });
+  });
+</script>
+
+</body>
+</html>

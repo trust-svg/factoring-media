@@ -406,6 +406,82 @@ def get_item_details(item_id: str) -> Optional[dict]:
     return resp.json()
 
 
+# ── Browse API ディスカバリー検索 ──────────────────────────
+
+def search_ebay_discover(
+    query: str,
+    limit: int = 50,
+    category_id: str = "",
+    price_min: float = 0,
+    price_max: float = 0,
+    condition_ids: str = "",
+) -> dict:
+    """
+    Browse API で商品を検索し、需要指標（total）付きで返す。
+    filter で価格帯・状態を絞り込み可能。
+    """
+    headers = _browse_headers()
+
+    params = {
+        "q": query,
+        "limit": min(limit, 200),
+        "fieldgroups": "EXTENDED",
+    }
+    if category_id:
+        params["category_ids"] = category_id
+
+    # フィルタ構築
+    filters = []
+    if price_min > 0 or price_max > 0:
+        lo = f"{price_min:.0f}" if price_min > 0 else ""
+        hi = f"{price_max:.0f}" if price_max > 0 else ""
+        filters.append(f"price:[{lo}..{hi}],priceCurrency:USD")
+    if condition_ids:
+        # "1000,3000" → "{1000|3000}"
+        ids = "|".join(condition_ids.split(","))
+        filters.append(f"conditionIds:{{{ids}}}")
+    if filters:
+        params["filter"] = ",".join(filters)
+
+    url = f"{EBAY_API_BASE}/buy/browse/v1/item_summary/search"
+    resp = requests.get(url, headers=headers, params=params, timeout=15)
+    if resp.status_code != 200:
+        logger.warning(f"Browse API discover error: {resp.status_code} {resp.text[:200]}")
+        return {"items": [], "total": 0}
+
+    data = resp.json()
+    total = data.get("total", 0)
+
+    items = []
+    for item in data.get("itemSummaries", []):
+        # soldQuantity 取得（マルチ数量リスティング）
+        qty_sold = 0
+        for avail in (item.get("estimatedAvailabilities") or []):
+            qty_sold += avail.get("soldQuantity", 0)
+
+        items.append({
+            "item_id": item.get("itemId", ""),
+            "title": item.get("title", ""),
+            "price": float(item.get("price", {}).get("value", 0)),
+            "currency": item.get("price", {}).get("currency", "USD"),
+            "condition": item.get("condition", ""),
+            "condition_id": item.get("conditionId", ""),
+            "image_url": item.get("image", {}).get("imageUrl", ""),
+            "item_url": item.get("itemWebUrl", ""),
+            "seller": item.get("seller", {}).get("username", ""),
+            "seller_feedback": item.get("seller", {}).get("feedbackScore", 0),
+            "sold_quantity": qty_sold,
+            "buying_options": item.get("buyingOptions", []),
+            "category_id": (
+                item.get("categories", [{}])[0].get("categoryId", "")
+                if item.get("categories") else ""
+            ),
+            "item_location": item.get("itemLocation", {}).get("country", ""),
+        })
+
+    return {"items": items, "total": total}
+
+
 # ── Finding API (完了リスト — 売れた商品分析) ─────────────
 
 def search_ebay_sold(query: str, limit: int = 50, category_id: str = "") -> list[dict]:
@@ -539,8 +615,28 @@ def get_recent_orders(days: int = 30) -> list[dict]:
                 "price_usd": float(price_str),
             })
 
+        # 追跡番号（ShipmentTrackingDetails から取得）
+        tracking_details = order_el.findall(
+            ".//e:ShippingDetails/e:ShipmentTrackingDetails", namespaces=ns_map
+        )
+        tracking_numbers = []
+        shipping_carrier = ""
+        for td in tracking_details:
+            tn = td.findtext("e:ShipmentTrackingNumber", "", namespaces=ns_map)
+            carrier = td.findtext("e:ShippingCarrierUsed", "", namespaces=ns_map)
+            if tn:
+                tracking_numbers.append(tn)
+            if carrier and not shipping_carrier:
+                shipping_carrier = carrier
+
         # バイヤー情報
         buyer_id = order_el.findtext(".//e:BuyerUserID", "", namespaces=ns_map)
+        buyer_name = order_el.findtext(
+            ".//e:ShippingAddress/e:Name", "", namespaces=ns_map
+        )
+        buyer_country = order_el.findtext(
+            ".//e:ShippingAddress/e:CountryName", "", namespaces=ns_map
+        )
         shipping_cost = order_el.findtext(
             ".//e:ShippingServiceSelected/e:ShippingServiceCost", "0", namespaces=ns_map
         )
@@ -550,12 +646,161 @@ def get_recent_orders(days: int = 30) -> list[dict]:
             "total_usd": float(total_str),
             "created_time": created,
             "buyer_id": buyer_id,
+            "buyer_name": buyer_name,
+            "buyer_country": buyer_country,
             "shipping_cost_usd": float(shipping_cost),
+            "tracking_number": tracking_numbers[0] if tracking_numbers else "",
+            "shipping_carrier": shipping_carrier,
             "items": items,
         })
 
     logger.info(f"GetOrders: {len(orders)}件の注文を取得")
     return orders
+
+
+def get_all_orders(from_date: str = "", to_date: str = "") -> list[dict]:
+    """Fulfillment API で全注文を取得（90日制限なし、最大3年）。
+
+    Args:
+        from_date: 開始日 "YYYY-MM-DD"（空の場合は1年前）
+        to_date: 終了日 "YYYY-MM-DD"（空の場合は今日）
+
+    Returns:
+        get_recent_orders と同じ形式の注文リスト
+    """
+    token = get_access_token()
+
+    if not from_date:
+        from_date = (datetime.utcnow() - timedelta(days=365)).strftime("%Y-%m-%d")
+    if not to_date:
+        to_date = datetime.utcnow().strftime("%Y-%m-%d")
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+    all_orders = []
+    offset = 0
+    limit = 50
+
+    # from_dateをdatetimeに変換（フィルタリング用）
+    from_dt = None
+    if from_date:
+        try:
+            from_dt = datetime.strptime(from_date, "%Y-%m-%d")
+        except ValueError:
+            pass
+
+    while True:
+        # 日付フィルタはeBay側の時刻検証問題を回避するため使用しない
+        filter_str = "orderfulfillmentstatus:{FULFILLED|IN_PROGRESS}"
+        url = (
+            f"{EBAY_API_BASE}/sell/fulfillment/v1/order"
+            f"?filter={filter_str}"
+            f"&limit={limit}&offset={offset}"
+        )
+
+        resp = requests.get(url, headers=headers, timeout=60)
+        if resp.status_code != 200:
+            logger.error(f"Fulfillment API error: {resp.status_code} {resp.text[:200]}")
+            break
+
+        data = resp.json()
+        api_orders = data.get("orders", [])
+        if not api_orders:
+            break
+
+        for o in api_orders:
+            order_id = o.get("orderId", "")
+            created = o.get("creationDate", "")
+
+            # from_dateフィルタ（クライアント側）
+            if from_dt and created:
+                try:
+                    order_dt = datetime.strptime(created[:19], "%Y-%m-%dT%H:%M:%S")
+                    if order_dt < from_dt:
+                        continue
+                except ValueError:
+                    pass
+
+            # バイヤー情報
+            buyer_info = o.get("buyer", {})
+            buyer_id = buyer_info.get("username", "")
+            ship_to = o.get("fulfillmentStartInstructions", [{}])[0].get("shippingStep", {}).get("shipTo", {})
+            buyer_name = ship_to.get("fullName", "")
+            buyer_country = ship_to.get("contactAddress", {}).get("countryCode", "")
+
+            # 追跡番号 — fulfillmentHrefs のURL末尾に含まれる
+            tracking_number = ""
+            shipping_carrier = ""
+            for href in o.get("fulfillmentHrefs", []):
+                # URL: .../shipping_fulfillment/EM1013088671094FE...
+                parts = href.rstrip("/").split("/")
+                if parts:
+                    tn_candidate = parts[-1]
+                    if len(tn_candidate) > 8:  # 追跡番号は十分長い
+                        tracking_number = tn_candidate
+                        break
+
+            # shipping carrier from shippingStep
+            for fh in o.get("fulfillmentStartInstructions", []):
+                sc = fh.get("shippingStep", {}).get("shippingServiceCode", "")
+                if sc:
+                    shipping_carrier = sc
+                    break
+
+            # アイテム
+            items = []
+            for li in o.get("lineItems", []):
+                item_id = li.get("legacyItemId", "")
+                sku = li.get("sku", "") or item_id
+                title = li.get("title", "")
+                qty = li.get("quantity", 1)
+                price_val = float(li.get("lineItemCost", {}).get("value", "0"))
+
+                items.append({
+                    "item_id": item_id,
+                    "sku": sku,
+                    "title": title,
+                    "quantity": qty,
+                    "price_usd": price_val,
+                })
+
+            total_val = float(o.get("pricingSummary", {}).get("total", {}).get("value", "0"))
+            shipping_cost_val = float(
+                o.get("pricingSummary", {}).get("deliveryCost", {}).get("value", "0")
+            )
+            # eBay手数料差引後の実受取額
+            total_due_seller = float(
+                o.get("paymentSummary", {}).get("totalDueSeller", {}).get("value", "0")
+            )
+            # eBay手数料 = 売上 - 実受取額
+            ebay_fees_actual = round(total_val - total_due_seller, 2) if total_due_seller else 0
+
+            all_orders.append({
+                "order_id": order_id,
+                "total_usd": total_val,
+                "created_time": created,
+                "buyer_id": buyer_id,
+                "buyer_name": buyer_name,
+                "buyer_country": buyer_country,
+                "shipping_cost_usd": shipping_cost_val,
+                "tracking_number": tracking_number,
+                "shipping_carrier": shipping_carrier,
+                "ebay_fees_usd": ebay_fees_actual,
+                "items": items,
+            })
+
+        total_count = data.get("total", 0)
+        offset += limit
+        logger.info(f"Fulfillment API: {len(all_orders)}/{total_count} 件取得済み")
+
+        if offset >= total_count:
+            break
+
+    logger.info(f"Fulfillment API: 合計 {len(all_orders)} 件の注文を取得")
+    return all_orders
 
 
 # ── バイヤーメッセージ (Trading API GetMyMessages) ────────
@@ -628,6 +873,198 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
 
     logger.info(f"GetMyMessages: {len(messages)}件のメッセージを取得")
     return messages
+
+
+# ── カテゴリ Item Specifics 取得 (Taxonomy API) ──────────
+
+def get_category_aspects(category_id: str) -> dict:
+    """
+    Taxonomy API でカテゴリの必須/推奨 Item Specifics を取得する。
+    Returns: {"required": [...], "recommended": [...]}
+    """
+    headers = _auth_headers()
+    # Taxonomy API — カテゴリツリー ID 0 = eBay US
+    url = (
+        f"{EBAY_API_BASE}/commerce/taxonomy/v1/category_tree/0"
+        f"/get_item_aspects_for_category?category_id={category_id}"
+    )
+    resp = requests.get(url, headers=headers, timeout=15)
+    if resp.status_code != 200:
+        logger.warning(f"Taxonomy API エラー: {resp.status_code} {resp.text[:300]}")
+        return {"required": [], "recommended": [], "error": f"HTTP {resp.status_code}"}
+
+    data = resp.json()
+    required = []
+    recommended = []
+
+    for aspect in data.get("aspects", []):
+        name = aspect.get("localizedAspectName", "")
+        constraint = aspect.get("aspectConstraint", {})
+        mode = constraint.get("aspectUsage", "RECOMMENDED")
+        values = [
+            v.get("localizedValue", "")
+            for v in aspect.get("aspectValues", [])[:20]
+        ]
+        entry = {"name": name, "values": values, "data_type": constraint.get("aspectDataType", "STRING")}
+
+        if mode == "REQUIRED":
+            required.append(entry)
+        else:
+            recommended.append(entry)
+
+    logger.info(f"カテゴリ {category_id} Aspects: 必須{len(required)}件, 推奨{len(recommended)}件")
+    return {"category_id": category_id, "required": required, "recommended": recommended}
+
+
+# ── 新規出品 (Inventory API) ─────────────────────────────
+
+def create_inventory_item(sku: str, product: dict, condition: str = "USED_EXCELLENT", quantity: int = 1) -> dict:
+    """
+    Sell Inventory API で新規 Inventory Item を作成する。
+
+    product keys:
+      title, description, aspects (dict), imageUrls (list[str])
+    condition: NEW, LIKE_NEW, USED_EXCELLENT, USED_VERY_GOOD, USED_GOOD, USED_ACCEPTABLE, FOR_PARTS_OR_NOT_WORKING
+    """
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/inventory/v1/inventory_item/{quote(sku, safe='')}"
+
+    body = {
+        "condition": condition,
+        "availability": {
+            "shipToLocationAvailability": {
+                "quantity": quantity,
+            }
+        },
+        "product": {
+            "title": product.get("title", ""),
+            "description": product.get("description", ""),
+            "aspects": product.get("aspects", {}),
+            "imageUrls": product.get("imageUrls", []),
+        },
+    }
+
+    resp = requests.put(url, headers=headers, json=body, timeout=15)
+    if resp.status_code in (200, 204):
+        logger.info(f"Inventory Item 作成成功: {sku}")
+        return {"success": True, "sku": sku}
+    else:
+        error = resp.text[:500]
+        logger.error(f"Inventory Item 作成失敗: {resp.status_code} {error}")
+        return {"success": False, "error": error, "status_code": resp.status_code}
+
+
+def create_offer(
+    sku: str,
+    category_id: str,
+    price_usd: float,
+    condition: str = "USED_EXCELLENT",
+    fulfillment_policy_id: str = "",
+    payment_policy_id: str = "",
+    return_policy_id: str = "",
+    marketplace: str = "EBAY_US",
+    listing_description: str = "",
+) -> dict:
+    """
+    Sell Inventory API で Offer を作成する（下書き状態）。
+    Offer を publish するまで eBay には公開されない。
+    """
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/inventory/v1/offer"
+
+    body = {
+        "sku": sku,
+        "marketplaceId": marketplace,
+        "format": "FIXED_PRICE",
+        "categoryId": category_id,
+        "pricingSummary": {
+            "price": {
+                "value": str(round(price_usd, 2)),
+                "currency": "USD",
+            }
+        },
+        "listingPolicies": {},
+    }
+
+    # ビジネスポリシーが設定されていれば適用
+    if fulfillment_policy_id:
+        body["listingPolicies"]["fulfillmentPolicyId"] = fulfillment_policy_id
+    if payment_policy_id:
+        body["listingPolicies"]["paymentPolicyId"] = payment_policy_id
+    if return_policy_id:
+        body["listingPolicies"]["returnPolicyId"] = return_policy_id
+
+    if listing_description:
+        body["listingDescription"] = listing_description
+
+    resp = requests.post(url, headers=headers, json=body, timeout=15)
+    if resp.status_code in (200, 201):
+        data = resp.json()
+        offer_id = data.get("offerId", "")
+        logger.info(f"Offer 作成成功: {sku} → Offer ID {offer_id}")
+        return {"success": True, "sku": sku, "offer_id": offer_id}
+    else:
+        error = resp.text[:500]
+        logger.error(f"Offer 作成失敗: {resp.status_code} {error}")
+        return {"success": False, "error": error, "status_code": resp.status_code}
+
+
+def publish_offer(offer_id: str) -> dict:
+    """
+    Offer を eBay に公開する。公開されるとアクティブ出品になる。
+    """
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/inventory/v1/offer/{offer_id}/publish"
+
+    resp = requests.post(url, headers=headers, timeout=15)
+    if resp.status_code in (200, 201):
+        data = resp.json()
+        listing_id = data.get("listingId", "")
+        logger.info(f"Offer 公開成功: {offer_id} → Listing ID {listing_id}")
+        return {"success": True, "offer_id": offer_id, "listing_id": listing_id}
+    else:
+        error = resp.text[:500]
+        logger.error(f"Offer 公開失敗: {resp.status_code} {error}")
+        return {"success": False, "error": error, "status_code": resp.status_code}
+
+
+def get_fulfillment_policies() -> list[dict]:
+    """Account API でフルフィルメントポリシー一覧を取得"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_US"
+    resp = requests.get(url, headers=headers, timeout=15)
+    if resp.status_code != 200:
+        return []
+    return [
+        {"id": p.get("fulfillmentPolicyId", ""), "name": p.get("name", "")}
+        for p in resp.json().get("fulfillmentPolicies", [])
+    ]
+
+
+def get_return_policies() -> list[dict]:
+    """Account API でリターンポリシー一覧を取得"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/account/v1/return_policy?marketplace_id=EBAY_US"
+    resp = requests.get(url, headers=headers, timeout=15)
+    if resp.status_code != 200:
+        return []
+    return [
+        {"id": p.get("returnPolicyId", ""), "name": p.get("name", "")}
+        for p in resp.json().get("returnPolicies", [])
+    ]
+
+
+def get_payment_policies() -> list[dict]:
+    """Account API でペイメントポリシー一覧を取得"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/account/v1/payment_policy?marketplace_id=EBAY_US"
+    resp = requests.get(url, headers=headers, timeout=15)
+    if resp.status_code != 200:
+        return []
+    return [
+        {"id": p.get("paymentPolicyId", ""), "name": p.get("name", "")}
+        for p in resp.json().get("paymentPolicies", [])
+    ]
 
 
 # ── 出品更新 ──────────────────────────────────────────────

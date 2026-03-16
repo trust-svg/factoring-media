@@ -46,6 +46,7 @@ EBAY_PAGE_SIZE = 200
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
 LOGS_DIR = BASE_DIR / "logs"
+SCREENSHOT_DIR = Path(os.getenv("SCREENSHOT_DIR", str(BASE_DIR / "screenshots")))
 
 # ── Notifications ─────────────────────────────────────────
 LINE_CHANNEL_TOKEN = os.getenv("LINE_CHANNEL_TOKEN", "")
@@ -77,7 +78,16 @@ WORKING_KEYWORDS = [
 REQUEST_DELAY_SEC = 2.0
 MAX_RESULTS_PER_PLATFORM = 10
 
+# ── Deal Watcher ──────────────────────────────────────────
+DEAL_WATCHER_DB = os.getenv(
+    "DEAL_WATCHER_DB",
+    str(Path.home() / "Services" / "deal-watcher" / "deal_watcher.db"),
+)
+ESHIP_EMAIL = os.getenv("ESHIP_EMAIL", "")
+ESHIP_PASSWORD = os.getenv("ESHIP_PASSWORD", "")
+
 # ── Pricing ───────────────────────────────────────────────
 EBAY_FEE_RATE = 0.129  # eBay final value fee (12.9%)
+PAYONEER_FEE_RATE = 0.02  # Payoneer為替手数料 (2%)
 PRICE_CHECK_INTERVAL_HOURS = 6
 COMPETITOR_CACHE_TTL_HOURS = int(os.getenv("COMPETITOR_CACHE_TTL_HOURS", "24"))

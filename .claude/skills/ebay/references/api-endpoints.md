@@ -77,7 +77,7 @@ Response: `{"response": "結果", "tool_calls": [...], "iterations": N}`
 
 ---
 
-## ツール一覧 (26個)
+## ツール一覧 (32個)
 
 AIエージェント経由で呼び出し可能なツール:
 
@@ -91,6 +91,11 @@ AIエージェント経由で呼び出し可能なツール:
 - `optimize_listing` — リスティング最適化提案
 - `update_listing` — eBay出品更新 ⚠️破壊的
 - `search_ebay` — eBay商品検索（市場調査）
+- `get_category_aspects` — カテゴリ必須/推奨Item Specifics取得 (Taxonomy API)
+- `read_listing_sheet` — Google Sheets/CSV読み取り
+- `create_draft_listing` — 新規出品 下書き作成 (InventoryItem + Offer)
+- `batch_create_drafts` — スプレッドシートから一括下書き登録
+- `publish_draft_listings` — 下書き一括公開 ⚠️破壊的
 
 ### 価格系
 - `analyze_pricing` — SKU別競合価格分析

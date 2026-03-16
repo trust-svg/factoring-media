@@ -4,188 +4,215 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>eBay Agent Hub</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        header h1 { font-size: 24px; color: #38bdf8; }
-        header .status { color: #4ade80; font-size: 14px; }
-
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 30px; }
-        .stat-card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
-        .stat-card .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-        .stat-card .value { font-size: 32px; font-weight: 700; margin-top: 8px; }
-        .stat-card .value.blue { color: #38bdf8; }
-        .stat-card .value.green { color: #4ade80; }
-        .stat-card .value.red { color: #f87171; }
-        .stat-card .value.yellow { color: #fbbf24; }
-        .stat-card .value.purple { color: #a78bfa; }
-        .stat-card .sub { font-size: 12px; color: #64748b; margin-top: 4px; }
-
-        .section { margin-bottom: 30px; }
-        .section h2 { font-size: 18px; color: #94a3b8; margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
-
-        .chat-container { background: #1e293b; border-radius: 12px; border: 1px solid #334155; overflow: hidden; }
-        .chat-messages { height: 400px; overflow-y: auto; padding: 20px; }
-        .chat-message { margin-bottom: 16px; }
-        .chat-message.user { text-align: right; }
-        .chat-message .bubble { display: inline-block; max-width: 80%; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; text-align: left; }
-        .chat-message.user .bubble { background: #3b82f6; color: white; }
-        .chat-message.agent .bubble { background: #334155; color: #e2e8f0; }
-        .chat-message .meta { font-size: 11px; color: #64748b; margin-top: 4px; }
-        .chat-input { display: flex; border-top: 1px solid #334155; }
-        .chat-input input { flex: 1; background: #0f172a; border: none; color: #e2e8f0; padding: 16px 20px; font-size: 14px; outline: none; }
-        .chat-input button { background: #3b82f6; color: white; border: none; padding: 16px 24px; cursor: pointer; font-weight: 600; }
-        .chat-input button:hover { background: #2563eb; }
-        .chat-input button:disabled { background: #475569; cursor: not-allowed; }
-
-        .listings-table { width: 100%; border-collapse: collapse; }
-        .listings-table th, .listings-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #334155; font-size: 13px; }
-        .listings-table th { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
-        .listings-table tr:hover { background: #1e293b; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-        .badge.stock { background: #064e3b; color: #6ee7b7; }
-        .badge.oos { background: #7f1d1d; color: #fca5a5; }
-
-        .loading { display: none; }
-        .loading.active { display: inline-block; }
-        .spinner { width: 16px; height: 16px; border: 2px solid #475569; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        pre { background: #0f172a; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; color: #94a3b8; margin-top: 8px; }
-
-        .alert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-        .alert-card { background: #1e293b; border-radius: 10px; padding: 16px; border: 1px solid #334155; }
-        .alert-card.raise { border-left: 3px solid #4ade80; }
-        .alert-card.lower { border-left: 3px solid #f87171; }
-        .alert-card .alert-title { font-size: 13px; color: #e2e8f0; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .alert-card .alert-prices { display: flex; gap: 16px; font-size: 12px; color: #94a3b8; }
-        .alert-card .alert-prices .price-item { }
-        .alert-card .alert-prices .price-val { font-size: 16px; font-weight: 600; color: #e2e8f0; }
-        .alert-card .alert-action { margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .alert-card .diff { font-size: 13px; font-weight: 600; }
-        .alert-card .diff.up { color: #4ade80; }
-        .alert-card .diff.down { color: #f87171; }
-        .btn-sm { background: #3b82f6; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        .btn-sm:hover { background: #2563eb; }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>eBay Agent Hub</h1>
-            <span class="status">● システム稼働中</span>
-        </header>
+    <div class="app-layout">
+        {% include "components/nav.html" %}
+        <main class="main-content">
+            <div class="top-header">
+                <div class="breadcrumb">
+                    <a href="/">eBay Agent Hub</a>
+                    <span class="separator">/</span>
+                    <span class="current">Dashboard</span>
+                </div>
+                <div class="top-header-actions">
+                    <div class="header-search">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        </svg>
+                        <input type="text" placeholder="Search or type command...">
+                        <span class="shortcut-badge">⌘K</span>
+                    </div>
+                    <button class="header-btn" title="Notifications">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                        </svg>
+                    </button>
+                    <div class="header-status">
+                        <span class="status-dot"></span>
+                        <span data-en="System Active" data-ja="システム稼働中">System Active</span>
+                    </div>
+                </div>
+            </div>
+            <div class="main-content-inner">
+                <div class="page-header">
+                    <h1>Dashboard</h1>
+                </div>
 
-        <!-- 統計カード -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="label">総出品数</div>
-                <div class="value blue">{{ stats.total_listings }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">在庫あり</div>
-                <div class="value green">{{ stats.in_stock }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">在庫切れ</div>
-                <div class="value red">{{ stats.out_of_stock }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">仕入れ候補</div>
-                <div class="value yellow">{{ stats.source_candidates }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">最適化待ち</div>
-                <div class="value purple">{{ stats.pending_optimizations }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">30日売上</div>
-                <div class="value green">${{ "%.2f"|format(stats.sales_30d.total_revenue_usd) }}</div>
-                <div class="sub">利益: ${{ "%.2f"|format(stats.sales_30d.total_profit_usd) }} ({{ stats.sales_30d.total_sales }}件)</div>
-            </div>
-        </div>
-
-        <!-- AIエージェントチャット -->
-        <div class="section">
-            <h2>AI Agent</h2>
-            <div class="chat-container">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="chat-message agent">
-                        <div class="bubble">
-                            eBay Agent Hub へようこそ。何でもお手伝いします。<br><br>
-                            例：<br>
-                            • 「在庫状況を確認して」<br>
-                            • 「Pioneer CDJ-2000NXS2 の出品を生成して」<br>
-                            • 「SKU xxx の価格を競合分析して」<br>
-                            • 「利益率を計算して（仕入れ¥30,000、販売$350）」<br>
-                            • 「競合価格をチェックして」<br>
-                            • 「SKU xxx の最適価格をAIに提案してもらって」<br>
-                            • 「vintage synthesizer の需要を分析して」<br>
-                            • 「turntable, cassette deck, reel to reel を比較して」<br>
-                            • 「ビンテージオーディオで利益が出る商品を見つけて」<br>
-                            • 「売上データを同期して」<br>
-                            • 「今月の売上分析をして」<br>
-                            • 「バイヤーメッセージを確認して」<br>
-                            • 「未読メッセージの返信ドラフトを作って」
+                <!-- 統計カード (TailAdmin vertical layout) -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="label">総出品数</div>
+                            <div class="value">{{ stats.total_listings }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="label">在庫あり</div>
+                            <div class="value">{{ stats.in_stock }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon red">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="label">在庫切れ</div>
+                            <div class="value">{{ stats.out_of_stock }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon yellow">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="label">仕入れ候補</div>
+                            <div class="value">{{ stats.source_candidates }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="label">最適化待ち</div>
+                            <div class="value">{{ stats.pending_optimizations }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="label">30日売上</div>
+                            <div class="value">${{ "%.2f"|format(stats.sales_30d.total_revenue_usd) }}</div>
+                            <div class="sub">利益: ${{ "%.2f"|format(stats.sales_30d.total_profit_usd) }} ({{ stats.sales_30d.total_sales }}件)</div>
                         </div>
                     </div>
                 </div>
-                <div class="chat-input">
-                    <input type="text" id="chatInput" placeholder="AIエージェントに指示を入力..." onkeypress="if(event.key==='Enter')sendMessage()">
-                    <button id="sendBtn" onclick="sendMessage()">送信</button>
+
+                <!-- AIエージェントチャット -->
+                <div class="section">
+                    <div class="section-header">
+                        <h2>AI Agent</h2>
+                    </div>
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chatMessages" style="height: 400px;">
+                            <div class="chat-message agent">
+                                <div class="bubble">
+                                    eBay Agent Hub へようこそ。何でもお手伝いします。<br><br>
+                                    例：<br>
+                                    &#8226; 「在庫状況を確認して」<br>
+                                    &#8226; 「Pioneer CDJ-2000NXS2 の出品を生成して」<br>
+                                    &#8226; 「SKU xxx の価格を競合分析して」<br>
+                                    &#8226; 「利益率を計算して（仕入れ&#165;30,000、販売$350）」<br>
+                                    &#8226; 「競合価格をチェックして」<br>
+                                    &#8226; 「SKU xxx の最適価格をAIに提案してもらって」<br>
+                                    &#8226; 「vintage synthesizer の需要を分析して」<br>
+                                    &#8226; 「turntable, cassette deck, reel to reel を比較して」<br>
+                                    &#8226; 「ビンテージオーディオで利益が出る商品を見つけて」<br>
+                                    &#8226; 「売上データを同期して」<br>
+                                    &#8226; 「今月の売上分析をして」<br>
+                                    &#8226; 「バイヤーメッセージを確認して」<br>
+                                    &#8226; 「未読メッセージの返信ドラフトを作って」
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chat-input">
+                            <input type="text" id="chatInput" placeholder="AIエージェントに指示を入力..." onkeypress="if(event.key==='Enter')sendMessage()">
+                            <button id="sendBtn" onclick="sendMessage()">送信</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 価格アラート -->
+                <div class="section" id="priceAlerts">
+                    <div class="section-header">
+                        <h2>価格アラート</h2>
+                        <button class="btn btn-ghost btn-sm" onclick="loadPriceAlerts()">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                            </svg>
+                            更新
+                        </button>
+                    </div>
+                    <div id="alertsContent" style="color:var(--text-muted);padding:10px;">読み込み中...</div>
+                </div>
+
+                <!-- 出品一覧 -->
+                <div class="section">
+                    <div class="section-header">
+                        <h2>出品一覧 ({{ listings|length }}件)</h2>
+                    </div>
+                    {% if listings %}
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>タイトル</th>
+                                    <th>価格</th>
+                                    <th>在庫</th>
+                                    <th>SEO</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for listing in listings %}
+                                <tr>
+                                    <td style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-secondary);">{{ listing.sku[:20] }}</td>
+                                    <td>{{ listing.title[:60] }}{% if listing.title|length > 60 %}...{% endif %}</td>
+                                    <td style="font-weight: 600;">${{ "%.2f"|format(listing.price_usd) }}</td>
+                                    <td>
+                                        {% if listing.quantity > 0 %}
+                                        <span class="badge stock">{{ listing.quantity }}</span>
+                                        {% else %}
+                                        <span class="badge oos">在庫切れ</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ listing.seo_score }}/100</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                        </svg>
+                        <p>まだ出品データがありません。</p>
+                        <p style="margin-top: 4px; font-size: 13px;">「在庫状況を確認して」とAIに指示して同期してください。</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
-        </div>
-
-        <!-- 価格アラート -->
-        <div class="section" id="priceAlerts">
-            <h2>価格アラート <button onclick="loadPriceAlerts()" style="background:#334155;border:1px solid #475569;color:#94a3b8;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:12px;">更新</button></h2>
-            <div id="alertsContent" style="color:#64748b;padding:10px;">読み込み中...</div>
-        </div>
-
-        <!-- 出品一覧 -->
-        <div class="section">
-            <h2>出品一覧 ({{ listings|length }}件)</h2>
-            {% if listings %}
-            <div style="overflow-x: auto;">
-                <table class="listings-table">
-                    <thead>
-                        <tr>
-                            <th>SKU</th>
-                            <th>タイトル</th>
-                            <th>価格</th>
-                            <th>在庫</th>
-                            <th>SEO</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for listing in listings %}
-                        <tr>
-                            <td style="font-family: monospace; font-size: 11px;">{{ listing.sku[:20] }}</td>
-                            <td>{{ listing.title[:60] }}{% if listing.title|length > 60 %}...{% endif %}</td>
-                            <td>${{ "%.2f"|format(listing.price_usd) }}</td>
-                            <td>
-                                {% if listing.quantity > 0 %}
-                                <span class="badge stock">{{ listing.quantity }}</span>
-                                {% else %}
-                                <span class="badge oos">在庫切れ</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ listing.seo_score }}/100</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <p style="color: #64748b; padding: 20px;">まだ出品データがありません。「在庫状況を確認して」とAIに指示して同期してください。</p>
-            {% endif %}
-        </div>
+        </main>
     </div>
 
+    <script src="/static/js/app.js"></script>
     <script>
         async function sendMessage() {
             const input = document.getElementById('chatInput');
@@ -217,7 +244,7 @@
 
                 if (!resp.ok) {
                     const errData = await resp.json().catch(() => ({detail: `HTTP ${resp.status}`}));
-                    messages.innerHTML += `<div class="chat-message agent"><div class="bubble" style="border:1px solid #f87171;">⚠️ ${escapeHtml(errData.detail || 'サーバーエラーが発生しました')}</div></div>`;
+                    messages.innerHTML += `<div class="chat-message agent"><div class="bubble" style="border:1px solid var(--danger);">${escapeHtml(errData.detail || 'サーバーエラーが発生しました')}</div></div>`;
                     btn.disabled = false;
                     btn.textContent = '送信';
                     messages.scrollTop = messages.scrollHeight;
@@ -231,13 +258,13 @@
 
                 // ツール呼び出しログ
                 if (data.tool_calls && data.tool_calls.length > 0) {
-                    responseHtml += `<div class="meta" style="margin-top:8px;">🔧 ${data.tool_calls.length}個のツールを使用 (${data.iterations}回のループ)</div>`;
+                    responseHtml += `<div class="meta" style="margin-top:8px;">${data.tool_calls.length} tools used (${data.iterations} iterations)</div>`;
                 }
 
                 messages.innerHTML += `<div class="chat-message agent"><div class="bubble">${responseHtml}</div></div>`;
             } catch (err) {
                 document.getElementById(loadingId)?.remove();
-                messages.innerHTML += `<div class="chat-message agent"><div class="bubble" style="border:1px solid #f87171;">エラー: ${escapeHtml(err.message)}</div></div>`;
+                messages.innerHTML += `<div class="chat-message agent"><div class="bubble" style="border:1px solid var(--danger);">Error: ${escapeHtml(err.message)}</div></div>`;
             }
 
             btn.disabled = false;
@@ -259,7 +286,7 @@
                 if (!resp.ok) { container.innerHTML = '<p>アラート取得失敗</p>'; return; }
                 const alerts = await resp.json();
                 if (!alerts.length) {
-                    container.innerHTML = '<p style="color:#64748b;">価格アラートはありません。AIチャットで「競合価格をチェックして」と入力してデータを取得してください。</p>';
+                    container.innerHTML = '<div class="empty-state"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" /></svg><p>価格アラートはありません。</p><p style="margin-top:4px;font-size:13px;">AIチャットで「競合価格をチェックして」と入力してデータを取得してください。</p></div>';
                     return;
                 }
                 let html = '<div class="alert-grid">';
@@ -275,14 +302,14 @@
                         </div>
                         <div class="alert-action">
                             <span class="diff ${isHigh ? 'down' : 'up'}">${a.diff_pct > 0 ? '+' : ''}${a.diff_pct}% ${a.action}</span>
-                            <button class="btn-sm" onclick="askPriceAdvice('${a.sku}')">AI提案</button>
+                            <button class="btn btn-sm" onclick="askPriceAdvice('${a.sku}')">AI提案</button>
                         </div>
                     </div>`;
                 }
                 html += '</div>';
                 container.innerHTML = html;
             } catch (e) {
-                container.innerHTML = '<p style="color:#f87171;">エラー: ' + escapeHtml(e.message) + '</p>';
+                container.innerHTML = '<p style="color:var(--danger);">Error: ' + escapeHtml(e.message) + '</p>';
             }
         }
 

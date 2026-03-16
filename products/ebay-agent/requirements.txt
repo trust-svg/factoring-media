@@ -11,7 +11,9 @@ apscheduler>=3.10.0
 psycopg2-binary>=2.9.0
 mcp>=1.0.0
 beautifulsoup4>=4.12.0
+httpx>=0.27.0
 Pillow>=10.0.0
-# オプショナル（Playwright系スクレイパー用）:
-# playwright>=1.40.0
-# playwright-stealth>=1.0.0
+# Google Sheets 読み取り（出品バッチ用）
+gspread>=6.0.0
+# Playwright（ヤフオク自動取込用）
+playwright>=1.40.0

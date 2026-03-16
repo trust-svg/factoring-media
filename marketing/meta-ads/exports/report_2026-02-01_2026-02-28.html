@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrustLink 広告レポート 2026-02-01 〜 2026-02-28</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Hiragino Sans", "Meiryo", sans-serif;
+         background: #f5f5f5; color: #333; padding: 20px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { text-align: center; margin-bottom: 5px; font-size: 22px; }
+  .period { text-align: center; color: #888; margin-bottom: 30px; font-size: 14px; }
+  .section { background: #fff; border-radius: 8px; padding: 24px;
+              margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  h2 { font-size: 16px; margin-bottom: 16px; padding-bottom: 8px;
+        border-bottom: 2px solid #1a73e8; color: #1a73e8; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f8f9fa; text-align: left; padding: 10px 8px;
+       border-bottom: 2px solid #dee2e6; font-weight: 600; }
+  td { padding: 8px; border-bottom: 1px solid #eee; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:hover { background: #f8f9fa; }
+  tfoot td { font-weight: 700; border-top: 2px solid #333; }
+  .win { color: #1e8e3e; font-weight: 700; }
+  .lose { color: #d93025; font-weight: 700; }
+  .pending { color: #f9ab00; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi { text-align: center; padding: 16px; background: #f8f9fa; border-radius: 8px; }
+  .kpi .value { font-size: 28px; font-weight: 700; color: #1a73e8; }
+  .kpi .label { font-size: 12px; color: #888; margin-top: 4px; }
+  .suggestion { padding: 16px; border-left: 4px solid #1a73e8; margin-bottom: 12px;
+                 background: #f8f9fa; border-radius: 0 8px 8px 0; }
+  .suggestion-header { margin-bottom: 8px; }
+  .pri-high { color: #d93025; font-weight: 700; }
+  .pri-mid { color: #f9ab00; font-weight: 700; }
+  .analysis-item { padding: 12px 16px; margin-bottom: 10px; background: #f8f9fa;
+                    border-radius: 8px; }
+  .analysis-item h3 { font-size: 14px; color: #333; margin-bottom: 6px; }
+  .analysis-item p { font-size: 13px; color: #555; line-height: 1.6; }
+  .issue { color: #555; margin-bottom: 6px; }
+  .action { color: #1a73e8; font-size: 13px; }
+  .footer { text-align: center; color: #aaa; font-size: 11px; margin-top: 30px; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .section { box-shadow: none; border: 1px solid #ddd; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>TrustLink 広告パフォーマンスレポート</h1>
+  <p class="period">2026-02-01 〜 2026-02-28</p>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="value">¥946,772</div>
+      <div class="label">総消化額</div>
+    </div>
+    <div class="kpi">
+      <div class="value">415,189</div>
+      <div class="label">総インプレッション</div>
+    </div>
+    <div class="kpi">
+      <div class="value">7.15%</div>
+      <div class="label">平均CTR</div>
+    </div>
+    <div class="kpi">
+      <div class="value">448</div>
+      <div class="label">総CV数</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>サイト別サマリー</h2>
+    <table>
+      <thead><tr>
+        <th>サイト</th><th class="num">消化額</th><th class="num">IMP</th>
+        <th class="num">Click</th><th class="num">CTR</th>
+        <th class="num">登録</th><th class="num">課金</th><th class="num">CPA</th>
+      </tr></thead>
+      <tbody><tr>
+            <td>Olive</td>
+            <td class="num">¥561,582</td>
+            <td class="num">227,540</td>
+            <td class="num">17,145</td>
+            <td class="num">7.53%</td>
+            <td class="num">264</td>
+            <td class="num">78</td>
+            <td class="num">¥2,127</td>
+        </tr><tr>
+            <td>Travis</td>
+            <td class="num">¥385,190</td>
+            <td class="num">187,649</td>
+            <td class="num">12,540</td>
+            <td class="num">6.68%</td>
+            <td class="num">184</td>
+            <td class="num">28</td>
+            <td class="num">¥2,093</td>
+        </tr></tbody>
+      <tfoot><tr>
+        <td>合計</td>
+        <td class="num">¥946,772</td>
+        <td class="num">415,189</td>
+        <td class="num">29,685</td>
+        <td class="num">7.15%</td>
+        <td class="num">448</td>
+        <td class="num">106</td>
+        <td class="num">¥2,113</td>
+      </tr></tfoot>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>広告別パフォーマンス</h2>
+    <table>
+      <thead><tr>
+        <th>広告名</th><th>サイト</th><th class="num">IMP</th>
+        <th class="num">CTR</th><th class="num">CPC</th>
+        <th class="num">登録</th><th class="num">課金</th><th class="num">CVR</th>
+        <th class="num">CPA</th><th class="num">消化額</th><th>判定</th>
+      </tr></thead>
+      <tbody><tr>
+            <td>Olive-ad-k</td>
+            <td>Olive</td>
+            <td class="num">70,503</td>
+            <td class="num">8.73%</td>
+            <td class="num">¥34</td>
+            <td class="num">103</td>
+            <td class="num">17</td>
+            <td class="num">1.67%</td>
+            <td class="num">¥2,003</td>
+            <td class="num">¥206,295</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Travis-ad-023</td>
+            <td>Travis</td>
+            <td class="num">118,048</td>
+            <td class="num">5.83%</td>
+            <td class="num">¥29</td>
+            <td class="num">96</td>
+            <td class="num">15</td>
+            <td class="num">1.40%</td>
+            <td class="num">¥2,102</td>
+            <td class="num">¥201,819</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Olive-ad-m</td>
+            <td>Olive</td>
+            <td class="num">71,414</td>
+            <td class="num">7.12%</td>
+            <td class="num">¥31</td>
+            <td class="num">70</td>
+            <td class="num">12</td>
+            <td class="num">1.38%</td>
+            <td class="num">¥2,271</td>
+            <td class="num">¥158,999</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Olive-ad-o</td>
+            <td>Olive</td>
+            <td class="num">47,833</td>
+            <td class="num">4.70%</td>
+            <td class="num">¥35</td>
+            <td class="num">35</td>
+            <td class="num">35</td>
+            <td class="num">1.56%</td>
+            <td class="num">¥2,235</td>
+            <td class="num">¥78,215</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Travis-ad-031</td>
+            <td>Travis</td>
+            <td class="num">20,227</td>
+            <td class="num">9.14%</td>
+            <td class="num">¥32</td>
+            <td class="num">36</td>
+            <td class="num">8</td>
+            <td class="num">1.95%</td>
+            <td class="num">¥1,621</td>
+            <td class="num">¥58,349</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Olive-ad-n</td>
+            <td>Olive</td>
+            <td class="num">14,993</td>
+            <td class="num">11.55%</td>
+            <td class="num">¥31</td>
+            <td class="num">31</td>
+            <td class="num">5</td>
+            <td class="num">1.79%</td>
+            <td class="num">¥1,749</td>
+            <td class="num">¥54,227</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Travis-ad-030</td>
+            <td>Travis</td>
+            <td class="num">16,925</td>
+            <td class="num">9.06%</td>
+            <td class="num">¥34</td>
+            <td class="num">22</td>
+            <td class="num">4</td>
+            <td class="num">1.43%</td>
+            <td class="num">¥2,400</td>
+            <td class="num">¥52,794</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Travis-ad-032</td>
+            <td>Travis</td>
+            <td class="num">27,260</td>
+            <td class="num">6.14%</td>
+            <td class="num">¥31</td>
+            <td class="num">23</td>
+            <td class="num">0</td>
+            <td class="num">1.37%</td>
+            <td class="num">¥2,253</td>
+            <td class="num">¥51,818</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Olive-ad-l</td>
+            <td>Olive</td>
+            <td class="num">8,925</td>
+            <td class="num">9.77%</td>
+            <td class="num">¥38</td>
+            <td class="num">15</td>
+            <td class="num">9</td>
+            <td class="num">1.72%</td>
+            <td class="num">¥2,201</td>
+            <td class="num">¥33,014</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Olive-ad-s</td>
+            <td>Olive</td>
+            <td class="num">6,911</td>
+            <td class="num">7.37%</td>
+            <td class="num">¥31</td>
+            <td class="num">7</td>
+            <td class="num">0</td>
+            <td class="num">1.38%</td>
+            <td class="num">¥2,267</td>
+            <td class="num">¥15,871</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Travis-ad-021</td>
+            <td>Travis</td>
+            <td class="num">3,534</td>
+            <td class="num">12.90%</td>
+            <td class="num">¥34</td>
+            <td class="num">6</td>
+            <td class="num">0</td>
+            <td class="num">1.32%</td>
+            <td class="num">¥2,564</td>
+            <td class="num">¥15,387</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Olive-ad-p</td>
+            <td>Olive</td>
+            <td class="num">5,817</td>
+            <td class="num">7.29%</td>
+            <td class="num">¥24</td>
+            <td class="num">3</td>
+            <td class="num">0</td>
+            <td class="num">0.71%</td>
+            <td class="num">¥3,430</td>
+            <td class="num">¥10,290</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Travis-ad-029</td>
+            <td>Travis</td>
+            <td class="num">1,541</td>
+            <td class="num">8.44%</td>
+            <td class="num">¥35</td>
+            <td class="num">1</td>
+            <td class="num">1</td>
+            <td class="num">0.77%</td>
+            <td class="num">¥4,538</td>
+            <td class="num">¥4,538</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Olive-ad-j</td>
+            <td>Olive</td>
+            <td class="num">1,072</td>
+            <td class="num">10.73%</td>
+            <td class="num">¥38</td>
+            <td class="num">0</td>
+            <td class="num">0</td>
+            <td class="num">0.00%</td>
+            <td class="num">¥0</td>
+            <td class="num">¥4,352</td>
+            <td class="">📊 普通</td>
+        </tr><tr>
+            <td>Travis-ad-031</td>
+            <td>Travis</td>
+            <td class="num">114</td>
+            <td class="num">16.67%</td>
+            <td class="num">¥26</td>
+            <td class="num">0</td>
+            <td class="num">0</td>
+            <td class="num">0.00%</td>
+            <td class="num">¥0</td>
+            <td class="num">¥485</td>
+            <td class="pending">⏳ データ不足</td>
+        </tr><tr>
+            <td>Olive-ad-q</td>
+            <td>Olive</td>
+            <td class="num">72</td>
+            <td class="num">6.94%</td>
+            <td class="num">¥64</td>
+            <td class="num">0</td>
+            <td class="num">0</td>
+            <td class="num">0.00%</td>
+            <td class="num">¥0</td>
+            <td class="num">¥319</td>
+            <td class="pending">⏳ データ不足</td>
+        </tr></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>現状分析</h2>
+    <div class="analysis-item">
+            <h3>全体概況</h3>
+            <p>🔴 目標CPAの2.1倍（目標¥1,000 → 実績¥2,113）<br>総消化¥946,772 / 登録448件 / 課金106件 / 登録→課金率 23.7%</p>
+        </div><div class="analysis-item">
+            <h3>サイト別評価</h3>
+            <p>  🔴 Olive: CPA¥2,127 / CTR7.5% / 登録264→課金78（30%）<br>  🔴 Travis: CPA¥2,093 / CTR6.7% / 登録184→課金28（15%）</p>
+        </div><div class="analysis-item">
+            <h3>広告効率</h3>
+            <p>  最良: Travis-ad-031（Travis）CPA¥1,621<br>  最悪: Travis-ad-029（Travis）CPA¥4,538<br>  差は2.8倍 — 最悪の広告の予算を最良に振り替えるだけで効率改善の余地あり</p>
+        </div><div class="analysis-item">
+            <h3>課金転換</h3>
+            <p>課金実績があるサイト: Olive, Travis<br>  課金1件あたりの広告費: ¥8,932</p>
+        </div><div class="analysis-item">
+            <h3>データ充足度</h3>
+            <p>判定可能: 14本 / データ不足: 2本<br>  データ不足の広告は予算が分散している可能性。広告本数を絞って集中配信を検討。</p>
+        </div>
+  </div>
+
+  <div class="section">
+    <h2>改善提案</h2>
+    <div class="suggestion">
+            <div class="suggestion-header">
+                <span class="pri-high">[高]</span>
+                <strong>即停止すべき広告</strong>
+            </div>
+            <p class="issue">以下の2本は予算を浪費しています:
+  Olive-ad-p（Olive）消化¥10,290 / CPA¥3,430 / 課金0
+  Olive-ad-j（Olive）消化¥4,352 / CPA¥0 / 課金0</p>
+            <p class="action">即OFFにして、浮いた予算を勝ち広告（CPA¥1,000以下）に集中配分。</p>
+        </div><div class="suggestion">
+            <div class="suggestion-header">
+                <span class="pri-mid">[中]</span>
+                <strong>要注意（1週間改善なければ停止）</strong>
+            </div>
+            <p class="issue">以下の3本はCPA目標の2倍超かつ課金ゼロ:
+  Travis-ad-032（Travis）消化¥51,818 / CPA¥2,253 / 課金0
+  Olive-ad-s（Olive）消化¥15,871 / CPA¥2,267 / 課金0
+  Travis-ad-021（Travis）消化¥15,387 / CPA¥2,564 / 課金0</p>
+            <p class="action">クリエイティブ or LPを変更して1週間テスト。改善しなければOFF。</p>
+        </div><div class="suggestion">
+            <div class="suggestion-header">
+                <span class="pri-high">[高]</span>
+                <strong>コンバージョン</strong>
+            </div>
+            <p class="issue">1000imp以上でCV0の広告: Olive-ad-j</p>
+            <p class="action">LP到達後の離脱が原因の可能性。LP改善 or 広告→LPのメッセージ一致度を見直し。改善しない場合はOFFにして予算を勝ち広告に集中。</p>
+        </div><div class="suggestion">
+            <div class="suggestion-header">
+                <span class="pri-mid">[中]</span>
+                <strong>予算配分</strong>
+            </div>
+            <p class="issue">TravisのCPAが最良（¥2093）、Oliveが最高（¥2127）</p>
+            <p class="action">Oliveの予算をTravisにシフトすることを検討。ただしOliveの広告クリエイティブ改善も並行して実施。</p>
+        </div>
+  </div>
+
+  <p class="footer">Generated by TrustLink Report Tool — 2026-03-10 11:08</p>
+</div>
+</body>
+</html>

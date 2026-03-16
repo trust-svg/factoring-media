@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deal Watcher</title>
+    <style>
+        :root {
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --card-hover: #fafbfc;
+            --border: #e8ecf1;
+            --text: #1a1a2e;
+            --text-sub: #6b7280;
+            --text-muted: #9ca3af;
+            --accent: #4f46e5;
+            --accent-light: #eef2ff;
+            --green: #059669;
+            --green-bg: #ecfdf5;
+            --red: #dc2626;
+            --red-bg: #fef2f2;
+            --orange: #d97706;
+            --orange-bg: #fffbeb;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif;
+            background: var(--bg); color: var(--text); line-height: 1.5;
+        }
+        .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
+
+        /* Header */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 24px;
+        }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo h1 { font-size: 24px; font-weight: 700; color: var(--text); }
+        .logo-icon {
+            width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), #7c3aed);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 18px; font-weight: 700;
+        }
+        .header-actions { display: flex; gap: 12px; align-items: center; }
+        .status-pill {
+            display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+            font-size: 12px; color: var(--text-sub);
+        }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; }
+        .status-dot.active { background: var(--green); animation: pulse 2s infinite; }
+        .status-dot.idle { background: var(--text-muted); }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer;
+            font-size: 13px; font-weight: 500; transition: all 0.15s;
+        }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: #4338ca; transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .btn-ghost { background: var(--card); border: 1px solid var(--border); color: var(--text-sub); }
+        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 16px 20px; box-shadow: var(--shadow-sm);
+        }
+        .stat-card .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .stat-card .stat-value { font-size: 28px; font-weight: 700; color: var(--text); }
+        .stat-card .stat-sub { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+        .stat-card.accent .stat-value { color: var(--accent); }
+
+        /* Section */
+        .card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius); box-shadow: var(--shadow-sm);
+            margin-bottom: 20px; overflow: hidden;
+        }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+        }
+        .card-title { font-size: 15px; font-weight: 600; color: var(--text); }
+        .card-body { padding: 16px 20px; }
+
+        /* Keyword tags */
+        .keyword-form { display: flex; gap: 8px; margin-bottom: 14px; }
+        .keyword-form input {
+            flex: 1; padding: 8px 14px; background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text); font-size: 13px; outline: none;
+        }
+        .keyword-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+
+        .keyword-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 100px; overflow-y: auto; }
+        .keyword-tag {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; background: var(--bg); border: 1px solid var(--border);
+            border-radius: 16px; font-size: 11px; color: var(--text-sub);
+        }
+        .keyword-tag.inactive { opacity: 0.35; }
+        .keyword-tag form { display: inline; }
+        .keyword-tag button {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 11px; padding: 1px 3px; border-radius: 3px;
+        }
+        .keyword-tag button:hover { color: var(--accent); background: var(--accent-light); }
+
+        /* Product List */
+        .product-row {
+            display: grid;
+            grid-template-columns: 28px 1fr 90px 100px 70px 80px 120px;
+            align-items: center; gap: 8px;
+            padding: 12px 20px; border-bottom: 1px solid var(--border);
+            cursor: pointer; transition: background 0.1s;
+        }
+        .product-row:last-child { border-bottom: none; }
+        .product-row:hover { background: var(--bg); }
+
+        .toggle-icon {
+            font-size: 10px; color: var(--text-muted); transition: transform 0.2s;
+            text-align: center; user-select: none;
+        }
+        .product-row.open .toggle-icon { transform: rotate(90deg); color: var(--accent); }
+
+        .product-name { font-size: 14px; font-weight: 600; color: var(--text); }
+
+        .ebay-price {
+            font-size: 12px; color: var(--text-sub); text-align: right;
+        }
+
+        .stock-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;
+        }
+        .stock-badge.in-stock { background: var(--green-bg); color: var(--green); }
+        .stock-badge.out-of-stock { background: var(--red-bg); color: var(--red); }
+        .stock-badge.unknown { background: var(--bg); color: var(--text-muted); }
+
+        .product-count {
+            font-size: 11px; color: var(--text-sub); background: var(--bg);
+            padding: 2px 8px; border-radius: 10px; text-align: center;
+        }
+
+        .min-price { font-size: 13px; font-weight: 700; color: var(--green); text-align: right; }
+        .product-time { font-size: 11px; color: var(--text-muted); text-align: right; }
+
+        /* Column headers */
+        .list-header {
+            display: grid;
+            grid-template-columns: 28px 1fr 90px 100px 70px 80px 120px;
+            gap: 8px; padding: 10px 20px;
+            font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border); background: var(--bg);
+        }
+        .list-header .sortable {
+            cursor: pointer; user-select: none; transition: color 0.15s;
+        }
+        .list-header .sortable:hover { color: var(--accent); }
+        .list-header .sortable.active { color: var(--accent); font-weight: 700; }
+        .list-header .sortable::after { content: ''; margin-left: 3px; }
+        .list-header .sortable.asc::after { content: ' \25B2'; }
+        .list-header .sortable.desc::after { content: ' \25BC'; }
+
+        /* Pause button */
+        .btn-pause { font-size: 11px; padding: 4px 10px; }
+        .btn-pause.paused { background: var(--orange-bg); border-color: var(--orange); color: var(--orange); }
+
+        /* Child listings */
+        .child-listings {
+            display: none; margin: 0 20px 0 46px;
+            border-left: 2px solid var(--accent-light);
+        }
+        .child-listings.open { display: block; }
+
+        .child-item {
+            display: grid;
+            grid-template-columns: auto 48px 1fr 90px 80px 52px 36px;
+            align-items: center; gap: 10px;
+            padding: 8px 14px; border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+        .child-item:last-child { border-bottom: none; }
+        .child-item:hover { background: var(--bg); }
+
+        .child-thumb {
+            width: 44px; height: 44px; border-radius: 6px; object-fit: cover;
+            background: var(--bg); border: 1px solid var(--border);
+        }
+        .child-thumb-empty {
+            width: 44px; height: 44px; border-radius: 6px;
+            background: var(--bg); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted); font-size: 16px;
+        }
+
+        .platform-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 8px;
+            font-size: 10px; font-weight: 600; white-space: nowrap;
+        }
+        .platform-badge.yahoo_auction { background: #fef2f2; color: #dc2626; }
+        .platform-badge.mercari { background: #eef2ff; color: #4f46e5; }
+        .platform-badge.yahoo_fleamarket { background: #fffbeb; color: #d97706; }
+        .platform-badge.rakuma { background: #f5f3ff; color: #7c3aed; }
+        .platform-badge.hardoff { background: #ecfdf5; color: #059669; }
+        .platform-badge.yahoo_shopping { background: #fdf2f8; color: #db2777; }
+        .platform-badge.rakuten { background: #fef2f2; color: #dc2626; }
+
+        .child-title { color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .child-title a { color: var(--accent); text-decoration: none; }
+        .child-title a:hover { text-decoration: underline; }
+        .child-price { font-weight: 600; color: var(--green); text-align: right; }
+        .child-time { color: var(--text-muted); text-align: right; font-size: 11px; }
+
+        /* Profit indicator */
+        .profit-up { color: var(--green); font-size: 11px; font-weight: 600; }
+        .profit-down { color: var(--red); font-size: 11px; font-weight: 600; }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
+
+        /* Hide buttons */
+        .btn-hide {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 11px; padding: 2px 6px; border-radius: 4px; transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .btn-hide:hover { background: var(--red-bg); color: var(--red); }
+        .btn-hide-group {
+            background: none; border: 1px solid var(--border); color: var(--text-muted);
+            cursor: pointer; font-size: 10px; padding: 3px 8px; border-radius: 6px;
+            margin-left: 8px; transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-hide-group:hover { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+        .hidden-info { font-size: 11px; color: var(--text-muted); }
+
+        /* eShip button */
+        .btn-eship {
+            background: none; border: 1px solid #2563eb; color: #2563eb; cursor: pointer;
+            font-size: 10px; padding: 2px 8px; border-radius: 6px; transition: all 0.15s;
+            white-space: nowrap; font-weight: 600;
+        }
+        .btn-eship:hover { background: #2563eb; color: #fff; }
+        .btn-eship:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-eship.sent { border-color: var(--green); color: var(--green); }
+
+        /* NEW badge */
+        .new-badge {
+            display: inline-block; padding: 1px 6px; border-radius: 6px;
+            font-size: 9px; font-weight: 700; background: #ef4444; color: #fff;
+            margin-left: 6px; vertical-align: middle; letter-spacing: 0.5px;
+        }
+        .new-dot {
+            display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+            background: #ef4444; margin-right: 4px; vertical-align: middle;
+        }
+
+        /* Filter bar */
+        .filter-bar {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+        }
+        .filter-input {
+            padding: 7px 14px; background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text); font-size: 13px; outline: none; width: 180px;
+        }
+        .filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+        .filter-input::placeholder { color: var(--text-muted); }
+
+        .platform-filter {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 10px; border-radius: 14px; font-size: 10px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--border); background: var(--card);
+            transition: all 0.15s; user-select: none;
+        }
+        .platform-filter:hover { border-color: var(--accent); }
+        .platform-filter.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+        .platform-filter .pf-count { opacity: 0.6; }
+
+        @media (max-width: 900px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .product-row, .list-header { grid-template-columns: 24px 1fr 70px 60px; }
+            .product-row .ebay-price, .product-row .stock-badge, .product-row .product-time,
+            .list-header span:nth-child(3), .list-header span:nth-child(4), .list-header span:nth-child(7) { display: none; }
+            .child-item { grid-template-columns: auto 40px 1fr 70px 44px 28px; }
+            .child-item .child-time { display: none; }
+            .child-thumb { width: 36px; height: 36px; }
+            .child-thumb-empty { width: 36px; height: 36px; font-size: 12px; }
+            .keyword-form { flex-direction: column; }
+            .filter-input { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="logo">
+            <div class="logo-icon">D</div>
+            <h1>Deal Watcher</h1>
+        </div>
+        <div class="header-actions">
+            <div class="status-pill">
+                <span class="status-dot {{ 'active' if scan_status.running else 'idle' }}"></span>
+                {{ 'Scanning...' if scan_status.running else 'Idle' }}
+                {% if scan_status.last_run %}
+                 &middot; {{ scan_status.last_run }}
+                {% endif %}
+            </div>
+            <button class="btn btn-ghost btn-sm btn-pause" id="pauseBtn" onclick="toggleAutoRefresh()">Auto: ON</button>
+            <form action="/scan" method="post" style="display:inline;">
+                <button class="btn btn-ghost btn-sm" type="submit">Scan Now</button>
+            </form>
+        </div>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Keywords</div>
+            <div class="stat-value">{{ kw_count }}</div>
+            <div class="stat-sub">monitoring</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Listings Found</div>
+            <div class="stat-value">{{ listing_count }}</div>
+            <div class="stat-sub">{% if hidden_count %}{{ hidden_count }} hidden{% else %}across all platforms{% endif %}</div>
+        </div>
+        <div class="stat-card accent">
+            <div class="stat-label">Products Matched</div>
+            <div class="stat-value">{{ groups|length }}</div>
+            <div class="stat-sub">with results</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Interval</div>
+            <div class="stat-value">{{ interval }}<span style="font-size:14px;color:var(--text-sub);">min</span></div>
+            <div class="stat-sub">scan frequency</div>
+        </div>
+    </div>
+
+    <!-- Keywords (collapsible) -->
+    <div class="card">
+        <details>
+            <summary class="card-header" style="cursor:pointer; list-style:none;">
+                <span class="card-title">Keywords ({{ keywords|length }})</span>
+                <span style="font-size:12px;color:var(--text-muted);">Click to expand</span>
+            </summary>
+            <div class="card-body">
+                <form class="keyword-form" action="/keywords/add" method="post">
+                    <input type="text" name="name" placeholder="Add keyword (e.g. TASCAM 424)" required>
+                    <button type="submit" class="btn btn-primary btn-sm">Add</button>
+                </form>
+                <div class="keyword-list">
+                    {% for kw in keywords %}
+                    <div class="keyword-tag {{ '' if kw.active else 'inactive' }}">
+                        <span>{{ kw.name }}</span>
+                        <form action="/keywords/{{ kw.id }}/toggle" method="post">
+                            <button type="submit">{{ '⏸' if kw.active else '▶' }}</button>
+                        </form>
+                        <form action="/keywords/{{ kw.id }}/delete" method="post"
+                              onsubmit="return confirm('Delete: {{ kw.name }}?')">
+                            <button type="submit">✕</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <!-- Product Listings -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Matched Products ({{ groups|length }})</span>
+            <div class="filter-bar">
+                <button class="platform-filter active" data-platform="all" onclick="filterPlatform(this)">All</button>
+                <button class="platform-filter" data-platform="yahoo_auction" onclick="filterPlatform(this)">ヤフオク</button>
+                <button class="platform-filter" data-platform="mercari" onclick="filterPlatform(this)">メルカリ</button>
+                <button class="platform-filter" data-platform="yahoo_fleamarket" onclick="filterPlatform(this)">Yフリマ</button>
+                <button class="platform-filter" data-platform="rakuma" onclick="filterPlatform(this)">ラクマ</button>
+                <button class="platform-filter" data-platform="hardoff" onclick="filterPlatform(this)">ハードオフ</button>
+                <button class="platform-filter" data-platform="yahoo_shopping" onclick="filterPlatform(this)">Yショッピング</button>
+                <button class="platform-filter" data-platform="rakuten" onclick="filterPlatform(this)">楽天</button>
+                <input type="text" class="filter-input" id="filterInput"
+                       placeholder="Filter..." oninput="filterProducts()">
+            </div>
+        </div>
+
+        {% if groups %}
+        <div class="list-header">
+            <span></span>
+            <span class="sortable" data-sort="name" onclick="sortProducts(this)">Product</span>
+            <span class="sortable" data-sort="ebay_price" style="text-align:right" onclick="sortProducts(this)">eBay Price</span>
+            <span class="sortable" data-sort="stock" onclick="sortProducts(this)">Stock</span>
+            <span class="sortable" data-sort="count" style="text-align:center" onclick="sortProducts(this)">Hits</span>
+            <span class="sortable" data-sort="min_price" style="text-align:right" onclick="sortProducts(this)">Best JP</span>
+            <span class="sortable desc active" data-sort="updated" style="text-align:right" onclick="sortProducts(this)">Updated</span>
+        </div>
+
+        <div id="productList">
+            {% for group in groups %}
+            <div class="product-group" data-keyword="{{ group.keyword|lower }}"
+                 data-name="{{ group.keyword|lower }}"
+                 data-ebay_price="{{ group.ebay_price or 0 }}"
+                 data-stock="{{ group.ebay_qty if group.ebay_qty is not none else -1 }}"
+                 data-count="{{ group.count }}"
+                 data-min_price="{{ group.min_price or 0 }}"
+                 data-updated="{{ group.latest_found or '' }}">
+                <div class="product-row" onclick="toggleGroup(this)">
+                    <span class="toggle-icon">&#9654;</span>
+                    <span class="product-name">{{ group.keyword }}</span>
+                    <span class="ebay-price">
+                        {% if group.ebay_price %}
+                        ${{ '{:,.0f}'.format(group.ebay_price) }}
+                        {% else %}-{% endif %}
+                    </span>
+                    <span>
+                        {% if group.ebay_qty is not none %}
+                            {% if group.ebay_qty > 0 %}
+                            <span class="stock-badge in-stock">In Stock ({{ group.ebay_qty }})</span>
+                            {% else %}
+                            <span class="stock-badge out-of-stock">Out of Stock</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="stock-badge unknown">-</span>
+                        {% endif %}
+                    </span>
+                    <span class="product-count">{{ group.count }}</span>
+                    <span class="min-price">
+                        {{ '¥{:,}'.format(group.min_price) if group.min_price else '-' }}
+                    </span>
+                    <span class="product-time">{{ group.latest_found[:10] if group.latest_found else '' }}</span>
+                </div>
+                <div class="child-listings">
+                    <div style="padding: 6px 14px; text-align: right; border-bottom: 1px solid var(--border);">
+                        <form action="/keywords/{{ group.keyword_id }}/hide-all" method="post" style="display:inline;"
+                              onsubmit="return confirm('{{ group.keyword }} の全リスティングを非表示にしますか？');">
+                            <button class="btn-hide-group" type="submit">すべて非表示</button>
+                        </form>
+                    </div>
+                    {% for item in group.listings %}
+                    <div class="child-item" data-platform="{{ item.platform }}" data-found="{{ item.found_at or '' }}">
+                        <span class="platform-badge {{ item.platform }}">{{ {
+                            'yahoo_auction': 'ヤフオク',
+                            'mercari': 'メルカリ',
+                            'yahoo_fleamarket': 'Yフリマ',
+                            'rakuma': 'ラクマ',
+                            'hardoff': 'ハードオフ',
+                            'yahoo_shopping': 'Yショッピング',
+                            'rakuten': '楽天'
+                        }.get(item.platform, item.platform) }}</span>
+                        {% if item.image_url %}
+                        <a href="{{ item.url }}" target="_blank">
+                            <img class="child-thumb" src="{{ item.image_url }}" alt="" loading="lazy"
+                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                            <span class="child-thumb-empty" style="display:none;">-</span>
+                        </a>
+                        {% else %}
+                        <span class="child-thumb-empty">-</span>
+                        {% endif %}
+                        <span class="child-title">
+                            <a href="{{ item.url }}" target="_blank">{{ item.title[:70] }}</a>
+                            {% if item.found_at %}
+                            <span class="new-badge" data-found="{{ item.found_at }}" style="display:none;">NEW</span>
+                            {% endif %}
+                        </span>
+                        <span class="child-price">{{ '¥{:,}'.format(item.price) if item.price else '-' }}</span>
+                        <span class="child-time">{{ item.found_at[:10] if item.found_at else '' }}</span>
+                        <span>
+                            {% if group.ebay_title %}
+                            <button class="btn-eship" onclick="sendToEship(this, {{ item.id }}, '{{ group.ebay_title|replace("'", "\\'") }}')" title="eShipに送る">eShip</button>
+                            {% endif %}
+                        </span>
+                        <form action="/listings/{{ item.id }}/hide" method="post" style="display:inline;"
+                              onsubmit="event.stopPropagation();">
+                            <button class="btn-hide" type="submit" title="非表示">✕</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            No matched products yet. Add keywords and wait for a scan to complete.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleGroup(row) {
+    row.classList.toggle('open');
+    row.nextElementSibling.classList.toggle('open');
+}
+
+// --- Filter (text + platform) ---
+let activePlatform = 'all';
+
+function filterProducts() {
+    const q = document.getElementById('filterInput').value.toLowerCase();
+    document.querySelectorAll('.product-group').forEach(g => {
+        const matchText = g.dataset.keyword.includes(q);
+        const items = g.querySelectorAll('.child-item');
+        let hasVisibleItem = false;
+
+        items.forEach(item => {
+            const matchPlatform = activePlatform === 'all' || item.dataset.platform === activePlatform;
+            item.style.display = matchPlatform ? '' : 'none';
+            if (matchPlatform) hasVisibleItem = true;
+        });
+
+        g.style.display = (matchText && (activePlatform === 'all' || hasVisibleItem)) ? '' : 'none';
+    });
+}
+
+function filterPlatform(btn) {
+    document.querySelectorAll('.platform-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activePlatform = btn.dataset.platform;
+    filterProducts();
+}
+
+// --- Sort ---
+function sortProducts(header) {
+    const key = header.dataset.sort;
+    const isAsc = header.classList.contains('asc');
+    const newDir = isAsc ? 'desc' : 'asc';
+
+    document.querySelectorAll('.list-header .sortable').forEach(h => {
+        h.classList.remove('asc', 'desc', 'active');
+    });
+    header.classList.add(newDir, 'active');
+
+    const list = document.getElementById('productList');
+    const groups = [...list.querySelectorAll('.product-group')];
+
+    groups.sort((a, b) => {
+        let va = a.dataset[key];
+        let vb = b.dataset[key];
+
+        if (key === 'name' || key === 'updated') {
+            if (newDir === 'asc') return va.localeCompare(vb);
+            return vb.localeCompare(va);
+        } else {
+            va = parseFloat(va) || 0;
+            vb = parseFloat(vb) || 0;
+            return newDir === 'asc' ? va - vb : vb - va;
+        }
+    });
+
+    groups.forEach(g => list.appendChild(g));
+}
+
+// --- NEW badges (show for items found within 24 hours) ---
+(function() {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    document.querySelectorAll('.new-badge[data-found]').forEach(badge => {
+        const found = new Date(badge.dataset.found);
+        if (found > cutoff) badge.style.display = '';
+    });
+})();
+
+// --- eShip ---
+async function sendToEship(btn, listingId, ebayTitle) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    const form = new FormData();
+    form.append('listing_id', listingId);
+    form.append('ebay_title', ebayTitle);
+
+    try {
+        const res = await fetch('/api/eship/send', { method: 'POST', body: form });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            btn.textContent = 'OK';
+            btn.classList.add('sent');
+        } else {
+            btn.textContent = 'NG';
+            alert('eShip error: ' + data.message);
+            btn.disabled = false;
+        }
+    } catch (e) {
+        btn.textContent = 'NG';
+        alert('eShip error: ' + e.message);
+        btn.disabled = false;
+    }
+}
+
+// --- Auto Refresh ---
+let autoRefresh = true;
+let refreshTimer = setTimeout(() => { if (autoRefresh) location.reload(); }, 60000);
+
+function toggleAutoRefresh() {
+    autoRefresh = !autoRefresh;
+    const btn = document.getElementById('pauseBtn');
+    if (autoRefresh) {
+        btn.textContent = 'Auto: ON';
+        btn.classList.remove('paused');
+        refreshTimer = setTimeout(() => location.reload(), 60000);
+    } else {
+        btn.textContent = 'Auto: OFF';
+        btn.classList.add('paused');
+        clearTimeout(refreshTimer);
+    }
+}
+</script>
+</body>
+</html>

@@ -40,7 +40,7 @@ eBay Agent Hub (FastAPI)
 
 | コマンド | 用途 | 例 |
 |---|---|---|
-| `/ebay list <商品名>` | 新規出品ドラフト生成 | `/ebay list Nakamichi Dragon` |
+| `/ebay list <商品名 or シートURL>` | 新規出品（単品 or バッチ） | `/ebay list Nakamichi Dragon` or `/ebay list <Sheet URL>` |
 | `/ebay optimize [SKU]` | リスティング最適化 | `/ebay optimize` (全件) |
 | `/ebay price [SKU]` | 価格分析・調整 | `/ebay price SKU123` |
 | `/ebay source <キーワード>` | 仕入れ検索・調達 | `/ebay source ビンテージ シンセサイザー` |
@@ -80,38 +80,63 @@ eBay Agent Hub (FastAPI)
 
 ---
 
-## `/ebay list <商品名>` — 出品自動化
+## `/ebay list` — 出品自動化（単品 & バッチ対応）
 
-新規出品のドラフトを生成する。
+### モード A: 単品出品 `/ebay list <商品名>`
 
-### 手順
+1. **市場調査**: `research_demand` で市場価格を確認
+2. **出品生成**: `generate_listing` でタイトル・説明文・スペック生成
+3. **マージン計算**: `calculate_margin` で利益率を計算
+4. **プレビュー表示** → ユーザー承認 → `create_draft_listing` で下書き登録
+5. 「公開して」→ `publish_draft_listings` で eBay に公開
 
-1. **市場調査**: `POST /api/agent` → `research_demand` で市場価格を確認
-2. **出品生成**: `POST /api/agent` → `generate_listing` でタイトル・説明文・スペック生成
-3. **マージン計算**: `POST /api/margin` で利益率を計算
-4. **プレビュー表示**:
+### モード B: バッチ出品 `/ebay list <Sheet URL or CSV>`
+
+リサーチスプレッドシートから一括で下書き登録する。
+
+**スプレッドシートの想定カラム:**
+
+| 商品名 | カテゴリNo | 販売価格(USD) | 送料プラン | 仕入れURL | eBay URL | コンディション | メモ |
+|--------|-----------|--------------|-----------|----------|---------|-------------|------|
+
+#### 手順
+
+1. `read_listing_sheet` でスプレッドシート/CSV読み取り
+2. 各行に対して:
+   a. eBay URLからキーワード抽出 → SEOタイトル生成
+   b. `get_category_aspects` でカテゴリの必須Item Specifics取得
+   c. `generate_listing` でタイトル・説明文・Item Specifics生成
+   d. 不足Item Specificsはネット検索で補完
+   e. `create_draft_listing` で下書き登録
+3. 完了サマリーテーブル表示:
 
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📝 出品ドラフト: [商品名]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+● 全5件の下書き登録が完了しました。
 
-🏷️ タイトル候補:
-1. [タイトルA] (SEOスコア: XX/100)
-2. [タイトルB]
-3. [タイトルC]
+---
+完了サマリー
 
-📄 説明文:
-[生成された説明文]
+| 行 | 商品                    | Item ID      | 価格   |
+|----|------------------------|-------------|--------|
+| 2  | Roland JP-8080 Synth   | ITEM-A1B2C3 | $280   |
+| 3  | Technics SL-1200MK5    | ITEM-D4E5F6 | $117   |
+| 4  | Nakamichi Dragon       | ITEM-G7H8I9 | $354   |
+| 5  | Accuphase E-305        | ITEM-J0K1L2 | $259   |
+| 6  | TASCAM 424 MKIII       | ITEM-M3N4O5 | $82    |
 
-💰 価格戦略:
-推奨価格: $XXX | 競合平均: $XXX | 競合最安: $XXX
-仕入れ: ¥XX,XXX | 推定利益: $XX (XX%)
+eBay Seller Hub（スケジュール済みリスト）で内容をご確認ください：
+https://www.ebay.com/sh/lst/scheduled
 
-⚠️ 適用するにはユーザー確認が必要です。
+確認後「公開して」と指示いただければ順次出品を開始します。
 ```
 
-5. ユーザー承認後: `POST /api/agent` → `update_listing` で反映
+4. ユーザーが「公開して」→ `publish_draft_listings` で全件公開
+
+### モード C: 「出品して」（ショートカット）
+
+引数なしの「出品して」は以下の順で処理:
+1. 事前に登録されたスプレッドシートURLを確認（.env `LISTING_SHEET_URL`）
+2. あればモードB実行、なければユーザーにソース指定を依頼
 
 ---
 

@@ -5,6 +5,7 @@
 
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -15,6 +16,15 @@ build/
 .venv/
 venv/
 env/
+
+# Databases (local per machine)
+*.db
+*.sqlite
+*.sqlite3
+
+# Playwright browser cache
+.playwright/
+**/.playwright/
 
 # Environment & Secrets
 .env
@@ -41,7 +51,11 @@ reports/*.html
 .mcp.json
 
 # Separate git repos (managed independently)
+products/ai-uranai/
 products/ebay-inventory-tool/
 products/ebay-listing-generator/
 products/video-text-remover/
 reusable/matching-lp/
+ccskill-nanobanana/
+tmp/cc-secretary/
+tmp/cc-company/

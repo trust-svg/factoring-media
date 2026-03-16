@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}eBay Agent Hub{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
     {% block head %}{% endblock %}
 </head>
@@ -11,11 +14,37 @@
     <div class="app-layout">
         {% include "components/nav.html" %}
         <main class="main-content">
-            <div class="page-header">
-                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
-                <span class="status">● <span data-en="Active" data-ja="稼働中">Active</span></span>
+            <div class="top-header">
+                <div class="breadcrumb">
+                    <a href="/">eBay Agent Hub</a>
+                    <span class="separator">/</span>
+                    <span class="current">{% block breadcrumb %}Dashboard{% endblock %}</span>
+                </div>
+                <div class="top-header-actions">
+                    <div class="header-search">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        </svg>
+                        <input type="text" placeholder="Search or type command..." data-placeholder-ja="検索..." data-placeholder-en="Search or type command...">
+                        <span class="shortcut-badge">⌘K</span>
+                    </div>
+                    <button class="header-btn" title="Notifications">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                        </svg>
+                    </button>
+                    <div class="header-status">
+                        <span class="status-dot"></span>
+                        <span data-en="Active" data-ja="稼働中">Active</span>
+                    </div>
+                </div>
             </div>
-            {% block content %}{% endblock %}
+            <div class="main-content-inner">
+                <div class="page-header">
+                    <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                </div>
+                {% block content %}{% endblock %}
+            </div>
         </main>
     </div>
     <script src="/static/js/app.js"></script>

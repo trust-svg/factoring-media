@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TrustLink Google Ads API Tool — Design Document</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; margin: 40px 60px; color: #333; line-height: 1.6; font-size: 14px; }
+  h1 { color: #1a73e8; font-size: 22px; border-bottom: 2px solid #1a73e8; padding-bottom: 8px; }
+  h2 { color: #333; font-size: 16px; margin-top: 28px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 14px; margin-top: 16px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; font-size: 13px; }
+  th { background: #f8f9fa; font-weight: 600; }
+  .highlight { background: #e8f0fe; padding: 12px 16px; border-radius: 6px; margin: 12px 0; }
+  .diagram { background: #f8f9fa; padding: 16px; border-radius: 6px; font-family: monospace; font-size: 13px; line-height: 1.8; margin: 12px 0; }
+  ul { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .footer { margin-top: 40px; font-size: 11px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>TrustLink — Google Ads API Tool Design Document</h1>
+
+<table>
+  <tr><th>Document Version</th><td>1.0</td></tr>
+  <tr><th>Date</th><td>March 2026</td></tr>
+  <tr><th>Company</th><td>TrustLink</td></tr>
+  <tr><th>Contact</th><td>otsuka@trustlink-tk.com</td></tr>
+  <tr><th>MCC Account</th><td>[Your MCC ID]</td></tr>
+</table>
+
+<h2>1. Executive Summary</h2>
+<p>TrustLink is developing an internal reporting tool that retrieves daily campaign performance data from Google Ads via the API. The tool is <strong>read-only</strong> — it does not create, modify, or delete any campaigns, ads, keywords, or account settings. Its sole purpose is to generate automated performance reports and deliver them via LINE Messaging API to internal stakeholders.</p>
+
+<div class="highlight">
+  <strong>Key Points:</strong>
+  <ul>
+    <li><strong>Read-only access</strong> — No campaign creation or modification</li>
+    <li><strong>Internal use only</strong> — Used by company employees exclusively</li>
+    <li><strong>Single account</strong> — Monitors our own Google Ads account only</li>
+    <li><strong>Daily frequency</strong> — One API call per day (scheduled at 8:00 AM JST)</li>
+  </ul>
+</div>
+
+<h2>2. Company Overview</h2>
+<p>TrustLink is a digital marketing company based in Japan that operates mobile app promotion campaigns for dating and social networking applications targeting mature audiences (50–80 age demographic). We use Google Ads Search campaigns to drive app registrations.</p>
+
+<h2>3. Tool Purpose and Functionality</h2>
+
+<h3>3.1 Problem Statement</h3>
+<p>Currently, performance data must be manually exported from the Google Ads web interface as CSV files, then processed locally. This manual workflow is time-consuming and error-prone, and prevents timely daily monitoring of campaign performance.</p>
+
+<h3>3.2 Solution</h3>
+<p>An automated Python script that:</p>
+<ol>
+  <li>Connects to the Google Ads API once daily</li>
+  <li>Retrieves campaign, keyword, and ad group performance metrics</li>
+  <li>Analyzes the data against predefined benchmarks</li>
+  <li>Generates a summary report</li>
+  <li>Sends the report to internal stakeholders via LINE messaging</li>
+</ol>
+
+<h3>3.3 Supported Campaign Types</h3>
+<ul>
+  <li>Search campaigns</li>
+</ul>
+
+<h2>4. Technical Architecture</h2>
+
+<div class="diagram">
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐<br>
+│  Cron Scheduler  │────▶│  Python Script    │────▶│  LINE Messaging │<br>
+│  (Daily 8:00 AM) │     │  (report.py)      │     │  API (Broadcast)│<br>
+└─────────────────┘     └────────┬─────────┘     └─────────────────┘<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┌──────────────────┐<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  Google Ads API   │<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  (Read-Only)      │<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└──────────────────┘<br>
+</div>
+
+<h3>4.1 Technology Stack</h3>
+<table>
+  <tr><th>Component</th><th>Technology</th></tr>
+  <tr><td>Language</td><td>Python 3.11+</td></tr>
+  <tr><td>Google Ads Client</td><td>google-ads Python library (official)</td></tr>
+  <tr><td>Authentication</td><td>OAuth 2.0 (Desktop application flow)</td></tr>
+  <tr><td>Scheduler</td><td>macOS cron / launchd</td></tr>
+  <tr><td>Notification</td><td>LINE Messaging API (Broadcast)</td></tr>
+  <tr><td>Configuration</td><td>.env file (credentials stored locally, never committed to version control)</td></tr>
+</table>
+
+<h3>4.2 Authentication Flow</h3>
+<ol>
+  <li>OAuth 2.0 client credentials stored in local .env file</li>
+  <li>Refresh token used for unattended daily execution</li>
+  <li>Access token refreshed automatically by the google-ads library</li>
+  <li>All credentials stored locally — never transmitted to third parties</li>
+</ol>
+
+<h2>5. API Usage Details</h2>
+
+<h3>5.1 API Services Used</h3>
+<table>
+  <tr><th>Service</th><th>Method</th><th>Purpose</th><th>Frequency</th></tr>
+  <tr><td>GoogleAdsService</td><td>SearchStream</td><td>Retrieve campaign metrics</td><td>1x/day</td></tr>
+  <tr><td>GoogleAdsService</td><td>SearchStream</td><td>Retrieve keyword metrics</td><td>1x/day</td></tr>
+  <tr><td>GoogleAdsService</td><td>SearchStream</td><td>Retrieve ad group metrics</td><td>1x/day</td></tr>
+</table>
+
+<h3>5.2 GAQL Queries</h3>
+<p>Example query for campaign performance:</p>
+<div class="diagram" style="font-size: 12px;">
+SELECT<br>
+&nbsp;&nbsp;campaign.name,<br>
+&nbsp;&nbsp;campaign.status,<br>
+&nbsp;&nbsp;metrics.impressions,<br>
+&nbsp;&nbsp;metrics.clicks,<br>
+&nbsp;&nbsp;metrics.ctr,<br>
+&nbsp;&nbsp;metrics.average_cpc,<br>
+&nbsp;&nbsp;metrics.cost_micros,<br>
+&nbsp;&nbsp;metrics.conversions,<br>
+&nbsp;&nbsp;metrics.cost_per_conversion,<br>
+&nbsp;&nbsp;metrics.search_impression_share<br>
+FROM campaign<br>
+WHERE segments.date = 'YYYY-MM-DD'<br>
+&nbsp;&nbsp;AND campaign.status = 'ENABLED'
+</div>
+
+<h3>5.3 Rate Limiting Compliance</h3>
+<ul>
+  <li>Maximum 3 API requests per daily execution</li>
+  <li>Single execution per day (8:00 AM JST)</li>
+  <li>No parallel requests</li>
+  <li>Well within Google Ads API rate limits</li>
+</ul>
+
+<h3>5.4 Data Retrieved</h3>
+<table>
+  <tr><th>Metric</th><th>Purpose</th></tr>
+  <tr><td>Impressions, Clicks, CTR</td><td>Traffic volume monitoring</td></tr>
+  <tr><td>Average CPC, Cost</td><td>Budget consumption tracking</td></tr>
+  <tr><td>Conversions, CVR, CPA</td><td>Conversion performance monitoring</td></tr>
+  <tr><td>Search Impression Share</td><td>Competitive position assessment</td></tr>
+</table>
+
+<h2>6. Data Handling and Security</h2>
+
+<h3>6.1 Data Storage</h3>
+<ul>
+  <li>No persistent database — data is processed in-memory and discarded after report generation</li>
+  <li>No Google Ads data is stored long-term</li>
+  <li>Reports contain only aggregated metrics (no PII)</li>
+</ul>
+
+<h3>6.2 Credential Security</h3>
+<ul>
+  <li>OAuth credentials stored in local .env file</li>
+  <li>.env files are excluded from version control via .gitignore</li>
+  <li>No credentials are hardcoded in source code</li>
+  <li>Tool runs on a local machine (not a shared server)</li>
+</ul>
+
+<h3>6.3 Access Control</h3>
+<ul>
+  <li>Tool is accessible only to company employees</li>
+  <li>No web interface — CLI-only execution</li>
+  <li>Single Google Ads account (our own)</li>
+</ul>
+
+<h2>7. Operations Plan</h2>
+
+<table>
+  <tr><th>Aspect</th><th>Detail</th></tr>
+  <tr><td>Execution Schedule</td><td>Daily at 8:00 AM JST</td></tr>
+  <tr><td>Error Handling</td><td>Errors logged to console; LINE notification includes error alert</td></tr>
+  <tr><td>Monitoring</td><td>Script exit code monitored by cron</td></tr>
+  <tr><td>Maintenance</td><td>Internal team responsibility</td></tr>
+  <tr><td>API Library Updates</td><td>google-ads library updated quarterly</td></tr>
+</table>
+
+<h2>8. Compliance</h2>
+
+<ul>
+  <li><strong>Terms of Service:</strong> Compliant with Google Ads API Terms and Conditions</li>
+  <li><strong>Required Minimum Functionality:</strong> Read-only reporting tool; no campaign management features</li>
+  <li><strong>Data Usage:</strong> Data used solely for internal performance monitoring</li>
+  <li><strong>No Resale:</strong> Data and reports are not shared with or sold to third parties</li>
+  <li><strong>No Scraping:</strong> All data retrieved exclusively through official API endpoints</li>
+</ul>
+
+<div class="footer">
+  TrustLink — Google Ads API Tool Design Document v1.0 — March 2026<br>
+  Contact: otsuka@trustlink-tk.com
+</div>
+
+</body>
+</html>

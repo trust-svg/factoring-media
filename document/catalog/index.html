@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Catalog — Claude Workspace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            code: ['"Fira Code"', 'monospace'],
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #F5F5F7;
+      color: #1D1D1F;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+
+    /* Soft ambient gradients */
+    .ambient {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 0;
+      animation: drift 25s ease-in-out infinite;
+    }
+    .ambient-1 { width: 500px; height: 500px; background: #DBEAFE; top: -8%; left: -5%; animation-delay: 0s; }
+    .ambient-2 { width: 400px; height: 400px; background: #D1FAE5; bottom: -5%; right: -3%; animation-delay: -9s; }
+    .ambient-3 { width: 350px; height: 350px; background: #FEF3C7; top: 35%; right: 10%; animation-delay: -16s; }
+
+    @keyframes drift {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(20px, -15px) scale(1.03); }
+      66% { transform: translate(-15px, 10px) scale(0.97); }
+    }
+
+    /* Bento card */
+    .card {
+      background: #FFFFFF;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.06);
+      transform: translateY(-2px);
+    }
+
+    /* Status badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      font-family: 'Fira Code', monospace;
+    }
+    .badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .badge-live { background: #ECFDF5; color: #059669; }
+    .badge-live::before { background: #10B981; }
+    .badge-dev { background: #EFF6FF; color: #2563EB; }
+    .badge-dev::before { background: #3B82F6; }
+    .badge-plan { background: #F8FAFC; color: #64748B; }
+    .badge-plan::before { background: #94A3B8; }
+    .badge-auto { background: #FFFBEB; color: #D97706; }
+    .badge-auto::before { background: #F59E0B; }
+
+    /* Tech tag */
+    .tech-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'Fira Code', monospace;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      color: #64748B;
+    }
+
+    /* Schedule row */
+    .schedule-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .schedule-time {
+      font-family: 'Fira Code', monospace;
+      font-weight: 600;
+      color: #6366F1;
+      white-space: nowrap;
+      min-width: 56px;
+    }
+    .schedule-task {
+      color: #64748B;
+      flex: 1;
+    }
+    .schedule-via {
+      font-family: 'Fira Code', monospace;
+      font-size: 10px;
+      color: #A5B4FC;
+      background: #EEF2FF;
+      padding: 1px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    /* Category tab */
+    .tab {
+      padding: 8px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #64748B;
+    }
+    .tab:hover { color: #1D1D1F; background: rgba(0, 0, 0, 0.03); }
+    .tab.active {
+      background: #FFFFFF;
+      border-color: rgba(0, 0, 0, 0.06);
+      color: #1D1D1F;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Section heading line */
+    .section-line {
+      height: 1px;
+      flex: 1;
+      background: linear-gradient(90deg, #E2E8F0, transparent);
+    }
+
+    /* Stat card */
+    .stat-card {
+      background: #FFFFFF;
+      border-radius: 16px;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    /* Architecture diagram */
+    .arch-node {
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+      border: 1px solid #E2E8F0;
+      font-family: 'Fira Code', monospace;
+      background: #FFFFFF;
+    }
+    .arch-arrow {
+      color: #CBD5E1;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .ambient { animation: none; }
+      .card { transition: none; }
+      .card:hover { transform: none; }
+    }
+
+    /* Focus states */
+    .tab:focus-visible, .card:focus-visible {
+      outline: 2px solid #3B82F6;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden">
+
+  <!-- Ambient gradients -->
+  <div class="ambient ambient-1"></div>
+  <div class="ambient ambient-2"></div>
+  <div class="ambient ambient-3"></div>
+
+  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+    <!-- Header -->
+    <header class="mb-12">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></svg>
+        </div>
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold font-code tracking-tight text-[#1D1D1F]">Claude Workspace</h1>
+          <p class="text-sm text-[#86868B]">Claude Codeで構築したプロダクト・ツール・資産の全カタログ</p>
+        </div>
+      </div>
+      <p class="text-xs text-[#AEAEB2] ml-[52px] mt-1 font-code" id="lastUpdated"></p>
+    </header>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10" id="statsGrid"></div>
+
+    <!-- Tabs -->
+    <div class="flex flex-wrap gap-2 mb-8" id="tabContainer" role="tablist"></div>
+
+    <!-- Cards grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-16" id="cardsGrid"></div>
+
+    <!-- Architecture Diagram -->
+    <section class="mb-16" id="archSection">
+      <div class="flex items-center gap-4 mb-6">
+        <h2 class="text-lg font-semibold whitespace-nowrap text-[#1D1D1F]">System Architecture</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="card p-6 sm:p-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- eBay Ecosystem -->
+          <div>
+            <p class="text-xs font-code text-blue-600 mb-3 tracking-wider uppercase font-semibold">eBay Ecosystem</p>
+            <div class="space-y-2">
+              <div class="arch-node !bg-blue-50 !border-blue-200 text-blue-800">ebay-agent<br><span class="text-[10px] text-blue-500">統合AIエージェント (24 tools)</span></div>
+              <div class="text-center arch-arrow">|</div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="arch-node !bg-emerald-50 !border-emerald-200 text-emerald-800">deal-watcher<br><span class="text-[10px] text-emerald-500">仕入れ自動化</span></div>
+                <div class="arch-node !bg-emerald-50 !border-emerald-200 text-emerald-800">inventory-tool<br><span class="text-[10px] text-emerald-500">在庫監視</span></div>
+              </div>
+              <div class="text-center arch-arrow">|</div>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="arch-node text-[10px] text-[#64748B]">listing<br>generator</div>
+                <div class="arch-node text-[10px] text-[#64748B]">listing<br>optimizer</div>
+                <div class="arch-node text-[10px] text-[#64748B]">size<br>lookup</div>
+              </div>
+              <div class="text-center arch-arrow">|</div>
+              <div class="arch-node text-[#64748B]">cpass-fee-viewer<br><span class="text-[10px]">送料計算</span></div>
+            </div>
+          </div>
+
+          <!-- Business / AI Services -->
+          <div>
+            <p class="text-xs font-code text-amber-600 mb-3 tracking-wider uppercase font-semibold">AI Services</p>
+            <div class="space-y-2">
+              <div class="arch-node !bg-amber-50 !border-amber-200 text-amber-800">ai-uranai<br><span class="text-[10px] text-amber-500">占いサロン Sion</span></div>
+              <div class="text-center arch-arrow">|</div>
+              <div class="arch-node text-[#64748B]">LINE + Threads<br><span class="text-[10px]">集客 → 鑑定 → 課金</span></div>
+            </div>
+            <div class="mt-6 space-y-2">
+              <div class="arch-node !bg-indigo-50 !border-indigo-200 text-indigo-800">b-manager<br><span class="text-[10px] text-indigo-500">AI秘書 LINE Bot</span></div>
+              <div class="text-center arch-arrow">|</div>
+              <div class="arch-node text-[#64748B]">Google Cal + Gmail<br><span class="text-[10px]">ブリーフィング・タスク管理</span></div>
+            </div>
+          </div>
+
+          <!-- Marketing & Tools -->
+          <div>
+            <p class="text-xs font-code text-emerald-600 mb-3 tracking-wider uppercase font-semibold">Marketing & Tools</p>
+            <div class="space-y-2">
+              <div class="arch-node !bg-emerald-50 !border-emerald-200 text-emerald-800">SamuraiShopJP<br><span class="text-[10px] text-emerald-500">Instagram + X</span></div>
+              <div class="text-center arch-arrow">|</div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="arch-node text-[#64748B]">Meta Ads<br><span class="text-[10px]">レポート自動化</span></div>
+                <div class="arch-node text-[#64748B]">Google Ads<br><span class="text-[10px]">キャンペーン</span></div>
+              </div>
+            </div>
+            <div class="mt-6 space-y-2">
+              <div class="arch-node text-[#64748B]">video-text-remover<br><span class="text-[10px]">動画テキスト除去</span></div>
+              <div class="mt-2 arch-node text-[#64748B]">google-integration<br><span class="text-[10px]">Cal / Gmail / Drive</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shared layer -->
+        <div class="mt-6 pt-4 border-t border-[#F0F0F0]">
+          <p class="text-[10px] font-code text-[#AEAEB2] mb-2 tracking-wider uppercase">Shared Infrastructure</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="tech-tag">Claude API (tool_use)</span>
+            <span class="tech-tag">LINE Messaging API</span>
+            <span class="tech-tag">eBay API</span>
+            <span class="tech-tag">Railway</span>
+            <span class="tech-tag">GitHub Actions</span>
+            <span class="tech-tag">Telegram Bot</span>
+            <span class="tech-tag">FastAPI</span>
+            <span class="tech-tag">SQLAlchemy</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-[#AEAEB2] font-code py-8 border-t border-[#E5E5E7]">
+      Built with Claude Code &mdash; trust-svg
+    </footer>
+
+  </div>
+
+<script>
+// ============================================================
+//  PROJECT DATA — 新しいプロダクトはここにエントリ追加するだけ
+// ============================================================
+const PROJECTS = [
+  // --- Products ---
+  {
+    id: "ebay-agent",
+    name: "eBay Agent Hub",
+    desc: "eBay輸出ビジネス統合AIエージェント。出品・価格・仕入れ・分析を24ツールで一元管理",
+    category: "products",
+    status: "live",
+    deploy: "localhost:8000",
+    tech: ["FastAPI", "Claude tool_use", "SQLAlchemy", "MCP"],
+    metrics: "24 tools / 587 listings",
+    schedule: [
+      { time: "6h間隔", task: "競合価格モニタリング", via: "APScheduler" },
+    ],
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"/></svg>`,
+  },
+  {
+    id: "deal-watcher",
+    name: "Deal Watcher",
+    desc: "仕入れ自動化システム。日本のマーケットプレイスから利益商品を自動発見・スコアリング",
+    category: "products",
+    status: "live",
+    deploy: "localhost:8001 + launchd",
+    tech: ["FastAPI", "Playwright", "Telegram Bot", "4-Agent Team"],
+    metrics: "MIN ¥15K profit / 20% margin",
+    schedule: [
+      { time: "3分間隔", task: "メインスキャン（仕入れ候補検索）", via: "launchd" },
+      { time: "1h間隔", task: "eShipキャッシュ更新", via: "launchd" },
+      { time: "6h間隔", task: "Discovery Engine（未出品利益商品）", via: "launchd" },
+    ],
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`,
+  },
+  {
+    id: "ebay-inventory-tool",
+    name: "eBay Inventory Tool",
+    desc: "在庫切れ商品の仕入元自動検索。GitHub Actionsで毎日2回、5マーケットプレイスを巡回",
+    category: "products",
+    status: "auto",
+    deploy: "GitHub Actions (2x/day)",
+    tech: ["Python", "GitHub Actions", "eBay API", "Email通知"],
+    metrics: "590 USD items monitored",
+    schedule: [
+      { time: "毎日 09:00 JST", task: "バッチ1 — 高価格帯スキャン", via: "GitHub Actions" },
+      { time: "毎日 15:00 JST", task: "バッチ2 — 低価格帯スキャン", via: "GitHub Actions" },
+    ],
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`,
+  },
+  {
+    id: "ai-uranai",
+    name: "AI Uranai (占いサロン Sion)",
+    desc: "祈音の霊視鑑定ビジネス。Threads自動投稿 → LINE集客 → AI鑑定 → STORES課金",
+    category: "products",
+    status: "live",
+    deploy: "Railway",
+    tech: ["FastAPI", "Claude API", "LINE API", "Threads API", "PostgreSQL"],
+    metrics: "¥0→¥4,980 funnel / 3x daily post",
+    schedule: [
+      { time: "07:30", task: "Threads朝投稿（星座ランキング）", via: "APScheduler" },
+      { time: "08:00", task: "LINEナーチャリング送信", via: "APScheduler" },
+      { time: "10:00", task: "エンゲージメント収集", via: "APScheduler" },
+      { time: "13:00", task: "Threads昼投稿（タロット）", via: "APScheduler" },
+      { time: "21:00", task: "Threads夜投稿（5テーマローテ）", via: "APScheduler" },
+      { time: "30分毎", task: "Threadsコメントチェック → AI返信下書き", via: "APScheduler" },
+      { time: "毎週月曜 03:00", task: "Threadsトークン自動リフレッシュ", via: "APScheduler" },
+    ],
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"/></svg>`,
+  },
+  {
+    id: "b-manager",
+    name: "B-Manager",
+    desc: "AI秘書LINE Bot。朝ブリーフィング・スケジュール管理・メール要約・タスク管理を自動化",
+    category: "products",
+    status: "live",
+    deploy: "Railway",
+    tech: ["FastAPI", "Claude tool_use", "Google API", "LINE API", "APScheduler"],
+    metrics: "10 tools / 5 scheduled jobs",
+    schedule: [
+      { time: "07:30", task: "朝ブリーフィング（予定・タスク・メール要約）", via: "APScheduler" },
+      { time: "10:00 / 13:00 / 16:00 / 19:00", task: "デッドライン確認", via: "APScheduler" },
+      { time: "21:00", task: "夕方レビュー（1日の振り返り）", via: "APScheduler" },
+    ],
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>`,
+  },
+  {
+    id: "ebay-listing-generator",
+    name: "eBay Listing Generator",
+    desc: "Chrome拡張。AIでeBay出品タイトル・説明文を自動生成。US/UK/DE/AU対応",
+    category: "products",
+    status: "dev",
+    deploy: "Chrome Extension",
+    tech: ["Manifest V3", "Claude API", "Gemini API"],
+    metrics: "4 marketplace support",
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>`,
+  },
+  {
+    id: "ebay-listing-optimizer",
+    name: "eBay Listing Optimizer",
+    desc: "出品SEO最適化ツール。既存リスティングのタイトル・説明を分析・改善提案",
+    category: "products",
+    status: "dev",
+    deploy: "localhost (FastAPI)",
+    tech: ["FastAPI", "Jinja2", "CORS"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>`,
+  },
+  {
+    id: "cpass-fee-viewer",
+    name: "cPass Fee Viewer",
+    desc: "Chrome拡張。SpeedPAK送料明細を自動抽出・集計してダッシュボード表示",
+    category: "products",
+    status: "dev",
+    deploy: "Chrome Extension",
+    tech: ["Manifest V3", "Content Script", "localStorage"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/></svg>`,
+  },
+  {
+    id: "size-lookup",
+    name: "Size Lookup",
+    desc: "Chrome拡張。型番からサイズを推定し、国際発送用の梱包箱サイズを自動計算",
+    category: "products",
+    status: "dev",
+    deploy: "Chrome Extension",
+    tech: ["Manifest V3", "Claude API", "chrome.storage"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>`,
+  },
+  {
+    id: "video-text-remover",
+    name: "Video Text Remover",
+    desc: "動画からテキスト（字幕・ウォーターマーク）をAIで自動除去。Web UI + CLI対応",
+    category: "products",
+    status: "dev",
+    deploy: "Streamlit + CLI",
+    tech: ["EasyOCR", "LaMa", "FFmpeg", "Streamlit"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25z"/></svg>`,
+  },
+  {
+    id: "google-integration",
+    name: "Google Integration",
+    desc: "Gmail・Googleカレンダー・DriveをAIで操作するCLIエージェント",
+    category: "products",
+    status: "dev",
+    deploy: "CLI (Python)",
+    tech: ["Claude API", "Google OAuth 2.0", "Gmail API", "Calendar API"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>`,
+  },
+  // --- Marketing ---
+  {
+    id: "instagram-samuraishopjp",
+    name: "Instagram — SamuraiShopJP",
+    desc: "甲冑・侍グッズの商品投稿。カルーセル形式の商品紹介コンテンツ",
+    category: "marketing",
+    status: "live",
+    deploy: "Instagram",
+    tech: ["Carousel Posts", "Product Photography"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/></svg>`,
+  },
+  {
+    id: "x-samuraishopjp",
+    name: "X (Twitter) — SamuraiShopJP",
+    desc: "X/Twitterでの商品プロモーション・ブランド発信",
+    category: "marketing",
+    status: "live",
+    deploy: "X / Twitter",
+    tech: ["Post Content", "Brand Marketing"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/></svg>`,
+  },
+  {
+    id: "meta-ads",
+    name: "Meta Ads レポート",
+    desc: "Meta広告の日次・週次・月次レポート自動生成。LINE通知連携",
+    category: "marketing",
+    status: "auto",
+    deploy: "Shell Scripts",
+    tech: ["Python", "Meta API", "LINE Broadcast", "Shell"],
+    metrics: "daily / weekly / monthly",
+    schedule: [
+      { time: "毎日 08:03", task: "日次レポート → LINE通知", via: "launchd" },
+      { time: "毎週月曜 09:03", task: "週次レポート → LINE通知", via: "launchd" },
+      { time: "毎月1日 09:03", task: "月次レポート → LINE通知", via: "launchd" },
+    ],
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>`,
+  },
+  {
+    id: "google-ads",
+    name: "Google Ads",
+    desc: "Google広告キャンペーン管理・運用資産",
+    category: "marketing",
+    status: "live",
+    deploy: "Google Ads",
+    tech: ["Search Ads", "Campaign Management"],
+    metrics: null,
+    schedule: [
+      { time: "毎日 08:03", task: "日次レポート → LINE通知", via: "launchd" },
+    ],
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+  },
+  // --- Reusable ---
+  {
+    id: "matching-lp",
+    name: "Matching LP Template",
+    desc: "マッチングサービス用LP生成テンプレート。Gemini画像生成スクリプト付き",
+    category: "reusable",
+    status: "dev",
+    deploy: "GitHub Pages",
+    tech: ["HTML", "Tailwind CSS", "AOS", "Swiper.js", "Gemini API"],
+    metrics: "GitHub: trust-svg/matching-lp",
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>`,
+  },
+  {
+    id: "dark-glassmorphism",
+    name: "Dark Glassmorphism Template",
+    desc: "ダークグラスモーフィズムUIデザインテンプレート",
+    category: "reusable",
+    status: "dev",
+    deploy: "Template",
+    tech: ["HTML", "CSS", "Glassmorphism"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/></svg>`,
+  },
+  {
+    id: "dark-luxury",
+    name: "Dark Luxury Template",
+    desc: "ラグジュアリーダークUIデザインテンプレート",
+    category: "reusable",
+    status: "dev",
+    deploy: "Template",
+    tech: ["HTML", "CSS", "Dark Theme"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/></svg>`,
+  },
+  // --- Skills ---
+  {
+    id: "skill-ebay",
+    name: "eBay Skill",
+    desc: "Claude Code用eBay運用スキル。/ebay list, optimize, price, source, analyze等",
+    category: "skills",
+    status: "live",
+    deploy: "Claude Code Skill",
+    tech: ["26 Tools", "FastAPI Endpoints", "MCP"],
+    metrics: "8 subcommands",
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.653 3.286a.75.75 0 01-1.088-.791l1.286-6.287L1.06 6.773a.75.75 0 01.42-1.278l6.328-.766L10.553.618a.75.75 0 011.394 0l2.745 5.11 6.328.766a.75.75 0 01.42 1.278l-4.906 4.605 1.286 6.287a.75.75 0 01-1.088.79L12 15.17z"/></svg>`,
+  },
+  {
+    id: "skill-ai-secretary",
+    name: "AI Secretary Skill",
+    desc: "朝ブリーフィング・スケジュール・メール要約。Google MCP連携",
+    category: "skills",
+    status: "live",
+    deploy: "Claude Code Skill",
+    tech: ["Google Calendar MCP", "Gmail MCP", "APScheduler"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+  },
+  {
+    id: "skill-i18n",
+    name: "i18n Skill",
+    desc: "Web多言語化スキル。EN/JA bilingual対応を自動セットアップ",
+    category: "skills",
+    status: "live",
+    deploy: "Claude Code Skill",
+    tech: ["data-en/data-ja", "JS Helper", "scan/setup/apply"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802"/></svg>`,
+  },
+  {
+    id: "skill-ui-ux",
+    name: "UI/UX Pro Max Skill",
+    desc: "50+スタイル・161パレット・57フォントペア。デザインシステム自動生成",
+    category: "skills",
+    status: "live",
+    deploy: "Claude Code Skill",
+    tech: ["Design System", "Tailwind", "shadcn/ui"],
+    metrics: "50+ styles / 161 palettes",
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.88 2.88M6.75 17.25h.008v.008H6.75v-.008z"/></svg>`,
+  },
+  {
+    id: "skill-nano-banana",
+    name: "Nano Banana Pro Skill",
+    desc: "Gemini 3 Pro Image APIによる高品質画像生成スキル",
+    category: "skills",
+    status: "live",
+    deploy: "Claude Code Skill",
+    tech: ["Gemini 3 Pro", "Image Generation"],
+    metrics: null,
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25a2.25 2.25 0 00-2.25-2.25H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg>`,
+  },
+  {
+    id: "skill-ads",
+    name: "Claude ADS Skill",
+    desc: "広告運用監査スキル。Google / Meta / LinkedIn / TikTok / Microsoft対応",
+    category: "skills",
+    status: "live",
+    deploy: "Claude Code Skill",
+    tech: ["Multi-platform Audit", "74+ Checks"],
+    metrics: "6 platforms",
+    icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46"/></svg>`,
+  },
+];
+
+// ============================================================
+//  CATEGORIES
+// ============================================================
+const CATEGORIES = [
+  { id: "all", label: "All", icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>` },
+  { id: "products", label: "Products", icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>` },
+  { id: "marketing", label: "Marketing", icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z"/></svg>` },
+  { id: "reusable", label: "Templates", icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128z"/></svg>` },
+  { id: "skills", label: "Skills", icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.653 3.286a.75.75 0 01-1.088-.791l1.286-6.287L1.06 6.773a.75.75 0 01.42-1.278l6.328-.766L10.553.618a.75.75 0 011.394 0l2.745 5.11 6.328.766a.75.75 0 01.42 1.278l-4.906 4.605 1.286 6.287a.75.75 0 01-1.088.79L12 15.17z"/></svg>` },
+];
+
+const STATUS_MAP = {
+  live:  { label: "LIVE", class: "badge-live" },
+  dev:   { label: "DEV", class: "badge-dev" },
+  plan:  { label: "PLAN", class: "badge-plan" },
+  auto:  { label: "AUTO", class: "badge-auto" },
+};
+
+const CATEGORY_COLORS = {
+  products:  { bg: "bg-blue-50", icon: "text-blue-600", border: "border-blue-100" },
+  marketing: { bg: "bg-emerald-50", icon: "text-emerald-600", border: "border-emerald-100" },
+  reusable:  { bg: "bg-violet-50", icon: "text-violet-600", border: "border-violet-100" },
+  skills:    { bg: "bg-amber-50", icon: "text-amber-600", border: "border-amber-100" },
+};
+
+// ============================================================
+//  RENDER
+// ============================================================
+let activeCategory = "all";
+
+function renderStats() {
+  const grid = document.getElementById("statsGrid");
+  const stats = [
+    { label: "Products", value: PROJECTS.filter(p => p.category === "products").length, gradient: "from-blue-500 to-indigo-500" },
+    { label: "Live Services", value: PROJECTS.filter(p => p.status === "live").length, gradient: "from-emerald-500 to-teal-500" },
+    { label: "Automations", value: PROJECTS.filter(p => p.status === "auto").length, gradient: "from-amber-500 to-orange-500" },
+    { label: "Skills", value: PROJECTS.filter(p => p.category === "skills").length, gradient: "from-violet-500 to-purple-500" },
+  ];
+  grid.innerHTML = stats.map(s => `
+    <div class="stat-card p-5 text-center">
+      <div class="text-3xl sm:text-4xl font-bold font-code bg-gradient-to-r ${s.gradient} bg-clip-text text-transparent">${s.value}</div>
+      <div class="text-xs text-[#86868B] mt-1 font-medium">${s.label}</div>
+    </div>
+  `).join("");
+}
+
+function renderTabs() {
+  const container = document.getElementById("tabContainer");
+  container.innerHTML = CATEGORIES.map(c => {
+    const count = c.id === "all" ? PROJECTS.length : PROJECTS.filter(p => p.category === c.id).length;
+    return `<button class="tab ${activeCategory === c.id ? 'active' : ''}" data-cat="${c.id}" role="tab" aria-selected="${activeCategory === c.id}">
+      <span class="inline-flex items-center gap-1.5">${c.icon} ${c.label} <span class="text-xs opacity-40">${count}</span></span>
+    </button>`;
+  }).join("");
+  container.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeCategory = btn.dataset.cat;
+      renderTabs();
+      renderCards();
+    });
+  });
+}
+
+function renderCards() {
+  const grid = document.getElementById("cardsGrid");
+  const filtered = activeCategory === "all" ? PROJECTS : PROJECTS.filter(p => p.category === activeCategory);
+  grid.innerHTML = filtered.map(p => {
+    const s = STATUS_MAP[p.status];
+    const cc = CATEGORY_COLORS[p.category] || CATEGORY_COLORS.products;
+    return `
+    <div class="card p-5 flex flex-col gap-3">
+      <div class="flex items-start justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl ${cc.bg} ${cc.border} border flex items-center justify-center ${cc.icon} shrink-0">
+            ${p.icon}
+          </div>
+          <div>
+            <h3 class="font-semibold text-sm leading-tight text-[#1D1D1F]">${p.name}</h3>
+            <p class="text-[11px] text-[#AEAEB2] font-code mt-0.5">${p.deploy}</p>
+          </div>
+        </div>
+        <span class="badge ${s.class}">${s.label}</span>
+      </div>
+      <p class="text-xs text-[#86868B] leading-relaxed">${p.desc}</p>
+      <div class="flex flex-wrap gap-1.5 mt-auto pt-1">
+        ${p.tech.map(t => `<span class="tech-tag">${t}</span>`).join("")}
+      </div>
+      ${p.metrics ? `<div class="text-[11px] font-code text-[#AEAEB2] pt-2 border-t border-[#F0F0F0]">${p.metrics}</div>` : ''}
+      ${p.schedule ? `
+        <div class="pt-2 ${p.metrics ? '' : 'border-t border-[#F0F0F0]'} space-y-0.5">
+          <div class="flex items-center gap-1.5 mb-1">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">Schedule</span>
+          </div>
+          ${p.schedule.map(s => `
+            <div class="schedule-row">
+              <span class="schedule-time">${s.time}</span>
+              <span class="schedule-task">${s.task}</span>
+              <span class="schedule-via">${s.via}</span>
+            </div>
+          `).join("")}
+        </div>` : ''}
+    </div>`;
+  }).join("");
+}
+
+function init() {
+  document.getElementById("lastUpdated").textContent = `Last updated: ${new Date().toLocaleDateString('ja-JP')}`;
+  renderStats();
+  renderTabs();
+  renderCards();
+}
+
+init();
+</script>
+</body>
+</html>

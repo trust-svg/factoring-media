@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% block title %}Deal Watcher — eBay Agent Hub{% endblock %}
+{% block breadcrumb %}Deals{% endblock %}
+{% block page_title %}<span data-en="Deal Watcher" data-ja="仕入監視">Deal Watcher</span>{% endblock %}
+
+{% block head %}
+<style>
+    .dw-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .dw-stat { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+    .dw-stat .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .dw-stat .value { font-size: 24px; font-weight: 700; margin-top: 2px; }
+    .dw-stat .sub { font-size: 11px; color: var(--text-secondary); }
+
+    .dw-filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+    .dw-pf {
+        padding: 4px 10px; border-radius: 14px; font-size: 10px; font-weight: 600;
+        cursor: pointer; border: 1px solid var(--border); background: var(--bg-primary);
+        transition: all 0.15s; user-select: none;
+    }
+    .dw-pf:hover { border-color: var(--accent-blue); }
+    .dw-pf.active { border-color: var(--accent-blue); background: rgba(59,130,246,0.1); color: var(--accent-blue); }
+    .dw-search {
+        padding: 6px 12px; background: var(--bg-primary); border: 1px solid var(--border);
+        border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; width: 160px;
+    }
+    .dw-search:focus { border-color: var(--accent-blue); }
+
+    .dw-header-row {
+        display: grid; grid-template-columns: 28px 1fr 90px 100px 70px 80px 80px 120px;
+        gap: 8px; padding: 8px 14px; font-size: 11px; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.5px;
+        background: var(--bg-secondary); border-radius: 8px 8px 0 0; border: 1px solid var(--border);
+    }
+    .dw-header-row .sortable { cursor: pointer; user-select: none; }
+    .dw-header-row .sortable:hover { color: var(--accent-blue); }
+    .dw-header-row .sortable.active { color: var(--accent-blue); font-weight: 700; }
+    .dw-header-row .sortable.asc::after { content: ' \25B2'; }
+    .dw-header-row .sortable.desc::after { content: ' \25BC'; }
+
+    .dw-product-row {
+        display: grid; grid-template-columns: 28px 1fr 90px 100px 70px 80px 80px 120px;
+        gap: 8px; padding: 10px 14px; border: 1px solid var(--border); border-top: none;
+        cursor: pointer; transition: background 0.1s; align-items: center;
+    }
+    .dw-product-row:hover { background: var(--bg-secondary); }
+    .dw-product-row:last-child { border-radius: 0 0 8px 8px; }
+
+    .dw-toggle { font-size: 10px; color: var(--text-muted); transition: transform 0.2s; text-align: center; }
+    .dw-product-row.open .dw-toggle { transform: rotate(90deg); color: var(--accent-blue); }
+    .dw-name { font-weight: 600; font-size: 13px; }
+    .dw-ebay-price { font-size: 12px; color: var(--text-secondary); text-align: right; }
+    .dw-count { font-size: 11px; background: var(--bg-secondary); padding: 2px 8px; border-radius: 10px; text-align: center; }
+    .dw-min-price { font-size: 13px; font-weight: 700; color: var(--accent-green); text-align: right; }
+    .dw-time { font-size: 11px; color: var(--text-muted); text-align: right; }
+
+    .dw-stock { display: inline-flex; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+    .dw-stock.in { background: rgba(5,150,105,0.1); color: var(--accent-green); }
+    .dw-stock.out { background: rgba(220,38,38,0.1); color: var(--accent-red); }
+    .dw-stock.na { background: var(--bg-secondary); color: var(--text-muted); }
+
+    .dw-children {
+        display: none; margin: 0 14px 0 42px; border-left: 2px solid rgba(59,130,246,0.2);
+    }
+    .dw-children.open { display: block; }
+    .dw-child-bar {
+        padding: 6px 14px; text-align: right; border-bottom: 1px solid var(--border);
+    }
+
+    .dw-child {
+        display: grid; grid-template-columns: auto 44px 1fr 80px 70px 52px 30px;
+        gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border);
+        font-size: 12px; align-items: center;
+    }
+    .dw-child:hover { background: var(--bg-secondary); }
+
+    .dw-platform {
+        display: inline-block; padding: 2px 8px; border-radius: 8px;
+        font-size: 10px; font-weight: 600; white-space: nowrap;
+    }
+    .dw-platform.yahoo_auction { background: rgba(220,38,38,0.1); color: #dc2626; }
+    .dw-platform.mercari { background: rgba(79,70,229,0.1); color: #4f46e5; }
+    .dw-platform.yahoo_fleamarket { background: rgba(217,119,6,0.1); color: #d97706; }
+    .dw-platform.rakuma { background: rgba(124,58,237,0.1); color: #7c3aed; }
+    .dw-platform.hardoff { background: rgba(5,150,105,0.1); color: #059669; }
+    .dw-platform.yahoo_shopping { background: rgba(219,39,119,0.1); color: #db2777; }
+    .dw-platform.rakuten { background: rgba(220,38,38,0.1); color: #dc2626; }
+
+    .dw-thumb {
+        width: 40px; height: 40px; border-radius: 6px; object-fit: cover;
+        background: var(--bg-secondary); border: 1px solid var(--border);
+    }
+    .dw-thumb-empty {
+        width: 40px; height: 40px; border-radius: 6px; background: var(--bg-secondary);
+        border: 1px solid var(--border); display: flex; align-items: center;
+        justify-content: center; color: var(--text-muted); font-size: 14px;
+    }
+    .dw-child-title a { color: var(--accent-blue); text-decoration: none; }
+    .dw-child-title a:hover { text-decoration: underline; }
+    .dw-child-price { font-weight: 600; color: var(--accent-green); text-align: right; }
+    .dw-child-profit { font-size: 11px; text-align: right; font-weight: 600; }
+    .dw-child-profit.positive { color: var(--accent-green); }
+    .dw-child-profit.negative { color: var(--accent-red); }
+
+    .dw-new {
+        display: inline-block; padding: 1px 5px; border-radius: 5px;
+        font-size: 9px; font-weight: 700; background: #ef4444; color: #fff;
+        margin-left: 4px; letter-spacing: 0.5px;
+    }
+
+    .dw-btn-eship {
+        border: 1px solid var(--accent-blue); color: var(--accent-blue); background: none;
+        font-size: 10px; padding: 2px 6px; border-radius: 5px; cursor: pointer;
+        font-weight: 600; transition: all 0.15s;
+    }
+    .dw-btn-eship:hover { background: var(--accent-blue); color: #fff; }
+    .dw-btn-eship:disabled { opacity: 0.4; cursor: not-allowed; }
+    .dw-btn-eship.sent { border-color: var(--accent-green); color: var(--accent-green); }
+
+    .dw-btn-hide {
+        background: none; border: none; color: var(--text-muted); cursor: pointer;
+        font-size: 11px; padding: 2px 4px; border-radius: 3px;
+    }
+    .dw-btn-hide:hover { color: var(--accent-red); }
+
+    .dw-btn-hide-all {
+        background: none; border: 1px solid var(--border); color: var(--text-muted);
+        cursor: pointer; font-size: 10px; padding: 3px 8px; border-radius: 6px;
+    }
+    .dw-btn-hide-all:hover { border-color: var(--accent-red); color: var(--accent-red); }
+
+    .dw-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+
+    /* Auto refresh button */
+    .dw-btn-auto {
+        font-size: 11px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+        border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-secondary);
+        transition: all 0.15s;
+    }
+    .dw-btn-auto.paused { border-color: #d97706; color: #d97706; background: rgba(217,119,6,0.1); }
+
+    /* Keyword section */
+    .dw-kw-form { display: flex; gap: 8px; margin-bottom: 10px; }
+    .dw-kw-form input {
+        flex: 1; padding: 7px 12px; background: var(--bg-primary); border: 1px solid var(--border);
+        border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none;
+    }
+    .dw-kw-form input:focus { border-color: var(--accent-blue); }
+    .dw-kw-list { display: flex; flex-wrap: wrap; gap: 5px; max-height: 100px; overflow-y: auto; }
+    .dw-kw-tag {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 9px; background: var(--bg-secondary); border: 1px solid var(--border);
+        border-radius: 14px; font-size: 11px; color: var(--text-secondary);
+    }
+    .dw-kw-tag.inactive { opacity: 0.35; }
+    .dw-kw-tag form { display: inline; }
+    .dw-kw-tag button {
+        background: none; border: none; color: var(--text-muted); cursor: pointer;
+        font-size: 11px; padding: 1px 3px; border-radius: 3px;
+    }
+    .dw-kw-tag button:hover { color: var(--accent-blue); }
+
+    @media (max-width: 900px) {
+        .dw-stats { grid-template-columns: repeat(2, 1fr); }
+        .dw-header-row, .dw-product-row { grid-template-columns: 24px 1fr 70px 60px 60px; }
+        .dw-product-row .dw-ebay-price, .dw-product-row .dw-stock, .dw-product-row .dw-time,
+        .dw-header-row span:nth-child(3), .dw-header-row span:nth-child(4), .dw-header-row span:nth-child(8) { display: none; }
+        .dw-child { grid-template-columns: auto 36px 1fr 55px 55px 44px 24px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dw-stats">
+    <div class="dw-stat"><div class="label" data-en="Keywords" data-ja="キーワード">Keywords</div><div class="value">{{ kw_count }}</div><div class="sub" data-en="monitoring" data-ja="監視中">monitoring</div></div>
+    <div class="dw-stat"><div class="label" data-en="Listings" data-ja="リスティング">Listings</div><div class="value">{{ listing_count }}</div><div class="sub">{% if hidden_count %}{{ hidden_count }} <span data-en="hidden" data-ja="非表示">hidden</span>{% endif %}</div></div>
+    <div class="dw-stat"><div class="label" data-en="Matched" data-ja="マッチ済">Matched</div><div class="value" style="color:var(--accent-blue);">{{ groups|length }}</div><div class="sub" data-en="with results" data-ja="件ヒット">with results</div></div>
+    <div class="dw-stat"><div class="label" data-en="Service" data-ja="サービス">Service</div><div class="value" style="font-size:14px;">{{ scan_status.last_run or '-' }}</div><div class="sub">{{ interval }}<span data-en="min interval" data-ja="分間隔">min interval</span></div></div>
+</div>
+
+<!-- Keywords -->
+<div class="section" style="margin-bottom:16px;">
+    <details>
+        <summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+            <h2 style="font-size:14px;" data-en="Keywords" data-ja="キーワード">Keywords</h2>
+            <span style="font-size:12px;color:var(--text-muted);">({{ keywords|length }}) <span data-en="click to expand" data-ja="クリックで展開">click to expand</span></span>
+        </summary>
+        <div style="padding-top:12px;">
+            <form class="dw-kw-form" action="/deals/keywords/add" method="post">
+                <input type="text" name="name" placeholder="Add keyword (e.g. TASCAM 424)" data-placeholder-en="Add keyword (e.g. TASCAM 424)" data-placeholder-ja="キーワード追加 (例: TASCAM 424)" required>
+                <button type="submit" class="btn btn-sm" data-en="Add" data-ja="追加">Add</button>
+            </form>
+            <div class="dw-kw-list">
+                {% for kw in keywords %}
+                <div class="dw-kw-tag {{ '' if kw.active else 'inactive' }}">
+                    <span>{{ kw.name }}</span>
+                    <form action="/deals/keywords/{{ kw.id }}/toggle" method="post">
+                        <button type="submit">{{ '⏸' if kw.active else '▶' }}</button>
+                    </form>
+                    <form action="/deals/keywords/{{ kw.id }}/delete" method="post"
+                          onsubmit="return confirm('Delete: {{ kw.name }}?');">
+                        <button type="submit">✕</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </details>
+</div>
+
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Matched Products" data-ja="マッチ商品">Matched Products</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <button class="dw-btn-auto" id="dwAutoBtn" onclick="dwToggleAuto()">Auto: ON</button>
+            <button class="btn btn-sm" onclick="dwSyncEship(this)" data-en="Sync Profit" data-ja="利益同期" style="background:var(--accent-blue);color:#fff;">Sync Profit</button>
+            <form action="/deals/scan" method="post" style="display:inline;">
+                <button class="btn btn-sm" type="submit" data-en="Scan Now" data-ja="今すぐスキャン">Scan Now</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="dw-filter-bar">
+        <button class="dw-pf active" data-platform="all" onclick="dwFilterPlatform(this)">All</button>
+        <button class="dw-pf" data-platform="yahoo_auction" onclick="dwFilterPlatform(this)">ヤフオク</button>
+        <button class="dw-pf" data-platform="mercari" onclick="dwFilterPlatform(this)">メルカリ</button>
+        <button class="dw-pf" data-platform="yahoo_fleamarket" onclick="dwFilterPlatform(this)">Yフリマ</button>
+        <button class="dw-pf" data-platform="rakuma" onclick="dwFilterPlatform(this)">ラクマ</button>
+        <button class="dw-pf" data-platform="hardoff" onclick="dwFilterPlatform(this)">ハードオフ</button>
+        <button class="dw-pf" data-platform="yahoo_shopping" onclick="dwFilterPlatform(this)">Yショッピング</button>
+        <button class="dw-pf" data-platform="rakuten" onclick="dwFilterPlatform(this)">楽天</button>
+        <input type="text" class="dw-search" id="dwSearch" placeholder="Filter..." oninput="dwFilter()">
+    </div>
+
+    {% if groups %}
+    <div class="dw-header-row">
+        <span></span>
+        <span class="sortable" data-sort="name" onclick="dwSort(this)" data-en="Product" data-ja="商品">Product</span>
+        <span class="sortable" data-sort="ebay_price" style="text-align:right" onclick="dwSort(this)" data-en="eBay Price" data-ja="eBay価格">eBay Price</span>
+        <span class="sortable" data-sort="stock" onclick="dwSort(this)" data-en="Stock" data-ja="在庫">Stock</span>
+        <span class="sortable" data-sort="count" style="text-align:center" onclick="dwSort(this)" data-en="Hits" data-ja="件数">Hits</span>
+        <span class="sortable" data-sort="min_price" style="text-align:right" onclick="dwSort(this)" data-en="Best JP" data-ja="最安">Best JP</span>
+        <span style="text-align:right" data-en="Profit" data-ja="利益">Profit</span>
+        <span class="sortable desc active" data-sort="updated" style="text-align:right" onclick="dwSort(this)" data-en="Updated" data-ja="更新日">Updated</span>
+    </div>
+
+    <div id="dwList">
+        {% for group in groups %}
+        <div class="dw-group" data-keyword="{{ group.keyword|lower }}"
+             data-name="{{ group.keyword|lower }}" data-ebay_price="{{ group.ebay_price or 0 }}"
+             data-stock="{{ group.ebay_qty if group.ebay_qty is not none else -1 }}"
+             data-count="{{ group.count }}" data-min_price="{{ group.min_price or 0 }}"
+             data-updated="{{ group.latest_found or '' }}">
+            <div class="dw-product-row" onclick="dwToggle(this)">
+                <span class="dw-toggle">&#9654;</span>
+                <span class="dw-name">{{ group.keyword }}</span>
+                <span class="dw-ebay-price">{% if group.ebay_price %}${{ '{:,.0f}'.format(group.ebay_price) }}{% else %}-{% endif %}</span>
+                <span>
+                    {% if group.ebay_qty is not none %}
+                        {% if group.ebay_qty > 0 %}<span class="dw-stock in">In Stock ({{ group.ebay_qty }})</span>
+                        {% else %}<span class="dw-stock out">Out of Stock</span>{% endif %}
+                    {% else %}<span class="dw-stock na">-</span>{% endif %}
+                </span>
+                <span class="dw-count">{{ group.count }}</span>
+                <span class="dw-min-price">{{ '¥{:,}'.format(group.min_price) if group.min_price else '-' }}</span>
+                <span style="text-align:right;font-size:12px;font-weight:600;{% if group.eship_profit is not none %}color:{{ 'var(--accent-green)' if group.eship_profit >= 0 else 'var(--accent-red)' }};{% endif %}">
+                    {% if group.eship_profit is not none %}¥{{ '{:,}'.format(group.eship_profit) }}{% else %}-{% endif %}
+                </span>
+                <span class="dw-time">{{ group.latest_found[:10] if group.latest_found else '' }}</span>
+            </div>
+            <div class="dw-children">
+                <div class="dw-child-bar">
+                    <form action="/deals/keywords/{{ group.keyword_id }}/hide-all" method="post" style="display:inline;"
+                          onsubmit="return confirm('{{ group.keyword }} の全リスティングを非表示にしますか？');">
+                        <button class="dw-btn-hide-all" type="submit" data-en="Hide All" data-ja="すべて非表示">Hide All</button>
+                    </form>
+                </div>
+                {% for item in group.listings %}
+                <div class="dw-child" data-platform="{{ item.platform }}" data-found="{{ item.found_at or '' }}">
+                    <span class="dw-platform {{ item.platform }}">{{ {
+                        'yahoo_auction': 'ヤフオク', 'mercari': 'メルカリ', 'yahoo_fleamarket': 'Yフリマ',
+                        'rakuma': 'ラクマ', 'hardoff': 'ハードオフ', 'yahoo_shopping': 'Yショッピング', 'rakuten': '楽天'
+                    }.get(item.platform, item.platform) }}</span>
+                    {% if item.image_url %}
+                    <a href="{{ item.url }}" target="_blank">
+                        <img class="dw-thumb" src="{{ item.image_url }}" alt="" loading="lazy"
+                             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                        <span class="dw-thumb-empty" style="display:none;">-</span>
+                    </a>
+                    {% else %}<span class="dw-thumb-empty">-</span>{% endif %}
+                    <span class="dw-child-title">
+                        <a href="{{ item.url }}" target="_blank">{{ item.title[:65] }}</a>
+                        {% if item.found_at %}<span class="dw-new" data-found="{{ item.found_at }}" style="display:none;">NEW</span>{% endif %}
+                    </span>
+                    <span class="dw-child-price">{{ '¥{:,}'.format(item.price) if item.price else '-' }}</span>
+                    <span class="dw-child-profit {% if item.est_profit_jpy is not none %}{{ 'positive' if item.est_profit_jpy >= 0 else 'negative' }}{% endif %}">
+                        {% if item.est_profit_jpy is not none %}¥{{ '{:,}'.format(item.est_profit_jpy) }}{% else %}-{% endif %}
+                    </span>
+                    <span>
+                        {% if group.ebay_title %}
+                        <button class="dw-btn-eship" onclick="dwEship(this,{{ item.id }},'{{ group.ebay_title|replace("'", "\\'") }}')" title="eShipに送る">eShip</button>
+                        {% endif %}
+                    </span>
+                    <form action="/deals/listings/{{ item.id }}/hide" method="post" style="display:inline;" onsubmit="event.stopPropagation();">
+                        <button class="dw-btn-hide" type="submit" title="非表示">✕</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="dw-empty" data-en="No matched products yet." data-ja="マッチ商品がありません。">No matched products yet.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// --- Toggle ---
+function dwToggle(row) {
+    row.classList.toggle('open');
+    row.nextElementSibling.classList.toggle('open');
+}
+
+// --- Filter ---
+let dwActivePlatform = 'all';
+function dwFilter() {
+    const q = document.getElementById('dwSearch').value.toLowerCase();
+    document.querySelectorAll('.dw-group').forEach(g => {
+        const matchText = g.dataset.keyword.includes(q);
+        const items = g.querySelectorAll('.dw-child');
+        let hasVisible = false;
+        items.forEach(item => {
+            const mp = dwActivePlatform === 'all' || item.dataset.platform === dwActivePlatform;
+            item.style.display = mp ? '' : 'none';
+            if (mp) hasVisible = true;
+        });
+        g.style.display = (matchText && (dwActivePlatform === 'all' || hasVisible)) ? '' : 'none';
+    });
+}
+function dwFilterPlatform(btn) {
+    document.querySelectorAll('.dw-pf').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    dwActivePlatform = btn.dataset.platform;
+    dwFilter();
+}
+
+// --- Sort ---
+function dwSort(header) {
+    const key = header.dataset.sort;
+    const isAsc = header.classList.contains('asc');
+    const dir = isAsc ? 'desc' : 'asc';
+    document.querySelectorAll('.dw-header-row .sortable').forEach(h => h.classList.remove('asc','desc','active'));
+    header.classList.add(dir, 'active');
+    const list = document.getElementById('dwList');
+    const groups = [...list.querySelectorAll('.dw-group')];
+    groups.sort((a, b) => {
+        let va = a.dataset[key], vb = b.dataset[key];
+        if (key === 'name' || key === 'updated') return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+        va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
+        return dir === 'asc' ? va - vb : vb - va;
+    });
+    groups.forEach(g => list.appendChild(g));
+}
+
+// --- NEW badges ---
+(function() {
+    const cutoff = new Date(Date.now() - 86400000);
+    document.querySelectorAll('.dw-new[data-found]').forEach(b => {
+        if (new Date(b.dataset.found) > cutoff) b.style.display = '';
+    });
+})();
+
+// --- eShip ---
+async function dwEship(btn, listingId, ebayTitle) {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = '...';
+    const form = new FormData();
+    form.append('listing_id', listingId);
+    form.append('ebay_title', ebayTitle);
+    try {
+        const res = await fetch('/deals/api/eship', { method: 'POST', body: form });
+        const data = await res.json();
+        if (data.status === 'ok') { btn.textContent = 'OK'; btn.classList.add('sent'); }
+        else { btn.textContent = 'NG'; alert('eShip: ' + data.message); btn.disabled = false; }
+    } catch (e) { btn.textContent = 'NG'; alert('eShip: ' + e.message); btn.disabled = false; }
+}
+
+// --- eShip Profit Sync ---
+async function dwSyncEship(btn) {
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Syncing...';
+    try {
+        const res = await fetch('/deals/api/eship-sync', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            btn.textContent = `Done (${data.count})`;
+            setTimeout(() => location.reload(), 1000);
+        } else { btn.textContent = 'Error'; btn.disabled = false; }
+    } catch (e) { btn.textContent = 'Error'; btn.disabled = false; }
+}
+
+// --- Auto Refresh ---
+let dwAutoRefresh = true;
+let dwRefreshTimer = setTimeout(() => { if (dwAutoRefresh) location.reload(); }, 60000);
+function dwToggleAuto() {
+    dwAutoRefresh = !dwAutoRefresh;
+    const btn = document.getElementById('dwAutoBtn');
+    if (dwAutoRefresh) {
+        btn.textContent = 'Auto: ON';
+        btn.classList.remove('paused');
+        dwRefreshTimer = setTimeout(() => location.reload(), 60000);
+    } else {
+        btn.textContent = 'Auto: OFF';
+        btn.classList.add('paused');
+        clearTimeout(dwRefreshTimer);
+    }
+}
+</script>
+{% endblock %}

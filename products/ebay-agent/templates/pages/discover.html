@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}eBayディスカバリー — eBay Agent Hub{% endblock %}
+{% block breadcrumb %}Discovery{% endblock %}
+{% block page_title %}<span data-en="eBay Discovery" data-ja="eBayディスカバリー">eBay Discovery</span>{% endblock %}
+
+{% block content %}
+<!-- 検索エリア -->
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Find Profitable Products" data-ja="売れ筋商品を探す">Find Profitable Products</h2>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;" data-en="Search eBay for trending products from Japan that you haven't sold before." data-ja="eBayで売れている日本関連商品の中から、まだ扱ったことのない商品を発見します。">Search eBay for trending products from Japan that you haven't sold before.</p>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;" data-en="Keyword" data-ja="キーワード">Keyword</label>
+            <input id="searchKeyword" class="form-input" value="Japanese vintage" placeholder="Japan, Japanese audio..." style="width:220px;">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;" data-en="Category" data-ja="カテゴリ">Category</label>
+            <select id="searchCategory" class="form-input" style="width:180px;">
+                <option value="">All Categories</option>
+                <option value="293">Consumer Electronics</option>
+                <option value="11233">Music</option>
+                <option value="625">Cameras & Photo</option>
+                <option value="64482">Watches</option>
+                <option value="20081">Antiques</option>
+                <option value="550">Art</option>
+                <option value="888">Sporting Goods</option>
+                <option value="1">Collectibles</option>
+                <option value="281">Jewelry</option>
+                <option value="11450">Clothing</option>
+                <option value="220">Toys & Hobbies</option>
+                <option value="3252">Computers</option>
+                <option value="26395">Health & Beauty</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;" data-en="Price Min ($)" data-ja="最低価格 ($)">Price Min ($)</label>
+            <input id="searchPriceMin" class="form-input" type="number" placeholder="50" style="width:90px;">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;" data-en="Price Max ($)" data-ja="最高価格 ($)">Price Max ($)</label>
+            <input id="searchPriceMax" class="form-input" type="number" placeholder="500" style="width:90px;">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;" data-en="Condition" data-ja="状態">Condition</label>
+            <select id="searchCondition" class="form-input" style="width:140px;">
+                <option value="">All</option>
+                <option value="1000">New</option>
+                <option value="1500">Open Box</option>
+                <option value="2000">Refurbished</option>
+                <option value="3000">Used</option>
+                <option value="3000,1500">Used + Open Box</option>
+                <option value="7000">For Parts</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;" data-en="Results" data-ja="件数">Results</label>
+            <select id="searchLimit" class="form-input" style="width:80px;">
+                <option value="30">30</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="btn btn-sm" onclick="runDiscover()" id="discoverBtn" style="height:36px;">Search eBay</button>
+    </div>
+</div>
+
+<!-- KPIサマリー -->
+<div class="stats-grid" id="discoverKpi" style="display:none;grid-template-columns:repeat(5,1fr);">
+    <div class="stat-card">
+        <div class="label" data-en="eBay Market Size" data-ja="eBay市場規模">eBay Market Size</div>
+        <div class="value blue" id="kpiMarket">--</div>
+        <div class="sub" id="kpiDemand"></div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Displayed" data-ja="表示件数">Displayed</div>
+        <div class="value" id="kpiTotal">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="New Products" data-ja="未経験商品">New Products</div>
+        <div class="value green" id="kpiNew">--</div>
+        <div class="sub" data-en="Not in your history" data-ja="販売履歴にない">Not in your history</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Already Known" data-ja="取扱済み">Already Known</div>
+        <div class="value yellow" id="kpiKnown">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label" data-en="Exchange Rate" data-ja="為替レート">Exchange Rate</div>
+        <div class="value" id="kpiRate">--</div>
+    </div>
+</div>
+
+<!-- フィルタ -->
+<div class="section" id="resultsSection" style="display:none;">
+    <div class="section-header">
+        <h2 data-en="Results" data-ja="検索結果">Results</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <label style="font-size:11px;color:var(--text-muted);">
+                <input type="checkbox" id="filterNew" checked onchange="renderResults()"> <span data-en="New only" data-ja="未経験のみ">New only</span>
+            </label>
+        </div>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="data-table" id="discoverTable">
+            <thead>
+                <tr>
+                    <th style="width:40px;" data-en="Score" data-ja="スコア">Score</th>
+                    <th></th>
+                    <th data-en="Product" data-ja="商品名">Product</th>
+                    <th data-en="Price" data-ja="価格">Price</th>
+                    <th data-en="Seller" data-ja="セラー">Seller</th>
+                    <th data-en="Condition" data-ja="状態">Condition</th>
+                    <th data-en="Status" data-ja="新規性">Status</th>
+                    <th data-en="Actions" data-ja="アクション">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="discoverBody">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 利益シミュレーションモーダル -->
+<div id="estimateModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:200;justify-content:center;align-items:center;">
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:24px;max-width:420px;width:90%;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+        <h3 style="margin-bottom:16px;" data-en="Profit Estimate" data-ja="利益シミュレーション">Profit Estimate</h3>
+        <div id="estProductTitle" style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group">
+                <label data-en="eBay Price (USD)" data-ja="eBay売価 (USD)">eBay Price (USD)</label>
+                <input id="estSellPrice" class="form-input" type="number" step="0.01" readonly style="background:var(--bg-tertiary);">
+            </div>
+            <div class="form-group">
+                <label data-en="Source Cost (JPY)" data-ja="仕入原価 (JPY)">Source Cost (JPY)</label>
+                <input id="estSourceCost" class="form-input" type="number" placeholder="15000">
+            </div>
+            <div class="form-group">
+                <label data-en="Shipping (USD)" data-ja="送料 (USD)">Shipping (USD)</label>
+                <input id="estShipping" class="form-input" type="number" step="0.01" value="30">
+            </div>
+            <div class="form-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-sm" onclick="calcEstimate()" style="width:100%;height:36px;" data-en="Calculate" data-ja="計算">Calculate</button>
+            </div>
+        </div>
+        <div id="estResult" style="display:none;margin-top:16px;padding:12px;border-radius:8px;background:var(--bg-tertiary);">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
+                <span style="color:var(--text-muted);" data-en="eBay Fee (12.9%)" data-ja="eBay手数料 (12.9%)">eBay Fee (12.9%)</span>
+                <span id="estEbayFee" style="text-align:right;"></span>
+                <span style="color:var(--text-muted);" data-en="Payoneer Fee (2%)" data-ja="Payoneer手数料 (2%)">Payoneer Fee (2%)</span>
+                <span id="estPayoneerFee" style="text-align:right;"></span>
+                <span style="color:var(--text-muted);" data-en="Shipping" data-ja="送料">Shipping</span>
+                <span id="estShipCost" style="text-align:right;"></span>
+                <span style="color:var(--text-muted);" data-en="Source Cost" data-ja="仕入原価">Source Cost</span>
+                <span id="estCostDisplay" style="text-align:right;"></span>
+                <div style="grid-column:1/3;border-top:1px solid var(--border);margin:4px 0;"></div>
+                <span style="font-weight:700;" data-en="Profit" data-ja="利益">Profit</span>
+                <span id="estProfit" style="text-align:right;font-weight:700;font-size:14px;"></span>
+                <span style="color:var(--text-muted);" data-en="Margin" data-ja="利益率">Margin</span>
+                <span id="estMargin" style="text-align:right;"></span>
+            </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+            <button class="btn btn-sm btn-outline" onclick="closeEstimate()" data-en="Close" data-ja="閉じる">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── セラー分析 ─── -->
+<div class="section" style="margin-top:24px;">
+    <div class="section-header">
+        <h2 data-en="Seller Analysis" data-ja="セラー分析">Seller Analysis</h2>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;" data-en="Analyze a competitor's listings to discover their strategy — categories, pricing, keywords." data-ja="競合セラーの出品を分析して、カテゴリ構成・価格帯・キーワード戦略を可視化します。">Analyze a competitor's listings to discover their strategy.</p>
+    <div style="display:flex;gap:8px;align-items:flex-end;">
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;" data-en="Seller Username" data-ja="セラー名">Seller Username</label>
+            <input id="sellerInput" class="form-input" placeholder="seller_username" style="width:240px;">
+        </div>
+        <button class="btn btn-sm" onclick="runSellerAnalysis()" id="sellerBtn" style="height:36px;" data-en="Analyze" data-ja="分析">Analyze</button>
+    </div>
+</div>
+
+<!-- セラー分析結果 -->
+<div id="sellerResults" style="display:none;">
+    <!-- KPI -->
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="stat-card">
+            <div class="label" data-en="Total Listings" data-ja="出品数">Total Listings</div>
+            <div class="value blue" id="sellerTotal">--</div>
+            <div class="sub" id="sellerFetched"></div>
+        </div>
+        <div class="stat-card">
+            <div class="label" data-en="Avg Price" data-ja="平均価格">Avg Price</div>
+            <div class="value" id="sellerAvg">--</div>
+            <div class="sub" id="sellerMedian"></div>
+        </div>
+        <div class="stat-card">
+            <div class="label" data-en="Price Range" data-ja="価格幅">Price Range</div>
+            <div class="value" id="sellerRange">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="label" data-en="Categories" data-ja="カテゴリ数">Categories</div>
+            <div class="value" id="sellerCatCount">--</div>
+        </div>
+    </div>
+
+    <!-- カテゴリ＋価格帯＋キーワード -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px;">
+        <!-- カテゴリ構成 -->
+        <div class="section" style="margin-top:0;">
+            <h3 style="font-size:13px;margin-bottom:8px;" data-en="Category Breakdown" data-ja="カテゴリ構成">Category Breakdown</h3>
+            <div id="sellerCategories"></div>
+        </div>
+        <!-- 価格帯分布 -->
+        <div class="section" style="margin-top:0;">
+            <h3 style="font-size:13px;margin-bottom:8px;" data-en="Price Distribution" data-ja="価格帯分布">Price Distribution</h3>
+            <div id="sellerPriceRanges"></div>
+        </div>
+        <!-- キーワードTOP -->
+        <div class="section" style="margin-top:0;">
+            <h3 style="font-size:13px;margin-bottom:8px;" data-en="Top Keywords" data-ja="頻出キーワード">Top Keywords</h3>
+            <div id="sellerKeywords" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+        </div>
+    </div>
+
+    <!-- Gap Analysis -->
+    <div class="section" style="margin-top:16px;">
+        <h3 style="font-size:13px;margin-bottom:8px;" data-en="Gap Analysis — What they sell that you don't" data-ja="Gap分析 — 相手にあって自分にないカテゴリ">Gap Analysis</h3>
+        <div id="sellerGaps"></div>
+    </div>
+
+    <!-- セラーの商品一覧 -->
+    <div class="section" style="margin-top:16px;">
+        <div class="section-header">
+            <h3 style="font-size:13px;" data-en="Seller's Listings" data-ja="セラーの商品一覧">Seller's Listings</h3>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th data-en="Product" data-ja="商品名">Product</th>
+                        <th data-en="Price" data-ja="価格">Price</th>
+                        <th data-en="Category" data-ja="カテゴリ">Category</th>
+                        <th data-en="Condition" data-ja="状態">Condition</th>
+                        <th data-en="Source" data-ja="仕入れ">Source</th>
+                    </tr>
+                </thead>
+                <tbody id="sellerItemsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 仕入れサイト検索モーダル -->
+<div id="sourceModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:200;justify-content:center;align-items:center;">
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:24px;max-width:480px;width:90%;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+        <h3 style="margin-bottom:8px;" data-en="Source Search" data-ja="仕入れサイト検索">Source Search</h3>
+        <div id="sourceTitle" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;"></div>
+        <div id="sourceQuery" style="font-size:11px;color:var(--text-muted);margin-bottom:16px;"></div>
+        <div id="sourceLinks" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button class="btn btn-sm btn-outline" onclick="document.getElementById('sourceModal').style.display='none'" data-en="Close" data-ja="閉じる">Close</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/discover.js"></script>
+{% endblock %}
