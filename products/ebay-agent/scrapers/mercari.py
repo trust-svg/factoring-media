@@ -231,7 +231,15 @@ async def scrape_mercari_purchases(
             item_url = f"https://jp.mercari.com/item/{item_id}"
             try:
                 await page.goto(item_url, wait_until="domcontentloaded", timeout=15000)
-                await asyncio.sleep(2)
+                # メルカリはCSR — 商品情報が描画されるまで待機
+                try:
+                    await page.wait_for_selector(
+                        'img[src*="static.mercdn"], [data-testid="price"], [class*="price"]',
+                        timeout=8000,
+                    )
+                except Exception:
+                    pass  # タイムアウトしても続行（売り切れ等）
+                await asyncio.sleep(1)
 
                 # 価格・送料を取得
                 price_info = await page.evaluate("""() => {
@@ -291,8 +299,17 @@ async def scrape_mercari_purchases(
 
                 if not ss_path.exists():
                     try:
-                        await page.screenshot(path=str(ss_path), full_page=True)
-                        logger.info(f"SS撮影: {item_id}")
+                        # 商品情報が表示されているか確認（空ページ回避）
+                        has_content = await page.evaluate("""() => {
+                            const body = document.body.innerText || '';
+                            // 商品ページに最低限あるべき要素
+                            return body.includes('¥') || body.includes('商品') || body.length > 500;
+                        }""")
+                        if has_content:
+                            await page.screenshot(path=str(ss_path), full_page=True)
+                            logger.info(f"SS撮影: {item_id}")
+                        else:
+                            logger.info(f"SS スキップ（空ページ）: {item_id}")
                     except Exception as e:
                         logger.warning(f"Screenshot error ({item_id}): {e}")
 
