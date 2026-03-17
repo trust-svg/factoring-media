@@ -1,4 +1,4 @@
-"""Voice memo — download LINE audio, transcribe with OpenAI Whisper API."""
+"""Voice memo — download Telegram voice, transcribe with OpenAI Whisper API."""
 
 import logging
 import os
@@ -6,6 +6,7 @@ import tempfile
 from typing import Optional
 
 import httpx
+from telegram import Bot
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ async def transcribe_audio(audio_content: bytes) -> str:
     """Transcribe audio bytes using OpenAI Whisper API.
 
     Args:
-        audio_content: Raw audio bytes from LINE message
+        audio_content: Raw audio bytes
 
     Returns:
         Transcribed text, or error message
@@ -24,8 +25,9 @@ async def transcribe_audio(audio_content: bytes) -> str:
     if not OPENAI_API_KEY:
         return "[音声メモ] OpenAI APIキーが設定されていないため、文字起こしできません。"
 
+    temp_path = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".m4a", delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as f:
             f.write(audio_content)
             temp_path = f.name
 
@@ -34,7 +36,7 @@ async def transcribe_audio(audio_content: bytes) -> str:
                 resp = await client.post(
                     "https://api.openai.com/v1/audio/transcriptions",
                     headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-                    files={"file": ("audio.m4a", audio_file, "audio/mp4")},
+                    files={"file": ("audio.ogg", audio_file, "audio/ogg")},
                     data={"model": "whisper-1", "language": "ja"},
                     timeout=30,
                 )
@@ -50,25 +52,19 @@ async def transcribe_audio(audio_content: bytes) -> str:
         logger.error(f"Transcription error: {e}")
         return f"[音声メモ] エラー: {e}"
     finally:
-        try:
-            os.unlink(temp_path)
-        except Exception:
-            pass
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except Exception:
+                pass
 
 
-async def download_line_audio(message_id: str, channel_token: str) -> Optional[bytes]:
-    """Download audio content from LINE message."""
+async def download_telegram_voice(bot: Bot, file_id: str) -> Optional[bytes]:
+    """Download voice/audio content from Telegram."""
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"https://api-data.line.me/v2/bot/message/{message_id}/content",
-                headers={"Authorization": f"Bearer {channel_token}"},
-                timeout=30,
-            )
-            if resp.status_code == 200:
-                return resp.content
-            logger.error(f"LINE content download error: {resp.status_code}")
-            return None
+        tg_file = await bot.get_file(file_id)
+        audio_bytes = await tg_file.download_as_bytearray()
+        return bytes(audio_bytes)
     except Exception as e:
-        logger.error(f"LINE content download error: {e}")
+        logger.error(f"Telegram voice download error: {e}")
         return None

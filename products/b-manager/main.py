@@ -1,24 +1,12 @@
-"""B-Manager — LINE AI Secretary Server."""
+"""B-Manager — Telegram AI Secretary Server."""
 
 import logging
 from contextlib import asynccontextmanager
 from typing import Dict
 
-from fastapi import FastAPI, Request, HTTPException
-from linebot.v3 import WebhookParser
-from linebot.v3.messaging import (
-    AsyncMessagingApi,
-    AsyncApiClient,
-    Configuration,
-    ReplyMessageRequest,
-    TextMessage,
-    PushMessageRequest,
-    BroadcastRequest,
-)
-from linebot.v3.webhooks import (
-    MessageEvent, TextMessageContent, AudioMessageContent,
-)
-from linebot.v3.exceptions import InvalidSignatureError
+from fastapi import FastAPI, Request, Response
+from telegram import Bot, Update
+from telegram.constants import ParseMode
 
 import config
 from secretary import (
@@ -27,32 +15,44 @@ from secretary import (
 )
 from scheduler import setup_scheduler, shutdown_scheduler, get_scheduler
 from tools.reminder import init_reminder_system
-from tools.voice import download_line_audio, transcribe_audio
+from tools.voice import download_telegram_voice, transcribe_audio
 from tools.todo import capture_inbox
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# LINE SDK setup
-line_config = Configuration(access_token=config.LINE_CHANNEL_ACCESS_TOKEN)
-parser = WebhookParser(config.LINE_CHANNEL_SECRET)
-async_api_client = AsyncApiClient(line_config)
-api = AsyncMessagingApi(async_api_client)
+# Telegram Bot setup
+bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
 
 # Per-user conversation history (in-memory, simple)
-conversations: Dict[str, list] = {}
+conversations: Dict[int, list] = {}
 MAX_HISTORY = 20
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_scheduler(send_broadcast)
+    setup_scheduler(send_message)
     # Initialize reminder system with scheduler
     sched = get_scheduler()
     if sched:
-        init_reminder_system(sched, send_broadcast)
-    logger.info("B-Manager started")
+        init_reminder_system(sched, send_message)
+
+    # Set webhook
+    if config.RAILWAY_PUBLIC_DOMAIN:
+        webhook_url = f"https://{config.RAILWAY_PUBLIC_DOMAIN}/webhook"
+        await bot.set_webhook(
+            url=webhook_url,
+            secret_token=config.TELEGRAM_WEBHOOK_SECRET,
+        )
+        logger.info(f"Webhook set: {webhook_url}")
+    else:
+        logger.warning("RAILWAY_PUBLIC_DOMAIN not set — webhook not registered")
+
+    logger.info("B-Manager started (Telegram)")
     yield
+
+    # Clean up
+    await bot.delete_webhook()
     shutdown_scheduler()
     logger.info("B-Manager stopped")
 
@@ -60,38 +60,49 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="B-Manager", lifespan=lifespan)
 
 
-async def send_broadcast(message: str):
-    """Send a broadcast message to all LINE friends."""
+async def send_message(message: str, chat_id: int | str | None = None):
+    """Send a message to the configured chat (broadcast replacement)."""
+    target = chat_id or config.TELEGRAM_CHAT_ID
+    if not target:
+        logger.error("No chat_id configured for sending")
+        return
+
     try:
-        await api.broadcast(
-            BroadcastRequest(messages=[TextMessage(text=message)])
-        )
-        logger.info(f"Broadcast sent: {message[:50]}...")
+        # Telegram message limit is 4096 chars
+        chunks = [message[i : i + 4000] for i in range(0, len(message), 4000)]
+        for chunk in chunks:
+            await bot.send_message(chat_id=target, text=chunk)
+        logger.info(f"Message sent: {message[:50]}...")
     except Exception as e:
-        logger.error(f"Broadcast failed: {e}")
+        logger.error(f"Send message failed: {e}")
 
 
-async def send_line_push(user_id: str, message: str):
-    """Send a push message to a specific user."""
-    try:
-        await api.push_message(
-            PushMessageRequest(
-                to=user_id,
-                messages=[TextMessage(text=message)],
-            )
-        )
-    except Exception as e:
-        logger.error(f"Push message failed: {e}")
+# Map Telegram /commands to natural language for the secretary
+COMMAND_MAP = {
+    "/briefing": "おはようございます。朝のブリーフィングをお願いします。",
+    "/todo": "今日のTODOを見せて",
+    "/schedule": "今日の予定を確認して",
+    "/expense": "今月の経費サマリーを見せて",
+    "/habit": "習慣チェックをお願い",
+    "/help": "ヘルプ",
+    "/start": "はじめまして！何ができるか教えて",
+}
 
 
-async def _handle_text_message(event: MessageEvent):
-    """Handle text messages from LINE."""
-    user_id = event.source.user_id
-    user_text = event.message.text
-    logger.info(f"Message from user: {user_id}")
+async def _handle_text_message(update: Update):
+    """Handle text messages from Telegram."""
+    chat_id = update.effective_chat.id
+    user_text = update.message.text
+
+    # Convert /commands to natural language
+    cmd = user_text.split()[0] if user_text.startswith("/") else None
+    if cmd and cmd in COMMAND_MAP:
+        user_text = COMMAND_MAP[cmd]
+
+    logger.info(f"Message from chat: {chat_id}")
 
     # Get or init conversation history
-    history = conversations.get(user_id, [])
+    history = conversations.get(chat_id, [])
 
     # Process with secretary
     try:
@@ -103,28 +114,25 @@ async def _handle_text_message(event: MessageEvent):
     # Update history (keep last N messages)
     history.append({"role": "user", "content": user_text})
     history.append({"role": "assistant", "content": reply})
-    conversations[user_id] = history[-MAX_HISTORY:]
+    conversations[chat_id] = history[-MAX_HISTORY:]
 
-    # Split long messages (LINE limit: 5000 chars)
-    chunks = [reply[i : i + 4500] for i in range(0, len(reply), 4500)]
-
-    await api.reply_message(
-        ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[TextMessage(text=chunk) for chunk in chunks[:5]],
-        )
-    )
+    # Send reply (Telegram limit: 4096 chars)
+    chunks = [reply[i : i + 4000] for i in range(0, len(reply), 4000)]
+    for chunk in chunks:
+        await bot.send_message(chat_id=chat_id, text=chunk)
 
 
-async def _handle_audio_message(event: MessageEvent):
-    """Handle audio messages — transcribe and save to inbox."""
-    user_id = event.source.user_id
-    message_id = event.message.id
+async def _handle_voice_message(update: Update):
+    """Handle voice messages — transcribe and save to inbox."""
+    chat_id = update.effective_chat.id
+    voice = update.message.voice or update.message.audio
 
-    # Download audio from LINE
-    audio_bytes = await download_line_audio(
-        message_id, config.LINE_CHANNEL_ACCESS_TOKEN
-    )
+    if not voice:
+        await bot.send_message(chat_id=chat_id, text="音声ファイルを処理できませんでした。")
+        return
+
+    # Download voice from Telegram
+    audio_bytes = await download_telegram_voice(bot, voice.file_id)
 
     if not audio_bytes:
         reply = "音声の取得に失敗しました。もう一度お試しください。"
@@ -133,7 +141,6 @@ async def _handle_audio_message(event: MessageEvent):
         transcription = await transcribe_audio(audio_bytes)
 
         if transcription.startswith("[音声メモ]"):
-            # Error case
             reply = transcription
         else:
             # Save to inbox and confirm
@@ -141,7 +148,7 @@ async def _handle_audio_message(event: MessageEvent):
             reply = f"🎤 音声メモを記録しました\n\n「{transcription}」\n\nInboxに保存済みです。"
 
             # Also process as a message in case it's a command
-            history = conversations.get(user_id, [])
+            history = conversations.get(chat_id, [])
             try:
                 ai_reply = process_message(
                     f"音声メッセージの文字起こし: {transcription}", history.copy()
@@ -150,39 +157,31 @@ async def _handle_audio_message(event: MessageEvent):
             except Exception:
                 pass
 
-    await api.reply_message(
-        ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[TextMessage(text=reply)],
-        )
-    )
+    await bot.send_message(chat_id=chat_id, text=reply)
 
 
 @app.post("/webhook")
 async def webhook(request: Request):
-    signature = request.headers.get("X-Line-Signature", "")
-    body = (await request.body()).decode("utf-8")
+    # Verify secret token
+    secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if secret != config.TELEGRAM_WEBHOOK_SECRET:
+        return Response(status_code=403)
 
-    try:
-        events = parser.parse(body, signature)
-    except InvalidSignatureError:
-        raise HTTPException(status_code=400, detail="Invalid signature")
+    data = await request.json()
+    update = Update.de_json(data, bot)
 
-    for event in events:
-        if not isinstance(event, MessageEvent):
-            continue
-
-        if isinstance(event.message, TextMessageContent):
-            await _handle_text_message(event)
-        elif isinstance(event.message, AudioMessageContent):
-            await _handle_audio_message(event)
+    if update.message:
+        if update.message.text:
+            await _handle_text_message(update)
+        elif update.message.voice or update.message.audio:
+            await _handle_voice_message(update)
 
     return {"status": "ok"}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "B-Manager", "tools": 27}
+    return {"status": "ok", "service": "B-Manager", "platform": "telegram", "tools": 27}
 
 
 @app.get("/briefing")
