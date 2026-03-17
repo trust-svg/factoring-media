@@ -411,8 +411,14 @@ def _load_rules() -> str:
 
 def process_message(user_message: str, conversation_history: Optional[list] = None) -> str:
     """Process a user message and return the secretary's response."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    now = datetime.now(ZoneInfo("Asia/Tokyo"))
+    weekdays = ["月", "火", "水", "木", "金", "土", "日"]
+    date_info = f"\n\n## 現在の日時\n{now.strftime('%Y-%m-%d')} ({weekdays[now.weekday()]}) {now.strftime('%H:%M')} JST"
+
     rules = _load_rules()
-    system = SYSTEM_PROMPT
+    system = SYSTEM_PROMPT + date_info
     if rules:
         system += f"\n\n## 学習済みルール\n{rules}"
 
