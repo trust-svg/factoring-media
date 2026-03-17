@@ -2172,8 +2172,8 @@ async def upload_screenshot(item_id: int, request: Request):
 
 @app.get("/api/stock/screenshot/{item_id}")
 async def get_screenshot(item_id: int):
-    """スクリーンショット画像を返す"""
-    from fastapi.responses import FileResponse
+    """スクリーンショット画像を返す（5MB超はリサイズ）"""
+    from fastapi.responses import FileResponse, Response
 
     db = get_db()
     try:
@@ -2190,6 +2190,29 @@ async def get_screenshot(item_id: int):
             filepath = Path(ss)
         if not filepath.exists():
             raise HTTPException(404, "Screenshot file not found")
+
+        # 5MB超の画像はリサイズして返す（ブラウザ表示の高速化）
+        if filepath.stat().st_size > 5_000_000:
+            try:
+                from PIL import Image
+                import io
+                img = Image.open(filepath)
+                # 幅1200pxに縮小（アスペクト比維持）
+                max_width = 800
+                if img.width > max_width:
+                    ratio = max_width / img.width
+                    new_size = (max_width, int(img.height * ratio))
+                    img = img.resize(new_size, Image.LANCZOS)
+                # 高さも制限（超長ページ対策）
+                max_height = 6000
+                if img.height > max_height:
+                    img = img.crop((0, 0, img.width, max_height))
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=70)
+                return Response(content=buf.getvalue(), media_type="image/jpeg")
+            except Exception:
+                pass  # Pillow失敗時は元ファイルをそのまま返す
+
         return FileResponse(str(filepath))
     finally:
         db.close()

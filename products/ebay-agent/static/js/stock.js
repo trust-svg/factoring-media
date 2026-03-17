@@ -344,7 +344,13 @@ async function uploadScreenshot(itemId) {
 
 function viewScreenshot(id, title) {
     document.getElementById('ssTitle').textContent = title;
-    document.getElementById('ssImage').src = `/api/stock/screenshot/${id}?t=${Date.now()}`;
+    const img = document.getElementById('ssImage');
+    img.onerror = () => {
+        img.style.display = 'none';
+        document.getElementById('ssTitle').textContent = title + ' — 画像を読み込めませんでした';
+    };
+    img.onload = () => { img.style.display = 'block'; };
+    img.src = `/api/stock/screenshot/${id}?t=${Date.now()}`;
     document.getElementById('ssModal').style.display = 'flex';
 }
 
