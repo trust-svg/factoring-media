@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
         await bot.set_webhook(
             url=webhook_url,
             secret_token=config.TELEGRAM_WEBHOOK_SECRET,
+            drop_pending_updates=True,
         )
         logger.info(f"Webhook set: {webhook_url}")
     else:
@@ -51,8 +52,7 @@ async def lifespan(app: FastAPI):
     logger.info("B-Manager started (Telegram)")
     yield
 
-    # Clean up
-    await bot.delete_webhook()
+    # Clean up (don't delete webhook — new instance will re-register)
     shutdown_scheduler()
     logger.info("B-Manager stopped")
 
