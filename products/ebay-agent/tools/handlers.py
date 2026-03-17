@@ -92,16 +92,24 @@ async def _check_inventory(params: dict) -> dict:
 
 
 async def _search_sources(params: dict) -> dict:
-    """日本マーケットプレイス検索（スコアリング・画像比較・型番フィルタ付き）"""
+    """日本マーケットプレイス検索（サイトレジストリ駆動・スコアリング・画像比較・型番フィルタ付き）
+
+    仕入れ検索の3原則:
+      1. 巡回先を絞る → site_registry の enabled サイトのみ巡回
+      2. 読む情報を絞る → 統一スキーマ（タイトル・価格・コンディション・画像URL）のみ
+      3. 画像判別を入れる → ebay_image_url でAI画像比較（デフォルトON）
+    """
     import sys
     import os
     from sourcing.scorer import pick_best_candidates
+    from sourcing.site_registry import get_enabled_sites, SITE_REGISTRY
 
     keyword = params["keyword"]
     max_price = params.get("max_price_jpy", 50000)
     junk_ok = params.get("junk_ok", False)
     ebay_image_url = params.get("ebay_image_url", "")
     top_n = params.get("top_n", 5)
+    sites_filter = params.get("sites", [])  # 特定サイトのみ指定可能
 
     # ebay-inventory-tool のスクレイパーをインポート
     inv_tool_path = os.path.abspath(
@@ -110,81 +118,62 @@ async def _search_sources(params: dict) -> dict:
     if inv_tool_path not in sys.path:
         sys.path.insert(0, inv_tool_path)
 
+    # ── サイトレジストリから巡回先を決定 ──
+    enabled_sites = get_enabled_sites()
+    if sites_filter:
+        enabled_sites = [s for s in enabled_sites if s["id"] in sites_filter]
+
     all_results = []
     errors = []
+    sites_searched = []
+    site_reliability = {}
 
-    # 1) ヤフオク (requests)
-    try:
-        from scrapers.yahoo_auction import YahooAuctionScraper
-        results = await YahooAuctionScraper().search(keyword, max_price, junk_ok, limit=10)
-        all_results.extend(results)
-    except Exception as e:
-        errors.append(f"ヤフオク: {e}")
-        logger.warning(f"ヤフオク検索エラー: {e}")
+    for site in enabled_sites:
+        site_id = site["id"]
+        display_name = site["display_name"]
+        max_results = site["max_results"]
+        scraper_class_path = site["scraper_class"]
+        site_reliability[site_id] = site["reliability"]
 
-    # 2) ブックオフ (requests)
-    try:
-        from scrapers.offmall import OffmallScraper
-        results = await OffmallScraper().search(keyword, max_price, junk_ok, limit=10)
-        all_results.extend(results)
-    except Exception as e:
-        errors.append(f"ブックオフ: {e}")
-        logger.warning(f"ブックオフ検索エラー: {e}")
+        try:
+            # scraper_class_path: "scrapers.yahoo_auction.YahooAuctionScraper"
+            module_path, class_name = scraper_class_path.rsplit(".", 1)
+            module = __import__(module_path, fromlist=[class_name])
+            scraper_cls = getattr(module, class_name)
+            results = await scraper_cls().search(keyword, max_price, junk_ok, limit=max_results)
+            all_results.extend(results)
+            sites_searched.append({
+                "id": site_id,
+                "name": display_name,
+                "results_count": len(results),
+            })
+            logger.info(f"  [{display_name}] {len(results)}件取得")
+        except ImportError:
+            errors.append(f"{display_name}: Playwright未インストール")
+        except Exception as e:
+            errors.append(f"{display_name}: {e}")
+            logger.warning(f"{display_name}検索エラー: {e}")
 
-    # 3) 駿河屋 (requests)
-    try:
-        from scrapers.surugaya import SurugayaScraper
-        results = await SurugayaScraper().search(keyword, max_price, junk_ok, limit=10)
-        all_results.extend(results)
-    except Exception as e:
-        errors.append(f"駿河屋: {e}")
-        logger.warning(f"駿河屋検索エラー: {e}")
+    # ── 画像比較未指定の警告 ──
+    image_warning = None
+    if not ebay_image_url:
+        image_warning = (
+            "⚠ ebay_image_url が未指定です。画像比較なしでは別商品を拾いやすく、"
+            "精度が大幅に低下します。eBay出品画像URLを指定してください。"
+        )
+        logger.warning(image_warning)
 
-    # 4) メルカリ (Playwright)
-    try:
-        from scrapers.mercari import MercariScraper
-        results = await MercariScraper().search(keyword, max_price, junk_ok, limit=10)
-        all_results.extend(results)
-    except ImportError:
-        errors.append("メルカリ: Playwright未インストール")
-    except Exception as e:
-        errors.append(f"メルカリ: {e}")
-        logger.warning(f"メルカリ検索エラー: {e}")
-
-    # 5) Yahoo!フリマ (Playwright)
-    try:
-        from scrapers.paypay_flea import PayPayFleaScraper
-        results = await PayPayFleaScraper().search(keyword, max_price, junk_ok, limit=10)
-        all_results.extend(results)
-    except ImportError:
-        errors.append("Yahoo!フリマ: Playwright未インストール")
-    except Exception as e:
-        errors.append(f"Yahoo!フリマ: {e}")
-        logger.warning(f"Yahoo!フリマ検索エラー: {e}")
-
-    # 6) ラクマ (Playwright)
-    try:
-        from scrapers.rakuma import RakumaScraper
-        results = await RakumaScraper().search(keyword, max_price, junk_ok, limit=10)
-        all_results.extend(results)
-    except ImportError:
-        errors.append("ラクマ: Playwright未インストール")
-    except Exception as e:
-        errors.append(f"ラクマ: {e}")
-        logger.warning(f"ラクマ検索エラー: {e}")
-
-    platforms_searched = 6 - len([e for e in errors if "未インストール" in e])
-
-    # スコアリング＆フィルタリング（型番フィルタ・画像比較・プラットフォーム分散）
+    # ── スコアリング＆フィルタリング（型番フィルタ・画像比較・プラットフォーム分散） ──
     best_candidates = pick_best_candidates(
         results=all_results,
         keyword=keyword,
         max_price_jpy=max_price,
         ebay_image_url=ebay_image_url,
         top_n=top_n,
+        site_reliability=site_reliability,
     )
 
-    # DB に保存（全結果）
+    # ── DB に保存（全結果） ──
     db = get_db()
     try:
         for r in all_results:
@@ -206,9 +195,12 @@ async def _search_sources(params: dict) -> dict:
         "keyword": keyword,
         "max_price_jpy": max_price,
         "junk_ok": junk_ok,
+        "image_comparison": "enabled" if ebay_image_url else "disabled",
+        "image_warning": image_warning,
         "total_raw": len(all_results),
         "total_scored": len(best_candidates),
-        "platforms_searched": platforms_searched,
+        "sites_searched": sites_searched,
+        "platforms_searched": len(sites_searched),
         "best_candidates": best_candidates,
         "all_candidates": [
             {

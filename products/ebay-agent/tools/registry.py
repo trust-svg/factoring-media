@@ -24,13 +24,19 @@ AGENT_TOOLS: list[dict] = [
     # ── 仕入れ検索 ──
     {
         "name": "search_sources",
-        "description": "日本のマーケットプレイス6サイト（ヤフオク、メルカリ、PayPayフリマ、ラクマ、オフモール、駿河屋）で商品を検索し、AI画像比較＋スコアリングで最適な仕入れ候補を返す。",
+        "description": (
+            "登録済み日本マーケットプレイス（ヤフオク・メルカリ・ブックオフ・駿河屋・Yahoo!フリマ）で商品を検索し、"
+            "AI画像比較＋型番フィルタ＋スコアリングで最適な仕入れ候補を返す。"
+            "【重要】ebay_image_url を必ず指定すること。画像比較なしでは別商品を拾いやすく精度が大幅に低下する。"
+            "画像URLが不明な場合は先に check_inventory で出品情報を取得してから呼ぶこと。"
+            "汎用Web検索による仕入れは行わない（登録サイトのみ巡回）。"
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "keyword": {
                     "type": "string",
-                    "description": "検索キーワード（日本語）",
+                    "description": "検索キーワード（日本語）。型番がある商品は型番を含めると精度向上（例: 'Pioneer CDJ-2000NXS2'）",
                 },
                 "max_price_jpy": {
                     "type": "integer",
@@ -44,12 +50,18 @@ AGENT_TOOLS: list[dict] = [
                 },
                 "ebay_image_url": {
                     "type": "string",
-                    "description": "eBay出品画像URL（AI画像比較に使用）",
+                    "description": "【推奨必須】eBay出品画像URL（AI画像比較に使用）。未指定時は画像比較なしで精度低下。",
                 },
                 "top_n": {
                     "type": "integer",
                     "description": "返す候補数（デフォルト5）",
                     "default": 5,
+                },
+                "sites": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "巡回サイトを絞る場合に指定（例: ['yahoo_auctions', 'mercari']）。省略時は全有効サイト。",
+                    "default": [],
                 },
             },
             "required": ["keyword"],
