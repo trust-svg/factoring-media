@@ -113,31 +113,60 @@ async def scrape_mercari_purchases(
             logger.info(f"リロード後リンク数: {initial_count}")
 
         if on_progress:
-            on_progress(f"購入履歴をスクロール読み込み中... {initial_count}件", initial_count, 0)
+            on_progress(f"購入履歴を読み込み中... {initial_count}件", initial_count, 0)
 
+        # ── 「もっと見る」ボタン + スクロールで全件読み込み ──
         prev_count = initial_count
-        no_change_streak = 0  # 増えなかった連続回数
-        max_no_change = 5     # この回数連続で増えなかったら停止
-        for scroll_i in range(300):
+        no_change_streak = 0
+        max_no_change = 3
+        click_count = 0
+
+        for loop_i in range(500):
+            # 1) ページ下部へスクロール
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(3)
+            await asyncio.sleep(1)
+
+            # 2) 「もっと見る」ボタンを探してクリック
+            clicked = False
+            try:
+                load_more = await page.evaluate("""() => {
+                    // ボタンテキストで検索
+                    const buttons = [...document.querySelectorAll('button, a')];
+                    for (const btn of buttons) {
+                        const text = (btn.textContent || '').trim();
+                        if (text === 'もっと見る' || text === 'もっとみる' || text === 'Load more') {
+                            btn.scrollIntoView();
+                            btn.click();
+                            return true;
+                        }
+                    }
+                    return false;
+                }""")
+                if load_more:
+                    clicked = True
+                    click_count += 1
+                    await asyncio.sleep(3)  # 読み込み待機
+            except Exception:
+                pass
+
+            # 3) 件数チェック
             current_count = await page.evaluate(
                 """document.querySelectorAll('a[href*="/transaction/"]').length"""
             )
-            if current_count == prev_count:
-                no_change_streak += 1
-                if no_change_streak >= max_no_change:
-                    logger.info(f"スクロール停止: {max_no_change}回連続で増加なし")
-                    break
-                # まだ読み込み中かもしれないので少し長めに待機
-                await asyncio.sleep(2)
-            else:
+
+            if current_count > prev_count:
                 no_change_streak = 0
                 prev_count = current_count
                 if on_progress:
-                    on_progress(f"スクロール読み込み中... {current_count}件", current_count, 0)
+                    on_progress(f"読み込み中... {current_count}件", current_count, 0)
+            else:
+                no_change_streak += 1
+                if not clicked and no_change_streak >= max_no_change:
+                    logger.info(f"読み込み停止: ボタンなし & {max_no_change}回連続増加なし")
+                    break
+                await asyncio.sleep(2)
 
-        logger.info(f"スクロール完了: {prev_count}件（{scroll_i + 1}回スクロール）")
+        logger.info(f"読み込み完了: {prev_count}件（{loop_i + 1}ループ, ボタン{click_count}回クリック）")
 
         # ── 一覧からアイテム情報を抽出 ──
         items_data = await page.evaluate("""() => {
