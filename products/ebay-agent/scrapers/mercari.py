@@ -265,6 +265,23 @@ async def scrape_mercari_purchases(
                 # 商品ページURLを保存（リンク用）
                 item["item_url"] = item_url
 
+                # 画像URLが未取得の場合、商品ページから取得
+                if not item.get("image_url"):
+                    try:
+                        img_url = await page.evaluate("""() => {
+                            // og:image メタタグから取得（最も確実）
+                            const ogImg = document.querySelector('meta[property="og:image"]');
+                            if (ogImg && ogImg.content) return ogImg.content;
+                            // 商品画像のimg要素から取得
+                            const img = document.querySelector('img[src*="static.mercdn"]');
+                            if (img) return img.src;
+                            return '';
+                        }""")
+                        if img_url:
+                            item["image_url"] = img_url
+                    except Exception:
+                        pass
+
                 # ── スクリーンショット ──
                 item_date = item.get("date", "")
                 year = item_date[:4] if item_date and len(item_date) >= 4 else str(datetime.now().year)
