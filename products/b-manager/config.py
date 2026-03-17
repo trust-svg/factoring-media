@@ -30,6 +30,10 @@ INBOX_DIR = SECRETARY_DIR / "inbox"
 NOTES_DIR = SECRETARY_DIR / "notes"
 RULES_FILE = SECRETARY_DIR / "rules.md"
 
+# Auto-create directories
+for _d in [TODOS_DIR, INBOX_DIR, NOTES_DIR]:
+    _d.mkdir(parents=True, exist_ok=True)
+
 # Scheduler
 MORNING_BRIEFING_HOUR = int(os.getenv("MORNING_BRIEFING_HOUR", "7"))
 MORNING_BRIEFING_MINUTE = int(os.getenv("MORNING_BRIEFING_MINUTE", "30"))
