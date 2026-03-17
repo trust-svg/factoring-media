@@ -134,6 +134,32 @@ def complete_todo(keyword: str) -> str:
         return f"TODO完了処理に失敗しました: {e}"
 
 
+def update_todo(keyword: str, new_title: str) -> str:
+    """Update an existing task's title by keyword match."""
+    try:
+        service = _get_service()
+        tl_id = _get_tasklist_id()
+        results = service.tasks().list(
+            tasklist=tl_id,
+            showCompleted=False,
+            maxResults=50,
+        ).execute()
+
+        for t in results.get("items", []):
+            if keyword in t.get("title", ""):
+                old_title = t["title"]
+                t["title"] = new_title
+                service.tasks().update(
+                    tasklist=tl_id, task=t["id"], body=t
+                ).execute()
+                return f"更新しました: 「{old_title}」→「{new_title}」"
+
+        return f"「{keyword}」に一致するタスクが見つかりませんでした。"
+    except Exception as e:
+        logger.error(f"update_todo error: {e}")
+        return f"TODO更新に失敗しました: {e}"
+
+
 def capture_inbox(text: str) -> str:
     """Capture a quick memo as a task with [Inbox] prefix."""
     try:
