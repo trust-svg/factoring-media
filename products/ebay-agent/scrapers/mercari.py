@@ -116,19 +116,28 @@ async def scrape_mercari_purchases(
             on_progress(f"購入履歴をスクロール読み込み中... {initial_count}件", initial_count, 0)
 
         prev_count = initial_count
-        for scroll_i in range(50):
+        no_change_streak = 0  # 増えなかった連続回数
+        max_no_change = 5     # この回数連続で増えなかったら停止
+        for scroll_i in range(300):
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)
             current_count = await page.evaluate(
                 """document.querySelectorAll('a[href*="/transaction/"]').length"""
             )
             if current_count == prev_count:
-                break
-            prev_count = current_count
-            if on_progress:
-                on_progress(f"スクロール読み込み中... {current_count}件", current_count, 0)
+                no_change_streak += 1
+                if no_change_streak >= max_no_change:
+                    logger.info(f"スクロール停止: {max_no_change}回連続で増加なし")
+                    break
+                # まだ読み込み中かもしれないので少し長めに待機
+                await asyncio.sleep(2)
+            else:
+                no_change_streak = 0
+                prev_count = current_count
+                if on_progress:
+                    on_progress(f"スクロール読み込み中... {current_count}件", current_count, 0)
 
-        logger.info(f"スクロール完了: {prev_count}件")
+        logger.info(f"スクロール完了: {prev_count}件（{scroll_i + 1}回スクロール）")
 
         # ── 一覧からアイテム情報を抽出 ──
         items_data = await page.evaluate("""() => {
