@@ -184,6 +184,7 @@ class NoCacheStaticMiddleware:
 
 app.add_middleware(NoCacheStaticMiddleware)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.auto_reload = True
 
 
 # ── ページルート ──────────────────────────────────────────

@@ -1,0 +1,320 @@
+<!-- KPIカード -->
+<div class="stats-grid" id="kpiCards">
+    <div class="stat-card">
+        <div class="stat-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="label" data-en="Total Items" data-ja="総登録数">Total Items</div>
+            <div class="value" id="kpiTotal">--</div>
+            <div class="sub" id="kpiTotalSub"></div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="label" data-en="Total Cost" data-ja="仕入総額">Total Cost</div>
+            <div class="value" id="kpiValue">--</div>
+            <div class="sub" data-en="Purchase + Tax + Ship" data-ja="仕入+税+送料">Purchase + Tax + Ship</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="label" data-en="Ordered" data-ja="注文済み">Ordered</div>
+            <div class="value" id="kpiOrdered">--</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="label" data-en="In Stock" data-ja="入荷済み">In Stock</div>
+            <div class="value" id="kpiReceived">--</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="label" data-en="Listed" data-ja="出品中">Listed</div>
+            <div class="value" id="kpiListed">--</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="label" data-en="Sold" data-ja="販売済み">Sold</div>
+            <div class="value" id="kpiSold">--</div>
+        </div>
+    </div>
+</div>
+
+<!-- フィルタ + 登録ボタン -->
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Ledger" data-ja="一覧">Ledger</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <select id="statusFilter" class="form-input" style="width:130px;padding:6px 10px;font-size:12px;" onchange="loadItems()">
+                <option value="">すべて</option>
+                <option value="ordered">注文済み</option>
+                <option value="received">入荷済み</option>
+                <option value="listed">出品中</option>
+                <option value="sold">販売済み</option>
+                <option value="shipped">発送済み</option>
+                <option value="returned">返品</option>
+                <option value="cancelled">キャンセル</option>
+            </select>
+            <button class="btn btn-sm btn-outline" onclick="openBulkImport()" style="font-size:11px;">📥 一括取込</button>
+            <button class="btn btn-sm" onclick="openAddModal()">+ 仕入れ登録</button>
+        </div>
+    </div>
+    <style>
+        #stockTable thead th.drag-over { border-left: 2px solid var(--accent-blue); }
+        #stockTable thead th[draggable]:hover { background: var(--bg-tertiary); }
+    </style>
+    <!-- 一括操作バー -->
+    <div id="bulkActionBar" style="display:none;align-items:center;gap:12px;padding:10px 16px;background:var(--gray-50, #F9FAFB);border:1px solid var(--gray-200, #E4E7EC);border-radius:8px;margin-bottom:12px;">
+        <span id="bulkCount" style="font-size:12px;font-weight:600;color:var(--gray-700, #344054);">0件選択中</span>
+        <div style="display:flex;gap:6px;margin-left:auto;">
+            <select id="bulkStatusSelect" class="form-input" style="width:120px;padding:4px 8px;font-size:11px;">
+                <option value="ordered">注文済み</option>
+                <option value="received">入荷済み</option>
+                <option value="listed">出品中</option>
+                <option value="sold">販売済み</option>
+                <option value="shipped">発送済み</option>
+                <option value="cancelled">キャンセル</option>
+            </select>
+            <button class="btn btn-sm btn-outline" onclick="bulkChangeStatus(document.getElementById('bulkStatusSelect').value)" style="font-size:11px;padding:4px 10px;">ステータス変更</button>
+            <button class="btn btn-sm" onclick="bulkDeleteSelected()" style="font-size:11px;padding:4px 10px;background:#ef4444;border-color:#ef4444;">一括削除</button>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="data-table" id="stockTable">
+            <thead>
+                <tr><!-- JS が renderTableHeader() で動的生成 --></tr>
+            </thead>
+            <tbody id="stockBody">
+                <tr><td colspan="11" class="empty-state">読み込み中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 登録/編集モーダル -->
+<div id="stockModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:200;justify-content:center;align-items:center;">
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:24px;max-width:600px;width:90%;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:90vh;overflow-y:auto;">
+        <h3 style="margin-bottom:16px;" id="modalTitle">仕入れ登録</h3>
+        <input type="hidden" id="editItemId">
+        <div class="form-group" style="margin-bottom:12px;">
+            <label data-en="Source URL (paste to auto-fill)" data-ja="仕入先URL（貼り付けで自動入力）">Source URL</label>
+            <div style="display:flex;gap:8px;">
+                <input id="fUrl" class="form-input" placeholder="https://jp.mercari.com/item/..." style="flex:1;">
+                <button class="btn btn-sm btn-outline" onclick="autoDetectUrl()" id="urlDetectBtn" style="white-space:nowrap;" data-en="Auto Fill" data-ja="自動取得">Auto Fill</button>
+            </div>
+            <div id="urlDetectStatus" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group" style="grid-column:1/3;"><label data-en="Title" data-ja="商品名">Title</label><input id="fTitle" class="form-input" placeholder="Japanese Vintage Audio Amplifier..."></div>
+            <div class="form-group"><label data-en="Price (JPY)" data-ja="仕入原価(JPY)">Price (JPY)</label><input id="fPrice" class="form-input" type="number" placeholder="15000"></div>
+            <div class="form-group"><label data-en="Tax (JPY)" data-ja="消費税(JPY)">Tax (JPY)</label><input id="fTax" class="form-input" type="number" placeholder="1500"></div>
+            <div class="form-group"><label data-en="Shipping (JPY)" data-ja="国内送料(JPY)">Shipping (JPY)</label><input id="fShipping" class="form-input" type="number" placeholder="800"></div>
+            <div class="form-group"><label data-en="Date" data-ja="仕入日">Date</label><input id="fDate" class="form-input" type="date"></div>
+            <div class="form-group"><label data-en="Source" data-ja="仕入先">Source</label>
+                <select id="fSource" class="form-input">
+                    <option value="">--</option>
+                    <option value="Amazon">Amazon</option><option value="メルカリ">メルカリ</option><option value="メルカリShops">メルカリShops</option>
+                    <option value="ラクマ">ラクマ</option><option value="ヤフオク">ヤフオク</option><option value="ヤフーショッピング">ヤフーショッピング</option>
+                    <option value="楽天">楽天</option><option value="ネットモール(OFFモール)">ネットモール</option><option value="Yahooフリマ">Yahooフリマ</option>
+                    <option value="駿河屋">駿河屋</option><option value="GEO">GEO</option><option value="デジマート">デジマート</option>
+                    <option value="トレファク">トレファク</option><option value="まんだらけ">まんだらけ</option><option value="セカンドストリート">セカスト</option>
+                    <option value="店舗">店舗</option><option value="その他">その他</option>
+                </select>
+            </div>
+            <div class="form-group"><label data-en="Quantity" data-ja="数量">Qty</label><input id="fQty" class="form-input" type="number" value="1" min="1"></div>
+            <div class="form-group"><label data-en="Seller ID" data-ja="出品者ID">Seller ID</label><input id="fSellerId" class="form-input" placeholder="出品者ID/名前"></div>
+            <div class="form-group"><label data-en="Seller URL" data-ja="出品者URL">Seller URL</label><input id="fSellerUrl" class="form-input" placeholder="出品者ページURL"></div>
+            <div class="form-group"><label data-en="Location" data-ja="保管場所">Location</label>
+                <select id="fLocation" class="form-input"><option value="">--</option><option value="自宅">自宅</option><option value="オークレボ">オークレボ</option><option value="未着">未着（注文中）</option></select>
+            </div>
+            <div class="form-group"><label data-en="Condition" data-ja="状態">Condition</label>
+                <select id="fCondition" class="form-input"><option value="">--</option><option value="新品">新品</option><option value="未使用に近い">未使用に近い</option><option value="中古A">中古A（美品）</option><option value="中古B">中古B（良好）</option><option value="中古C">中古C（使用感あり）</option><option value="ジャンク">ジャンク</option></select>
+            </div>
+            <div class="form-group"><label data-en="Status" data-ja="ステータス">Status</label>
+                <select id="fStatus" class="form-input"><option value="ordered">注文済み</option><option value="received">入荷済み</option><option value="listed">出品中</option><option value="sold">販売済み</option><option value="shipped">発送済み</option><option value="returned">返品</option><option value="cancelled">キャンセル</option></select>
+            </div>
+            <div class="form-group"><label data-en="Stock No." data-ja="管理番号">Stock No.</label><input id="fStockNo" class="form-input" placeholder="A-001（オークレボ管理番号等）"></div>
+            <div class="form-group"><label>SKU</label><input id="fSku" class="form-input" placeholder="eBay SKU（出品後）"></div>
+            <div class="form-group"><label>eBay Item ID</label><input id="fEbayId" class="form-input" placeholder="出品後に入力"></div>
+            <div class="form-group"><label>eBay Order Number</label><input id="fOrderId" class="form-input" placeholder="販売後に入力"></div>
+            <div class="form-group"><label data-en="eBay Price (USD)" data-ja="eBay価格(USD)">eBay Price (USD)</label><input id="fEbayPrice" class="form-input" type="number" step="0.01" placeholder="199.99"></div>
+            <div class="form-group"><label data-en="Image URL" data-ja="画像URL">Image URL</label><input id="fImage" class="form-input" placeholder="https://..."></div>
+            <div class="form-group" style="grid-column:1/3;"><label data-en="Notes" data-ja="メモ">Notes</label><input id="fNotes" class="form-input" placeholder="備考"></div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label data-en="Source Screenshot" data-ja="仕入元スクリーンショット">Source Screenshot</label>
+            <div id="screenshotDrop" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s;background:var(--bg-tertiary);"
+                 ondragover="event.preventDefault();this.style.borderColor='var(--accent-blue)'"
+                 ondragleave="this.style.borderColor='var(--border)'"
+                 ondrop="handleScreenshotDrop(event)"
+                 onclick="document.getElementById('screenshotFile').click()">
+                <div id="screenshotPreview" style="display:none;margin-bottom:8px;"></div>
+                <div id="screenshotPrompt">
+                    <span style="font-size:24px;">📸</span><br>
+                    <span style="font-size:12px;color:var(--text-muted);" data-en="Drop screenshot here or click to select" data-ja="スクリーンショットをドロップ、またはクリックして選択">Drop screenshot here or click to select</span>
+                </div>
+            </div>
+            <input type="file" id="screenshotFile" accept="image/*" style="display:none;" onchange="handleScreenshotSelect(event)">
+            <div id="screenshotStatus" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+            <button class="btn btn-sm btn-outline" onclick="closeModal()" data-en="Cancel" data-ja="キャンセル">Cancel</button>
+            <button class="btn btn-sm" onclick="saveItem()" data-en="Save" data-ja="保存">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- スクリーンショット表示モーダル -->
+<div id="ssModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:250;justify-content:center;align-items:center;">
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:16px;max-width:800px;width:90%;border:1px solid var(--border);max-height:90vh;overflow:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h3 id="ssTitle" style="font-size:14px;">Screenshot</h3>
+            <button class="btn btn-sm btn-outline" onclick="document.getElementById('ssModal').style.display='none'">Close</button>
+        </div>
+        <img id="ssImage" style="width:100%;border-radius:8px;">
+    </div>
+</div>
+
+<!-- 設定モーダル -->
+<div id="settingsModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:200;justify-content:center;align-items:center;">
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:24px;max-width:480px;width:90%;border:1px solid var(--border);">
+        <h3 style="margin-bottom:16px;" data-en="Screenshot Settings" data-ja="スクリーンショット設定">Screenshot Settings</h3>
+        <div class="form-group">
+            <label data-en="Save Directory" data-ja="保存先フォルダ">Save Directory</label>
+            <input id="ssDir" class="form-input" placeholder="/path/to/screenshots">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;" data-en="Google Drive folder path also works" data-ja="Google Driveのフォルダパスも指定可能">Google Drive folder path also works</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+            <button class="btn btn-sm btn-outline" onclick="document.getElementById('settingsModal').style.display='none'">Cancel</button>
+            <button class="btn btn-sm" onclick="saveScreenshotDir()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- 一括取込モーダル -->
+<div id="bulkModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:200;justify-content:center;align-items:center;">
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:24px;max-width:700px;width:90%;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:90vh;overflow-y:auto;">
+        <h3 style="margin-bottom:16px;" data-en="Bulk Import" data-ja="一括取込">Bulk Import</h3>
+        <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border);">
+            <button id="tabAuto" class="btn btn-sm" onclick="switchBulkTab('auto')" style="border-radius:6px 6px 0 0;border-bottom:2px solid var(--accent-blue);font-size:12px;">自動取込（ブラウザ巡回）</button>
+            <button id="tabManual" class="btn btn-sm btn-outline" onclick="switchBulkTab('manual')" style="border-radius:6px 6px 0 0;border-bottom:2px solid transparent;font-size:12px;">手動貼り付け</button>
+        </div>
+        <div id="panelAuto">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+                各ボタンをクリックするとブラウザが開いて購入履歴を自動巡回します。初回はログインが必要です。
+            </div>
+            <!-- ボタングリッド -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                <button class="btn btn-sm" id="btnStartScrape" onclick="startYahooScrape()" style="padding:10px;font-size:12px;">ヤフオク</button>
+                <button class="btn btn-sm" id="btnStartMercari" onclick="startMercariScrape()" style="padding:10px;font-size:12px;background:#ef4444;border-color:#ef4444;">メルカリ</button>
+                <button class="btn btn-sm" id="btnStartYahooFlea" onclick="startYahooFleaScrape()" style="padding:10px;font-size:12px;background:#7c3aed;border-color:#7c3aed;">Yahoo!フリマ</button>
+                <button class="btn btn-sm" id="btnStartRakuma" onclick="startRakumaScrape()" style="padding:10px;font-size:12px;background:#f59e0b;border-color:#f59e0b;">ラクマ</button>
+                <button class="btn btn-sm" id="btnStartHardoff" onclick="startHardoffScrape()" style="padding:10px;font-size:12px;background:#10b981;border-color:#10b981;">ハードオフ</button>
+                <button class="btn btn-sm" id="btnStartSurugaya" onclick="startSurugayaScrape()" style="padding:10px;font-size:12px;background:#3b82f6;border-color:#3b82f6;">駿河屋</button>
+            </div>
+            <div id="yahooSettings" style="display:none;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <label style="font-size:11px;white-space:nowrap;">最大ページ数</label>
+                    <input id="scrapeMaxPages" class="form-input" type="number" value="50" min="1" max="100" style="width:70px;padding:4px 8px;font-size:11px;">
+                </div>
+            </div>
+            <!-- プログレス表示エリア -->
+            <div id="scrapeProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent-blue);border-radius:50%;animation:spin 1s linear infinite;"></div><span id="scrapeMsg" style="font-size:12px;">初期化中...</span></div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;"><div id="scrapeBar" style="background:var(--accent-blue);height:100%;width:0%;transition:width 0.3s;"></div></div>
+                <div id="scrapeCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="scrapeResult" style="margin-top:8px;display:none;"></div>
+            <div id="mercariProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#ef4444;border-radius:50%;animation:spin 1s linear infinite;"></div><span id="mercariMsg" style="font-size:12px;">初期化中...</span></div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;"><div id="mercariBar" style="background:#ef4444;height:100%;width:0%;transition:width 0.3s;"></div></div>
+                <div id="mercariCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="mercariResult" style="margin-top:8px;display:none;"></div>
+            <div id="yahooFleaProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#7c3aed;border-radius:50%;animation:spin 1s linear infinite;"></div><span id="yahooFleaMsg" style="font-size:12px;">初期化中...</span></div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;"><div id="yahooFleaBar" style="background:#7c3aed;height:100%;width:0%;transition:width 0.3s;"></div></div>
+                <div id="yahooFleaCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="yahooFleaResult" style="margin-top:8px;display:none;"></div>
+            <div id="rakumaProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#f59e0b;border-radius:50%;animation:spin 1s linear infinite;"></div><span id="rakumaMsg" style="font-size:12px;">初期化中...</span></div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;"><div id="rakumaBar" style="background:#f59e0b;height:100%;width:0%;transition:width 0.3s;"></div></div>
+                <div id="rakumaCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="rakumaResult" style="margin-top:8px;display:none;"></div>
+            <div id="hardoffProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#10b981;border-radius:50%;animation:spin 1s linear infinite;"></div><span id="hardoffMsg" style="font-size:12px;">初期化中...</span></div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;"><div id="hardoffBar" style="background:#10b981;height:100%;width:0%;transition:width 0.3s;"></div></div>
+                <div id="hardoffCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="hardoffResult" style="margin-top:8px;display:none;"></div>
+            <div id="surugayaProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;"></div><span id="surugayaMsg" style="font-size:12px;">初期化中...</span></div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;"><div id="surugayaBar" style="background:#3b82f6;height:100%;width:0%;transition:width 0.3s;"></div></div>
+                <div id="surugayaCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="surugayaResult" style="margin-top:8px;display:none;"></div>
+            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+        </div>
+        <div id="panelManual" style="display:none;">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label data-en="Platform" data-ja="プラットフォーム">Platform</label>
+                <select id="bulkPlatform" class="form-input" style="width:200px;" onchange="updateBulkHelp()">
+                    <option value="ヤフオク">ヤフオク</option><option value="メルカリ">メルカリ</option><option value="ラクマ">ラクマ</option><option value="Amazon">Amazon</option><option value="その他">その他</option>
+                </select>
+            </div>
+            <div id="bulkHelp" style="font-size:11px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-tertiary);border-radius:6px;"></div>
+            <div class="form-group">
+                <label data-en="Paste purchase history" data-ja="購入履歴を貼り付け">Paste purchase history</label>
+                <textarea id="bulkData" class="form-input" rows="10" style="font-size:12px;font-family:monospace;" placeholder="タブ区切り: 商品名(TAB)価格(TAB)日付"></textarea>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;">
+                <button class="btn btn-sm" onclick="runBulkImport()" data-en="Import" data-ja="取り込み">Import</button>
+            </div>
+        </div>
+        <div id="bulkStatus" style="font-size:12px;margin-top:8px;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+            <button class="btn btn-sm btn-outline" onclick="document.getElementById('bulkModal').style.display='none'" data-en="Close" data-ja="閉じる">Close</button>
+        </div>
+    </div>
+</div>
+
+<div style="text-align:right;margin-top:8px;display:flex;justify-content:flex-end;gap:8px;">
+    <button class="btn btn-sm btn-outline" id="btnAutoSku" onclick="autoAssignSku()" style="font-size:11px;padding:4px 10px;">🔗 SKU自動付与</button>
+    <button class="btn btn-sm btn-outline" id="btnRetakeSS" onclick="retakeScreenshots()" style="font-size:11px;padding:4px 10px;">📸 SS全ページ再撮影</button>
+    <button class="btn btn-sm btn-outline" onclick="openSettings()" style="font-size:11px;padding:4px 10px;">⚙ Screenshot Settings</button>
+</div>
+
+<script src="/static/js/stock.js?v=20260318c"></script>
