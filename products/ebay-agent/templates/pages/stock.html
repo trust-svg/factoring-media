@@ -328,21 +328,41 @@
 
         <!-- 自動取込パネル -->
         <div id="panelAuto">
-            <!-- ヤフオク -->
-            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;">
-                <b>ヤフオク落札一覧を自動取込</b><br>
-                <span style="font-size:11px;color:var(--text-muted);">
-                    ブラウザが開いて落札一覧 → 各取引ナビ・商品ページを自動巡回。<br>
-                    商品名・落札価格・送料・スクリーンショットを自動取得します。
-                </span>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+                各ボタンをクリックするとブラウザが開いて購入履歴を自動巡回します。初回はログインが必要です。
             </div>
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                <label style="font-size:12px;white-space:nowrap;">最大ページ数</label>
-                <input id="scrapeMaxPages" class="form-input" type="number" value="50" min="1" max="100" style="width:80px;">
-                <button class="btn btn-sm" id="btnStartScrape" onclick="startYahooScrape()" style="flex:1;">
-                    ヤフオク自動取込
+
+            <!-- ボタングリッド -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                <button class="btn btn-sm" id="btnStartScrape" onclick="startYahooScrape()" style="padding:10px;font-size:12px;">
+                    ヤフオク
+                </button>
+                <button class="btn btn-sm" id="btnStartMercari" onclick="startMercariScrape()" style="padding:10px;font-size:12px;background:#ef4444;border-color:#ef4444;">
+                    メルカリ
+                </button>
+                <button class="btn btn-sm" id="btnStartYahooFlea" onclick="startYahooFleaScrape()" style="padding:10px;font-size:12px;background:#7c3aed;border-color:#7c3aed;">
+                    Yahoo!フリマ
+                </button>
+                <button class="btn btn-sm" id="btnStartRakuma" onclick="startRakumaScrape()" style="padding:10px;font-size:12px;background:#f59e0b;border-color:#f59e0b;">
+                    ラクマ
+                </button>
+                <button class="btn btn-sm" id="btnStartHardoff" onclick="startHardoffScrape()" style="padding:10px;font-size:12px;background:#10b981;border-color:#10b981;">
+                    ハードオフ
+                </button>
+                <button class="btn btn-sm" id="btnStartSurugaya" onclick="startSurugayaScrape()" style="padding:10px;font-size:12px;background:#3b82f6;border-color:#3b82f6;">
+                    駿河屋
                 </button>
             </div>
+
+            <!-- ヤフオク設定 -->
+            <div id="yahooSettings" style="display:none;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <label style="font-size:11px;white-space:nowrap;">最大ページ数</label>
+                    <input id="scrapeMaxPages" class="form-input" type="number" value="50" min="1" max="100" style="width:70px;padding:4px 8px;font-size:11px;">
+                </div>
+            </div>
+
+            <!-- 共通プログレス表示エリア -->
             <div id="scrapeProgress" style="margin-top:8px;display:none;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent-blue);border-radius:50%;animation:spin 1s linear infinite;"></div>
@@ -355,17 +375,6 @@
             </div>
             <div id="scrapeResult" style="margin-top:8px;display:none;"></div>
 
-            <!-- メルカリ -->
-            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #ef4444;">
-                <b>メルカリ購入履歴を自動取込</b><br>
-                <span style="font-size:11px;color:var(--text-muted);">
-                    ブラウザが開いて購入履歴 → 各取引ページを自動巡回。<br>
-                    商品名・購入価格・送料・スクリーンショットを自動取得します。
-                </span>
-            </div>
-            <button class="btn btn-sm" id="btnStartMercari" onclick="startMercariScrape()" style="width:100%;background:#ef4444;border-color:#ef4444;">
-                メルカリ自動取込
-            </button>
             <div id="mercariProgress" style="margin-top:8px;display:none;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#ef4444;border-radius:50%;animation:spin 1s linear infinite;"></div>
@@ -378,17 +387,6 @@
             </div>
             <div id="mercariResult" style="margin-top:8px;display:none;"></div>
 
-            <!-- Yahoo!フリマ -->
-            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #7c3aed;">
-                <b>Yahoo!フリマ購入履歴を自動取込</b><br>
-                <span style="font-size:11px;color:var(--text-muted);">
-                    Yahoo! JAPANログインが必要。購入履歴を自動巡回し、<br>
-                    商品名・価格・スクリーンショットを自動取得します。
-                </span>
-            </div>
-            <button class="btn btn-sm" id="btnStartYahooFlea" onclick="startYahooFleaScrape()" style="width:100%;background:#7c3aed;border-color:#7c3aed;">
-                Yahoo!フリマ自動取込
-            </button>
             <div id="yahooFleaProgress" style="margin-top:8px;display:none;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#7c3aed;border-radius:50%;animation:spin 1s linear infinite;"></div>
@@ -401,17 +399,6 @@
             </div>
             <div id="yahooFleaResult" style="margin-top:8px;display:none;"></div>
 
-            <!-- ラクマ -->
-            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #f59e0b;">
-                <b>ラクマ購入履歴を自動取込</b><br>
-                <span style="font-size:11px;color:var(--text-muted);">
-                    楽天ログインが必要。購入履歴を自動巡回し、<br>
-                    商品名・価格・スクリーンショットを自動取得します。
-                </span>
-            </div>
-            <button class="btn btn-sm" id="btnStartRakuma" onclick="startRakumaScrape()" style="width:100%;background:#f59e0b;border-color:#f59e0b;">
-                ラクマ自動取込
-            </button>
             <div id="rakumaProgress" style="margin-top:8px;display:none;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#f59e0b;border-radius:50%;animation:spin 1s linear infinite;"></div>
@@ -424,17 +411,6 @@
             </div>
             <div id="rakumaResult" style="margin-top:8px;display:none;"></div>
 
-            <!-- ハードオフ -->
-            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #10b981;">
-                <b>ハードオフ ネットモール注文履歴を自動取込</b><br>
-                <span style="font-size:11px;color:var(--text-muted);">
-                    ハードオフアカウントでログイン。注文履歴を自動巡回し、<br>
-                    商品名・価格・スクリーンショットを自動取得します。
-                </span>
-            </div>
-            <button class="btn btn-sm" id="btnStartHardoff" onclick="startHardoffScrape()" style="width:100%;background:#10b981;border-color:#10b981;">
-                ハードオフ自動取込
-            </button>
             <div id="hardoffProgress" style="margin-top:8px;display:none;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#10b981;border-radius:50%;animation:spin 1s linear infinite;"></div>
@@ -447,17 +423,6 @@
             </div>
             <div id="hardoffResult" style="margin-top:8px;display:none;"></div>
 
-            <!-- 駿河屋 -->
-            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #3b82f6;">
-                <b>駿河屋注文履歴を自動取込</b><br>
-                <span style="font-size:11px;color:var(--text-muted);">
-                    駿河屋アカウントでログイン。注文履歴を自動巡回し、<br>
-                    商品名・価格・スクリーンショットを自動取得します。
-                </span>
-            </div>
-            <button class="btn btn-sm" id="btnStartSurugaya" onclick="startSurugayaScrape()" style="width:100%;background:#3b82f6;border-color:#3b82f6;">
-                駿河屋自動取込
-            </button>
             <div id="surugayaProgress" style="margin-top:8px;display:none;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;"></div>
@@ -509,5 +474,5 @@
     <button class="btn btn-sm btn-outline" onclick="openSettings()" style="font-size:11px;padding:4px 10px;">⚙ Screenshot Settings</button>
 </div>
 
-<script src="/static/js/stock.js?v=20260318a"></script>
+<script src="/static/js/stock.js?v=20260318b"></script>
 {% endblock %}
