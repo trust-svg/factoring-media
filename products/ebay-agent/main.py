@@ -2868,6 +2868,118 @@ async def import_rakuma_results(job_id: str):
         db.close()
 
 
+# ── ハードオフ一括取込 ─────────────────────────────────────
+
+@app.post("/api/stock/scrape/hardoff")
+async def start_hardoff_scrape():
+    """ハードオフ ネットモール注文履歴のスクレイピングを開始"""
+    import uuid
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {"status": "running", "message": "初期化中...", "current": 0, "total": 0, "results": [], "error": None}
+
+    async def run_scrape():
+        from scrapers.hardoff_purchases import scrape_hardoff_purchases
+        job = _scrape_jobs[job_id]
+        try:
+            def on_progress(msg, cur, total):
+                job["message"] = msg; job["current"] = cur; job["total"] = total
+            results = await scrape_hardoff_purchases(on_progress=on_progress, headless=False)
+            job["results"] = results; job["status"] = "done"; job["message"] = f"完了: {len(results)}件取得"
+        except RuntimeError as e:
+            job["status"] = "login_required" if str(e) == "LOGIN_REQUIRED" else "error"
+            job["message"] = str(e)
+        except Exception as e:
+            job["status"] = "error"; job["error"] = str(e); job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/stock/scrape/hardoff/import/{job_id}")
+async def import_hardoff_results(job_id: str):
+    """ハードオフスクレイプ結果を仕入れ台帳に登録"""
+    job = _scrape_jobs.get(job_id)
+    if not job: raise HTTPException(404, "Job not found")
+    if job["status"] != "done": raise HTTPException(400, f"Job not ready: {job['status']}")
+    results = job.get("results", [])
+    if not results: return JSONResponse({"created": 0, "skipped": 0, "total": 0})
+    results = sorted(results, key=lambda r: r.get("date", "") or "9999")
+    db = get_db()
+    try:
+        created = 0; skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title: skipped += 1; continue
+            price = int(row.get("price", 0) or 0)
+            existing = db.query(InventoryItem).filter(InventoryItem.title == title, InventoryItem.purchase_price_jpy == price, InventoryItem.purchase_source == "ネットモール(OFFモール)").first()
+            if existing: skipped += 1; continue
+            kwargs = {"title": title, "purchase_price_jpy": price, "shipping_cost_jpy": int(row.get("shipping", 0) or 0), "purchase_source": "ネットモール(OFFモール)", "purchase_url": row.get("item_url", ""), "image_url": row.get("image_url", ""), "screenshot_path": row.get("screenshot_path", ""), "status": "ordered"}
+            if row.get("date"):
+                try: kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError: pass
+            crud.add_inventory_item(db, **kwargs); created += 1
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
+    finally:
+        db.close()
+
+
+# ── 駿河屋一括取込 ─────────────────────────────────────────
+
+@app.post("/api/stock/scrape/surugaya")
+async def start_surugaya_scrape():
+    """駿河屋注文履歴のスクレイピングを開始"""
+    import uuid
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {"status": "running", "message": "初期化中...", "current": 0, "total": 0, "results": [], "error": None}
+
+    async def run_scrape():
+        from scrapers.surugaya_purchases import scrape_surugaya_purchases
+        job = _scrape_jobs[job_id]
+        try:
+            def on_progress(msg, cur, total):
+                job["message"] = msg; job["current"] = cur; job["total"] = total
+            results = await scrape_surugaya_purchases(on_progress=on_progress, headless=False)
+            job["results"] = results; job["status"] = "done"; job["message"] = f"完了: {len(results)}件取得"
+        except RuntimeError as e:
+            job["status"] = "login_required" if str(e) == "LOGIN_REQUIRED" else "error"
+            job["message"] = str(e)
+        except Exception as e:
+            job["status"] = "error"; job["error"] = str(e); job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/stock/scrape/surugaya/import/{job_id}")
+async def import_surugaya_results(job_id: str):
+    """駿河屋スクレイプ結果を仕入れ台帳に登録"""
+    job = _scrape_jobs.get(job_id)
+    if not job: raise HTTPException(404, "Job not found")
+    if job["status"] != "done": raise HTTPException(400, f"Job not ready: {job['status']}")
+    results = job.get("results", [])
+    if not results: return JSONResponse({"created": 0, "skipped": 0, "total": 0})
+    results = sorted(results, key=lambda r: r.get("date", "") or "9999")
+    db = get_db()
+    try:
+        created = 0; skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title: skipped += 1; continue
+            price = int(row.get("price", 0) or 0)
+            existing = db.query(InventoryItem).filter(InventoryItem.title == title, InventoryItem.purchase_price_jpy == price, InventoryItem.purchase_source == "駿河屋").first()
+            if existing: skipped += 1; continue
+            kwargs = {"title": title, "purchase_price_jpy": price, "shipping_cost_jpy": int(row.get("shipping", 0) or 0), "purchase_source": "駿河屋", "purchase_url": row.get("item_url", ""), "image_url": row.get("image_url", ""), "screenshot_path": row.get("screenshot_path", ""), "status": "ordered"}
+            if row.get("date"):
+                try: kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError: pass
+            crud.add_inventory_item(db, **kwargs); created += 1
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
+    finally:
+        db.close()
+
+
 @app.post("/api/stock/retake-screenshots")
 async def retake_screenshots():
     """既存のスクリーンショットをfull_pageで再撮影"""

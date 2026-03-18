@@ -1089,6 +1089,122 @@ async function importRakumaResults() {
     rakumaJobId = null;
 }
 
+// ── ハードオフ自動取込 ──────────────────────────────────
+let hardoffJobId = null;
+let hardoffPoller = null;
+
+async function startHardoffScrape() {
+    const btn = document.getElementById('btnStartHardoff');
+    btn.disabled = true; btn.textContent = '取込開始中...';
+    document.getElementById('hardoffProgress').style.display = 'block';
+    document.getElementById('hardoffResult').style.display = 'none';
+    document.getElementById('hardoffMsg').textContent = '初期化中...';
+    document.getElementById('hardoffBar').style.width = '0%';
+    try {
+        const resp = await fetch('/api/stock/scrape/hardoff', { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Failed');
+        hardoffJobId = data.job_id; btn.textContent = '取込中...';
+        hardoffPoller = setInterval(pollHardoffStatus, 2000);
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'ハードオフ自動取込';
+        document.getElementById('hardoffProgress').style.display = 'none';
+        alert('エラー: ' + e.message);
+    }
+}
+async function pollHardoffStatus() {
+    if (!hardoffJobId) return;
+    try {
+        const resp = await fetch(`/api/stock/scrape/status/${hardoffJobId}`);
+        const data = await resp.json();
+        document.getElementById('hardoffMsg').textContent = data.message || '処理中...';
+        if (data.total > 0) { document.getElementById('hardoffBar').style.width = Math.round((data.current/data.total)*100)+'%'; document.getElementById('hardoffCount').textContent = `${data.current} / ${data.total}`; }
+        if (data.status === 'done') {
+            clearInterval(hardoffPoller); hardoffPoller = null;
+            document.getElementById('hardoffProgress').style.display = 'none';
+            const el = document.getElementById('hardoffResult'); el.style.display = 'block';
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;"><span style="color:var(--accent-green);font-weight:600;">${data.result_count}件取得</span><div style="margin-top:8px;"><button class="btn btn-sm" onclick="importHardoffResults()" style="background:#10b981;border-color:#10b981;">台帳に登録する</button> <button class="btn btn-sm btn-outline" onclick="hardoffJobId=null;document.getElementById('hardoffResult').style.display='none'">キャンセル</button></div></div>`;
+            document.getElementById('btnStartHardoff').disabled = false; document.getElementById('btnStartHardoff').textContent = 'ハードオフ自動取込';
+        } else if (data.status === 'error' || data.status === 'login_required') {
+            clearInterval(hardoffPoller); hardoffPoller = null;
+            document.getElementById('hardoffProgress').style.display = 'none';
+            const el = document.getElementById('hardoffResult'); el.style.display = 'block';
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;"><span style="color:var(--accent-red);">${data.message}</span></div>`;
+            document.getElementById('btnStartHardoff').disabled = false; document.getElementById('btnStartHardoff').textContent = 'ハードオフ自動取込';
+        }
+    } catch (e) { console.error('HardOff poll error:', e); }
+}
+async function importHardoffResults() {
+    if (!hardoffJobId) return;
+    const el = document.getElementById('hardoffResult');
+    el.innerHTML = '<span style="color:var(--accent-blue);">台帳に登録中...</span>';
+    try {
+        const resp = await fetch(`/api/stock/scrape/hardoff/import/${hardoffJobId}`, { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) { el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;"><span style="color:var(--accent-green);font-weight:600;">✓ ${data.created}件登録 / ${data.skipped}件スキップ</span></div>`; itemCache={}; loadItems(); loadStats(); }
+        else { el.innerHTML = `<span style="color:var(--accent-red);">エラー: ${data.detail}</span>`; }
+    } catch (e) { el.innerHTML = '<span style="color:var(--accent-red);">通信エラー</span>'; }
+    hardoffJobId = null;
+}
+
+// ── 駿河屋自動取込 ──────────────────────────────────────────
+let surugayaJobId = null;
+let surugayaPoller = null;
+
+async function startSurugayaScrape() {
+    const btn = document.getElementById('btnStartSurugaya');
+    btn.disabled = true; btn.textContent = '取込開始中...';
+    document.getElementById('surugayaProgress').style.display = 'block';
+    document.getElementById('surugayaResult').style.display = 'none';
+    document.getElementById('surugayaMsg').textContent = '初期化中...';
+    document.getElementById('surugayaBar').style.width = '0%';
+    try {
+        const resp = await fetch('/api/stock/scrape/surugaya', { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Failed');
+        surugayaJobId = data.job_id; btn.textContent = '取込中...';
+        surugayaPoller = setInterval(pollSurugayaStatus, 2000);
+    } catch (e) {
+        btn.disabled = false; btn.textContent = '駿河屋自動取込';
+        document.getElementById('surugayaProgress').style.display = 'none';
+        alert('エラー: ' + e.message);
+    }
+}
+async function pollSurugayaStatus() {
+    if (!surugayaJobId) return;
+    try {
+        const resp = await fetch(`/api/stock/scrape/status/${surugayaJobId}`);
+        const data = await resp.json();
+        document.getElementById('surugayaMsg').textContent = data.message || '処理中...';
+        if (data.total > 0) { document.getElementById('surugayaBar').style.width = Math.round((data.current/data.total)*100)+'%'; document.getElementById('surugayaCount').textContent = `${data.current} / ${data.total}`; }
+        if (data.status === 'done') {
+            clearInterval(surugayaPoller); surugayaPoller = null;
+            document.getElementById('surugayaProgress').style.display = 'none';
+            const el = document.getElementById('surugayaResult'); el.style.display = 'block';
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;"><span style="color:var(--accent-green);font-weight:600;">${data.result_count}件取得</span><div style="margin-top:8px;"><button class="btn btn-sm" onclick="importSurugayaResults()" style="background:#3b82f6;border-color:#3b82f6;">台帳に登録する</button> <button class="btn btn-sm btn-outline" onclick="surugayaJobId=null;document.getElementById('surugayaResult').style.display='none'">キャンセル</button></div></div>`;
+            document.getElementById('btnStartSurugaya').disabled = false; document.getElementById('btnStartSurugaya').textContent = '駿河屋自動取込';
+        } else if (data.status === 'error' || data.status === 'login_required') {
+            clearInterval(surugayaPoller); surugayaPoller = null;
+            document.getElementById('surugayaProgress').style.display = 'none';
+            const el = document.getElementById('surugayaResult'); el.style.display = 'block';
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;"><span style="color:var(--accent-red);">${data.message}</span></div>`;
+            document.getElementById('btnStartSurugaya').disabled = false; document.getElementById('btnStartSurugaya').textContent = '駿河屋自動取込';
+        }
+    } catch (e) { console.error('Surugaya poll error:', e); }
+}
+async function importSurugayaResults() {
+    if (!surugayaJobId) return;
+    const el = document.getElementById('surugayaResult');
+    el.innerHTML = '<span style="color:var(--accent-blue);">台帳に登録中...</span>';
+    try {
+        const resp = await fetch(`/api/stock/scrape/surugaya/import/${surugayaJobId}`, { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) { el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;"><span style="color:var(--accent-green);font-weight:600;">✓ ${data.created}件登録 / ${data.skipped}件スキップ</span></div>`; itemCache={}; loadItems(); loadStats(); }
+        else { el.innerHTML = `<span style="color:var(--accent-red);">エラー: ${data.detail}</span>`; }
+    } catch (e) { el.innerHTML = '<span style="color:var(--accent-red);">通信エラー</span>'; }
+    surugayaJobId = null;
+}
+
 // ── チェックボックス一括操作 ────────────────────────────
 function toggleSelectAll(checked) {
     document.querySelectorAll('.row-check').forEach(cb => cb.checked = checked);

@@ -424,6 +424,52 @@
             </div>
             <div id="rakumaResult" style="margin-top:8px;display:none;"></div>
 
+            <!-- ハードオフ -->
+            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #10b981;">
+                <b>ハードオフ ネットモール注文履歴を自動取込</b><br>
+                <span style="font-size:11px;color:var(--text-muted);">
+                    ハードオフアカウントでログイン。注文履歴を自動巡回し、<br>
+                    商品名・価格・スクリーンショットを自動取得します。
+                </span>
+            </div>
+            <button class="btn btn-sm" id="btnStartHardoff" onclick="startHardoffScrape()" style="width:100%;background:#10b981;border-color:#10b981;">
+                ハードオフ自動取込
+            </button>
+            <div id="hardoffProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#10b981;border-radius:50%;animation:spin 1s linear infinite;"></div>
+                    <span id="hardoffMsg" style="font-size:12px;">初期化中...</span>
+                </div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;">
+                    <div id="hardoffBar" style="background:#10b981;height:100%;width:0%;transition:width 0.3s;"></div>
+                </div>
+                <div id="hardoffCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="hardoffResult" style="margin-top:8px;display:none;"></div>
+
+            <!-- 駿河屋 -->
+            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #3b82f6;">
+                <b>駿河屋注文履歴を自動取込</b><br>
+                <span style="font-size:11px;color:var(--text-muted);">
+                    駿河屋アカウントでログイン。注文履歴を自動巡回し、<br>
+                    商品名・価格・スクリーンショットを自動取得します。
+                </span>
+            </div>
+            <button class="btn btn-sm" id="btnStartSurugaya" onclick="startSurugayaScrape()" style="width:100%;background:#3b82f6;border-color:#3b82f6;">
+                駿河屋自動取込
+            </button>
+            <div id="surugayaProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;"></div>
+                    <span id="surugayaMsg" style="font-size:12px;">初期化中...</span>
+                </div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;">
+                    <div id="surugayaBar" style="background:#3b82f6;height:100%;width:0%;transition:width 0.3s;"></div>
+                </div>
+                <div id="surugayaCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="surugayaResult" style="margin-top:8px;display:none;"></div>
+
             <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
         </div>
 
