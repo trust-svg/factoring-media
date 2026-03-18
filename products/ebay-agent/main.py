@@ -55,6 +55,7 @@ def _start_scheduler():
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
         from apscheduler.triggers.cron import CronTrigger
+        from apscheduler.triggers.interval import IntervalTrigger
         from pricing.monitor import run_price_monitor
         from comms.scheduled_jobs import send_morning_digest, send_weekly_report, auto_sync_sales
 
@@ -86,10 +87,10 @@ def _start_scheduler():
             name="週間レポート",
         )
 
-        # 売上自動同期（毎日8:00 JST）
+        # 売上自動同期（3時間ごと）
         scheduler.add_job(
             auto_sync_sales,
-            CronTrigger(hour=8, minute=0, timezone="Asia/Tokyo"),
+            IntervalTrigger(hours=3),
             id="auto_sync_sales",
             name="売上自動同期",
         )
@@ -111,11 +112,31 @@ def _start_scheduler():
             name="Instagram分析同期",
         )
 
+        # カテゴリ自動拡張（毎週水曜 11:00 JST）
+        def _run_category_expansion():
+            import asyncio
+            from research.category_expansion import run_category_expansion_pipeline
+            try:
+                loop = asyncio.new_event_loop()
+                result = loop.run_until_complete(
+                    run_category_expansion_pipeline(notify=True, auto_source=True, top_n=3)
+                )
+                logger.info(f"カテゴリ拡張完了: {result.get('categories_evaluated', 0)}カテゴリ分析")
+            except Exception as e:
+                logger.exception(f"カテゴリ拡張失敗: {e}")
+
+        scheduler.add_job(
+            _run_category_expansion,
+            CronTrigger(day_of_week="wed", hour=11, minute=0, timezone="Asia/Tokyo"),
+            id="category_expansion",
+            name="カテゴリ自動拡張",
+        )
+
         scheduler.start()
         logger.info(
             f"スケジューラー起動: 価格モニター {PRICE_CHECK_INTERVAL_HOURS}h間隔 + "
-            f"朝ダイジェスト 9:00 + 週間レポート Mon 10:00 + 売上同期 8:00 + "
-            f"Instagram生成 10:00 + Instagram分析 23:00"
+            f"朝ダイジェスト 9:00 + 週間レポート Mon 10:00 + 売上同期 3h間隔 + "
+            f"Instagram生成 10:00 + Instagram分析 23:00 + カテゴリ拡張 Wed 11:00"
         )
         return scheduler
     except ImportError:
@@ -179,32 +200,72 @@ async def overview_page(request: Request):
         db.close()
 
 
-@app.get("/inventory", response_class=HTMLResponse)
-async def inventory_page(request: Request):
+# ── 統合ページ (v2 メニュー構成) ──────────────────────────
+
+@app.get("/listings", response_class=HTMLResponse)
+async def listings_page(request: Request):
+    """在庫・価格（Inventory + Pricing 統合）"""
     db = get_db()
     try:
         listings = crud.get_all_listings(db)
-        return templates.TemplateResponse("pages/inventory.html", {
+        return templates.TemplateResponse("pages/listings.html", {
             "request": request, "listings": listings,
         })
     finally:
         db.close()
 
 
+@app.get("/procurement", response_class=HTMLResponse)
+async def procurement_page(request: Request):
+    """仕入れ管理（Ledger + Sales Management 統合）"""
+    return templates.TemplateResponse("pages/procurement.html", {"request": request})
+
+
+@app.get("/research", response_class=HTMLResponse)
+async def research_page(request: Request):
+    """リサーチ（Discovery + Deal Watcher 統合）"""
+    import httpx
+    data = _get_deal_watcher_data()
+    scan_status = {"last_run": None, "running": False}
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("http://127.0.0.1:8001/api/status", timeout=3)
+            scan_status = resp.json()
+    except Exception:
+        pass
+    return templates.TemplateResponse("pages/research.html", {
+        "request": request, **data,
+        "scan_status": scan_status, "interval": 3,
+    })
+
+
+@app.get("/sales", response_class=HTMLResponse)
+async def sales_page(request: Request):
+    """売上・利益（Profit + Analytics 統合）"""
+    return templates.TemplateResponse("pages/sales.html", {"request": request})
+
+
+# ── 旧URL → 新URLリダイレクト ──────────────────────────
+
+@app.get("/inventory", response_class=HTMLResponse)
+async def inventory_redirect():
+    return RedirectResponse(url="/listings", status_code=301)
+
+
 @app.get("/pricing", response_class=HTMLResponse)
-async def pricing_page(request: Request):
-    return templates.TemplateResponse("pages/pricing.html", {"request": request})
+async def pricing_redirect():
+    return RedirectResponse(url="/listings?tab=pricing", status_code=301)
 
 
 @app.get("/sourcing", response_class=HTMLResponse)
-async def sourcing_page(request: Request):
-    return templates.TemplateResponse("pages/sourcing.html", {"request": request})
+async def sourcing_redirect():
+    return RedirectResponse(url="/procurement?tab=records", status_code=301)
 
 
 @app.get("/analytics")
 async def analytics_redirect():
-    """売上分析は利益管理に統合 — リダイレクト"""
-    return RedirectResponse(url="/profit", status_code=301)
+    """売上分析は売上・利益に統合 — リダイレクト"""
+    return RedirectResponse(url="/sales?tab=analytics", status_code=301)
 
 
 @app.get("/messages")
@@ -261,8 +322,9 @@ def _get_deal_watcher_data():
             "keyword_id": g["id"], "keyword": g["name"],
             "count": g["listing_count"], "min_price": g["min_price"],
             "max_price": g["max_price"], "latest_found": g["latest_found"],
-            "listings": [dict(i) for i in items],
+            "listings": [{**dict(i), "est_profit_jpy": dict(i).get("est_profit_jpy")} for i in items],
             "ebay_price": None, "ebay_qty": None, "ebay_listing_id": None, "ebay_title": None,
+            "eship_profit": None,
         })
     conn.close()
 
@@ -337,20 +399,8 @@ def _get_deal_watcher_data():
 
 
 @app.get("/deals", response_class=HTMLResponse)
-async def deals_page(request: Request):
-    import httpx
-    data = _get_deal_watcher_data()
-    scan_status = {"last_run": None, "running": False}
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get("http://127.0.0.1:8001/api/status", timeout=3)
-            scan_status = resp.json()
-    except Exception:
-        pass
-    return templates.TemplateResponse("pages/deals.html", {
-        "request": request, **data,
-        "scan_status": scan_status, "interval": 3,
-    })
+async def deals_redirect():
+    return RedirectResponse(url="/research?tab=deals", status_code=301)
 
 
 @app.post("/deals/scan")
@@ -881,9 +931,23 @@ async def list_procurements(status: str = ""):
                     "sold": True,
                     "sale_price_usd": s.sale_price_usd,
                     "net_profit_jpy": s.net_profit_jpy,
+                    "consumption_tax_jpy": s.consumption_tax_jpy,
                     "sold_at": s.sold_at.isoformat() if s.sold_at else None,
                     "buyer_name": s.buyer_name,
                 }
+
+        # SKU→画像URLマップ
+        skus = list({p.sku for p in procs if p.sku})
+        image_map = {}
+        if skus:
+            listings = db.query(Listing.sku, Listing.image_urls_json).filter(Listing.sku.in_(skus)).all()
+            for l in listings:
+                try:
+                    urls = json.loads(l.image_urls_json) if l.image_urls_json else []
+                    if urls:
+                        image_map[l.sku] = urls[0]
+                except (json.JSONDecodeError, IndexError):
+                    pass
 
         result = []
         for p in procs:
@@ -893,6 +957,7 @@ async def list_procurements(status: str = ""):
                 "platform": p.platform,
                 "title": p.title,
                 "url": p.url or "",
+                "image_url": image_map.get(p.sku, ""),
                 "purchase_price_jpy": p.purchase_price_jpy,
                 "shipping_cost_jpy": p.shipping_cost_jpy,
                 "other_cost_jpy": p.other_cost_jpy,
@@ -1114,8 +1179,8 @@ async def instagram_dm_reply_endpoint(request: Request):
 # ── 利益管理 ─────────────────────────────────────────────
 
 @app.get("/profit", response_class=HTMLResponse)
-async def profit_page(request: Request):
-    return templates.TemplateResponse("pages/profit.html", {"request": request})
+async def profit_redirect():
+    return RedirectResponse(url="/sales", status_code=301)
 
 
 @app.get("/api/profit/summary")
@@ -1192,6 +1257,15 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
                 if p.sku not in proc_map:
                     proc_map[p.sku] = p
 
+        # SKU→仕入れ台帳マップ（一括取得）
+        from database.models import InventoryItem
+        inv_map = {}
+        if skus:
+            inv_items = db.query(InventoryItem).filter(InventoryItem.sku.in_(skus)).all()
+            for inv in inv_items:
+                if inv.sku not in inv_map:
+                    inv_map[inv.sku] = inv
+
         result = []
         for r in records:
             rate = r.exchange_rate or 1.0
@@ -1246,6 +1320,7 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
                 "listing_site": getattr(r, 'listing_site', '') or '',
                 "ship_by_date": r.ship_by_date.strftime("%Y-%m-%d") if getattr(r, 'ship_by_date', None) else '',
                 "procurement": proc_info,
+                "inventory_item_id": inv_map[r.sku].id if r.sku in inv_map else None,
             })
         return JSONResponse(result)
     finally:
@@ -1833,47 +1908,77 @@ async def backfill_tracking_numbers():
 # ── 有在庫管理 ─────────────────────────────────────────────
 
 @app.get("/stock", response_class=HTMLResponse)
-async def stock_page(request: Request):
-    return templates.TemplateResponse("pages/stock.html", {"request": request})
+async def stock_redirect():
+    return RedirectResponse(url="/procurement", status_code=301)
 
 
 @app.get("/api/stock")
 async def list_stock(status: str = ""):
-    """仕入れ台帳一覧"""
+    """仕入れ台帳一覧（売上情報付き）"""
     db = get_db()
     try:
+        from database.models import SalesRecord
         items = crud.get_all_inventory_items(db, status=status)
-        return JSONResponse([{
-            "id": i.id,
-            "stock_number": getattr(i, "stock_number", "") or "",
-            "sku": i.sku,
-            "title": i.title,
-            "purchase_price_jpy": i.purchase_price_jpy,
-            "consumption_tax_jpy": i.consumption_tax_jpy,
-            "shipping_cost_jpy": getattr(i, "shipping_cost_jpy", 0) or 0,
-            "purchase_date": i.purchase_date.strftime("%Y-%m-%d") if i.purchase_date else "",
-            "purchase_source": i.purchase_source,
-            "purchase_url": i.purchase_url,
-            "seller_id": getattr(i, "seller_id", "") or "",
-            "seller_url": getattr(i, "seller_url", "") or "",
-            "quantity": i.quantity,
-            "location": i.location,
-            "condition": i.condition,
-            "status": i.status,
-            "ebay_item_id": i.ebay_item_id,
-            "ebay_order_id": getattr(i, "ebay_order_id", "") or "",
-            "ebay_price_usd": i.ebay_price_usd,
-            "listed_at": i.listed_at.strftime("%Y-%m-%d") if i.listed_at else "",
-            "sold_at": i.sold_at.strftime("%Y-%m-%d") if i.sold_at else "",
-            "shipped_at": (i.shipped_at.strftime("%Y-%m-%d") if getattr(i, "shipped_at", None) else ""),
-            "sale_record_id": i.sale_record_id,
-            "notes": i.notes or "",
-            "image_url": i.image_url,
-            "screenshot_path": getattr(i, "screenshot_path", "") or "",
-            "days_in_stock": (datetime.utcnow() - i.purchase_date).days if i.purchase_date else 0,
-            "total_cost_jpy": i.purchase_price_jpy + i.consumption_tax_jpy + (getattr(i, "shipping_cost_jpy", 0) or 0),
-            "created_at": i.created_at.isoformat(),
-        } for i in items])
+
+        # SKU→SalesRecord マップ（一括取得）
+        skus = list({i.sku for i in items if i.sku})
+        sale_map = {}
+        if skus:
+            sales = db.query(SalesRecord).filter(SalesRecord.sku.in_(skus)).all()
+            for s in sales:
+                if s.sku not in sale_map:
+                    sale_map[s.sku] = s
+
+        result = []
+        for i in items:
+            sr = sale_map.get(i.sku)
+            sale_info = None
+            if sr:
+                sale_info = {
+                    "id": sr.id,
+                    "order_id": sr.order_id,
+                    "sale_price_usd": sr.sale_price_usd,
+                    "net_profit_jpy": sr.net_profit_jpy,
+                    "net_profit_usd": sr.net_profit_usd,
+                    "profit_margin_pct": sr.profit_margin_pct,
+                    "consumption_tax_jpy": sr.consumption_tax_jpy,
+                    "sold_at": sr.sold_at.strftime("%Y-%m-%d") if sr.sold_at else "",
+                    "buyer_name": getattr(sr, 'buyer_name', '') or '',
+                    "progress": getattr(sr, 'progress', '') or '',
+                }
+            result.append({
+                "id": i.id,
+                "stock_number": getattr(i, "stock_number", "") or "",
+                "sku": i.sku,
+                "title": i.title,
+                "purchase_price_jpy": i.purchase_price_jpy,
+                "consumption_tax_jpy": i.consumption_tax_jpy,
+                "shipping_cost_jpy": getattr(i, "shipping_cost_jpy", 0) or 0,
+                "purchase_date": i.purchase_date.strftime("%Y-%m-%d") if i.purchase_date else "",
+                "purchase_source": i.purchase_source,
+                "purchase_url": i.purchase_url,
+                "seller_id": getattr(i, "seller_id", "") or "",
+                "seller_url": getattr(i, "seller_url", "") or "",
+                "quantity": i.quantity,
+                "location": i.location,
+                "condition": i.condition,
+                "status": i.status,
+                "ebay_item_id": i.ebay_item_id,
+                "ebay_order_id": getattr(i, "ebay_order_id", "") or "",
+                "ebay_price_usd": i.ebay_price_usd,
+                "listed_at": i.listed_at.strftime("%Y-%m-%d") if i.listed_at else "",
+                "sold_at": i.sold_at.strftime("%Y-%m-%d") if i.sold_at else "",
+                "shipped_at": (i.shipped_at.strftime("%Y-%m-%d") if getattr(i, "shipped_at", None) else ""),
+                "sale_record_id": i.sale_record_id,
+                "notes": i.notes or "",
+                "image_url": i.image_url,
+                "screenshot_path": getattr(i, "screenshot_path", "") or "",
+                "days_in_stock": (datetime.utcnow() - i.purchase_date).days if i.purchase_date else 0,
+                "total_cost_jpy": i.purchase_price_jpy + i.consumption_tax_jpy + (getattr(i, "shipping_cost_jpy", 0) or 0),
+                "created_at": i.created_at.isoformat(),
+                "sale": sale_info,
+            })
+        return JSONResponse(result)
     finally:
         db.close()
 
@@ -2541,6 +2646,228 @@ async def import_mercari_results(job_id: str):
         db.close()
 
 
+# ── Yahoo!フリマ一括取込 ─────────────────────────────────
+
+@app.post("/api/stock/scrape/yahoo-flea")
+async def start_yahoo_flea_scrape():
+    """Yahoo!フリマ購入履歴のスクレイピングを開始"""
+    import uuid
+
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0, "total": 0,
+        "results": [], "error": None,
+    }
+
+    async def run_scrape():
+        from scrapers.yahoo_flea_purchases import scrape_yahoo_flea_purchases
+        job = _scrape_jobs[job_id]
+        try:
+            def on_progress(msg, cur, total):
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_yahoo_flea_purchases(
+                on_progress=on_progress,
+                headless=False,
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
+        except RuntimeError as e:
+            if str(e) == "LOGIN_REQUIRED":
+                job["status"] = "login_required"
+                job["message"] = "Yahoo!ログインが必要です。"
+            elif str(e) == "LOGIN_TIMEOUT":
+                job["status"] = "error"
+                job["message"] = "ログインがタイムアウトしました。"
+            else:
+                job["status"] = "error"
+                job["error"] = str(e)
+                job["message"] = f"エラー: {e}"
+        except Exception as e:
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/stock/scrape/yahoo-flea/import/{job_id}")
+async def import_yahoo_flea_results(job_id: str):
+    """Yahoo!フリマスクレイプ結果を仕入れ台帳に登録"""
+    job = _scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
+
+    results = job.get("results", [])
+    if not results:
+        return JSONResponse({"created": 0, "skipped": 0, "total": 0})
+
+    results = sorted(results, key=lambda r: r.get("date", "") or "9999")
+
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+
+            price = int(row.get("price", 0) or 0)
+            existing = db.query(InventoryItem).filter(
+                InventoryItem.title == title,
+                InventoryItem.purchase_price_jpy == price,
+                InventoryItem.purchase_source == "Yahooフリマ",
+            ).first()
+            if existing:
+                skipped += 1
+                continue
+
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
+                "purchase_source": "Yahooフリマ",
+                "purchase_url": row.get("item_url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "ordered",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+
+            crud.add_inventory_item(db, **kwargs)
+            created += 1
+
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
+    finally:
+        db.close()
+
+
+# ── ラクマ一括取込 ─────────────────────────────────────────
+
+@app.post("/api/stock/scrape/rakuma")
+async def start_rakuma_scrape():
+    """ラクマ購入履歴のスクレイピングを開始"""
+    import uuid
+
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0, "total": 0,
+        "results": [], "error": None,
+    }
+
+    async def run_scrape():
+        from scrapers.rakuma_purchases import scrape_rakuma_purchases
+        job = _scrape_jobs[job_id]
+        try:
+            def on_progress(msg, cur, total):
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_rakuma_purchases(
+                on_progress=on_progress,
+                headless=False,
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
+        except RuntimeError as e:
+            if str(e) == "LOGIN_REQUIRED":
+                job["status"] = "login_required"
+                job["message"] = "楽天ログインが必要です。"
+            elif str(e) == "LOGIN_TIMEOUT":
+                job["status"] = "error"
+                job["message"] = "ログインがタイムアウトしました。"
+            else:
+                job["status"] = "error"
+                job["error"] = str(e)
+                job["message"] = f"エラー: {e}"
+        except Exception as e:
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/stock/scrape/rakuma/import/{job_id}")
+async def import_rakuma_results(job_id: str):
+    """ラクマスクレイプ結果を仕入れ台帳に登録"""
+    job = _scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
+
+    results = job.get("results", [])
+    if not results:
+        return JSONResponse({"created": 0, "skipped": 0, "total": 0})
+
+    results = sorted(results, key=lambda r: r.get("date", "") or "9999")
+
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+
+            price = int(row.get("price", 0) or 0)
+            existing = db.query(InventoryItem).filter(
+                InventoryItem.title == title,
+                InventoryItem.purchase_price_jpy == price,
+                InventoryItem.purchase_source == "ラクマ",
+            ).first()
+            if existing:
+                skipped += 1
+                continue
+
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
+                "purchase_source": "ラクマ",
+                "purchase_url": row.get("item_url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "ordered",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+
+            crud.add_inventory_item(db, **kwargs)
+            created += 1
+
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
+    finally:
+        db.close()
+
+
 @app.post("/api/stock/retake-screenshots")
 async def retake_screenshots():
     """既存のスクリーンショットをfull_pageで再撮影"""
@@ -2719,8 +3046,8 @@ async def import_scrape_results(job_id: str):
 # ── eBayディスカバリー ──────────────────────────────────────
 
 @app.get("/discover", response_class=HTMLResponse)
-async def discover_page(request: Request):
-    return templates.TemplateResponse("pages/discover.html", {"request": request})
+async def discover_redirect():
+    return RedirectResponse(url="/research", status_code=301)
 
 
 @app.post("/api/discover/search")

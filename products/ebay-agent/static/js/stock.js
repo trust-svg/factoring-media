@@ -159,8 +159,20 @@ function renderCell(colId, i) {
             return `<td style="font-size:12px;">${esc(i.condition || '-')}</td>`;
         case 'status':
             return `<td style="font-size:11px;">${buildStatusBadge(i.status)}</td>`;
-        case 'sold_at':
+        case 'sold_at': {
+            if (i.sale) {
+                const profit = i.sale.net_profit_jpy || 0;
+                const profitColor = profit >= 0 ? 'var(--success-500)' : 'var(--error-500)';
+                return `<td style="font-size:11px;">
+                    <a href="/sales" onclick="localStorage.setItem('highlight_sale','${i.sale.id}');" style="color:var(--accent-blue);text-decoration:none;">
+                        $${(i.sale.sale_price_usd || 0).toFixed(0)} ↗
+                    </a>
+                    <br><span style="font-size:10px;color:${profitColor};font-weight:600;">¥${profit.toLocaleString()}</span>
+                    <br><span style="font-size:10px;color:var(--text-muted);">${i.sold_at || ''}</span>
+                </td>`;
+            }
             return `<td style="font-size:12px;">${i.sold_at || '-'}</td>`;
+        }
         case 'ebay': {
             if (i.ebay_item_id) {
                 const usd = i.ebay_price_usd || 0;
@@ -911,6 +923,170 @@ async function importMercariResults() {
 function cancelMercari() {
     mercariJobId = null;
     document.getElementById('mercariResult').style.display = 'none';
+}
+
+// ── Yahoo!フリマ自動取込 ──────────────────────────────────
+let yahooFleaJobId = null;
+let yahooFleaPoller = null;
+
+async function startYahooFleaScrape() {
+    const btn = document.getElementById('btnStartYahooFlea');
+    btn.disabled = true;
+    btn.textContent = '取込開始中...';
+    document.getElementById('yahooFleaProgress').style.display = 'block';
+    document.getElementById('yahooFleaResult').style.display = 'none';
+    document.getElementById('yahooFleaMsg').textContent = '初期化中...';
+    document.getElementById('yahooFleaBar').style.width = '0%';
+    document.getElementById('yahooFleaCount').textContent = '';
+    try {
+        const resp = await fetch('/api/stock/scrape/yahoo-flea', { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Failed to start');
+        yahooFleaJobId = data.job_id;
+        btn.textContent = '取込中...';
+        yahooFleaPoller = setInterval(pollYahooFleaStatus, 2000);
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Yahoo!フリマ自動取込';
+        document.getElementById('yahooFleaProgress').style.display = 'none';
+        alert('エラー: ' + e.message);
+    }
+}
+
+async function pollYahooFleaStatus() {
+    if (!yahooFleaJobId) return;
+    try {
+        const resp = await fetch(`/api/stock/scrape/status/${yahooFleaJobId}`);
+        const data = await resp.json();
+        document.getElementById('yahooFleaMsg').textContent = data.message || '処理中...';
+        if (data.total > 0) {
+            const pct = Math.round((data.current / data.total) * 100);
+            document.getElementById('yahooFleaBar').style.width = pct + '%';
+            document.getElementById('yahooFleaCount').textContent = `${data.current} / ${data.total}`;
+        }
+        if (data.status === 'done') {
+            clearInterval(yahooFleaPoller); yahooFleaPoller = null;
+            document.getElementById('yahooFleaProgress').style.display = 'none';
+            const el = document.getElementById('yahooFleaResult');
+            el.style.display = 'block';
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;">
+                <span style="color:var(--accent-green);font-weight:600;">${data.result_count}件の商品を取得しました</span>
+                <div style="margin-top:8px;">
+                    <button class="btn btn-sm" onclick="importYahooFleaResults()" style="background:#7c3aed;border-color:#7c3aed;">台帳に登録する</button>
+                    <button class="btn btn-sm btn-outline" onclick="yahooFleaJobId=null;document.getElementById('yahooFleaResult').style.display='none'" style="margin-left:4px;">キャンセル</button>
+                </div></div>`;
+            document.getElementById('btnStartYahooFlea').disabled = false;
+            document.getElementById('btnStartYahooFlea').textContent = 'Yahoo!フリマ自動取込';
+        } else if (data.status === 'error' || data.status === 'login_required') {
+            clearInterval(yahooFleaPoller); yahooFleaPoller = null;
+            document.getElementById('yahooFleaProgress').style.display = 'none';
+            const el = document.getElementById('yahooFleaResult');
+            el.style.display = 'block';
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;"><span style="color:var(--accent-red);">${data.message}</span></div>`;
+            document.getElementById('btnStartYahooFlea').disabled = false;
+            document.getElementById('btnStartYahooFlea').textContent = 'Yahoo!フリマ自動取込';
+        }
+    } catch (e) { console.error('YahooFlea poll error:', e); }
+}
+
+async function importYahooFleaResults() {
+    if (!yahooFleaJobId) return;
+    const el = document.getElementById('yahooFleaResult');
+    el.innerHTML = '<span style="color:var(--accent-blue);">台帳に登録中...</span>';
+    try {
+        const resp = await fetch(`/api/stock/scrape/yahoo-flea/import/${yahooFleaJobId}`, { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) {
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;">
+                <span style="color:var(--accent-green);font-weight:600;">✓ ${data.created}件登録 / ${data.skipped}件スキップ（重複）</span></div>`;
+            itemCache = {}; loadItems(); loadStats();
+        } else {
+            el.innerHTML = `<span style="color:var(--accent-red);">エラー: ${data.detail || 'Unknown'}</span>`;
+        }
+    } catch (e) { el.innerHTML = '<span style="color:var(--accent-red);">通信エラー</span>'; }
+    yahooFleaJobId = null;
+}
+
+// ── ラクマ自動取込 ──────────────────────────────────────────
+let rakumaJobId = null;
+let rakumaPoller = null;
+
+async function startRakumaScrape() {
+    const btn = document.getElementById('btnStartRakuma');
+    btn.disabled = true;
+    btn.textContent = '取込開始中...';
+    document.getElementById('rakumaProgress').style.display = 'block';
+    document.getElementById('rakumaResult').style.display = 'none';
+    document.getElementById('rakumaMsg').textContent = '初期化中...';
+    document.getElementById('rakumaBar').style.width = '0%';
+    document.getElementById('rakumaCount').textContent = '';
+    try {
+        const resp = await fetch('/api/stock/scrape/rakuma', { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Failed to start');
+        rakumaJobId = data.job_id;
+        btn.textContent = '取込中...';
+        rakumaPoller = setInterval(pollRakumaStatus, 2000);
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'ラクマ自動取込';
+        document.getElementById('rakumaProgress').style.display = 'none';
+        alert('エラー: ' + e.message);
+    }
+}
+
+async function pollRakumaStatus() {
+    if (!rakumaJobId) return;
+    try {
+        const resp = await fetch(`/api/stock/scrape/status/${rakumaJobId}`);
+        const data = await resp.json();
+        document.getElementById('rakumaMsg').textContent = data.message || '処理中...';
+        if (data.total > 0) {
+            const pct = Math.round((data.current / data.total) * 100);
+            document.getElementById('rakumaBar').style.width = pct + '%';
+            document.getElementById('rakumaCount').textContent = `${data.current} / ${data.total}`;
+        }
+        if (data.status === 'done') {
+            clearInterval(rakumaPoller); rakumaPoller = null;
+            document.getElementById('rakumaProgress').style.display = 'none';
+            const el = document.getElementById('rakumaResult');
+            el.style.display = 'block';
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;">
+                <span style="color:var(--accent-green);font-weight:600;">${data.result_count}件の商品を取得しました</span>
+                <div style="margin-top:8px;">
+                    <button class="btn btn-sm" onclick="importRakumaResults()" style="background:#f59e0b;border-color:#f59e0b;">台帳に登録する</button>
+                    <button class="btn btn-sm btn-outline" onclick="rakumaJobId=null;document.getElementById('rakumaResult').style.display='none'" style="margin-left:4px;">キャンセル</button>
+                </div></div>`;
+            document.getElementById('btnStartRakuma').disabled = false;
+            document.getElementById('btnStartRakuma').textContent = 'ラクマ自動取込';
+        } else if (data.status === 'error' || data.status === 'login_required') {
+            clearInterval(rakumaPoller); rakumaPoller = null;
+            document.getElementById('rakumaProgress').style.display = 'none';
+            const el = document.getElementById('rakumaResult');
+            el.style.display = 'block';
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;"><span style="color:var(--accent-red);">${data.message}</span></div>`;
+            document.getElementById('btnStartRakuma').disabled = false;
+            document.getElementById('btnStartRakuma').textContent = 'ラクマ自動取込';
+        }
+    } catch (e) { console.error('Rakuma poll error:', e); }
+}
+
+async function importRakumaResults() {
+    if (!rakumaJobId) return;
+    const el = document.getElementById('rakumaResult');
+    el.innerHTML = '<span style="color:var(--accent-blue);">台帳に登録中...</span>';
+    try {
+        const resp = await fetch(`/api/stock/scrape/rakuma/import/${rakumaJobId}`, { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) {
+            el.innerHTML = `<div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;">
+                <span style="color:var(--accent-green);font-weight:600;">✓ ${data.created}件登録 / ${data.skipped}件スキップ（重複）</span></div>`;
+            itemCache = {}; loadItems(); loadStats();
+        } else {
+            el.innerHTML = `<span style="color:var(--accent-red);">エラー: ${data.detail || 'Unknown'}</span>`;
+        }
+    } catch (e) { el.innerHTML = '<span style="color:var(--accent-red);">通信エラー</span>'; }
+    rakumaJobId = null;
 }
 
 // ── チェックボックス一括操作 ────────────────────────────

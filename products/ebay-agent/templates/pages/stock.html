@@ -378,6 +378,52 @@
             </div>
             <div id="mercariResult" style="margin-top:8px;display:none;"></div>
 
+            <!-- Yahoo!フリマ -->
+            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #7c3aed;">
+                <b>Yahoo!フリマ購入履歴を自動取込</b><br>
+                <span style="font-size:11px;color:var(--text-muted);">
+                    Yahoo! JAPANログインが必要。購入履歴を自動巡回し、<br>
+                    商品名・価格・スクリーンショットを自動取得します。
+                </span>
+            </div>
+            <button class="btn btn-sm" id="btnStartYahooFlea" onclick="startYahooFleaScrape()" style="width:100%;background:#7c3aed;border-color:#7c3aed;">
+                Yahoo!フリマ自動取込
+            </button>
+            <div id="yahooFleaProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#7c3aed;border-radius:50%;animation:spin 1s linear infinite;"></div>
+                    <span id="yahooFleaMsg" style="font-size:12px;">初期化中...</span>
+                </div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;">
+                    <div id="yahooFleaBar" style="background:#7c3aed;height:100%;width:0%;transition:width 0.3s;"></div>
+                </div>
+                <div id="yahooFleaCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="yahooFleaResult" style="margin-top:8px;display:none;"></div>
+
+            <!-- ラクマ -->
+            <div style="font-size:12px;color:var(--text-secondary);margin:16px 0 12px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border-left:3px solid #f59e0b;">
+                <b>ラクマ購入履歴を自動取込</b><br>
+                <span style="font-size:11px;color:var(--text-muted);">
+                    楽天ログインが必要。購入履歴を自動巡回し、<br>
+                    商品名・価格・スクリーンショットを自動取得します。
+                </span>
+            </div>
+            <button class="btn btn-sm" id="btnStartRakuma" onclick="startRakumaScrape()" style="width:100%;background:#f59e0b;border-color:#f59e0b;">
+                ラクマ自動取込
+            </button>
+            <div id="rakumaProgress" style="margin-top:8px;display:none;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:#f59e0b;border-radius:50%;animation:spin 1s linear infinite;"></div>
+                    <span id="rakumaMsg" style="font-size:12px;">初期化中...</span>
+                </div>
+                <div style="margin-top:8px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden;">
+                    <div id="rakumaBar" style="background:#f59e0b;height:100%;width:0%;transition:width 0.3s;"></div>
+                </div>
+                <div id="rakumaCount" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+            </div>
+            <div id="rakumaResult" style="margin-top:8px;display:none;"></div>
+
             <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
         </div>
 
