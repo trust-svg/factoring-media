@@ -22,6 +22,10 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
 RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
 
+# GitHub (Obsidian sync)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "trust-svg/obsidian-company")
+
 # Company directory
 COMPANY_DIR = Path(os.getenv("COMPANY_DIR", str(Path.home() / ".company")))
 SECRETARY_DIR = COMPANY_DIR / "secretary"

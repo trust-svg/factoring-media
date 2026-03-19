@@ -161,21 +161,39 @@ def update_todo(keyword: str, new_title: str) -> str:
 
 
 def capture_inbox(text: str) -> str:
-    """Capture a quick memo as a task with [Inbox] prefix."""
+    """Capture a quick memo to Google Tasks + Obsidian (via GitHub)."""
+    results = []
+
+    # 1. Google Tasks
     try:
         service = _get_service()
         tl_id = _get_tasklist_id()
-
         now = datetime.now().strftime("%H:%M")
         body = {
             "title": f"[Inbox] {text}",
             "notes": f"キャプチャ: {now}",
         }
         service.tasks().insert(tasklist=tl_id, body=body).execute()
-        return f"Inboxに記録しました: {text}"
+        results.append("Tasks OK")
     except Exception as e:
-        logger.error(f"capture_inbox error: {e}")
-        return f"Inbox記録に失敗しました: {e}"
+        logger.error(f"capture_inbox Google Tasks error: {e}")
+        results.append(f"Tasks NG: {e}")
+
+    # 2. Obsidian (GitHub sync)
+    try:
+        from tools.github_sync import append_to_file
+        today = date.today().isoformat()
+        now = datetime.now().strftime("%H:%M")
+        path = f"secretary/inbox/{today}.md"
+        template = f'---\ndate: "{today}"\ntype: inbox\n---\n\n# Inbox - {today}\n\n## キャプチャ\n\n'
+        new_line = f"- **{now}** | {text}"
+        append_to_file(path, new_line, template, message=f"inbox: {today}")
+        results.append("Obsidian OK")
+    except Exception as e:
+        logger.error(f"capture_inbox GitHub sync error: {e}")
+        results.append(f"Obsidian NG: {e}")
+
+    return f"Inboxに記録しました: {text}"
 
 
 def get_pending_summary() -> dict:
