@@ -442,11 +442,24 @@ def log_change(db: Session, sku: str, field: str, old_val: str, new_val: str, su
 
 # ── 有在庫管理 ────────────────────────────────────────────
 
-def get_all_inventory_items(db: Session, status: str = "") -> list[InventoryItem]:
-    """有在庫アイテム一覧"""
+def get_all_inventory_items(db: Session, status: str = "", date_from: str = "", date_to: str = "") -> list[InventoryItem]:
+    """有在庫アイテム一覧（期間フィルター対応）"""
+    from datetime import datetime as _dt
     q = db.query(InventoryItem)
     if status:
         q = q.filter(InventoryItem.status == status)
+    if date_from:
+        try:
+            d = _dt.strptime(date_from, "%Y-%m-%d")
+            q = q.filter(InventoryItem.purchase_date >= d)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            d = _dt.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            q = q.filter(InventoryItem.purchase_date <= d)
+        except ValueError:
+            pass
     return q.order_by(desc(InventoryItem.id)).all()
 
 

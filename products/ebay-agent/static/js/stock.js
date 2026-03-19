@@ -222,11 +222,16 @@ async function loadStats() {
 // ── 一覧読み込み ────────────────────────────────────────
 async function loadItems() {
     const status = document.getElementById('statusFilter').value;
+    const dateFrom = document.getElementById('dateFrom')?.value || '';
+    const dateTo = document.getElementById('dateTo')?.value || '';
     const tbody = document.getElementById('stockBody');
     const colOrder = getColumnOrder();
     const colCount = colOrder.length + 1; // +1 for actions
     try {
-        const resp = await fetch(`/api/stock?status=${status}`);
+        let url = `/api/stock?status=${status}`;
+        if (dateFrom) url += `&date_from=${dateFrom}`;
+        if (dateTo) url += `&date_to=${dateTo}`;
+        const resp = await fetch(url);
         const items = await resp.json();
         if (!items.length) {
             tbody.innerHTML = `<tr><td colspan="${colCount}" class="empty-state">データなし</td></tr>`;

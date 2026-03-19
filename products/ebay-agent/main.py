@@ -1914,12 +1914,12 @@ async def stock_redirect():
 
 
 @app.get("/api/stock")
-async def list_stock(status: str = ""):
+async def list_stock(status: str = "", date_from: str = "", date_to: str = ""):
     """仕入れ台帳一覧（売上情報付き）"""
     db = get_db()
     try:
         from database.models import SalesRecord
-        items = crud.get_all_inventory_items(db, status=status)
+        items = crud.get_all_inventory_items(db, status=status, date_from=date_from, date_to=date_to)
 
         # SKU→SalesRecord マップ（一括取得）
         skus = list({i.sku for i in items if i.sku})

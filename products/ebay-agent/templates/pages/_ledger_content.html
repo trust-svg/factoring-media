@@ -74,7 +74,7 @@
 <div class="section">
     <div class="section-header">
         <h2 data-en="Ledger" data-ja="一覧">Ledger</h2>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <select id="statusFilter" class="form-input" style="width:130px;padding:6px 10px;font-size:12px;" onchange="loadItems()">
                 <option value="">すべて</option>
                 <option value="ordered">注文済み</option>
@@ -85,7 +85,10 @@
                 <option value="returned">返品</option>
                 <option value="cancelled">キャンセル</option>
             </select>
-            <button class="btn btn-sm btn-outline" onclick="openBulkImport()" style="font-size:11px;">📥 一括取込</button>
+            <input id="dateFrom" type="date" class="form-input" style="width:130px;padding:6px 10px;font-size:12px;" onchange="loadItems()">
+            <span style="font-size:12px;color:var(--text-muted);">〜</span>
+            <input id="dateTo" type="date" class="form-input" style="width:130px;padding:6px 10px;font-size:12px;" onchange="loadItems()">
+            <button class="btn btn-sm btn-outline" onclick="openBulkImport()" style="font-size:11px;">一括取込</button>
             <button class="btn btn-sm" onclick="openAddModal()">+ 仕入れ登録</button>
         </div>
     </div>
