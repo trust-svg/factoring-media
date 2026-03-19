@@ -58,6 +58,7 @@ def _start_scheduler():
         from apscheduler.triggers.interval import IntervalTrigger
         from pricing.monitor import run_price_monitor
         from comms.scheduled_jobs import send_morning_digest, send_weekly_report, auto_sync_sales
+        from comms.report_generator import run_weekly_report, run_monthly_report
 
         scheduler = BackgroundScheduler()
 
@@ -85,6 +86,22 @@ def _start_scheduler():
             CronTrigger(day_of_week="mon", hour=10, minute=0, timezone="Asia/Tokyo"),
             id="weekly_report",
             name="週間レポート",
+        )
+
+        # 週次分析レポート（毎週月曜10:30 JST — 週間レポート通知の後に生成）
+        scheduler.add_job(
+            run_weekly_report,
+            CronTrigger(day_of_week="mon", hour=10, minute=30, timezone="Asia/Tokyo"),
+            id="weekly_analytics_report",
+            name="週次分析レポート",
+        )
+
+        # 月次分析レポート（毎月1日 10:00 JST）
+        scheduler.add_job(
+            run_monthly_report,
+            CronTrigger(day=1, hour=10, minute=0, timezone="Asia/Tokyo"),
+            id="monthly_analytics_report",
+            name="月次分析レポート",
         )
 
         # 売上自動同期（3時間ごと）
@@ -135,7 +152,8 @@ def _start_scheduler():
         scheduler.start()
         logger.info(
             f"スケジューラー起動: 価格モニター {PRICE_CHECK_INTERVAL_HOURS}h間隔 + "
-            f"朝ダイジェスト 9:00 + 週間レポート Mon 10:00 + 売上同期 3h間隔 + "
+            f"朝ダイジェスト 9:00 + 週間レポート Mon 10:00 + 週次分析 Mon 10:30 + "
+            f"月次分析 1日 10:00 + 売上同期 3h間隔 + "
             f"Instagram生成 10:00 + Instagram分析 23:00 + カテゴリ拡張 Wed 11:00"
         )
         return scheduler
@@ -278,6 +296,42 @@ async def messages_redirect():
 @app.get("/agent", response_class=HTMLResponse)
 async def agent_page(request: Request):
     return templates.TemplateResponse("pages/agent.html", {"request": request})
+
+
+@app.get("/reports", response_class=HTMLResponse)
+async def reports_page(request: Request):
+    """分析レポート"""
+    return templates.TemplateResponse("pages/reports.html", {"request": request})
+
+
+@app.get("/api/reports")
+async def api_report_list(type: str = ""):
+    """レポート一覧API"""
+    from comms.report_generator import get_report_list
+    reports = get_report_list(report_type=type)
+    return {"reports": reports}
+
+
+@app.get("/api/reports/{report_id}")
+async def api_report_detail(report_id: int):
+    """レポート詳細API"""
+    from comms.report_generator import get_report_by_id
+    report = get_report_by_id(report_id)
+    if not report:
+        return JSONResponse(status_code=404, content={"error": "Report not found"})
+    return report
+
+
+@app.post("/api/reports/generate")
+async def api_generate_report(request: Request):
+    """レポート手動生成API"""
+    body = await request.json()
+    report_type = body.get("type", "weekly")
+    if report_type not in ("weekly", "monthly"):
+        return JSONResponse(status_code=400, content={"error": "type must be 'weekly' or 'monthly'"})
+    from comms.report_generator import generate_report
+    data = generate_report(report_type)
+    return data
 
 
 @app.get("/instagram", response_class=HTMLResponse)

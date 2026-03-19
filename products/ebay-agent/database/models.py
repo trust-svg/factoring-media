@@ -313,6 +313,44 @@ class InventoryItem(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# ── 分析レポート ──────────────────────────────────────
+
+class AnalyticsReport(Base):
+    """週次・月次分析レポート"""
+    __tablename__ = "analytics_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    report_type: Mapped[str] = mapped_column(String(16), index=True)  # weekly / monthly
+    period_start: Mapped[datetime] = mapped_column(DateTime)
+    period_end: Mapped[datetime] = mapped_column(DateTime)
+    period_label: Mapped[str] = mapped_column(String(32), default="")  # "2026-W12" or "2026-03"
+
+    # KPI サマリー (JSON)
+    kpi_json: Mapped[str] = mapped_column(Text, default="{}")
+    # トップ商品 (JSON)
+    top_products_json: Mapped[str] = mapped_column(Text, default="[]")
+    # ワースト商品 (JSON)
+    worst_products_json: Mapped[str] = mapped_column(Text, default="[]")
+    # 在庫分析 (JSON)
+    inventory_json: Mapped[str] = mapped_column(Text, default="{}")
+    # 仕入れ分析 (JSON)
+    procurement_json: Mapped[str] = mapped_column(Text, default="{}")
+    # カテゴリ別 (JSON)
+    category_json: Mapped[str] = mapped_column(Text, default="[]")
+    # バイヤー国別 (JSON)
+    buyer_country_json: Mapped[str] = mapped_column(Text, default="[]")
+    # 価格競争力 (JSON)
+    price_competitiveness_json: Mapped[str] = mapped_column(Text, default="{}")
+    # 前期比較 (JSON)
+    comparison_json: Mapped[str] = mapped_column(Text, default="{}")
+    # AI改善提案 (JSON)
+    suggestions_json: Mapped[str] = mapped_column(Text, default="[]")
+    # ツール開発提案 (JSON)
+    tool_suggestions_json: Mapped[str] = mapped_column(Text, default="[]")
+
+    generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── DB初期化 ──────────────────────────────────────────────
 
 engine = create_engine(DATABASE_URL, echo=False)

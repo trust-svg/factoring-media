@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Reports — eBay Agent Hub{% endblock %}
+{% block breadcrumb %}Reports{% endblock %}
+{% block page_title %}
+<span data-en="Analytics Reports" data-ja="分析レポート">Analytics Reports</span>
+{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.0/dist/apexcharts.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="reports-page">
+    <!-- タブ切替 -->
+    <div class="tab-bar">
+        <button class="tab-btn active" data-tab="weekly" onclick="switchTab('weekly')">
+            <span data-en="Weekly" data-ja="週次">Weekly</span>
+        </button>
+        <button class="tab-btn" data-tab="monthly" onclick="switchTab('monthly')">
+            <span data-en="Monthly" data-ja="月次">Monthly</span>
+        </button>
+    </div>
+
+    <!-- レポート選択 + 生成ボタン -->
+    <div class="reports-toolbar">
+        <div class="report-selector">
+            <label data-en="Select Report:" data-ja="レポート選択:">Select Report:</label>
+            <select id="reportSelect" onchange="loadReport(this.value)">
+                <option value="" data-en="-- Choose --" data-ja="-- 選択 --">-- Choose --</option>
+            </select>
+        </div>
+        <button class="btn-primary" id="generateBtn" onclick="generateReport()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+            </svg>
+            <span data-en="Generate Now" data-ja="今すぐ生成">Generate Now</span>
+        </button>
+    </div>
+
+    <!-- レポート本体 -->
+    <div id="reportContent" class="report-content" style="display:none">
+
+        <!-- KPI カード -->
+        <div class="report-section">
+            <h2 data-en="Key Metrics" data-ja="主要KPI">Key Metrics</h2>
+            <div class="kpi-grid" id="kpiGrid"></div>
+        </div>
+
+        <!-- 前期比較 -->
+        <div class="report-section">
+            <h2 data-en="Period Comparison" data-ja="前期比較">Period Comparison</h2>
+            <div class="comparison-grid" id="comparisonGrid"></div>
+        </div>
+
+        <!-- トップ / ワースト 商品 -->
+        <div class="report-section report-two-col">
+            <div>
+                <h2 data-en="Top Products" data-ja="トップ商品">Top Products</h2>
+                <div class="report-table-wrap" id="topProductsTable"></div>
+            </div>
+            <div>
+                <h2 data-en="Needs Attention" data-ja="要注意商品">Needs Attention</h2>
+                <div class="report-table-wrap" id="worstProductsTable"></div>
+            </div>
+        </div>
+
+        <!-- カテゴリ別 + バイヤー国別 -->
+        <div class="report-section report-two-col">
+            <div>
+                <h2 data-en="Category Breakdown" data-ja="カテゴリ別">Category Breakdown</h2>
+                <div id="categoryChart" style="min-height:300px"></div>
+            </div>
+            <div>
+                <h2 data-en="Buyer Countries" data-ja="バイヤー国別">Buyer Countries</h2>
+                <div id="countryChart" style="min-height:300px"></div>
+            </div>
+        </div>
+
+        <!-- 在庫分析 -->
+        <div class="report-section">
+            <h2 data-en="Inventory Health" data-ja="在庫健全性">Inventory Health</h2>
+            <div class="inventory-grid" id="inventoryGrid"></div>
+            <div id="deadStockList" style="margin-top:12px"></div>
+        </div>
+
+        <!-- 仕入れ分析 -->
+        <div class="report-section">
+            <h2 data-en="Procurement Analysis" data-ja="仕入れ分析">Procurement Analysis</h2>
+            <div class="procurement-grid" id="procurementGrid"></div>
+        </div>
+
+        <!-- 価格競争力 -->
+        <div class="report-section">
+            <h2 data-en="Price Competitiveness" data-ja="価格競争力">Price Competitiveness</h2>
+            <div class="price-comp-grid" id="priceCompGrid"></div>
+        </div>
+
+        <!-- AI改善提案 -->
+        <div class="report-section">
+            <h2>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;vertical-align:middle;margin-right:6px">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                </svg>
+                <span data-en="Improvement Suggestions" data-ja="改善提案">Improvement Suggestions</span>
+            </h2>
+            <div id="suggestionsList"></div>
+        </div>
+
+        <!-- ツール開発提案 -->
+        <div class="report-section">
+            <h2>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;vertical-align:middle;margin-right:6px">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
+                </svg>
+                <span data-en="Tool Development Ideas" data-ja="ツール開発提案">Tool Development Ideas</span>
+            </h2>
+            <div id="toolSuggestionsList"></div>
+        </div>
+
+    </div>
+
+    <!-- 空状態 -->
+    <div id="emptyState" class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" style="width:64px;height:64px;color:var(--gray-300)">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+        </svg>
+        <p data-en="Select a report or generate a new one" data-ja="レポートを選択するか、新しく生成してください">Select a report or generate a new one</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/reports.js"></script>
+{% endblock %}
