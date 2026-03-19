@@ -155,54 +155,41 @@ async def scrape_yahoo_flea_purchases(
         logger.info(f"読み込み完了: {prev_count}件（{loop_i + 1}ループ, ボタン{click_count}回クリック）")
 
         # ── 一覧からアイテム情報を抽出 ──
+        # Yahoo!フリマの購入履歴: 各 a[href*="/item/z"] のinnerTextに
+        # 「タイトル\n\nYYYY年M月D日 HH:MM\n\n取引期間終了」の形式でデータが入る
+        # 価格は一覧に表示されないため、商品ページで取得
         items_data = await page.evaluate("""() => {
             const results = [];
-            const cards = document.querySelectorAll('a[href*="/item/"]');
+            const links = document.querySelectorAll('a[href*="/item/z"]');
 
-            for (const card of cards) {
-                const href = card.getAttribute('href') || '';
-                // item ID を抽出（/item/z1234567 形式）
-                const idMatch = href.match(/\\/item\\/(z?\\d+)/);
+            for (const link of links) {
+                const href = link.getAttribute('href') || '';
+                const idMatch = href.match(/\\/item\\/(z\\d+)/);
                 if (!idMatch) continue;
 
                 const itemId = idMatch[1];
-                const container = card.closest('li') || card.closest('[class*="item"]') || card.parentElement;
-                if (!container) continue;
+                const text = (link.innerText || '').trim();
+                if (!text || text.length < 3) continue;
 
-                const text = container.innerText || '';
+                // innerText: "タイトル\n\n2025年9月16日 15:12\n\n取引期間終了"
+                const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
 
-                // タイトル
-                let title = '';
-                const img = container.querySelector('img[alt]');
-                if (img && img.alt && img.alt.length > 2) {
-                    title = img.alt;
-                }
-                if (!title) {
-                    const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 2);
-                    for (const line of lines) {
-                        if (!line.match(/^[¥\\d,]+$/) && !line.includes('取引') && !line.includes('評価')) {
-                            title = line;
-                            break;
-                        }
+                // 1行目 = タイトル
+                let title = lines[0] || '';
+
+                // 日付: "YYYY年M月D日" パターン
+                let date = '';
+                for (const line of lines) {
+                    const dateMatch = line.match(/(\\d{4})年(\\d{1,2})月(\\d{1,2})日/);
+                    if (dateMatch) {
+                        date = dateMatch[1] + '-' + dateMatch[2].padStart(2, '0') + '-' + dateMatch[3].padStart(2, '0');
+                        break;
                     }
                 }
 
-                // 価格
-                let price = 0;
-                const priceMatch = text.match(/[¥￥]\\s*([\\d,]+)/);
-                if (priceMatch) {
-                    price = parseInt(priceMatch[1].replace(/,/g, ''), 10) || 0;
-                }
-
-                // 日付
-                let date = '';
-                const dateMatch = text.match(/(\\d{4})[/\\-](\\d{1,2})[/\\-](\\d{1,2})/);
-                if (dateMatch) {
-                    date = dateMatch[1] + '-' + dateMatch[2].padStart(2, '0') + '-' + dateMatch[3].padStart(2, '0');
-                }
-
-                // 画像URL
+                // 画像URL: 同じlink内のimg[src*="yimg"]
                 let imageUrl = '';
+                const img = link.querySelector('img[src*="yimg"], img[src*="mercdn"]');
                 if (img) imageUrl = img.src || '';
 
                 // キャンセル判定
@@ -210,11 +197,11 @@ async def scrape_yahoo_flea_purchases(
 
                 const itemUrl = href.startsWith('http') ? href : 'https://paypayfleamarket.yahoo.co.jp' + href;
 
-                if (title && title.length > 2) {
+                if (title && title.length > 2 && title !== '商品画像') {
                     results.push({
                         item_id: itemId,
                         title: title.substring(0, 256),
-                        price: price,
+                        price: 0,
                         date: date,
                         item_url: itemUrl,
                         image_url: imageUrl,

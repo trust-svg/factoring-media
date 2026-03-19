@@ -2708,8 +2708,13 @@ async def import_yahoo_flea_results(job_id: str):
         raise HTTPException(400, f"Job not ready: {job['status']}")
 
     results = job.get("results", [])
+    logger.info(f"[Yahoo!フリマimport] results count: {len(results)}")
     if not results:
         return JSONResponse({"created": 0, "skipped": 0, "total": 0})
+
+    # デバッグ: 最初の3件のデータを出力
+    for i, r in enumerate(results[:3]):
+        logger.info(f"[Yahoo!フリマimport] sample[{i}]: title='{r.get('title','')[:40]}' price={r.get('price')} date={r.get('date')}")
 
     results = sorted(results, key=lambda r: r.get("date", "") or "9999")
 
@@ -2717,10 +2722,12 @@ async def import_yahoo_flea_results(job_id: str):
     try:
         created = 0
         skipped = 0
+        skip_reasons = {"no_title": 0, "duplicate": 0, "error": 0}
         for row in results:
             title = (row.get("title") or "").strip()
             if not title:
                 skipped += 1
+                skip_reasons["no_title"] += 1
                 continue
 
             price = int(row.get("price", 0) or 0)
@@ -2731,6 +2738,7 @@ async def import_yahoo_flea_results(job_id: str):
             ).first()
             if existing:
                 skipped += 1
+                skip_reasons["duplicate"] += 1
                 continue
 
             kwargs = {
@@ -2749,9 +2757,15 @@ async def import_yahoo_flea_results(job_id: str):
                 except ValueError:
                     pass
 
-            crud.add_inventory_item(db, **kwargs)
-            created += 1
+            try:
+                crud.add_inventory_item(db, **kwargs)
+                created += 1
+            except Exception as e:
+                logger.error(f"[Yahoo!フリマimport] 登録エラー: {title[:30]} — {e}")
+                skip_reasons["error"] += 1
+                skipped += 1
 
+        logger.info(f"[Yahoo!フリマimport] 結果: created={created} skipped={skipped} reasons={skip_reasons}")
         _scrape_jobs.pop(job_id, None)
         return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
     finally:
