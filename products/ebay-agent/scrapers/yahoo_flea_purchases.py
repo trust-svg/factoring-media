@@ -118,11 +118,11 @@ async def scrape_yahoo_flea_purchases(
             # 「もっと見る」ボタンを探してクリック
             clicked = False
             try:
-                load_more = await page.evaluate("""() => {
+                load_more = await page.evaluate(r"""() => {
                     const buttons = [...document.querySelectorAll('button, a')];
                     for (const btn of buttons) {
                         const text = (btn.textContent || '').trim();
-                        if (text === 'もっと見る' || text === 'もっとみる' || text === 'さらに表示' || text === 'Load more') {
+                        if (text === '\u3082\u3063\u3068\u898B\u308B' || text === '\u3082\u3063\u3068\u307F\u308B' || text === '\u3055\u3089\u306B\u8868\u793A' || text === 'Load more') {
                             btn.scrollIntoView();
                             btn.click();
                             return true;
@@ -158,46 +158,41 @@ async def scrape_yahoo_flea_purchases(
         # Yahoo!フリマの購入履歴: 各 a[href*="/item/z"] のinnerTextに
         # 「タイトル\n\nYYYY年M月D日 HH:MM\n\n取引期間終了」の形式でデータが入る
         # 価格は一覧に表示されないため、商品ページで取得
-        items_data = await page.evaluate("""() => {
+        items_data = await page.evaluate(r"""() => {
             const results = [];
             const links = document.querySelectorAll('a[href*="/item/z"]');
 
             for (const link of links) {
                 const href = link.getAttribute('href') || '';
-                const idMatch = href.match(/\\/item\\/(z\\d+)/);
+                const idMatch = href.match(/\/item\/(z\d+)/);
                 if (!idMatch) continue;
 
                 const itemId = idMatch[1];
                 const text = (link.innerText || '').trim();
                 if (!text || text.length < 3) continue;
 
-                // innerText: "タイトル\n\n2025年9月16日 15:12\n\n取引期間終了"
-                const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+                const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-                // 1行目 = タイトル
                 let title = lines[0] || '';
 
-                // 日付: "YYYY年M月D日" パターン
                 let date = '';
                 for (const line of lines) {
-                    const dateMatch = line.match(/(\\d{4})年(\\d{1,2})月(\\d{1,2})日/);
+                    const dateMatch = line.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
                     if (dateMatch) {
                         date = dateMatch[1] + '-' + dateMatch[2].padStart(2, '0') + '-' + dateMatch[3].padStart(2, '0');
                         break;
                     }
                 }
 
-                // 画像URL: 同じlink内のimg[src*="yimg"]
                 let imageUrl = '';
                 const img = link.querySelector('img[src*="yimg"], img[src*="mercdn"]');
                 if (img) imageUrl = img.src || '';
 
-                // キャンセル判定
-                const cancelled = text.includes('キャンセル');
+                const cancelled = text.includes('\u30AD\u30E3\u30F3\u30BB\u30EB');
 
                 const itemUrl = href.startsWith('http') ? href : 'https://paypayfleamarket.yahoo.co.jp' + href;
 
-                if (title && title.length > 2 && title !== '商品画像') {
+                if (title && title.length > 2 && title !== '\u5546\u54C1\u753B\u50CF') {
                     results.push({
                         item_id: itemId,
                         title: title.substring(0, 256),
