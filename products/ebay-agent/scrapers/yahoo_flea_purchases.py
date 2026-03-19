@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 COOKIE_DIR = Path(__file__).parent.parent / ".playwright"
 COOKIE_FILE = COOKIE_DIR / "yahoo_flea_cookies.json"
 
-PURCHASES_URL = "https://paypayfleamarket.yahoo.co.jp/mypage/purchases"
+PURCHASES_URL = "https://paypayfleamarket.yahoo.co.jp/my/purchase"
 
 # スクリーンショット保存先
 SS_BASE = Path("/Users/Mac_air/Library/CloudStorage/GoogleDrive-otsuka@trustlink-tk.com/マイドライブ/総務関連/TrustLink/確定申告資料/輸出業/仕入れ履歴スクリーンショット")
@@ -72,14 +72,21 @@ async def scrape_yahoo_flea_purchases(
                 raise RuntimeError("LOGIN_REQUIRED")
 
             if on_progress:
-                on_progress("Yahoo! JAPANログインが必要です。ブラウザでログインしてください...", 0, 0)
+                on_progress("Yahoo! JAPANログインが必要です。ブラウザでログインしてください（5分以内）...", 0, 0)
 
+            # ログイン完了を待つ: loginやauthが含まれなくなるまで待機
             try:
-                await page.wait_for_url(
-                    lambda url: "mypage" in url or "purchases" in url,
-                    timeout=300000,
-                )
+                for _ in range(150):  # 最大5分（2秒×150）
+                    await asyncio.sleep(2)
+                    current_url = page.url
+                    if "login" not in current_url and "auth" not in current_url:
+                        break
+                else:
+                    await browser.close()
+                    raise RuntimeError("LOGIN_TIMEOUT")
                 await asyncio.sleep(3)
+            except RuntimeError:
+                raise
             except Exception:
                 await browser.close()
                 raise RuntimeError("LOGIN_TIMEOUT")

@@ -86,14 +86,20 @@ async def scrape_yahoo_won(
                 raise RuntimeError("LOGIN_REQUIRED")
 
             if on_progress:
-                on_progress("Yahooログインが必要です。ブラウザでログインしてください...", 0, 0)
+                on_progress("Yahooログインが必要です。ブラウザでログインしてください（5分以内）...", 0, 0)
 
             try:
-                await page.wait_for_url(
-                    lambda url: "auctions.yahoo.co.jp" in url and "login" not in url,
-                    timeout=300000,
-                )
+                for _ in range(150):
+                    await asyncio.sleep(2)
+                    current_url = page.url
+                    if "login" not in current_url and "auth" not in current_url:
+                        break
+                else:
+                    await browser.close()
+                    raise RuntimeError("LOGIN_TIMEOUT")
                 await asyncio.sleep(2)
+            except RuntimeError:
+                raise
             except Exception:
                 await browser.close()
                 raise RuntimeError("LOGIN_TIMEOUT")

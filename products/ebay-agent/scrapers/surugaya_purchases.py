@@ -70,14 +70,20 @@ async def scrape_surugaya_purchases(
                 raise RuntimeError("LOGIN_REQUIRED")
 
             if on_progress:
-                on_progress("駿河屋にログインしてください...", 0, 0)
+                on_progress("駿河屋にログインしてください（5分以内）...", 0, 0)
 
             try:
-                await page.wait_for_url(
-                    lambda url: "my" in url or "order" in url or "history" in url,
-                    timeout=300000,
-                )
+                for _ in range(150):
+                    await asyncio.sleep(2)
+                    current_url = page.url
+                    if "login" not in current_url and "signin" not in current_url and "auth" not in current_url:
+                        break
+                else:
+                    await browser.close()
+                    raise RuntimeError("LOGIN_TIMEOUT")
                 await asyncio.sleep(3)
+            except RuntimeError:
+                raise
             except Exception:
                 await browser.close()
                 raise RuntimeError("LOGIN_TIMEOUT")
