@@ -238,10 +238,15 @@ async def scrape_yahoo_flea_purchases(
 
                 # 価格が0の場合、商品ページから取得
                 if not item.get("price"):
-                    price_info = await page.evaluate("""() => {
+                    price_info = await page.evaluate(r"""() => {
                         const body = document.body.innerText || '';
-                        const priceMatch = body.match(/[¥￥]\\s*([\\d,]+)/);
-                        return priceMatch ? parseInt(priceMatch[1].replace(/,/g, ''), 10) : 0;
+                        // "13,000円" 形式（Yahoo!フリマの主要パターン）
+                        const m1 = body.match(/(\d[\d,]+)\s*\u5186/);
+                        if (m1) return parseInt(m1[1].replace(/,/g, ''), 10) || 0;
+                        // "¥13,000" 形式（フォールバック）
+                        const m2 = body.match(/[\u00A5\uFFE5]\s*([\d,]+)/);
+                        if (m2) return parseInt(m2[1].replace(/,/g, ''), 10) || 0;
+                        return 0;
                     }""")
                     item["price"] = price_info
 
