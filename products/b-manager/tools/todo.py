@@ -1,7 +1,7 @@
 """TODO management tool — Google Tasks API backend."""
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import List, Dict, Optional
 
 from googleapiclient.discovery import build
@@ -179,11 +179,13 @@ def capture_inbox(text: str) -> str:
         logger.error(f"capture_inbox Google Tasks error: {e}")
         results.append(f"Tasks NG: {e}")
 
-    # 2. Obsidian (GitHub sync)
+    # 2. Obsidian (GitHub sync) — JST timezone
     try:
         from tools.github_sync import append_to_file
-        today = date.today().isoformat()
-        now = datetime.now().strftime("%H:%M")
+        jst = timezone(timedelta(hours=9))
+        jst_now = datetime.now(jst)
+        today = jst_now.strftime("%Y-%m-%d")
+        now = jst_now.strftime("%H:%M")
         path = f"secretary/inbox/{today}.md"
         template = f'---\ndate: "{today}"\ntype: inbox\n---\n\n# Inbox - {today}\n\n## キャプチャ\n\n'
         new_line = f"- **{now}** | {text}"
