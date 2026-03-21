@@ -615,15 +615,15 @@ function updateBuyerPanel(buyer, itemId) {
         <!-- Item Info -->
         ${itemId ? `
         <h4>${ja ? '商品情報' : 'Item Info'}</h4>
-        <div class="buyer-info-card">
-            ${itemThumb ? `<img src="${escapeHtml(itemThumb)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:10px;" loading="lazy">` : ''}
-            <div class="info-value" style="font-size:13px;line-height:1.4;margin-bottom:8px;">${escapeHtml(itemTitle || '#' + itemId)}</div>
+        <div class="buyer-info-card" id="itemInfoCard">
+            ${itemThumb ? `<img src="${escapeHtml(itemThumb)}" style="width:100%;aspect-ratio:1;object-fit:contain;border-radius:8px;margin-bottom:10px;background:var(--gray-100);" loading="lazy">` : ''}
+            <div class="info-value" style="font-size:13px;line-height:1.4;margin-bottom:6px;">${escapeHtml(itemTitle || '#' + itemId)}</div>
+            <div id="itemDetailsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;margin-bottom:8px;color:var(--text-secondary);"></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <a href="${ebayItemUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:var(--brand-25);color:var(--blue);border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;transition:all var(--transition-fast);">
+                <a href="${ebayItemUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:var(--brand-25);color:var(--blue);border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
                     eBay${ja ? 'で見る' : ' Listing'}
                 </a>
-                <span style="font-size:10px;color:var(--text-muted);padding:5px 0;font-family:monospace;">#${itemId}</span>
             </div>
         </div>` : ''}
 
@@ -632,7 +632,7 @@ function updateBuyerPanel(buyer, itemId) {
         <div class="buyer-info-card">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div class="info-value">${escapeHtml(buyer)}</div>
-                <a href="${ebayBuyerUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;padding:4px 8px;background:var(--bg-primary);color:var(--text-secondary);border-radius:6px;font-size:10px;font-weight:500;text-decoration:none;transition:all var(--transition-fast);">
+                <a href="${ebayBuyerUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;padding:4px 8px;background:var(--bg-primary);color:var(--text-secondary);border-radius:6px;font-size:10px;font-weight:500;text-decoration:none;">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
                     eBay
                 </a>
@@ -650,7 +650,33 @@ function updateBuyerPanel(buyer, itemId) {
     loadBuyerFullHistory(buyer);
     loadBuyerTroubles(buyer);
     loadResponseStats();
-    if (itemId) loadProductEdit(itemId);
+    if (itemId) {
+        loadProductEdit(itemId);
+        loadItemDetails(itemId);
+    }
+}
+
+// ── Item Details (right panel) ──────────────────────
+async function loadItemDetails(itemId) {
+    const grid = document.getElementById('itemDetailsGrid');
+    if (!grid || !itemId) return;
+
+    try {
+        const resp = await fetch(`/api/chat/item/${itemId}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data || data.error) return;
+
+        const ja = getLang() === 'ja';
+        grid.innerHTML = `
+            <div><span style="color:var(--text-muted);">SKU</span><br><strong style="font-family:monospace;font-size:10px;">${escapeHtml(data.sku || '-')}</strong></div>
+            <div><span style="color:var(--text-muted);">${ja ? '価格' : 'Price'}</span><br><strong>$${(data.price_usd || 0).toFixed(2)}</strong></div>
+            <div><span style="color:var(--text-muted);">${ja ? '数量' : 'Qty'}</span><br><strong>${data.quantity ?? '-'}</strong></div>
+            <div><span style="color:var(--text-muted);">Item ID</span><br><strong style="font-family:monospace;font-size:10px;">${itemId}</strong></div>
+        `;
+    } catch (e) {
+        // Listing not found in local DB - OK
+    }
 }
 
 // ── Smart Replies (ワンタップ返信候補) ──────────────
@@ -753,19 +779,26 @@ async function loadBuyerFullHistory(buyer) {
 
             const dateStr = o.sold_at ? new Date(o.sold_at).toLocaleDateString('ja-JP', {month:'short', day:'numeric'}) : '';
 
+            // Try to get thumbnail from itemsList
+            const histItem = itemsList.find(it => it.item_id === o.item_id);
+            const histThumb = histItem?.thumbnail || '';
+            const histThumbHtml = histThumb
+                ? `<img src="${escapeHtml(histThumb)}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--gray-100);" loading="lazy">`
+                : `<div style="width:36px;height:36px;border-radius:6px;background:var(--gray-100);flex-shrink:0;"></div>`;
+
             return `
                 <div style="padding:10px 0;border-bottom:1px solid var(--gray-100);">
-                    <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div style="display:flex;gap:8px;align-items:start;">
+                        ${histThumbHtml}
                         <div style="flex:1;min-width:0;">
-                            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${troubleHtml} ${escapeHtml((o.title || '').substring(0, 35))}</div>
-                            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${dateStr} · ${o.marketplace || 'US'}</div>
-                        </div>
-                        <div style="text-align:right;flex-shrink:0;margin-left:8px;">
-                            <div style="font-size:12px;font-weight:600;">$${(o.sale_price_usd || 0).toFixed(0)}</div>
-                            <div style="font-size:10px;color:${profitColor};font-weight:600;">$${(o.net_profit_usd || 0).toFixed(0)} (${(o.profit_margin_pct || 0).toFixed(0)}%)</div>
+                            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${troubleHtml} ${escapeHtml((o.title || '').substring(0, 30))}</div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+                                <span style="font-size:10px;color:var(--text-muted);">${dateStr}</span>
+                                <span style="font-size:11px;font-weight:600;">$${(o.sale_price_usd || 0).toFixed(0)} <span style="color:${profitColor};font-size:10px;">($${(o.net_profit_usd || 0).toFixed(0)})</span></span>
+                            </div>
+                            ${trackHtml ? `<div style="margin-top:3px;">${trackHtml}</div>` : ''}
                         </div>
                     </div>
-                    ${trackHtml ? `<div style="margin-top:4px;">${trackHtml}</div>` : ''}
                 </div>`;
         }).join('');
 

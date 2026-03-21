@@ -431,6 +431,52 @@ async def list_auto_logs(limit: int = 50):
         db.close()
 
 
+# ── 商品詳細 (item_id で検索) ────────────────────────────
+
+@router.get("/item/{item_id}")
+async def get_item_info(item_id: str):
+    """item_idで商品情報を取得（Listing DB + Browse API fallback）"""
+    from database.models import Listing
+    import json as _json
+    db = get_db()
+    try:
+        listing = db.query(Listing).filter(Listing.listing_id == item_id).first()
+        if listing:
+            imgs = []
+            try:
+                imgs = _json.loads(listing.image_urls_json) if listing.image_urls_json else []
+            except Exception:
+                pass
+            return {
+                "sku": listing.sku,
+                "title": listing.title,
+                "price_usd": listing.price_usd,
+                "quantity": listing.quantity,
+                "category": listing.category_name,
+                "condition": listing.condition,
+                "listing_id": listing.listing_id,
+                "thumbnail": imgs[0] if imgs else "",
+                "seo_score": listing.seo_score,
+            }
+        # Browse API fallback
+        from ebay_core.client import get_item_details
+        details = get_item_details(item_id)
+        if details:
+            return {
+                "sku": "",
+                "title": details.get("title", ""),
+                "price_usd": float(details.get("price", {}).get("value", 0)),
+                "quantity": details.get("estimatedAvailabilities", [{}])[0].get("estimatedAvailableQuantity", 0) if details.get("estimatedAvailabilities") else 0,
+                "category": "",
+                "condition": details.get("condition", ""),
+                "listing_id": item_id,
+                "thumbnail": details.get("image", {}).get("imageUrl", ""),
+            }
+        return {"error": "Not found"}
+    finally:
+        db.close()
+
+
 # ── バイヤー履歴・トラブル・商品編集 (Phase 3) ──────────
 
 @router.get("/buyer/{buyer}/history")

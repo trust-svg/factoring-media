@@ -79,6 +79,9 @@ async def sync_messages(db: Session, days: int = 7) -> dict:
             if direction == "outbound":
                 sender = "me"
 
+            # 添付画像
+            attachment_urls = msg.get("attachment_urls", [])
+
             new_msg = BuyerMessage(
                 ebay_message_id=ebay_id,
                 item_id=msg.get("item_id", ""),
@@ -90,6 +93,8 @@ async def sync_messages(db: Session, days: int = 7) -> dict:
                 body_translated=translated,
                 is_read=1 if msg["is_read"] else 0,
                 responded=1 if msg["responded"] else 0,
+                has_attachment=1 if attachment_urls else 0,
+                attachment_urls_json=json.dumps(attachment_urls) if attachment_urls else "[]",
                 sentiment=sentiment_data.get("sentiment", ""),
                 urgency=sentiment_data.get("urgency", ""),
                 sentiment_note=sentiment_data.get("note", ""),

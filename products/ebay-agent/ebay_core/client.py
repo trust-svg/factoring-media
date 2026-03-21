@@ -919,6 +919,15 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
                     body_text = msg_el.findtext("e:Text", "", namespaces=ns_map)
                     if mid in msg_headers and body_text:
                         msg_headers[mid]["body"] = body_text
+                    # 添付画像（MessageMedia）を抽出
+                    if mid in msg_headers:
+                        media_urls = []
+                        for media in msg_el.findall(".//e:MessageMedia", namespaces=ns_map):
+                            url = media.findtext("e:MediaURL", "", namespaces=ns_map)
+                            if url:
+                                media_urls.append(url)
+                        if media_urls:
+                            msg_headers[mid]["attachment_urls"] = media_urls
 
     # Step 3: 送信済みフォルダ(FolderID=1)からも取得
     xml_sent = f"""<?xml version="1.0" encoding="utf-8"?>
