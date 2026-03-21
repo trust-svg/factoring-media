@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
     # Set webhook
     if config.RAILWAY_PUBLIC_DOMAIN:
-        webhook_url = f"https://{config.RAILWAY_PUBLIC_DOMAIN}/webhook"
+        webhook_url = f"https://{config.RAILWAY_PUBLIC_DOMAIN}/bm-webhook"
         await bot.set_webhook(
             url=webhook_url,
             secret_token=config.TELEGRAM_WEBHOOK_SECRET,
@@ -160,7 +160,7 @@ async def _handle_voice_message(update: Update):
     await bot.send_message(chat_id=chat_id, text=reply)
 
 
-@app.post("/webhook")
+@app.post("/bm-webhook")
 async def webhook(request: Request):
     # Verify secret token
     secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
