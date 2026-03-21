@@ -600,22 +600,52 @@ function searchTemplates() {
 // ── Buyer Panel ─────────────────────────────────────
 function updateBuyerPanel(buyer, itemId) {
     const container = document.getElementById('buyerInfoContent');
+    const ja = getLang() === 'ja';
+
+    // Find item info from itemsList
+    const item = itemsList.find(i => i.item_id === itemId);
+    const itemTitle = item?.title || '';
+    const itemThumb = item?.thumbnail || '';
+
+    const ebayItemUrl = itemId ? `https://www.ebay.com/itm/${itemId}` : '';
+    const ebayBuyerUrl = buyer ? `https://www.ebay.com/usr/${buyer}` : '';
+
     container.innerHTML = `
-        <div class="buyer-info-card">
-            <div class="info-label">Buyer</div>
-            <div class="info-value">${escapeHtml(buyer)}</div>
-        </div>
+        <!-- Item Info -->
         ${itemId ? `
+        <h4>${ja ? '商品情報' : 'Item Info'}</h4>
         <div class="buyer-info-card">
-            <div class="info-label">Item ID</div>
-            <div class="info-value" style="font-family:'SF Mono','Cascadia Code',monospace;font-size:12px;">${escapeHtml(itemId)}</div>
+            ${itemThumb ? `<img src="${escapeHtml(itemThumb)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:10px;" loading="lazy">` : ''}
+            <div class="info-value" style="font-size:13px;line-height:1.4;margin-bottom:8px;">${escapeHtml(itemTitle || '#' + itemId)}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <a href="${ebayItemUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:var(--brand-25);color:var(--blue);border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;transition:all var(--transition-fast);">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                    eBay${ja ? 'で見る' : ' Listing'}
+                </a>
+                <span style="font-size:10px;color:var(--text-muted);padding:5px 0;font-family:monospace;">#${itemId}</span>
+            </div>
         </div>` : ''}
+
+        <!-- Buyer Info -->
+        <h4>${ja ? 'バイヤー情報' : 'Buyer Info'}</h4>
+        <div class="buyer-info-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="info-value">${escapeHtml(buyer)}</div>
+                <a href="${ebayBuyerUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;padding:4px 8px;background:var(--bg-primary);color:var(--text-secondary);border-radius:6px;font-size:10px;font-weight:500;text-decoration:none;transition:all var(--transition-fast);">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                    eBay
+                </a>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${ja ? 'スレッド' : 'Thread'}: ${currentThread.length} ${ja ? '件' : 'messages'}</div>
+        </div>
+
         <div id="buyerScoreSection"></div>
         <div id="buyerHistorySection"></div>
         <div id="buyerTroubleSection"></div>
         <div id="productEditSection"></div>
         <div id="responseStatsSection"></div>`;
 
+    loadBuyerScore(buyer);
     loadBuyerFullHistory(buyer);
     loadBuyerTroubles(buyer);
     loadResponseStats();

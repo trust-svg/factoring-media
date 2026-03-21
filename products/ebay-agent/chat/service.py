@@ -55,28 +55,36 @@ async def sync_messages(db: Session, days: int = 7) -> dict:
                 existing.synced_at = datetime.utcnow()
                 updated_count += 1
         else:
-            # 新規メッセージ → 自動翻訳
+            # 新規メッセージ → 自動翻訳（inboundのみ）
             body = msg.get("body", "")
+            direction = msg.get("direction", "inbound")
             translated = ""
-            try:
-                translated = await translate_to_ja(body)
-            except Exception as e:
-                logger.warning(f"翻訳スキップ: {e}")
-
-            # センチメント分析
             sentiment_data = {"sentiment": "", "urgency": "", "note": ""}
-            try:
-                from chat.intelligence import analyze_sentiment
-                sentiment_data = await analyze_sentiment(body)
-            except Exception as e:
-                logger.warning(f"センチメント分析スキップ: {e}")
+
+            if direction == "inbound" and msg.get("sender") != "eBay":
+                try:
+                    translated = await translate_to_ja(body)
+                except Exception as e:
+                    logger.warning(f"翻訳スキップ: {e}")
+
+                try:
+                    from chat.intelligence import analyze_sentiment
+                    sentiment_data = await analyze_sentiment(body)
+                except Exception as e:
+                    logger.warning(f"センチメント分析スキップ: {e}")
+
+            direction = msg.get("direction", "inbound")
+            sender = msg.get("sender", "")
+            recipient = msg.get("recipient", "me") if direction == "outbound" else "me"
+            if direction == "outbound":
+                sender = "me"
 
             new_msg = BuyerMessage(
                 ebay_message_id=ebay_id,
                 item_id=msg.get("item_id", ""),
-                sender=msg.get("sender", ""),
-                recipient="me",
-                direction="inbound",
+                sender=sender,
+                recipient=recipient,
+                direction=direction,
                 subject=msg.get("subject", ""),
                 body=body,
                 body_translated=translated,

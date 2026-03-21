@@ -920,13 +920,97 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
                     if mid in msg_headers and body_text:
                         msg_headers[mid]["body"] = body_text
 
-    messages = list(msg_headers.values())
+    # Step 3: 送信済みフォルダ(FolderID=1)からも取得
+    xml_sent = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <FolderID>1</FolderID>
+    <StartTime>{from_date}</StartTime>
+    <Pagination>
+        <EntriesPerPage>{limit}</EntriesPerPage>
+        <PageNumber>1</PageNumber>
+    </Pagination>
+    <DetailLevel>ReturnHeaders</DetailLevel>
+</GetMyMessagesRequest>"""
+
+    resp_sent = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        headers=headers,
+        data=xml_sent.encode("utf-8"),
+        timeout=60,
+    )
+
+    sent_headers = {}
+    if resp_sent.status_code == 200:
+        root_sent = ET.fromstring(resp_sent.text)
+        ack_sent = root_sent.findtext("e:Ack", "", namespaces=ns_map)
+        if ack_sent in ("Success", "Warning"):
+            for msg_el in root_sent.findall(".//e:Messages/e:Message", namespaces=ns_map):
+                msg_id = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
+                if not msg_id or msg_id in msg_headers:
+                    continue
+                subject_raw = msg_el.findtext("e:Subject", "", namespaces=ns_map)
+                try:
+                    subject_raw = subject_raw.encode("latin-1").decode("utf-8")
+                except (UnicodeDecodeError, UnicodeEncodeError):
+                    pass
+                recipient = msg_el.findtext("e:SendToName", "", namespaces=ns_map) or msg_el.findtext("e:RecipientUserID", "", namespaces=ns_map) or ""
+                sent_headers[msg_id] = {
+                    "message_id": msg_id,
+                    "sender": "me",
+                    "recipient": recipient,
+                    "subject": subject_raw,
+                    "body": "",
+                    "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
+                    "is_read": True,
+                    "item_id": msg_el.findtext("e:ItemID", "", namespaces=ns_map),
+                    "responded": True,
+                    "direction": "outbound",
+                }
+
+    # 送信メッセージの本文取得
+    if sent_headers:
+        sent_ids = list(sent_headers.keys())
+        for i in range(0, len(sent_ids), 10):
+            batch_ids = sent_ids[i:i + 10]
+            ids_xml = "\n".join(f"    <MessageID>{mid}</MessageID>" for mid in batch_ids)
+            xml_body_sent = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <MessageIDs>
+{ids_xml}
+    </MessageIDs>
+    <DetailLevel>ReturnMessages</DetailLevel>
+</GetMyMessagesRequest>"""
+            resp3 = requests.post(
+                f"{EBAY_API_BASE}/ws/api.dll",
+                headers=headers,
+                data=xml_body_sent.encode("utf-8"),
+                timeout=60,
+            )
+            if resp3.status_code == 200:
+                root3 = ET.fromstring(resp3.text)
+                if root3.findtext("e:Ack", "", namespaces=ns_map) in ("Success", "Warning"):
+                    for msg_el in root3.findall(".//e:Messages/e:Message", namespaces=ns_map):
+                        mid = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
+                        body_text = msg_el.findtext("e:Text", "", namespaces=ns_map)
+                        if mid in sent_headers and body_text:
+                            sent_headers[mid]["body"] = body_text
+
+    # 全メッセージを結合
+    all_messages = list(msg_headers.values()) + list(sent_headers.values())
+
     # HTMLメッセージからテキスト抽出
-    for msg in messages:
+    for msg in all_messages:
         if msg["body"] and msg["body"].strip().startswith("<"):
             msg["body"] = _html_to_text(msg["body"])
-    logger.info(f"GetMyMessages: {len(messages)}件のメッセージを取得")
-    return messages
+
+    logger.info(f"GetMyMessages: 受信{len(msg_headers)}件 + 送信{len(sent_headers)}件 = {len(all_messages)}件")
+    return all_messages
 
 
 def _html_to_text(html: str) -> str:
