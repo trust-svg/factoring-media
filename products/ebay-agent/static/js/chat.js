@@ -57,7 +57,10 @@ function renderProductList() {
 
         return `<div class="product-item ${isActive ? 'active' : ''}" onclick="selectProduct('${escapeHtml(item.item_id)}')" style="animation-delay:${i*30}ms" title="${escapeHtml(item.title)}">
             <div class="product-thumb-wrap">${thumbHtml}${unreadHtml}</div>
-            <div class="product-title">${escapeHtml((item.title || 'No title').substring(0, 30))}</div>
+            <div class="product-info">
+                <div class="product-title">${escapeHtml((item.title || '#' + item.item_id).substring(0, 40))}</div>
+                <div class="product-buyers-count">${item.buyers?.length || 0} ${getLang() === 'ja' ? '件' : 'msg'}</div>
+            </div>
         </div>`;
     }).join('');
 }

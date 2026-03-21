@@ -28,8 +28,8 @@
 
 /* ── Product Column (Col 1) ───────────────────────── */
 .product-col {
-    width: 200px;
-    min-width: 200px;
+    width: 240px;
+    min-width: 240px;
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -73,16 +73,17 @@
 .product-list::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
 .product-item {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 6px;
-    padding: 10px 6px;
+    gap: 10px;
+    padding: 10px;
     border-radius: var(--radius-xs);
     cursor: pointer;
     transition: all var(--transition-fast);
-    text-align: center;
+    text-align: left;
     animation: fadeInUp 200ms ease-out both;
     position: relative;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
 }
 .product-item:hover { background: var(--bg-primary); }
 .product-item:active { transform: scale(0.97); }
@@ -125,16 +126,24 @@
     padding: 0 4px;
     box-shadow: 0 1px 3px rgba(255,59,48,0.4);
 }
+.product-info {
+    flex: 1;
+    min-width: 0;
+}
 .product-title {
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
     line-height: 1.3;
-    max-width: 100%;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+}
+.product-buyers-count {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
 }
 
 /* ── Buyer Column (Col 2) ────────────────────────── */

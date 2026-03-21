@@ -151,6 +151,28 @@ def get_conversations(
                         pass
                     item_title = listing.title or ""
 
+                # Listingに無い場合、メッセージのsubjectから商品名を抽出
+                if not item_title:
+                    subj = msg.get("subject", "") if isinstance(msg, dict) else (msg.subject or "")
+                    # "... about item #XXXXX ... - Product Title Here" パターン
+                    if " - " in subj:
+                        item_title = subj.split(" - ")[-1].strip()[:60]
+                    elif subj:
+                        item_title = subj[:60]
+
+                # 画像がない場合、eBay Browse APIで取得を試みる
+                if not thumbnail and iid:
+                    try:
+                        from ebay_core.client import get_item_details
+                        details = get_item_details(iid)
+                        if details and not details.get("error"):
+                            img = details.get("image", {})
+                            thumbnail = img.get("imageUrl", "")
+                            if not item_title:
+                                item_title = details.get("title", "")
+                    except Exception:
+                        pass
+
             item_map[iid] = {
                 "item_id": iid if iid != "_no_item" else "",
                 "title": item_title,
