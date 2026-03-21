@@ -9,7 +9,7 @@ import anthropic
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from database.models import BuyerMessage, MessageTemplate, SalesRecord
+from database.models import BuyerMessage, Listing, MessageTemplate, SalesRecord
 from ebay_core.client import get_buyer_messages, send_buyer_message, mark_messages_read
 from chat.translation import translate_to_ja, translate_to_en
 
@@ -129,9 +129,25 @@ def get_conversations(
     for msg in messages:
         key = f"{msg.sender}|{msg.item_id}"
         if key not in conv_map:
+            # 商品サムネイル取得
+            thumbnail = ""
+            item_title = ""
+            if msg.item_id:
+                listing = db.query(Listing).filter(Listing.listing_id == msg.item_id).first()
+                if listing:
+                    import json as _json
+                    try:
+                        imgs = _json.loads(listing.image_urls_json) if listing.image_urls_json else []
+                        thumbnail = imgs[0] if imgs else ""
+                    except Exception:
+                        pass
+                    item_title = listing.title or ""
+
             conv_map[key] = {
                 "buyer": msg.sender,
                 "item_id": msg.item_id,
+                "item_title": item_title,
+                "thumbnail": thumbnail,
                 "subject": msg.subject,
                 "last_message": msg.body[:100] if msg.body else "",
                 "last_message_ja": (msg.body_translated or "")[:100],

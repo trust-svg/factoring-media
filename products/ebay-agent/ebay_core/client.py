@@ -921,23 +921,64 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
 
 
 def _html_to_text(html: str) -> str:
-    """HTMLメッセージからプレーンテキストを抽出する。"""
+    """HTMLメッセージからバイヤーの本文のみを抽出する。"""
+    import re
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, "html.parser")
-        # スクリプト・スタイルタグを除去
         for tag in soup(["script", "style", "head"]):
             tag.decompose()
         text = soup.get_text(separator="\n")
-        # 空行を整理
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
-        return "\n".join(lines)
     except Exception:
-        # BeautifulSoupが使えない場合は簡易変換
-        import re
-        text = re.sub(r"<[^>]+>", " ", html)
-        text = re.sub(r"\s+", " ", text).strip()
-        return text
+        text = re.sub(r"<[^>]+>", "\n", html)
+
+    # eBayテンプレートのノイズを除去
+    lines = text.split("\n")
+    clean_lines = []
+    skip_patterns = [
+        r"^New message:",
+        r"^New message from:",
+        r"^Dear .+,$",
+        r"^Reply$",
+        r"^Reply with offer$",
+        r"^Make an offer$",
+        r"^Report message$",
+        r"^\(\d+\s*\)$",  # (763)
+        r"^- \w+$",  # - username
+        r"^Item ID:",
+        r"^Quantity remaining:",
+        r"^End date:",
+        r"^View this item$",
+        r"^Respond to ",
+        r"^This message was sent",
+        r"^Learn more about",
+        r"^©\s*\d{4}",
+        r"^eBay International",
+    ]
+    seen_content = set()
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # パターンスキップ
+        if any(re.match(p, stripped, re.IGNORECASE) for p in skip_patterns):
+            continue
+        # ユーザー名行（送信者名だけの行）スキップ
+        if re.match(r"^[a-z0-9_.-]+$", stripped) and len(stripped) < 30:
+            continue
+        # 重複除去（eBayは本文を2回表示することがある）
+        if stripped in seen_content:
+            continue
+        seen_content.add(stripped)
+        clean_lines.append(stripped)
+
+    result = "\n".join(clean_lines)
+    # UTF-8 mojibake修正（Latin-1→UTF-8）
+    try:
+        result = result.encode("latin-1").decode("utf-8")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
+    return result.strip()
 
 
 # ── メッセージ送信 (Trading API AddMemberMessageAAQToPartner) ──

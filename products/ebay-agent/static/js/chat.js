@@ -53,19 +53,31 @@ function renderConversations() {
         const isUnread = conv.unread_count > 0;
         const dateStr = conv.last_date ? formatRelativeDate(conv.last_date) : '';
         const preview = getLang() === 'ja' && conv.last_message_ja ? conv.last_message_ja : conv.last_message;
+        const title = conv.item_title || conv.subject || '';
+
+        // Thumbnail
+        const thumbHtml = conv.thumbnail
+            ? `<img src="${escapeHtml(conv.thumbnail)}" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid var(--gray-100);">`
+            : `<div style="width:44px;height:44px;border-radius:8px;background:var(--gray-100);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="var(--text-muted)" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" /></svg>
+               </div>`;
 
         return `
             <div class="conv-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
                  onclick="openThread('${escapeHtml(conv.buyer)}', '${escapeHtml(conv.item_id)}')">
-                <div class="conv-buyer">
-                    <span>${escapeHtml(conv.buyer)}</span>
-                    ${isUnread ? '<span class="unread-dot"></span>' : ''}
-                </div>
-                <div class="conv-subject">${escapeHtml(conv.subject || '')}</div>
-                <div class="conv-preview">${escapeHtml(preview || '')}</div>
-                <div class="conv-meta">
-                    <span class="conv-item-id">${conv.item_id ? '#' + conv.item_id : ''}</span>
-                    <span class="conv-date">${dateStr}</span>
+                <div style="display:flex;gap:12px;align-items:start;">
+                    ${thumbHtml}
+                    <div style="flex:1;min-width:0;">
+                        <div class="conv-buyer">
+                            <span>${escapeHtml(conv.buyer)}</span>
+                            <span style="display:flex;align-items:center;gap:6px;">
+                                <span class="conv-date">${dateStr}</span>
+                                ${isUnread ? '<span class="unread-dot"></span>' : ''}
+                            </span>
+                        </div>
+                        <div class="conv-subject">${escapeHtml(title.substring(0, 50))}</div>
+                        <div class="conv-preview">${escapeHtml((preview || '').substring(0, 60))}</div>
+                    </div>
                 </div>
             </div>`;
     }).join('');
