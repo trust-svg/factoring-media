@@ -1019,6 +1019,23 @@ def _html_to_text(html: str) -> str:
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, "html.parser")
+
+        # eBayのHTML: id="UserInputtedText" にユーザーの実際のメッセージがある
+        user_text_div = soup.find(id="UserInputtedText")
+        if user_text_div:
+            for tag in user_text_div(["script", "style"]):
+                tag.decompose()
+            text = user_text_div.get_text(separator="\n")
+            # mojibake修正
+            try:
+                text = text.encode("latin-1").decode("utf-8")
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                pass
+            # 簡易クリーンアップして返す
+            lines = [l.strip() for l in text.split("\n") if l.strip()]
+            return "\n".join(lines)
+
+        # UserInputtedText がない場合はフォールバック
         for tag in soup(["script", "style", "head"]):
             tag.decompose()
         text = soup.get_text(separator="\n")
