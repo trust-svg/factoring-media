@@ -91,24 +91,29 @@ function renderBuyerList(buyers) {
     }
 
     container.innerHTML = buyers.map((b, i) => {
-        const isActive = b.buyer === currentBuyer && b.item_id === currentItemId;
+        const isActive = b.buyer === currentBuyer;
         const isUnread = b.unread_count > 0;
         const dateStr = b.last_date ? formatRelativeDate(b.last_date) : '';
-        const preview = getLang() === 'ja' && b.last_message_ja ? b.last_message_ja : b.last_message;
-        const sentimentColor = {positive:'var(--green)', neutral:'var(--gray-400)', negative:'var(--orange)', angry:'var(--red)'}[b.sentiment] || '';
 
-        return `<div class="buyer-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" onclick="openThread('${escapeHtml(b.buyer)}', '${escapeHtml(b.item_id)}')" style="animation-delay:${i*30}ms">
+        // Status icons
+        const statusIcons = {
+            purchased: '<svg title="Purchased" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>',
+            repeat: '<svg title="Repeat buyer" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M2.985 19.644l3.181-3.18"/></svg>',
+            'return': '<svg title="Return" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/></svg>',
+            cancel: '<svg title="Cancelled" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>',
+            refund: '<svg title="Refunded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"/></svg>',
+        };
+        const icons = (b.status || []).map(s => statusIcons[s] || '').join('');
+
+        return `<div class="buyer-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" onclick="openThread('${escapeHtml(b.buyer)}', '${escapeHtml(b.item_id || currentItemId)}')" style="animation-delay:${i*30}ms">
             <div class="buyer-top-row">
-                <span class="buyer-name">
-                    ${sentimentColor ? `<span class="sentiment-dot" style="background:${sentimentColor};"></span>` : ''}
-                    ${escapeHtml(b.buyer)}
-                </span>
-                <span style="display:flex;align-items:center;gap:4px;">
-                    <span class="conv-date">${dateStr}</span>
-                    ${isUnread ? '<span class="unread-dot"></span>' : ''}
-                </span>
+                <span class="buyer-name">${escapeHtml(b.buyer)}</span>
+                ${isUnread ? '<span class="unread-dot"></span>' : ''}
             </div>
-            <div class="buyer-preview">${escapeHtml((preview || '').substring(0, 50))}</div>
+            <div class="buyer-status-row">
+                <span class="buyer-icons">${icons}</span>
+                <span class="conv-date">${dateStr}</span>
+            </div>
         </div>`;
     }).join('');
 }
@@ -160,10 +165,12 @@ function renderConversations() {
 // ── Thread ──────────────────────────────────────────
 async function openThread(buyer, itemId) {
     currentBuyer = buyer;
-    currentItemId = itemId;
+    if (itemId) currentItemId = itemId;
 
-    // Highlight active conversation
-    renderConversations();
+    // Re-render to highlight active items
+    renderProductList();
+    const item = itemsList.find(i => i.item_id === currentItemId);
+    if (item) renderBuyerList(item.buyers || []);
 
     try {
         const params = new URLSearchParams({ item_id: itemId });

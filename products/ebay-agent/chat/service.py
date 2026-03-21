@@ -185,15 +185,17 @@ def get_conversations(
         # バイヤー情報
         buyer_key = f"{msg.sender}|{iid}"
         if buyer_key not in item_map[iid]["buyers"]:
+            # バイヤーステータス判定（購入済み/リピーター/返品等）
+            buyer_status = _get_buyer_status(db, msg.sender)
+
             item_map[iid]["buyers"][buyer_key] = {
                 "buyer": msg.sender,
                 "item_id": iid if iid != "_no_item" else "",
-                "last_message": msg.body[:80] if msg.body else "",
-                "last_message_ja": (msg.body_translated or "")[:80],
                 "last_date": msg.received_at.isoformat() if msg.received_at else "",
                 "unread_count": 0,
                 "total_count": 0,
                 "sentiment": msg.sentiment or "",
+                "status": buyer_status,
             }
 
         item_map[iid]["buyers"][buyer_key]["total_count"] += 1
@@ -543,6 +545,29 @@ def get_unread_count(db: Session) -> int:
         BuyerMessage.is_read == 0,
         BuyerMessage.direction == "inbound",
     ).scalar() or 0
+
+
+def _get_buyer_status(db: Session, buyer_username: str) -> list:
+    """バイヤーのステータスアイコン用リストを返す。"""
+    statuses = []
+    orders = db.query(SalesRecord).filter(SalesRecord.buyer_name == buyer_username).all()
+
+    if orders:
+        statuses.append("purchased")  # 購入済み
+        if len(orders) >= 2:
+            statuses.append("repeat")  # リピーター
+
+    # トラブル判定
+    for o in orders:
+        p = (o.progress or "").lower()
+        if p in ("返品", "returned", "return") and "return" not in statuses:
+            statuses.append("return")
+        if p in ("キャンセル", "cancelled", "cancel") and "cancel" not in statuses:
+            statuses.append("cancel")
+        if p in ("返金", "refunded", "refund") and "refund" not in statuses:
+            statuses.append("refund")
+
+    return statuses
 
 
 def _parse_date(date_str: str) -> datetime | None:

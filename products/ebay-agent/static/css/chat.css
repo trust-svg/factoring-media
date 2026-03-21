@@ -204,6 +204,17 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.buyer-status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+}
+.buyer-icons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
 .buyer-preview {
     font-size: 11px;
     color: var(--text-muted);

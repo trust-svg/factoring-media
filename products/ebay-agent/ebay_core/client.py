@@ -400,6 +400,9 @@ def search_ebay(query: str, limit: int = 50, category_id: str = "") -> list[dict
 def get_item_details(item_id: str) -> Optional[dict]:
     """Browse API で単品の詳細情報を取得（Client Credentials トークン使用）"""
     headers = _browse_headers()
+    # Browse APIはv1|{item_id}|0の形式が必要
+    if not item_id.startswith("v1|"):
+        item_id = f"v1|{item_id}|0"
     url = f"{EBAY_API_BASE}/buy/browse/v1/item/{item_id}"
     resp = requests.get(url, headers=headers, timeout=15)
     if resp.status_code != 200:
@@ -862,10 +865,16 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
         msg_id = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
         if not msg_id:
             continue
+        subject_raw = msg_el.findtext("e:Subject", "", namespaces=ns_map)
+        # UTF-8 mojibake修正
+        try:
+            subject_raw = subject_raw.encode("latin-1").decode("utf-8")
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            pass
         msg_headers[msg_id] = {
             "message_id": msg_id,
             "sender": msg_el.findtext("e:Sender", "", namespaces=ns_map),
-            "subject": msg_el.findtext("e:Subject", "", namespaces=ns_map),
+            "subject": subject_raw,
             "body": "",
             "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
             "is_read": msg_el.findtext("e:Read", "false", namespaces=ns_map) == "true",
