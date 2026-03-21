@@ -149,12 +149,34 @@ def _start_scheduler():
             name="カテゴリ自動拡張",
         )
 
+        # バイヤーメッセージ自動同期（5分間隔）
+        def _sync_buyer_messages():
+            import asyncio
+            from chat.service import sync_messages
+            from database.models import get_db as _get_db
+            try:
+                db = _get_db()
+                loop = asyncio.new_event_loop()
+                result = loop.run_until_complete(sync_messages(db, days=3))
+                logger.info(f"メッセージ同期: 新規{result.get('new', 0)}件")
+                db.close()
+            except Exception as e:
+                logger.warning(f"メッセージ同期失敗: {e}")
+
+        scheduler.add_job(
+            _sync_buyer_messages,
+            IntervalTrigger(minutes=5),
+            id="buyer_message_sync",
+            name="バイヤーメッセージ同期",
+        )
+
         scheduler.start()
         logger.info(
             f"スケジューラー起動: 価格モニター {PRICE_CHECK_INTERVAL_HOURS}h間隔 + "
             f"朝ダイジェスト 9:00 + 週間レポート Mon 10:00 + 週次分析 Mon 10:30 + "
             f"月次分析 1日 10:00 + 売上同期 3h間隔 + "
-            f"Instagram生成 10:00 + Instagram分析 23:00 + カテゴリ拡張 Wed 11:00"
+            f"Instagram生成 10:00 + Instagram分析 23:00 + カテゴリ拡張 Wed 11:00 + "
+            f"メッセージ同期 5min間隔"
         )
         return scheduler
     except ImportError:
@@ -203,6 +225,10 @@ class NoCacheStaticMiddleware:
 app.add_middleware(NoCacheStaticMiddleware)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.auto_reload = True
+
+# Chat API Router
+from chat.router import router as chat_router
+app.include_router(chat_router)
 
 
 # ── ページルート ──────────────────────────────────────────
@@ -289,8 +315,46 @@ async def analytics_redirect():
 
 @app.get("/messages")
 async def messages_redirect():
-    """メッセージは一時無効化 — リダイレクト"""
-    return RedirectResponse(url="/", status_code=302)
+    """旧メッセージURL → /chat にリダイレクト"""
+    return RedirectResponse(url="/chat", status_code=302)
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page(request: Request):
+    """バイヤーメッセージ（チャットUI）"""
+    return templates.TemplateResponse("pages/chat.html", {"request": request})
+
+
+@app.get("/chat/settings", response_class=HTMLResponse)
+async def chat_settings_page(request: Request):
+    """自動メッセージ設定"""
+    return templates.TemplateResponse("pages/chat_settings.html", {"request": request})
+
+
+# ── eBay Platform Notifications Webhook ──────────────────
+
+@app.get("/webhook/ebay")
+async def ebay_webhook_verify(challenge_code: str = ""):
+    """eBay Webhook検証チャレンジに応答する。"""
+    import os
+    from chat.webhook import verify_challenge
+    verification_token = os.getenv("EBAY_VERIFICATION_TOKEN", "")
+    endpoint_url = os.getenv("EBAY_WEBHOOK_URL", "")
+    if not challenge_code:
+        return {"status": "ready"}
+    response_hash = verify_challenge(challenge_code, verification_token, endpoint_url)
+    return {"challengeResponse": response_hash}
+
+
+@app.post("/webhook/ebay")
+async def ebay_webhook_receive(request: Request):
+    """eBay Platform Notificationsを受信して処理する。"""
+    from chat.webhook import handle_notification
+    body = await request.body()
+    body_str = body.decode("utf-8")
+    logger.info(f"eBay Webhook受信: {len(body_str)} bytes")
+    result = await handle_notification(body_str)
+    return result
 
 
 @app.get("/agent", response_class=HTMLResponse)

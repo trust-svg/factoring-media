@@ -1,0 +1,956 @@
+{% extends "base.html" %}
+
+{% block title %}Messages — eBay Agent Hub{% endblock %}
+{% block breadcrumb %}<span data-en="Messages" data-ja="メッセージ">Messages</span>{% endblock %}
+{% block page_title %}<span data-en="Buyer Messages" data-ja="バイヤーメッセージ">Buyer Messages</span>{% endblock %}
+
+{% block head %}
+<style>
+/* ══════════════════════════════════════════════════════
+   eBay Buyer Messenger — Premium Chat UI
+   Design: Slack/LINE quality, Outfit font, brand-500 system
+   ══════════════════════════════════════════════════════ */
+
+/* ── Animations ──────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(70, 95, 255, 0.3); } 50% { box-shadow: 0 0 0 6px rgba(70, 95, 255, 0); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ── Chat Layout (3 columns) ─────────────────────── */
+.chat-layout {
+    display: flex;
+    height: calc(100vh - 160px);
+    min-height: 480px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+}
+
+/* ── Conversation List (Left) ────────────────────── */
+.conv-list {
+    width: 340px;
+    min-width: 340px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.conv-header {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.conv-search {
+    position: relative;
+    margin-bottom: 12px;
+}
+.conv-search input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.conv-search input:focus {
+    outline: none;
+    border-color: var(--brand-500);
+    box-shadow: var(--shadow-focus);
+}
+.conv-search::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    background: var(--text-muted);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z'/%3E%3C/svg%3E") center / contain no-repeat;
+    pointer-events: none;
+}
+.conv-filters {
+    display: flex;
+    gap: 6px;
+}
+.conv-filters .filter-btn {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+    min-height: 30px;
+}
+.conv-filters .filter-btn:hover {
+    background: var(--gray-100);
+}
+.conv-filters .filter-btn.active {
+    background: var(--brand-500);
+    color: white;
+    border-color: var(--brand-500);
+    box-shadow: 0 2px 8px rgba(70, 95, 255, 0.25);
+}
+.conv-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+.conv-actions button {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+.conv-actions button:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-300);
+}
+.conv-actions button:active {
+    transform: scale(0.97);
+}
+.conv-items {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-200) transparent;
+}
+.conv-items::-webkit-scrollbar { width: 4px; }
+.conv-items::-webkit-scrollbar-track { background: transparent; }
+.conv-items::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+
+/* Conversation Item */
+.conv-item {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    animation: fadeInUp 200ms ease-out both;
+}
+.conv-item:hover {
+    background: var(--gray-50);
+}
+.conv-item:active {
+    transform: scale(0.99);
+}
+.conv-item.active {
+    background: var(--brand-25);
+    box-shadow: inset 3px 0 0 var(--brand-500);
+}
+.conv-item.unread {
+    background: var(--bg-secondary);
+}
+.conv-item.unread .conv-buyer { font-weight: 700; }
+.conv-item.unread .conv-preview { color: var(--text-secondary); font-weight: 500; }
+.conv-item .conv-buyer {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+.conv-item .conv-buyer .unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand-500);
+    flex-shrink: 0;
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+.conv-item .conv-subject {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280px;
+}
+.conv-item .conv-preview {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+.conv-item .conv-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+}
+.conv-item .conv-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.conv-item .conv-item-id {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    letter-spacing: -0.3px;
+}
+
+/* ── Thread View (Center) ────────────────────────── */
+.thread-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    min-width: 0;
+}
+.thread-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-secondary);
+    backdrop-filter: blur(8px);
+    min-height: 56px;
+}
+.thread-header-info h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.2px;
+}
+.thread-header-info .thread-subject {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    max-width: 400px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.thread-header-actions {
+    display: flex;
+    gap: 8px;
+}
+.thread-header-actions button {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+    min-height: 34px;
+}
+.thread-header-actions button:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-300);
+}
+.thread-header-actions button:active {
+    transform: scale(0.96);
+}
+
+/* Messages Area */
+.thread-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 24px 16px;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-200) transparent;
+}
+.thread-messages::-webkit-scrollbar { width: 4px; }
+.thread-messages::-webkit-scrollbar-track { background: transparent; }
+.thread-messages::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+
+.thread-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    gap: 16px;
+    padding: 40px;
+}
+.thread-empty svg {
+    width: 56px;
+    height: 56px;
+    opacity: 0.2;
+    stroke-width: 1;
+}
+.thread-empty span {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Message Bubbles */
+.msg-bubble {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    animation: fadeInUp 250ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.msg-bubble.inbound { align-items: flex-start; }
+.msg-bubble.outbound { align-items: flex-end; }
+.msg-sender {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    padding: 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.msg-content {
+    max-width: 72%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    word-break: break-word;
+    position: relative;
+}
+.msg-bubble.inbound .msg-content {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--gray-100);
+    border-bottom-left-radius: 6px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+.msg-bubble.outbound .msg-content {
+    background: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+    color: white;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 2px 8px rgba(70, 95, 255, 0.2);
+}
+.msg-translation {
+    max-width: 72%;
+    padding: 8px 14px;
+    margin-top: 6px;
+    background: var(--warning-50);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    border-left: 3px solid var(--warning-500);
+}
+.msg-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding: 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+}
+.msg-attachments {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+.msg-attachments img {
+    max-width: 220px;
+    max-height: 160px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    object-fit: cover;
+    transition: transform var(--transition);
+}
+.msg-attachments img:hover {
+    transform: scale(1.02);
+}
+
+/* ── Compose Area ────────────────────────────────── */
+.compose-area {
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    padding: 12px 20px 16px;
+}
+.compose-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+.compose-toolbar button {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 32px;
+    white-space: nowrap;
+}
+.compose-toolbar button:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-300);
+    transform: translateY(-1px);
+}
+.compose-toolbar button:active {
+    transform: translateY(0) scale(0.97);
+}
+.compose-toolbar button.btn-ai {
+    background: var(--brand-50);
+    color: var(--brand-600);
+    border-color: var(--brand-200);
+    font-weight: 600;
+}
+.compose-toolbar button.btn-ai:hover {
+    background: var(--brand-100);
+    box-shadow: 0 2px 8px rgba(70, 95, 255, 0.12);
+}
+.compose-toolbar button.btn-style {
+    background: #f5f0ff;
+    color: var(--purple-500);
+    border-color: #e4d9f9;
+}
+.compose-toolbar button.btn-style:hover {
+    background: #ede5ff;
+    box-shadow: 0 2px 8px rgba(122, 90, 248, 0.12);
+}
+.compose-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+.compose-row textarea {
+    flex: 1;
+    padding: 10px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 22px;
+    font-size: 14px;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: none;
+    min-height: 44px;
+    max-height: 120px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.compose-row textarea:focus {
+    outline: none;
+    border-color: var(--brand-500);
+    box-shadow: var(--shadow-focus);
+    background: var(--bg-secondary);
+}
+.compose-row .send-btn {
+    padding: 0;
+    width: 44px;
+    height: 44px;
+    background: var(--brand-500);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.compose-row .send-btn:hover:not(:disabled) {
+    background: var(--brand-600);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(70, 95, 255, 0.3);
+}
+.compose-row .send-btn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+.compose-row .send-btn:disabled {
+    background: var(--gray-200);
+    color: var(--gray-400);
+    cursor: not-allowed;
+}
+.compose-translation-preview {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: var(--brand-25);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    border-left: 3px solid var(--brand-500);
+    display: none;
+    animation: fadeInUp 200ms ease-out;
+}
+.compose-translation-preview.visible {
+    display: block;
+}
+
+/* ── Smart Reply Buttons ─────────────────────────── */
+.smart-reply-btn {
+    padding: 7px 14px;
+    border: 1.5px solid var(--brand-200);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--brand-25);
+    color: var(--brand-600);
+    transition: all var(--transition-fast);
+    max-width: 280px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 34px;
+    animation: fadeInUp 200ms ease-out both;
+}
+.smart-reply-btn:nth-child(2) { animation-delay: 50ms; }
+.smart-reply-btn:nth-child(3) { animation-delay: 100ms; }
+.smart-reply-btn:hover {
+    background: var(--brand-500);
+    color: white;
+    border-color: var(--brand-500);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(70, 95, 255, 0.2);
+}
+.smart-reply-btn:active {
+    transform: translateY(0) scale(0.97);
+}
+
+/* ── Buyer Info Panel (Right) ────────────────────── */
+.buyer-panel {
+    width: 300px;
+    min-width: 300px;
+    border-left: 1px solid var(--border);
+    background: var(--bg-secondary);
+    overflow-y: auto;
+    padding: 20px 16px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-200) transparent;
+}
+.buyer-panel::-webkit-scrollbar { width: 4px; }
+.buyer-panel::-webkit-scrollbar-track { background: transparent; }
+.buyer-panel::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+.buyer-panel h4 {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 0 0 12px 0;
+}
+.buyer-info-card {
+    padding: 14px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--gray-100);
+    margin-bottom: 12px;
+    transition: box-shadow var(--transition);
+}
+.buyer-info-card:hover {
+    box-shadow: var(--shadow-xs);
+}
+.buyer-info-card .info-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.buyer-info-card .info-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 3px;
+    word-break: break-all;
+}
+
+/* ── Template Picker Modal ───────────────────────── */
+.template-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(16, 24, 40, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+.template-modal.open {
+    display: flex;
+}
+.template-modal-content {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    width: 520px;
+    max-width: calc(100vw - 32px);
+    max-height: 70vh;
+    overflow: hidden;
+    box-shadow: var(--shadow-xl);
+    display: flex;
+    flex-direction: column;
+    animation: fadeInUp 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.template-modal-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.template-modal-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+.template-modal-header .close-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: var(--text-muted);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-xs);
+    transition: all var(--transition-fast);
+}
+.template-modal-header .close-btn:hover {
+    background: var(--gray-100);
+    color: var(--text-primary);
+}
+.template-search {
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+}
+.template-search input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: inherit;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.template-search input:focus {
+    outline: none;
+    border-color: var(--brand-500);
+    box-shadow: var(--shadow-focus);
+}
+.template-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+}
+.template-item {
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.template-item:hover {
+    background: var(--brand-25);
+    border-color: var(--brand-300);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-xs);
+}
+.template-item:active {
+    transform: scale(0.99);
+}
+.template-item .tmpl-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+.template-item .tmpl-preview {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+.template-item .tmpl-category {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--gray-100);
+    color: var(--text-secondary);
+    margin-top: 6px;
+    text-transform: capitalize;
+}
+
+/* ── Loading & Status ────────────────────────────── */
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--gray-200);
+    border-top-color: var(--brand-500);
+    border-radius: 50%;
+    animation: spin 600ms linear infinite;
+}
+.sync-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 6px 16px;
+    min-height: 20px;
+    transition: opacity var(--transition);
+}
+
+/* ── Responsive: Tablet ──────────────────────────── */
+@media (max-width: 1200px) {
+    .buyer-panel { width: 260px; min-width: 260px; }
+}
+@media (max-width: 1024px) {
+    .buyer-panel { display: none; }
+    .conv-list { width: 300px; min-width: 300px; }
+}
+
+/* ── Responsive: Mobile ──────────────────────────── */
+@media (max-width: 768px) {
+    .chat-layout {
+        height: calc(100dvh - 100px);
+        border-radius: var(--radius-sm);
+    }
+    .conv-list {
+        width: 100%;
+        min-width: 100%;
+    }
+    .conv-list.hidden {
+        display: none;
+    }
+    .thread-view {
+        display: none;
+    }
+    .thread-view.active {
+        display: flex;
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 10;
+        background: var(--bg-primary);
+        animation: slideInRight 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .thread-header .back-btn {
+        display: inline-flex !important;
+    }
+    .msg-content { max-width: 85%; }
+    .compose-toolbar { gap: 4px; }
+    .compose-toolbar button { padding: 5px 10px; font-size: 11px; min-height: 30px; }
+    .compose-row textarea { border-radius: 20px; padding: 9px 14px; }
+    .compose-row .send-btn { width: 40px; height: 40px; }
+    .smart-reply-btn { font-size: 11px; padding: 6px 10px; min-height: 30px; }
+}
+
+/* ── Back Button ─────────────────────────────────── */
+.thread-header .back-btn {
+    display: none;
+    padding: 8px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    margin-right: 8px;
+    border-radius: var(--radius-xs);
+    transition: all var(--transition-fast);
+    min-width: 36px;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+}
+.thread-header .back-btn:hover {
+    background: var(--gray-100);
+    color: var(--text-primary);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+    <!-- Left: Conversation List -->
+    <div class="conv-list" id="convList">
+        <div class="conv-header">
+            <div class="conv-search">
+                <input type="text" id="searchInput"
+                       placeholder="Search..."
+                       data-placeholder-en="Search buyer, item, subject..."
+                       data-placeholder-ja="バイヤー・商品・件名で検索..."
+                       oninput="searchConversations()">
+            </div>
+            <div class="conv-filters">
+                <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">
+                    <span data-en="All" data-ja="全て">All</span>
+                </button>
+                <button class="filter-btn" data-filter="unread" onclick="setFilter('unread')">
+                    <span data-en="Unread" data-ja="未読">Unread</span>
+                </button>
+                <button class="filter-btn" data-filter="read" onclick="setFilter('read')">
+                    <span data-en="Read" data-ja="既読">Read</span>
+                </button>
+            </div>
+            <div class="conv-actions">
+                <button onclick="syncMessages()" id="syncBtn">
+                    <span data-en="Sync" data-ja="同期">Sync</span>
+                </button>
+                <button onclick="markAllRead()">
+                    <span data-en="Mark all read" data-ja="全て既読">Mark all read</span>
+                </button>
+            </div>
+        </div>
+        <div class="sync-status" id="syncStatus"></div>
+        <div class="conv-items" id="convItems">
+            <div class="thread-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+                </svg>
+                <span data-en="Click Sync to load messages" data-ja="同期をクリックしてメッセージを読み込み">Click Sync to load messages</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Center: Thread View -->
+    <div class="thread-view" id="threadView">
+        <div class="thread-header" id="threadHeader" style="display:none;">
+            <div style="display:flex;align-items:center;">
+                <button class="back-btn" onclick="backToList()">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                    </svg>
+                </button>
+                <div class="thread-header-info">
+                    <h3 id="threadBuyer"></h3>
+                    <div class="thread-subject" id="threadSubject"></div>
+                </div>
+            </div>
+            <div class="thread-header-actions">
+                <button onclick="toggleReadStatus()" id="readToggleBtn">
+                    <span data-en="Mark unread" data-ja="未読にする">Mark unread</span>
+                </button>
+                <button onclick="showBuyerPanel()" class="sp-only" style="display:none;">
+                    <span data-en="Info" data-ja="情報">Info</span>
+                </button>
+            </div>
+        </div>
+        <div class="thread-messages" id="threadMessages">
+            <div class="thread-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                </svg>
+                <span data-en="Select a conversation" data-ja="会話を選択してください">Select a conversation</span>
+            </div>
+        </div>
+        <div class="compose-area" id="composeArea" style="display:none;">
+            <!-- Smart Replies -->
+            <div id="smartRepliesContainer" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
+            <div class="compose-toolbar">
+                <button class="btn-ai" onclick="generateDraft()">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+                    </svg>
+                    <span data-en="AI Draft" data-ja="AI下書き">AI Draft</span>
+                </button>
+                <button class="btn-style" onclick="generateLearnedDraft()">
+                    <span data-en="My Style Draft" data-ja="学習AI下書き">My Style Draft</span>
+                </button>
+                <button onclick="translateCompose()">
+                    <span data-en="Translate JA→EN" data-ja="翻訳 JA→EN">Translate JA→EN</span>
+                </button>
+                <button onclick="openTemplateModal()">
+                    <span data-en="Templates" data-ja="テンプレート">Templates</span>
+                </button>
+                <button onclick="document.getElementById('imageUpload').click()">
+                    <span data-en="Attach Image" data-ja="画像添付">Attach Image</span>
+                </button>
+                <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+            </div>
+            <div class="compose-translation-preview" id="translationPreview"></div>
+            <div class="compose-row">
+                <textarea id="composeInput"
+                          placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
+                          data-placeholder-en="Type a message... (Enter to send, Shift+Enter for new line)"
+                          data-placeholder-ja="メッセージを入力... (Enterで送信, Shift+Enterで改行)"
+                          rows="1"
+                          onkeydown="handleComposeKey(event)"
+                          oninput="autoResize(this)"></textarea>
+                <button class="send-btn" onclick="sendMessage()" id="sendBtn" disabled aria-label="Send">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Buyer Info Panel -->
+    <div class="buyer-panel" id="buyerPanel">
+        <h4 data-en="Buyer Info" data-ja="バイヤー情報">Buyer Info</h4>
+        <div id="buyerInfoContent">
+            <div class="buyer-info-card">
+                <div class="info-label" data-en="Select a conversation to view buyer info" data-ja="会話を選択するとバイヤー情報が表示されます">Select a conversation to view buyer info</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template Picker Modal -->
+<div class="template-modal" id="templateModal">
+    <div class="template-modal-content">
+        <div class="template-modal-header">
+            <h3 data-en="Message Templates" data-ja="メッセージテンプレート">Message Templates</h3>
+            <button class="close-btn" onclick="closeTemplateModal()">&times;</button>
+        </div>
+        <div class="template-search">
+            <input type="text" id="templateSearchInput"
+                   placeholder="Search templates..."
+                   data-placeholder-en="Search templates..."
+                   data-placeholder-ja="テンプレートを検索..."
+                   oninput="searchTemplates()">
+        </div>
+        <div class="template-list" id="templateList">
+            <div style="text-align:center;color:var(--text-muted);padding:20px;">
+                <span data-en="No templates yet" data-ja="テンプレートはまだありません">No templates yet</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/chat.js"></script>
+{% endblock %}

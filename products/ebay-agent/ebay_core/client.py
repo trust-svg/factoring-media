@@ -121,6 +121,7 @@ def _auth_headers() -> dict:
         "Authorization": f"Bearer {get_access_token()}",
         "Content-Type": "application/json",
         "Accept": "application/json",
+        "Content-Language": "en-US",
     }
 
 
@@ -875,6 +876,286 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
     return messages
 
 
+# ── メッセージ送信 (Trading API AddMemberMessageAAQToPartner) ──
+
+def send_buyer_message(
+    item_id: str,
+    recipient_id: str,
+    body: str,
+    subject: str = "",
+    image_urls: list[str] | None = None,
+) -> dict:
+    """Trading API でバイヤーにメッセージを送信する。
+
+    Args:
+        item_id: eBay Item ID
+        recipient_id: バイヤーのユーザーID
+        body: メッセージ本文
+        subject: 件名（空の場合はRe:で自動生成）
+        image_urls: EPS画像URLリスト（UploadSiteHostedPictures で取得）
+
+    Returns:
+        {"success": bool, "error": str | None}
+    """
+    token = get_access_token()
+
+    # 画像添付XML生成
+    media_xml = ""
+    if image_urls:
+        for i, url in enumerate(image_urls):
+            media_xml += f"""
+        <MessageMedia>
+            <MediaName>image_{i + 1}</MediaName>
+            <MediaURL>{url}</MediaURL>
+        </MessageMedia>"""
+
+    subject_xml = f"<Subject>{_xml_escape(subject)}</Subject>" if subject else ""
+
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<AddMemberMessageAAQToPartnerRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <ItemID>{item_id}</ItemID>
+    <MemberMessage>
+        {subject_xml}
+        <Body>{_xml_escape(body)}</Body>
+        <RecipientID>{_xml_escape(recipient_id)}</RecipientID>
+        <QuestionType>General</QuestionType>{media_xml}
+    </MemberMessage>
+</AddMemberMessageAAQToPartnerRequest>"""
+
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "AddMemberMessageAAQToPartner",
+        "Content-Type": "text/xml",
+    }
+
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        headers=headers,
+        data=xml_body.encode("utf-8"),
+        timeout=60,
+    )
+
+    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    if resp.status_code != 200:
+        logger.error(f"SendMessage failed: {resp.status_code}")
+        return {"success": False, "error": f"HTTP {resp.status_code}"}
+
+    root = ET.fromstring(resp.text)
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack in ("Success", "Warning"):
+        logger.info(f"メッセージ送信成功: {recipient_id} (item={item_id})")
+        return {"success": True}
+    else:
+        errors = root.findall(".//e:Errors/e:ShortMessage", namespaces=ns_map)
+        error_msg = errors[0].text if errors else "Unknown error"
+        logger.error(f"SendMessage error: {error_msg}")
+        return {"success": False, "error": error_msg}
+
+
+def mark_messages_read(message_ids: list[str], read: bool = True) -> dict:
+    """Trading API (ReviseMyMessages) でメッセージの既読/未読を変更する。"""
+    token = get_access_token()
+
+    ids_xml = "\n".join(f"        <MessageID>{mid}</MessageID>" for mid in message_ids)
+
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<ReviseMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <MessageIDs>
+{ids_xml}
+    </MessageIDs>
+    <Read>{"true" if read else "false"}</Read>
+</ReviseMyMessagesRequest>"""
+
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "ReviseMyMessages",
+        "Content-Type": "text/xml",
+    }
+
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        headers=headers,
+        data=xml_body.encode("utf-8"),
+        timeout=60,
+    )
+
+    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    if resp.status_code != 200:
+        return {"success": False, "error": f"HTTP {resp.status_code}"}
+
+    root = ET.fromstring(resp.text)
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack in ("Success", "Warning"):
+        logger.info(f"メッセージ既読更新: {len(message_ids)}件 → read={read}")
+        return {"success": True, "count": len(message_ids)}
+    return {"success": False, "error": "ReviseMyMessages failed"}
+
+
+def upload_message_image(image_path: str) -> dict:
+    """Trading API (UploadSiteHostedPictures) で画像をEPSにアップロードする。
+
+    Returns:
+        {"success": bool, "url": str | None, "error": str | None}
+    """
+    import base64
+    token = get_access_token()
+
+    with open(image_path, "rb") as f:
+        image_data = base64.b64encode(f.read()).decode("ascii")
+
+    # ファイル拡張子からMIMEタイプ推定
+    ext = image_path.rsplit(".", 1)[-1].lower() if "." in image_path else "jpg"
+    mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif"}
+    mime_type = mime_map.get(ext, "image/jpeg")
+
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <PictureName>{_xml_escape(image_path.rsplit("/", 1)[-1])}</PictureName>
+    <PictureData>{image_data}</PictureData>
+</UploadSiteHostedPicturesRequest>"""
+
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+        "Content-Type": "text/xml",
+    }
+
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        headers=headers,
+        data=xml_body.encode("utf-8"),
+        timeout=120,
+    )
+
+    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    if resp.status_code != 200:
+        return {"success": False, "url": None, "error": f"HTTP {resp.status_code}"}
+
+    root = ET.fromstring(resp.text)
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack in ("Success", "Warning"):
+        full_url = root.findtext(".//e:SiteHostedPictureDetails/e:FullURL", "", namespaces=ns_map)
+        logger.info(f"画像アップロード成功: {full_url}")
+        return {"success": True, "url": full_url}
+    else:
+        errors = root.findall(".//e:Errors/e:ShortMessage", namespaces=ns_map)
+        error_msg = errors[0].text if errors else "Unknown error"
+        return {"success": False, "url": None, "error": error_msg}
+
+
+# ── Post-Order API (リターン・キャンセル) ────────────────
+
+def get_return_requests(order_id: str = "", limit: int = 20) -> list:
+    """Post-Order API でリターンリクエスト一覧を取得する。"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/post-order/v2/return/search"
+    params = {"limit": str(limit), "sort": "RETURN_CREATION_DATE_DESC"}
+    if order_id:
+        params["order_id"] = order_id
+
+    resp = requests.get(url, headers=headers, params=params, timeout=30)
+    if resp.status_code != 200:
+        logger.warning(f"Return search failed: {resp.status_code}")
+        return []
+
+    data = resp.json()
+    returns = []
+    for r in data.get("members", []):
+        detail = r.get("returnRequest", r)
+        returns.append({
+            "return_id": detail.get("returnId", ""),
+            "order_id": detail.get("orderId", ""),
+            "item_id": detail.get("itemId", ""),
+            "buyer": detail.get("buyerLoginName", ""),
+            "reason": detail.get("returnReason", ""),
+            "status": detail.get("currentStatus", detail.get("state", "")),
+            "type": detail.get("returnType", ""),
+            "created_date": detail.get("creationDate", {}).get("value", ""),
+            "deadline": detail.get("sellerResponseDue", {}).get("value", ""),
+            "refund_amount": detail.get("returnRefundAmount", {}).get("value", ""),
+            "tracking_number": detail.get("returnShipment", {}).get("shipmentTrackingNumber", ""),
+        })
+    logger.info(f"リターンリクエスト: {len(returns)}件取得")
+    return returns
+
+
+def get_return_detail(return_id: str) -> dict:
+    """特定のリターンリクエスト詳細を取得する。"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/post-order/v2/return/{return_id}"
+    resp = requests.get(url, headers=headers, timeout=15)
+    if resp.status_code != 200:
+        return {"error": f"HTTP {resp.status_code}"}
+    return resp.json()
+
+
+def get_cancellation_requests(order_id: str = "") -> list:
+    """Post-Order API でキャンセルリクエスト一覧を取得する。"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/post-order/v2/cancellation/search"
+    params = {"limit": "20", "sort": "CANCEL_REQUEST_DATE_DESC"}
+    if order_id:
+        params["order_id"] = order_id
+
+    resp = requests.get(url, headers=headers, params=params, timeout=30)
+    if resp.status_code != 200:
+        logger.warning(f"Cancel search failed: {resp.status_code}")
+        return []
+
+    data = resp.json()
+    cancels = []
+    for c in data.get("cancellations", []):
+        cancels.append({
+            "cancel_id": c.get("cancelId", ""),
+            "order_id": c.get("legacyOrderId", c.get("orderId", "")),
+            "item_id": c.get("itemId", ""),
+            "buyer": c.get("buyerLoginName", ""),
+            "reason": c.get("cancelReason", ""),
+            "status": c.get("cancelStatus", ""),
+            "requested_date": c.get("requestedDate", ""),
+        })
+    return cancels
+
+
+def respond_to_cancellation(cancel_id: str, accept: bool) -> dict:
+    """キャンセルリクエストに Accept / Decline で応答する。"""
+    headers = _auth_headers()
+    action = "ACCEPT" if accept else "DECLINE"
+    url = f"{EBAY_API_BASE}/post-order/v2/cancellation/{cancel_id}/{action.lower()}"
+
+    resp = requests.post(url, headers=headers, timeout=15)
+    if resp.status_code in (200, 204):
+        logger.info(f"キャンセル{action}: {cancel_id}")
+        return {"success": True, "action": action}
+    else:
+        error = resp.text[:300]
+        logger.error(f"キャンセル応答失敗: {resp.status_code} {error}")
+        return {"success": False, "error": error}
+
+
+def _xml_escape(text: str) -> str:
+    """XML特殊文字をエスケープ"""
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
 # ── カテゴリ Item Specifics 取得 (Taxonomy API) ──────────
 
 def get_category_aspects(category_id: str) -> dict:
@@ -918,19 +1199,20 @@ def get_category_aspects(category_id: str) -> dict:
 
 # ── 新規出品 (Inventory API) ─────────────────────────────
 
-def create_inventory_item(sku: str, product: dict, condition: str = "USED_EXCELLENT", quantity: int = 1) -> dict:
+def create_inventory_item(sku: str, product: dict, condition: str = "",
+                          condition_description: str = "", quantity: int = 1) -> dict:
     """
     Sell Inventory API で新規 Inventory Item を作成する。
 
     product keys:
       title, description, aspects (dict), imageUrls (list[str])
-    condition: NEW, LIKE_NEW, USED_EXCELLENT, USED_VERY_GOOD, USED_GOOD, USED_ACCEPTABLE, FOR_PARTS_OR_NOT_WORKING
+    condition: Empty string = don't set (let eBay use category default)
+    condition_description: Free text condition notes (shown to buyers)
     """
     headers = _auth_headers()
     url = f"{EBAY_API_BASE}/sell/inventory/v1/inventory_item/{quote(sku, safe='')}"
 
     body = {
-        "condition": condition,
         "availability": {
             "shipToLocationAvailability": {
                 "quantity": quantity,
@@ -943,6 +1225,12 @@ def create_inventory_item(sku: str, product: dict, condition: str = "USED_EXCELL
             "imageUrls": product.get("imageUrls", []),
         },
     }
+    if condition and condition not in ("USED",):
+        body["condition"] = condition
+    elif condition == "USED":
+        body["condition"] = "USED_VERY_GOOD"
+    if condition_description:
+        body["conditionDescription"] = condition_description
 
     resp = requests.put(url, headers=headers, json=body, timeout=15)
     if resp.status_code in (200, 204):
@@ -977,22 +1265,20 @@ def create_offer(
         "marketplaceId": marketplace,
         "format": "FIXED_PRICE",
         "categoryId": category_id,
+        "merchantLocationKey": "JP_WAREHOUSE",
         "pricingSummary": {
             "price": {
                 "value": str(round(price_usd, 2)),
                 "currency": "USD",
             }
         },
-        "listingPolicies": {},
+        "listingPolicies": {
+            # Default policies — M Speed Pak Expedited
+            "fulfillmentPolicyId": fulfillment_policy_id or "247965782010",
+            "paymentPolicyId": payment_policy_id or "247965600010",
+            "returnPolicyId": return_policy_id or "247965615010",
+        },
     }
-
-    # ビジネスポリシーが設定されていれば適用
-    if fulfillment_policy_id:
-        body["listingPolicies"]["fulfillmentPolicyId"] = fulfillment_policy_id
-    if payment_policy_id:
-        body["listingPolicies"]["paymentPolicyId"] = payment_policy_id
-    if return_policy_id:
-        body["listingPolicies"]["returnPolicyId"] = return_policy_id
 
     if listing_description:
         body["listingDescription"] = listing_description

@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+
+{% block title %}Auto Messages — eBay Agent Hub{% endblock %}
+{% block breadcrumb %}
+    <a href="/chat" data-en="Messages" data-ja="メッセージ">Messages</a>
+    <span class="separator">/</span>
+    <span class="current" data-en="Auto Messages" data-ja="自動メッセージ">Auto Messages</span>
+{% endblock %}
+{% block page_title %}<span data-en="Auto Message Settings" data-ja="自動メッセージ設定">Auto Message Settings</span>{% endblock %}
+
+{% block head %}
+<style>
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 1024px) { .settings-grid { grid-template-columns: 1fr; } }
+.rule-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: box-shadow var(--transition);
+}
+.rule-card:hover { box-shadow: var(--shadow-sm); }
+.rule-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.rule-card-header h3 { font-size: 15px; font-weight: 600; margin: 0; }
+.event-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.event-badge.feedback { background: var(--success-50); color: var(--success-700); }
+.event-badge.transaction { background: var(--brand-50); color: var(--brand-700); }
+.event-badge.shipped { background: var(--warning-50); color: var(--warning-700); }
+.event-badge.offer { background: var(--error-50); color: var(--error-700); }
+.toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: var(--gray-200);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    border: none;
+    padding: 0;
+}
+.toggle-switch.active { background: var(--success-500); }
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform var(--transition-fast);
+    box-shadow: var(--shadow-xs);
+}
+.toggle-switch.active::after { transform: translateX(20px); }
+.rule-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--gray-100);
+    font-size: 12px;
+}
+.rule-stats .stat-label { color: var(--text-muted); }
+.rule-stats .stat-value { font-weight: 600; color: var(--text-primary); }
+.form-row { margin-bottom: 14px; }
+.form-row label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.form-row select, .form-row input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--bg-primary);
+    transition: border-color var(--transition-fast);
+}
+.form-row select:focus, .form-row input:focus {
+    outline: none;
+    border-color: var(--brand-500);
+    box-shadow: var(--shadow-focus);
+}
+.exclude-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+.exclude-item .buyer-name { font-weight: 600; }
+.exclude-item .reason { color: var(--text-muted); font-size: 12px; }
+.exclude-item button {
+    padding: 4px 10px;
+    border: 1px solid var(--error-500);
+    border-radius: var(--radius-xs);
+    background: var(--error-50);
+    color: var(--error-600);
+    font-size: 11px;
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+.exclude-item button:hover { background: var(--error-100); }
+.log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.log-table th {
+    background: var(--gray-50);
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+}
+.log-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--text-primary);
+}
+.log-table tr:hover td { background: var(--gray-50); }
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+.status-dot.success { background: var(--success-500); }
+.status-dot.failed { background: var(--error-500); }
+.section { margin-bottom: 24px; }
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.section-header h2 { font-size: 16px; font-weight: 600; margin: 0; }
+.btn-primary {
+    padding: 8px 16px;
+    background: var(--brand-500);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    transition: all var(--transition-fast);
+}
+.btn-primary:hover { background: var(--brand-600); transform: translateY(-1px); }
+.btn-primary:active { transform: scale(0.97); }
+.variable-hint {
+    padding: 12px 14px;
+    background: var(--brand-25);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+.variable-hint code {
+    background: var(--brand-50);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    color: var(--brand-700);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Variable hint -->
+<div class="variable-hint">
+    <strong data-en="Available template variables:" data-ja="使用可能なテンプレート変数:">Available template variables:</strong><br>
+    <code>{buyer_name}</code> <code>{item_title}</code> <code>{item_id}</code> <code>{order_id}</code>
+    <code>{tracking_number}</code> <code>{tracking_url}</code> <code>{edd}</code>
+    <code>{price}</code> <code>{carrier}</code> <code>{sku}</code> <code>{marketplace}</code>
+</div>
+
+<!-- Auto Message Rules -->
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Auto Message Rules" data-ja="自動メッセージルール">Auto Message Rules</h2>
+        <button class="btn-primary" onclick="showAddRule()">
+            <span data-en="+ Add Rule" data-ja="+ ルール追加">+ Add Rule</span>
+        </button>
+    </div>
+    <div class="settings-grid" id="rulesGrid">
+        <div style="color:var(--text-muted);padding:20px;text-align:center;grid-column:1/-1;">
+            <span data-en="Loading rules..." data-ja="ルール読み込み中...">Loading rules...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Exclude List -->
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Excluded Buyers" data-ja="除外バイヤー">Excluded Buyers</h2>
+        <div style="display:flex;gap:8px;">
+            <input type="text" id="excludeBuyerInput" placeholder="Buyer username" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;width:200px;">
+            <button class="btn-primary" onclick="addExclude()">
+                <span data-en="Add" data-ja="追加">Add</span>
+            </button>
+        </div>
+    </div>
+    <div id="excludeList"></div>
+</div>
+
+<!-- Auto Message Logs -->
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Send Log" data-ja="送信ログ">Send Log</h2>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th data-en="Status" data-ja="状態">Status</th>
+                    <th data-en="Event" data-ja="イベント">Event</th>
+                    <th data-en="Buyer" data-ja="バイヤー">Buyer</th>
+                    <th data-en="Repeat" data-ja="リピーター">Repeat</th>
+                    <th data-en="Message" data-ja="メッセージ">Message</th>
+                    <th data-en="Sent" data-ja="送信日時">Sent</th>
+                </tr>
+            </thead>
+            <tbody id="logsBody">
+                <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">
+                    <span data-en="Loading..." data-ja="読み込み中...">Loading...</span>
+                </td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const EVENT_TYPES = {
+    feedback_received: { label: 'Feedback Received', labelJa: 'フィードバック受領', css: 'feedback' },
+    fixed_price_transaction: { label: 'Item Purchased', labelJa: '商品購入', css: 'transaction' },
+    item_shipped: { label: 'Item Shipped', labelJa: '商品発送', css: 'shipped' },
+    best_offer_declined: { label: 'Offer Declined', labelJa: 'オファー拒否', css: 'offer' },
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadRules();
+    loadExcludes();
+    loadLogs();
+});
+
+// ── Rules ───────────────────────────────
+async function loadRules() {
+    const resp = await fetch('/api/chat/auto-rules');
+    const data = await resp.json();
+    renderRules(data.rules || []);
+}
+
+function renderRules(rules) {
+    const grid = document.getElementById('rulesGrid');
+    if (!rules.length) {
+        grid.innerHTML = '<div style="color:var(--text-muted);padding:40px;text-align:center;grid-column:1/-1;">No rules configured yet. Click "+ Add Rule" to create one.</div>';
+        return;
+    }
+    grid.innerHTML = rules.map(r => {
+        const evt = EVENT_TYPES[r.event_type] || { label: r.event_type, css: 'feedback' };
+        return `
+        <div class="rule-card">
+            <div class="rule-card-header">
+                <div>
+                    <h3>${esc(r.name)}</h3>
+                    <span class="event-badge ${evt.css}">${evt.label}</span>
+                </div>
+                <button class="toggle-switch ${r.is_active ? 'active' : ''}" onclick="toggleRule(${r.id})" aria-label="Toggle rule"></button>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);">
+                Template: <strong>${esc(r.template_name || 'Not set')}</strong>
+                ${r.repeat_buyer_template_name ? `<br>Repeat: <strong>${esc(r.repeat_buyer_template_name)}</strong>` : ''}
+                ${r.delay_minutes ? `<br>Delay: ${r.delay_minutes}min` : ''}
+            </div>
+            <div class="rule-stats">
+                <div><span class="stat-label">Sent</span><br><span class="stat-value">${r.send_count}</span></div>
+                <div><span class="stat-label">Last sent</span><br><span class="stat-value">${r.last_sent_at ? new Date(r.last_sent_at).toLocaleDateString() : '-'}</span></div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:6px;">
+                <button onclick="editRule(${r.id})" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:11px;background:var(--bg-primary);transition:all 150ms;">Edit</button>
+                <button onclick="deleteRule(${r.id})" style="padding:6px 10px;border:1px solid var(--error-500);border-radius:var(--radius-xs);font-size:11px;background:var(--error-50);color:var(--error-600);transition:all 150ms;">Delete</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function toggleRule(id) {
+    await fetch(`/api/chat/auto-rules/${id}/toggle`, { method: 'PUT' });
+    loadRules();
+}
+
+async function deleteRule(id) {
+    if (!confirm('Delete this rule?')) return;
+    await fetch(`/api/chat/auto-rules/${id}`, { method: 'DELETE' });
+    loadRules();
+}
+
+function showAddRule() {
+    const name = prompt('Rule name:');
+    if (!name) return;
+    const eventType = prompt('Event type (feedback_received / fixed_price_transaction / item_shipped / best_offer_declined):');
+    if (!eventType) return;
+    const templateId = prompt('Template ID:');
+    if (!templateId) return;
+
+    fetch('/api/chat/auto-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, event_type: eventType, template_id: parseInt(templateId) }),
+    }).then(() => loadRules());
+}
+
+function editRule(id) { showAddRule(); }
+
+// ── Excludes ────────────────────────────
+async function loadExcludes() {
+    const resp = await fetch('/api/chat/exclude-list');
+    const data = await resp.json();
+    renderExcludes(data.excludes || []);
+}
+
+function renderExcludes(excludes) {
+    const container = document.getElementById('excludeList');
+    if (!excludes.length) {
+        container.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center;">No excluded buyers</div>';
+        return;
+    }
+    container.innerHTML = excludes.map(e => `
+        <div class="exclude-item">
+            <div>
+                <span class="buyer-name">${esc(e.buyer_username)}</span>
+                ${e.reason ? `<span class="reason"> — ${esc(e.reason)}</span>` : ''}
+            </div>
+            <button onclick="removeExclude(${e.id})">Remove</button>
+        </div>
+    `).join('');
+}
+
+async function addExclude() {
+    const input = document.getElementById('excludeBuyerInput');
+    const username = input.value.trim();
+    if (!username) return;
+
+    await fetch('/api/chat/exclude-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyer_username: username }),
+    });
+    input.value = '';
+    loadExcludes();
+}
+
+async function removeExclude(id) {
+    await fetch(`/api/chat/exclude-list/${id}`, { method: 'DELETE' });
+    loadExcludes();
+}
+
+// ── Logs ─────────────────────────────────
+async function loadLogs() {
+    const resp = await fetch('/api/chat/auto-logs');
+    const data = await resp.json();
+    renderLogs(data.logs || []);
+}
+
+function renderLogs(logs) {
+    const tbody = document.getElementById('logsBody');
+    if (!logs.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No logs yet</td></tr>';
+        return;
+    }
+    tbody.innerHTML = logs.map(l => {
+        const evt = EVENT_TYPES[l.event_type] || { label: l.event_type };
+        return `<tr>
+            <td><span class="status-dot ${l.success ? 'success' : 'failed'}"></span>${l.success ? 'OK' : 'Fail'}</td>
+            <td>${evt.label}</td>
+            <td>${esc(l.buyer_username)}</td>
+            <td>${l.is_repeat_buyer ? 'Yes' : '-'}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.message_body)}</td>
+            <td style="font-variant-numeric:tabular-nums;">${l.sent_at ? new Date(l.sent_at).toLocaleString('ja-JP') : ''}</td>
+        </tr>`;
+    }).join('');
+}
+
+function esc(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+</script>
+{% endblock %}

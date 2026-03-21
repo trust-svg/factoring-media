@@ -313,6 +313,112 @@ class InventoryItem(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# ── バイヤーメッセージ ────────────────────────────────
+
+class BuyerMessage(Base):
+    """eBayバイヤーメッセージ（ローカルキャッシュ）"""
+    __tablename__ = "buyer_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ebay_message_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    external_message_id: Mapped[str] = mapped_column(String(128), default="")
+    item_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    order_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    sender: Mapped[str] = mapped_column(String(128), default="", index=True)
+    recipient: Mapped[str] = mapped_column(String(128), default="")
+    direction: Mapped[str] = mapped_column(String(8), default="inbound")  # inbound / outbound
+    subject: Mapped[str] = mapped_column(String(512), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    body_translated: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_read: Mapped[int] = mapped_column(Integer, default=0)
+    responded: Mapped[int] = mapped_column(Integer, default=0)
+    has_attachment: Mapped[int] = mapped_column(Integer, default=0)
+    attachment_urls_json: Mapped[str] = mapped_column(Text, default="[]")
+    draft_reply: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    draft_tone: Mapped[str] = mapped_column(String(32), default="")
+    draft_category: Mapped[str] = mapped_column(String(32), default="")
+    # センチメント分析 + 緊急度
+    sentiment: Mapped[str] = mapped_column(String(16), default="")  # positive / neutral / negative / angry
+    urgency: Mapped[str] = mapped_column(String(16), default="")    # low / medium / high / critical
+    sentiment_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # 分析理由
+    # 返信時間トラッキング
+    replied_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    response_time_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 返信所要時間（分）
+    received_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ── メッセージテンプレート ────────────────────────────
+
+class MessageTemplate(Base):
+    """返信テンプレート"""
+    __tablename__ = "message_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(256), default="")
+    body_en: Mapped[str] = mapped_column(Text, default="")
+    body_ja: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(32), default="custom")
+    # category: greeting / shipping / return / thanks / offer / negotiation / custom
+    variables_json: Mapped[str] = mapped_column(Text, default="[]")
+    is_active: Mapped[int] = mapped_column(Integer, default=1)
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ── 自動メッセージルール ──────────────────────────────
+
+class AutoMessageRule(Base):
+    """自動メッセージ送信ルール"""
+    __tablename__ = "auto_message_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(32), index=True)
+    # event_type: feedback_received / fixed_price_transaction / item_shipped / best_offer_declined
+    name: Mapped[str] = mapped_column(String(256), default="")
+    template_id: Mapped[int] = mapped_column(Integer, default=0)  # FK to message_templates
+    repeat_buyer_template_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_active: Mapped[int] = mapped_column(Integer, default=1)
+    delay_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    send_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ── バイヤー除外リスト ────────────────────────────────
+
+class BuyerExclude(Base):
+    """自動メッセージ除外バイヤー"""
+    __tablename__ = "buyer_excludes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    buyer_username: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ── 自動メッセージログ ────────────────────────────────
+
+class AutoMessageLog(Base):
+    """自動メッセージ送信ログ"""
+    __tablename__ = "auto_message_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    rule_id: Mapped[int] = mapped_column(Integer, index=True)
+    event_type: Mapped[str] = mapped_column(String(32), default="")
+    buyer_username: Mapped[str] = mapped_column(String(128), default="")
+    item_id: Mapped[str] = mapped_column(String(64), default="")
+    order_id: Mapped[str] = mapped_column(String(64), default="")
+    message_body: Mapped[str] = mapped_column(Text, default="")
+    is_repeat_buyer: Mapped[int] = mapped_column(Integer, default=0)
+    success: Mapped[int] = mapped_column(Integer, default=1)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── 分析レポート ──────────────────────────────────────
 
 class AnalyticsReport(Base):
