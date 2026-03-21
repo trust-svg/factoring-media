@@ -807,11 +807,25 @@ def get_all_orders(from_date: str = "", to_date: str = "") -> list[dict]:
 # ── バイヤーメッセージ (Trading API GetMyMessages) ────────
 
 def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
-    """Trading API (GetMyMessages) でバイヤーメッセージを取得する。"""
+    """Trading API (GetMyMessages) でバイヤーメッセージを取得する。
+
+    2段階API呼び出し:
+    1. ReturnHeaders でメッセージID一覧を取得
+    2. ReturnMessages + MessageIDs でメッセージ本文を取得
+    """
     token = get_access_token()
     from_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%dT00:00:00.000Z")
 
-    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "GetMyMessages",
+        "Content-Type": "text/xml",
+    }
+    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    # Step 1: ヘッダー取得（メッセージID + メタデータ）
+    xml_headers = f"""<?xml version="1.0" encoding="utf-8"?>
 <GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
     <RequesterCredentials>
         <eBayAuthToken>{token}</eBayAuthToken>
@@ -822,58 +836,108 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
         <EntriesPerPage>{limit}</EntriesPerPage>
         <PageNumber>1</PageNumber>
     </Pagination>
-    <DetailLevel>ReturnMessages</DetailLevel>
+    <DetailLevel>ReturnHeaders</DetailLevel>
 </GetMyMessagesRequest>"""
-
-    headers = {
-        "X-EBAY-API-SITEID": "0",
-        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
-        "X-EBAY-API-CALL-NAME": "GetMyMessages",
-        "Content-Type": "text/xml",
-    }
 
     resp = requests.post(
         f"{EBAY_API_BASE}/ws/api.dll",
         headers=headers,
-        data=xml_body.encode("utf-8"),
+        data=xml_headers.encode("utf-8"),
         timeout=60,
     )
 
     if resp.status_code != 200:
-        logger.error(f"GetMyMessages failed: {resp.status_code}")
+        logger.error(f"GetMyMessages (headers) failed: {resp.status_code}")
         return []
 
-    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
     root = ET.fromstring(resp.text)
-
     ack = root.findtext("e:Ack", "", namespaces=ns_map)
     if ack not in ("Success", "Warning"):
+        logger.warning(f"GetMyMessages (headers) Ack={ack}")
         return []
 
-    messages = []
+    # ヘッダーからメッセージ情報を抽出
+    msg_headers = {}
     for msg_el in root.findall(".//e:Messages/e:Message", namespaces=ns_map):
         msg_id = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
-        sender = msg_el.findtext("e:Sender", "", namespaces=ns_map)
-        subject = msg_el.findtext("e:Subject", "", namespaces=ns_map)
-        body = msg_el.findtext("e:Text", "", namespaces=ns_map)
-        received = msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map)
-        is_read = msg_el.findtext("e:Read", "false", namespaces=ns_map) == "true"
-        item_id = msg_el.findtext("e:ItemID", "", namespaces=ns_map)
-        responded = msg_el.findtext("e:Responded", "false", namespaces=ns_map) == "true"
-
-        messages.append({
+        if not msg_id:
+            continue
+        msg_headers[msg_id] = {
             "message_id": msg_id,
-            "sender": sender,
-            "subject": subject,
-            "body": body,
-            "received_date": received,
-            "is_read": is_read,
-            "item_id": item_id,
-            "responded": responded,
-        })
+            "sender": msg_el.findtext("e:Sender", "", namespaces=ns_map),
+            "subject": msg_el.findtext("e:Subject", "", namespaces=ns_map),
+            "body": "",
+            "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
+            "is_read": msg_el.findtext("e:Read", "false", namespaces=ns_map) == "true",
+            "item_id": msg_el.findtext("e:ItemID", "", namespaces=ns_map),
+            "responded": msg_el.findtext("e:Replied", "false", namespaces=ns_map) == "true",
+        }
 
+    if not msg_headers:
+        logger.info("GetMyMessages: 0件")
+        return []
+
+    # Step 2: メッセージ本文を取得（10件ずつバッチ）
+    all_ids = list(msg_headers.keys())
+    for i in range(0, len(all_ids), 10):
+        batch_ids = all_ids[i:i + 10]
+        ids_xml = "\n".join(f"    <MessageID>{mid}</MessageID>" for mid in batch_ids)
+
+        xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <MessageIDs>
+{ids_xml}
+    </MessageIDs>
+    <DetailLevel>ReturnMessages</DetailLevel>
+</GetMyMessagesRequest>"""
+
+        resp2 = requests.post(
+            f"{EBAY_API_BASE}/ws/api.dll",
+            headers=headers,
+            data=xml_body.encode("utf-8"),
+            timeout=60,
+        )
+
+        if resp2.status_code == 200:
+            root2 = ET.fromstring(resp2.text)
+            ack2 = root2.findtext("e:Ack", "", namespaces=ns_map)
+            if ack2 in ("Success", "Warning"):
+                for msg_el in root2.findall(".//e:Messages/e:Message", namespaces=ns_map):
+                    mid = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
+                    body_text = msg_el.findtext("e:Text", "", namespaces=ns_map)
+                    if mid in msg_headers and body_text:
+                        msg_headers[mid]["body"] = body_text
+
+    messages = list(msg_headers.values())
+    # HTMLメッセージからテキスト抽出
+    for msg in messages:
+        if msg["body"] and msg["body"].strip().startswith("<"):
+            msg["body"] = _html_to_text(msg["body"])
     logger.info(f"GetMyMessages: {len(messages)}件のメッセージを取得")
     return messages
+
+
+def _html_to_text(html: str) -> str:
+    """HTMLメッセージからプレーンテキストを抽出する。"""
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "html.parser")
+        # スクリプト・スタイルタグを除去
+        for tag in soup(["script", "style", "head"]):
+            tag.decompose()
+        text = soup.get_text(separator="\n")
+        # 空行を整理
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        return "\n".join(lines)
+    except Exception:
+        # BeautifulSoupが使えない場合は簡易変換
+        import re
+        text = re.sub(r"<[^>]+>", " ", html)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
 
 
 # ── メッセージ送信 (Trading API AddMemberMessageAAQToPartner) ──
