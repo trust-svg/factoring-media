@@ -1,12 +1,13 @@
 """Google Calendar integration."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 from googleapiclient.discovery import build
 from tools.google_auth import get_credentials
 
 _service = None
+JST = timezone(timedelta(hours=9))
 
 
 def _get_service():
@@ -19,13 +20,14 @@ def _get_service():
 
 def get_today_events() -> List[dict]:
     service = _get_service()
-    now = datetime.utcnow()
-    start = now.replace(hour=0, minute=0, second=0).isoformat() + "Z"
-    end = (now.replace(hour=23, minute=59, second=59)).isoformat() + "Z"
+    now = datetime.now(JST)
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    end = now.replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
 
     result = (
         service.events()
         .list(calendarId="primary", timeMin=start, timeMax=end,
+              timeZone="Asia/Tokyo",
               singleEvents=True, orderBy="startTime")
         .execute()
     )
@@ -44,12 +46,12 @@ def get_today_events() -> List[dict]:
 def get_free_slots(target_date: Optional[str] = None) -> List[dict]:
     service = _get_service()
     if target_date:
-        day = datetime.fromisoformat(target_date)
+        day = datetime.fromisoformat(target_date).replace(tzinfo=JST)
     else:
-        day = datetime.now()
+        day = datetime.now(JST)
 
-    start = day.replace(hour=9, minute=0, second=0)
-    end = day.replace(hour=21, minute=0, second=0)
+    start = day.replace(hour=9, minute=0, second=0, microsecond=0)
+    end = day.replace(hour=21, minute=0, second=0, microsecond=0)
 
     events = get_today_events()
     busy = []
@@ -57,7 +59,14 @@ def get_free_slots(target_date: Optional[str] = None) -> List[dict]:
         s = e["start"]
         en = e["end"]
         if "T" in s:
-            busy.append((datetime.fromisoformat(s), datetime.fromisoformat(en)))
+            es = datetime.fromisoformat(s)
+            ee = datetime.fromisoformat(en)
+            # Ensure timezone-aware
+            if es.tzinfo is None:
+                es = es.replace(tzinfo=JST)
+            if ee.tzinfo is None:
+                ee = ee.replace(tzinfo=JST)
+            busy.append((es, ee))
 
     busy.sort(key=lambda x: x[0])
     free = []
