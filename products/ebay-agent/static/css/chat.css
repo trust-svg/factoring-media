@@ -575,6 +575,24 @@
     border-radius: 18px 4px 18px 18px;
     box-shadow: var(--shadow-glow-blue);
 }
+/* System messages (eBay notifications) */
+.msg-bubble.system {
+    align-items: center;
+    margin-bottom: 12px;
+}
+.msg-system-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: var(--gray-100);
+    border-radius: 20px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    max-width: 80%;
+}
+.msg-system-content svg { flex-shrink: 0; color: var(--text-muted); }
+
 .msg-translation {
     max-width: 70%;
     padding: 8px 14px;

@@ -952,30 +952,67 @@ def _html_to_text(html: str) -> str:
         r"^Reply with offer$",
         r"^Make an offer$",
         r"^Report message$",
-        r"^\(\d+\s*\)$",  # (763)
+        r"^\(\d+\s*\)$",  # (763) フィードバックスコア
+        r"^\d+$",  # 数字のみの行
         r"^- \w+$",  # - username
         r"^Item ID:",
         r"^Quantity remaining:",
         r"^End date:",
-        r"^View this item$",
+        r"^View (this item|your listing|item)$",
         r"^Respond to ",
         r"^This message was sent",
         r"^Learn more about",
+        r"^Get to know",
         r"^©\s*\d{4}",
         r"^eBay International",
+        r"^Your previous message",
+        r"^Sent from my ",
+        r"^View listing$",
+        r"^Marketplace messages",
+        r"^Message from eBay",
+        r"^Thank you for (shopping|buying|purchasing)",
+        r"^Protect your account",
+        r"^Tips for buyers",
+        r"^Report this message",
+        r"^All rights reserved",
+        r"^Item #\d+",
+        r"^\*This message",
+        r"^Attachment\(s\)",
+        r"^eBay sent this",
+        r"^If you have any questions",
+        r"^Download the eBay app",
+        r"^This email was sent",
+        r"^Privacy|^Terms|^About eBay",
+        r"^Was this message helpful",
+        r"^Shop for deals",
+        r"^\xa0+$",  # non-breaking space行
+        r"^͏",  # invisible Unicode
     ]
     seen_content = set()
+    stop_at_patterns = [
+        r"^Your previous message",
+        r"^Sent from my ",
+        r"^Original message",
+        r"^On \d{1,2}/\d{1,2}/\d{2,4}",
+        r"^---+$",
+    ]
     for line in lines:
         stripped = line.strip()
         if not stripped:
             continue
+        # ストップパターン: これ以降は引用なので打ち切り
+        if any(re.match(p, stripped, re.IGNORECASE) for p in stop_at_patterns):
+            break
         # パターンスキップ
         if any(re.match(p, stripped, re.IGNORECASE) for p in skip_patterns):
             continue
         # ユーザー名行（送信者名だけの行）スキップ
         if re.match(r"^[a-z0-9_.-]+$", stripped) and len(stripped) < 30:
             continue
-        # 重複除去（eBayは本文を2回表示することがある）
+        # フィードバックスコア括弧 (763)
+        if re.match(r"^\(\d+$", stripped) or re.match(r"^\)$", stripped):
+            continue
+        # 重複除去
         if stripped in seen_content:
             continue
         seen_content.add(stripped)

@@ -111,7 +111,11 @@ def get_conversations(
         "conversations": [{buyer, item_id, ...}]  # 従来互換
     }
     """
-    query = db.query(BuyerMessage).filter(BuyerMessage.direction == "inbound")
+    # eBayシステムメッセージを除外（sender=eBay）
+    query = db.query(BuyerMessage).filter(
+        BuyerMessage.direction == "inbound",
+        BuyerMessage.sender != "eBay",
+    )
 
     if status == "unread":
         query = query.filter(BuyerMessage.is_read == 0)
@@ -255,11 +259,16 @@ def get_thread(db: Session, buyer: str, item_id: str = "") -> list[dict]:
 
     messages = query.order_by(BuyerMessage.received_at.asc()).all()
 
-    return [
-        {
+    result = []
+    for msg in messages:
+        # eBayシステムメッセージかどうか判定
+        is_system = msg.sender == "eBay" and msg.direction == "inbound"
+        direction = "system" if is_system else msg.direction
+
+        result.append({
             "id": msg.id,
             "ebay_message_id": msg.ebay_message_id,
-            "direction": msg.direction,
+            "direction": direction,
             "sender": msg.sender,
             "subject": msg.subject,
             "body": msg.body,
@@ -274,9 +283,8 @@ def get_thread(db: Session, buyer: str, item_id: str = "") -> list[dict]:
             "response_time_min": msg.response_time_min,
             "received_at": msg.received_at.isoformat() if msg.received_at else "",
             "item_id": msg.item_id,
-        }
-        for msg in messages
-    ]
+        })
+    return result
 
 
 # ── AI返信ドラフト ───────────────────────────────────────
@@ -548,24 +556,56 @@ def get_unread_count(db: Session) -> int:
 
 
 def _get_buyer_status(db: Session, buyer_username: str) -> list:
-    """バイヤーのステータスアイコン用リストを返す。"""
+    """バイヤーのステータスアイコン用リストを返す。
+
+    ステータス:
+        purchased  — 購入済み (緑チェック)
+        repeat     — リピーター (青リサイクル)
+        shipped    — 発送済み (青トラック)
+        delivered  — 納品済み (緑パッケージ)
+        offer      — オファー承諾 (緑ドル)
+        feedback   — フィードバック済み (黄星)
+        return     — 返品 (オレンジ矢印)
+        cancel     — キャンセル (赤バツ)
+        refund     — 返金 (オレンジドル)
+        dispute    — ディスプート (赤警告)
+    """
     statuses = []
     orders = db.query(SalesRecord).filter(SalesRecord.buyer_name == buyer_username).all()
 
     if orders:
-        statuses.append("purchased")  # 購入済み
+        statuses.append("purchased")
         if len(orders) >= 2:
-            statuses.append("repeat")  # リピーター
+            statuses.append("repeat")
 
-    # トラブル判定
     for o in orders:
         p = (o.progress or "").lower()
+        # 発送済み
+        if p in ("発送済", "shipped", "発送済み") and "shipped" not in statuses:
+            statuses.append("shipped")
+        # 納品済み
+        if p in ("納品済", "delivered", "納品済み") and "delivered" not in statuses:
+            statuses.append("delivered")
+        # 返品
         if p in ("返品", "returned", "return") and "return" not in statuses:
             statuses.append("return")
+        # キャンセル
         if p in ("キャンセル", "cancelled", "cancel") and "cancel" not in statuses:
             statuses.append("cancel")
+        # 返金
         if p in ("返金", "refunded", "refund") and "refund" not in statuses:
             statuses.append("refund")
+        # ディスプート
+        if p in ("dispute", "ディスプート") and "dispute" not in statuses:
+            statuses.append("dispute")
+
+    # オファー承諾（メッセージのsubjectから判定）
+    offer_msgs = db.query(BuyerMessage).filter(
+        BuyerMessage.sender == buyer_username,
+        BuyerMessage.subject.ilike("%offer%"),
+    ).first()
+    if offer_msgs:
+        statuses.append("offer")
 
     return statuses
 
