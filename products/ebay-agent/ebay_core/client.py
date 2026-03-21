@@ -1025,21 +1025,30 @@ def _html_to_text(html: str) -> str:
     except Exception:
         text = re.sub(r"<[^>]+>", "\n", html)
 
-    # 冒頭の要約行を除去（"Guten Abend und..." / "Is it OK to..." のような1行要約）
     lines = text.split("\n")
-    # "New message to:" or "New message:" の前の行は要約なので除去
+
+    # "New message to/from:" の次の行以降が実際の本文
+    # 要約行（最初の1行）は "New message to:" の前にある
+    start_idx = 0
     for i, line in enumerate(lines):
         stripped = line.strip()
         if re.match(r"^New message( to| from)?:", stripped, re.IGNORECASE):
-            lines = lines[i:]
+            start_idx = i + 1  # "New message to:" の次から開始
             break
+
+    # 要約行をスキップして実本文から開始
+    if start_idx > 0:
+        lines = lines[start_idx:]
 
     # eBayテンプレートのノイズを除去
     clean_lines = []
     skip_patterns = [
-        r"^New message:",
-        r"^New message from:",
+        r"^New message:$",
+        r"^New message from:$",
+        r"^New message to:$",
         r"^Dear .+,$",
+        r"^Herr .+$",  # ドイツ語敬称
+        r"^Frau .+$",
         r"^Reply$",
         r"^Reply with offer$",
         r"^Make an offer$",
@@ -1099,11 +1108,11 @@ def _html_to_text(html: str) -> str:
         # ストップパターン: これ以降は引用なので打ち切り
         if any(re.match(p, stripped, re.IGNORECASE) for p in stop_at_patterns):
             break
-        # 引用の開始を検知（"New message to/from:" が2回目に出たら打ち切り）
+        # 引用の開始を検知（"New message to/from:" が出たら打ち切り — 既に本文開始済みの場合）
         if re.match(r"^New message (to|from):", stripped, re.IGNORECASE):
             if content_started:
-                break  # 2回目 = 引用開始
-            continue  # 1回目 = スキップ
+                break  # 引用開始
+            continue  # まだスキップフェーズ
         # パターンスキップ
         if any(re.match(p, stripped, re.IGNORECASE) for p in skip_patterns):
             continue
