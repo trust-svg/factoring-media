@@ -1025,8 +1025,16 @@ def _html_to_text(html: str) -> str:
     except Exception:
         text = re.sub(r"<[^>]+>", "\n", html)
 
-    # eBayテンプレートのノイズを除去
+    # 冒頭の要約行を除去（"Guten Abend und..." / "Is it OK to..." のような1行要約）
     lines = text.split("\n")
+    # "New message to:" or "New message:" の前の行は要約なので除去
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if re.match(r"^New message( to| from)?:", stripped, re.IGNORECASE):
+            lines = lines[i:]
+            break
+
+    # eBayテンプレートのノイズを除去
     clean_lines = []
     skip_patterns = [
         r"^New message:",
@@ -1079,7 +1087,11 @@ def _html_to_text(html: str) -> str:
         r"^Original message",
         r"^On \d{1,2}/\d{1,2}/\d{2,4}",
         r"^---+$",
+        r"^Previous message",
+        r"^Vorherige Nachricht",  # ドイツ語
+        r"^Message précédent",  # フランス語
     ]
+    content_started = False
     for line in lines:
         stripped = line.strip()
         if not stripped:
@@ -1087,6 +1099,11 @@ def _html_to_text(html: str) -> str:
         # ストップパターン: これ以降は引用なので打ち切り
         if any(re.match(p, stripped, re.IGNORECASE) for p in stop_at_patterns):
             break
+        # 引用の開始を検知（"New message to/from:" が2回目に出たら打ち切り）
+        if re.match(r"^New message (to|from):", stripped, re.IGNORECASE):
+            if content_started:
+                break  # 2回目 = 引用開始
+            continue  # 1回目 = スキップ
         # パターンスキップ
         if any(re.match(p, stripped, re.IGNORECASE) for p in skip_patterns):
             continue
@@ -1101,6 +1118,7 @@ def _html_to_text(html: str) -> str:
             continue
         seen_content.add(stripped)
         clean_lines.append(stripped)
+        content_started = True
 
     result = "\n".join(clean_lines)
     # UTF-8 mojibake修正（Latin-1→UTF-8）

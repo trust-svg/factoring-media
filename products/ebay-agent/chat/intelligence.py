@@ -121,10 +121,19 @@ def get_buyer_score(db: Session, buyer_username: str) -> dict:
             "details": str  # 日本語の説明
         }
     """
-    # 注文履歴を集計
-    orders = db.query(SalesRecord).filter(
-        SalesRecord.buyer_name == buyer_username
-    ).all()
+    # item_id経由でSalesRecordを検索（buyer_name=実名、sender=eBay ID）
+    buyer_item_ids = [
+        m.item_id for m in db.query(BuyerMessage.item_id).filter(
+            BuyerMessage.sender == buyer_username,
+            BuyerMessage.item_id != "",
+        ).distinct().all()
+    ]
+    if buyer_item_ids:
+        orders = db.query(SalesRecord).filter(
+            SalesRecord.item_id.in_(buyer_item_ids)
+        ).all()
+    else:
+        orders = []
 
     total_orders = len(orders)
     total_spent = sum(o.sale_price_usd for o in orders)
@@ -284,10 +293,24 @@ If no examples are available, use a professional but friendly tone.""",
 # ── 6. 売上連携ビュー ───────────────────────────────────
 
 def get_buyer_sales_info(db: Session, buyer_username: str, item_id: str = "") -> dict:
-    """バイヤーの購入に関する売上・利益情報を取得する。"""
-    query = db.query(SalesRecord).filter(SalesRecord.buyer_name == buyer_username)
+    """バイヤーの購入に関する売上・利益情報を取得する。
+
+    buyer_nameは実名、senderはeBay ID のため、item_id経由でマッチングする。
+    """
+    # item_id経由でSalesRecordを検索
+    buyer_item_ids = [
+        m.item_id for m in db.query(BuyerMessage.item_id).filter(
+            BuyerMessage.sender == buyer_username,
+            BuyerMessage.item_id != "",
+        ).distinct().all()
+    ]
+
     if item_id:
-        query = query.filter(SalesRecord.item_id == item_id)
+        query = db.query(SalesRecord).filter(SalesRecord.item_id == item_id)
+    elif buyer_item_ids:
+        query = db.query(SalesRecord).filter(SalesRecord.item_id.in_(buyer_item_ids))
+    else:
+        return {"orders": [], "total_orders": 0, "total_revenue_usd": 0, "total_profit_usd": 0, "avg_profit_margin": 0}
 
     records = query.order_by(SalesRecord.sold_at.desc()).all()
 

@@ -566,20 +566,25 @@ def get_unread_count(db: Session) -> int:
 def _get_buyer_status(db: Session, buyer_username: str) -> list:
     """バイヤーのステータスアイコン用リストを返す。
 
-    ステータス:
-        purchased  — 購入済み (緑チェック)
-        repeat     — リピーター (青リサイクル)
-        shipped    — 発送済み (青トラック)
-        delivered  — 納品済み (緑パッケージ)
-        offer      — オファー承諾 (緑ドル)
-        feedback   — フィードバック済み (黄星)
-        return     — 返品 (オレンジ矢印)
-        cancel     — キャンセル (赤バツ)
-        refund     — 返金 (オレンジドル)
-        dispute    — ディスプート (赤警告)
+    注意: SalesRecordのbuyer_nameは実名、BuyerMessageのsenderはeBay ID。
+    直接マッチしないため、メッセージのitem_id経由でSalesRecordを検索する。
     """
     statuses = []
-    orders = db.query(SalesRecord).filter(SalesRecord.buyer_name == buyer_username).all()
+
+    # このバイヤーのメッセージからitem_idを取得
+    buyer_item_ids = [
+        m.item_id for m in db.query(BuyerMessage.item_id).filter(
+            BuyerMessage.sender == buyer_username,
+            BuyerMessage.item_id != "",
+        ).distinct().all()
+    ]
+
+    # item_id経由でSalesRecordを検索
+    orders = []
+    if buyer_item_ids:
+        orders = db.query(SalesRecord).filter(
+            SalesRecord.item_id.in_(buyer_item_ids)
+        ).all()
 
     if orders:
         statuses.append("purchased")
@@ -588,32 +593,43 @@ def _get_buyer_status(db: Session, buyer_username: str) -> list:
 
     for o in orders:
         p = (o.progress or "").lower()
-        # 発送済み
         if p in ("発送済", "shipped", "発送済み") and "shipped" not in statuses:
             statuses.append("shipped")
-        # 納品済み
         if p in ("納品済", "delivered", "納品済み") and "delivered" not in statuses:
             statuses.append("delivered")
-        # 返品
         if p in ("返品", "returned", "return") and "return" not in statuses:
             statuses.append("return")
-        # キャンセル
         if p in ("キャンセル", "cancelled", "cancel") and "cancel" not in statuses:
             statuses.append("cancel")
-        # 返金
         if p in ("返金", "refunded", "refund") and "refund" not in statuses:
             statuses.append("refund")
-        # ディスプート
         if p in ("dispute", "ディスプート") and "dispute" not in statuses:
             statuses.append("dispute")
 
-    # オファー承諾（メッセージのsubjectから判定）
+    # オファー関連（メッセージのsubjectから判定）
     offer_msgs = db.query(BuyerMessage).filter(
         BuyerMessage.sender == buyer_username,
         BuyerMessage.subject.ilike("%offer%"),
     ).first()
     if offer_msgs:
         statuses.append("offer")
+
+    # フィードバック（eBayメッセージのsubjectから判定）
+    feedback_msg = db.query(BuyerMessage).filter(
+        BuyerMessage.sender == "eBay",
+        BuyerMessage.subject.ilike("%feedback%"),
+        BuyerMessage.item_id.in_(buyer_item_ids) if buyer_item_ids else False,
+    ).first()
+    if feedback_msg:
+        statuses.append("feedback")
+
+    # メッセージのやり取りがある（ステータスがまだ空の場合）
+    if not statuses:
+        has_thread = db.query(BuyerMessage).filter(
+            BuyerMessage.sender == buyer_username
+        ).first()
+        if has_thread:
+            statuses.append("message")
 
     return statuses
 
