@@ -172,13 +172,13 @@ function renderCategoryChart(categories) {
         return;
     }
     const opts = {
-        chart: {type: 'bar', height: 300, fontFamily: 'Outfit', toolbar: {show: false}},
+        chart: {type: 'bar', height: 300, fontFamily: 'Inter', toolbar: {show: false}},
         series: [
             {name: 'Revenue', data: categories.map(c => c.revenue_usd)},
             {name: 'Profit', data: categories.map(c => c.profit_usd)},
         ],
         xaxis: {categories: categories.map(c => c.category.substring(0, 20))},
-        colors: ['var(--brand-500)', 'var(--success-500)'],
+        colors: ['#007AFF', '#34C759'],
         plotOptions: {bar: {borderRadius: 4, columnWidth: '60%'}},
         dataLabels: {enabled: false},
         legend: {position: 'top'},
@@ -195,10 +195,10 @@ function renderCountryChart(countries) {
     }
     const top = countries.slice(0, 8);
     const opts = {
-        chart: {type: 'donut', height: 300, fontFamily: 'Outfit'},
+        chart: {type: 'donut', height: 300, fontFamily: 'Inter'},
         series: top.map(c => c.revenue_usd),
         labels: top.map(c => c.country),
-        colors: ['#465FFF', '#12B76A', '#F79009', '#7A5AF8', '#EE46BC', '#FB6514', '#667085', '#B42318'],
+        colors: ['#007AFF', '#34C759', '#FF9500', '#5856D6', '#FF2D55', '#5AC8FA', '#AF52DE', '#32ADE6'],
         legend: {position: 'bottom', fontSize: '12px'},
         dataLabels: {enabled: true, formatter: (val) => val.toFixed(0) + '%'},
     };

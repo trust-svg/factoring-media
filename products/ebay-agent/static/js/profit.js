@@ -4,10 +4,10 @@ let trendChart = null, breakdownChart = null, dailyChartInstance = null;
 let summaryData = [];
 
 // ApexCharts共通テーマ
-const chartFont = 'Outfit, sans-serif';
+const chartFont = 'Inter, sans-serif';
 const chartColors = {
-    brand: '#465FFF',
-    brandLight: '#9CB9FF',
+    brand: '#007AFF',
+    brandLight: '#5AC8FA',
     success: '#12B76A',
     error: '#F04438',
     warning: '#F79009',
@@ -319,6 +319,7 @@ async function loadTransactions(fromDate, toDate) {
                                     <div>仕入先: ${proc.platform || '-'}</div>
                                     ${proc.url ? '<div><a href="' + esc(proc.url) + '" target="_blank" style="color:var(--brand-500);">仕入先リンク ↗</a></div>' : ''}
                                 ` : '<div style="color:var(--gray-400);">仕入れデータなし</div>'}
+                                ${r.inventory_item_id ? '<div style="margin-top:6px;"><a href="/procurement" onclick="localStorage.setItem(\'highlight_stock\',\'' + r.inventory_item_id + '\');" style="color:var(--brand-500);font-weight:600;font-size:12px;">📦 仕入れ台帳を表示 ↗</a></div>' : ''}
                             </div>
                         </div>
                     </td>

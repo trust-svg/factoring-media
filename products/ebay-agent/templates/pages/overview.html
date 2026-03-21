@@ -121,11 +121,11 @@ async function initOverview() {
                 chart: {
                     type: 'area',
                     height: 310,
-                    fontFamily: 'Outfit, sans-serif',
+                    fontFamily: 'Inter, sans-serif',
                     toolbar: { show: false },
                     zoom: { enabled: false },
                 },
-                colors: ['#465FFF', '#9CB9FF'],
+                colors: ['#007AFF', '#34C759'],
                 series: [
                     {
                         name: t('Revenue ($)', '売上 ($)'),
@@ -142,8 +142,8 @@ async function initOverview() {
                     axisTicks: { show: false },
                     labels: {
                         style: {
-                            colors: '#667085',
-                            fontFamily: 'Outfit, sans-serif',
+                            colors: '#9CA3AF',
+                            fontFamily: 'Inter, sans-serif',
                             fontSize: '12px',
                         },
                     },
@@ -151,14 +151,14 @@ async function initOverview() {
                 yaxis: {
                     labels: {
                         style: {
-                            colors: '#667085',
-                            fontFamily: 'Outfit, sans-serif',
+                            colors: '#9CA3AF',
+                            fontFamily: 'Inter, sans-serif',
                             fontSize: '12px',
                         },
                     },
                 },
                 grid: {
-                    borderColor: '#E4E7EC',
+                    borderColor: '#E5E7EB',
                     strokeDashArray: 0,
                     xaxis: { lines: { show: false } },
                     yaxis: { lines: { show: true } },
@@ -180,14 +180,14 @@ async function initOverview() {
                 legend: {
                     position: 'top',
                     horizontalAlign: 'left',
-                    fontFamily: 'Outfit, sans-serif',
+                    fontFamily: 'Inter, sans-serif',
                     fontSize: '14px',
-                    labels: { colors: '#667085' },
+                    labels: { colors: '#9CA3AF' },
                     markers: { radius: 99 },
                 },
                 tooltip: {
                     theme: 'light',
-                    style: { fontFamily: 'Outfit, sans-serif' },
+                    style: { fontFamily: 'Inter, sans-serif' },
                 },
             };
             const chart = new ApexCharts(document.getElementById('revenueChart'), options);
