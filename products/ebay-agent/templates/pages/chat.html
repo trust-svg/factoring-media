@@ -10,49 +10,48 @@
 
 {% block content %}
 <div class="chat-layout">
-    <!-- Left: Conversation List -->
-    <div class="conv-list" id="convList">
-        <div class="conv-header">
+    <!-- Col 1: Product List -->
+    <div class="product-col" id="productCol">
+        <div class="product-col-header">
             <div class="conv-search">
-                <svg class="conv-search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
-                <input type="text" id="searchInput"
-                       placeholder="Search..."
-                       data-placeholder-en="Search buyer, item..."
-                       data-placeholder-ja="バイヤー・商品で検索..."
-                       oninput="searchConversations()">
-            </div>
-            <div class="conv-filters">
-                <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">
-                    <span data-en="All" data-ja="全て">All</span>
-                </button>
-                <button class="filter-btn" data-filter="unread" onclick="setFilter('unread')">
-                    <span data-en="Unread" data-ja="未読">Unread</span>
-                </button>
-                <button class="filter-btn" data-filter="read" onclick="setFilter('read')">
-                    <span data-en="Read" data-ja="既読">Read</span>
-                </button>
+                <svg class="conv-search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+                <input type="text" id="searchInput" placeholder="Search..." data-placeholder-en="Search..." data-placeholder-ja="検索..." oninput="searchConversations()">
             </div>
             <div class="conv-actions">
-                <button onclick="syncMessages()" id="syncBtn" aria-label="Sync messages">
+                <button onclick="syncMessages()" id="syncBtn" aria-label="Sync">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M2.985 19.644l3.181-3.18"/></svg>
-                    <span data-en="Sync" data-ja="同期">Sync</span>
                 </button>
                 <button onclick="markAllRead()" aria-label="Mark all read">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
-                    <span data-en="All read" data-ja="全て既読">All read</span>
                 </button>
             </div>
         </div>
         <div class="sync-status" id="syncStatus"></div>
-        <div class="conv-items" id="convItems">
+        <div class="conv-filters" style="padding:0 10px 8px;">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')"><span data-en="All" data-ja="全て">All</span></button>
+            <button class="filter-btn" data-filter="unread" onclick="setFilter('unread')"><span data-en="Unread" data-ja="未読">Unread</span></button>
+        </div>
+        <div class="product-list" id="productList">
             <div class="thread-empty">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/></svg>
-                <span data-en="Click Sync to load messages" data-ja="同期をクリックしてメッセージを読み込み">Click Sync to load messages</span>
+                <span data-en="Sync to load" data-ja="同期してください">Sync to load</span>
             </div>
         </div>
     </div>
 
-    <!-- Center: Thread View -->
+    <!-- Col 2: Buyer List -->
+    <div class="buyer-col" id="buyerCol">
+        <div class="buyer-col-header">
+            <h4 data-en="Buyers" data-ja="バイヤー">Buyers</h4>
+        </div>
+        <div class="buyer-list" id="buyerList">
+            <div class="thread-empty" style="padding:30px;">
+                <span style="font-size:12px;color:var(--text-muted);" data-en="Select a product" data-ja="商品を選択">Select a product</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Col 3: Thread View -->
     <div class="thread-view" id="threadView">
         <div class="thread-header" id="threadHeader" style="display:none;">
             <div class="thread-header-left">

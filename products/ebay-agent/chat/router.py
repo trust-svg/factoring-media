@@ -64,9 +64,13 @@ async def list_conversations(
 ):
     db = get_db()
     try:
-        conversations = service.get_conversations(db, status=status, search=search, limit=limit)
+        result = service.get_conversations(db, status=status, search=search, limit=limit)
         unread = service.get_unread_count(db)
-        return {"conversations": conversations, "unread_total": unread}
+        return {
+            "items": result["items"],
+            "conversations": result["conversations"],
+            "unread_total": unread,
+        }
     finally:
         db.close()
 

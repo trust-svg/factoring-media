@@ -104,7 +104,13 @@ def get_conversations(
     search: str = "",
     limit: int = 50,
 ) -> list[dict]:
-    """会話一覧を取得する（バイヤー×アイテムでグルーピング）。"""
+    """会話一覧を取得する（商品ベース → バイヤーリスト構造）。
+
+    Returns: {
+        "items": [{item_id, title, thumbnail, unread_count, buyers: [{buyer, last_message, ...}]}],
+        "conversations": [{buyer, item_id, ...}]  # 従来互換
+    }
+    """
     query = db.query(BuyerMessage).filter(BuyerMessage.direction == "inbound")
 
     if status == "unread":
@@ -121,19 +127,21 @@ def get_conversations(
             | (BuyerMessage.item_id.ilike(like_term))
         )
 
-    # 最新メッセージでソート
     messages = query.order_by(BuyerMessage.received_at.desc()).all()
 
-    # バイヤー×アイテムIDでグループ化
+    # 商品 → バイヤーリスト構造を構築
+    item_map: dict[str, dict] = {}
     conv_map: dict[str, dict] = {}
+
     for msg in messages:
-        key = f"{msg.sender}|{msg.item_id}"
-        if key not in conv_map:
-            # 商品サムネイル取得
+        iid = msg.item_id or "_no_item"
+
+        # 商品情報
+        if iid not in item_map:
             thumbnail = ""
             item_title = ""
-            if msg.item_id:
-                listing = db.query(Listing).filter(Listing.listing_id == msg.item_id).first()
+            if iid != "_no_item":
+                listing = db.query(Listing).filter(Listing.listing_id == iid).first()
                 if listing:
                     import json as _json
                     try:
@@ -143,31 +151,74 @@ def get_conversations(
                         pass
                     item_title = listing.title or ""
 
-            conv_map[key] = {
-                "buyer": msg.sender,
-                "item_id": msg.item_id,
-                "item_title": item_title,
+            item_map[iid] = {
+                "item_id": iid if iid != "_no_item" else "",
+                "title": item_title,
                 "thumbnail": thumbnail,
-                "subject": msg.subject,
-                "last_message": msg.body[:100] if msg.body else "",
-                "last_message_ja": (msg.body_translated or "")[:100],
+                "unread_count": 0,
+                "last_date": "",
+                "buyers": {},
+            }
+
+        # バイヤー情報
+        buyer_key = f"{msg.sender}|{iid}"
+        if buyer_key not in item_map[iid]["buyers"]:
+            item_map[iid]["buyers"][buyer_key] = {
+                "buyer": msg.sender,
+                "item_id": iid if iid != "_no_item" else "",
+                "last_message": msg.body[:80] if msg.body else "",
+                "last_message_ja": (msg.body_translated or "")[:80],
                 "last_date": msg.received_at.isoformat() if msg.received_at else "",
                 "unread_count": 0,
                 "total_count": 0,
+                "sentiment": msg.sentiment or "",
             }
-        conv_map[key]["total_count"] += 1
-        if not msg.is_read:
-            conv_map[key]["unread_count"] += 1
 
-    # 送信メッセージも含めてカウント
-    outbound = db.query(BuyerMessage).filter(BuyerMessage.direction == "outbound").all()
-    for msg in outbound:
-        key = f"{msg.recipient}|{msg.item_id}"
-        if key in conv_map:
-            conv_map[key]["total_count"] += 1
+        item_map[iid]["buyers"][buyer_key]["total_count"] += 1
+        if not msg.is_read:
+            item_map[iid]["buyers"][buyer_key]["unread_count"] += 1
+            item_map[iid]["unread_count"] += 1
+
+        # 最新日付を更新
+        date_str = msg.received_at.isoformat() if msg.received_at else ""
+        if date_str > item_map[iid]["last_date"]:
+            item_map[iid]["last_date"] = date_str
+
+        # 従来互換 conv_map
+        conv_key = f"{msg.sender}|{msg.item_id}"
+        if conv_key not in conv_map:
+            conv_map[conv_key] = {
+                "buyer": msg.sender,
+                "item_id": msg.item_id,
+                "item_title": item_map[iid]["title"],
+                "thumbnail": item_map[iid]["thumbnail"],
+                "subject": msg.subject,
+                "last_message": msg.body[:100] if msg.body else "",
+                "last_message_ja": (msg.body_translated or "")[:100],
+                "last_date": date_str,
+                "unread_count": 0,
+                "total_count": 0,
+                "sentiment": msg.sentiment or "",
+            }
+        conv_map[conv_key]["total_count"] += 1
+        if not msg.is_read:
+            conv_map[conv_key]["unread_count"] += 1
+
+    # 商品リストを整形
+    items = []
+    for iid, item in sorted(item_map.items(), key=lambda x: x[1]["last_date"], reverse=True):
+        buyer_list = sorted(item["buyers"].values(), key=lambda b: b["last_date"], reverse=True)
+        items.append({
+            "item_id": item["item_id"],
+            "title": item["title"],
+            "thumbnail": item["thumbnail"],
+            "unread_count": item["unread_count"],
+            "last_date": item["last_date"],
+            "buyers": buyer_list,
+        })
 
     conversations = sorted(conv_map.values(), key=lambda c: c["last_date"], reverse=True)
-    return conversations[:limit]
+    return {"items": items[:limit], "conversations": conversations[:limit]}
 
 
 def get_thread(db: Session, buyer: str, item_id: str = "") -> list[dict]:

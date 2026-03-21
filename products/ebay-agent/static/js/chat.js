@@ -7,6 +7,7 @@ let currentFilter = 'all';
 let currentBuyer = '';
 let currentItemId = '';
 let conversations = [];
+let itemsList = [];
 let currentThread = [];
 let uploadedImageUrls = [];
 let lastMessageId = null;
@@ -14,7 +15,6 @@ let lastMessageId = null;
 // ── Init ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     loadConversations();
-    // Auto-sync every 5 minutes
     setInterval(() => syncMessages(true), 5 * 60 * 1000);
 });
 
@@ -28,11 +28,86 @@ async function loadConversations() {
         const resp = await fetch(`/api/chat/conversations?${params}`);
         const data = await resp.json();
         conversations = data.conversations || [];
-        renderConversations();
+        itemsList = data.items || [];
+        renderProductList();
         updateUnreadBadge(data.unread_total || 0);
     } catch (e) {
         console.error('Failed to load conversations:', e);
     }
+}
+
+// ── Product List (left column) ──────────────────────
+function renderProductList() {
+    const container = document.getElementById('productList');
+    if (!container) { renderConversations(); return; }
+
+    if (!itemsList.length) {
+        container.innerHTML = `<div class="thread-empty"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/></svg><span>${getLang() === 'ja' ? '同期してください' : 'Click Sync'}</span></div>`;
+        return;
+    }
+
+    container.innerHTML = itemsList.map((item, i) => {
+        const isActive = item.item_id === currentItemId;
+        const thumbHtml = item.thumbnail
+            ? `<img class="product-thumb" src="${escapeHtml(item.thumbnail)}" alt="" loading="lazy">`
+            : `<div class="product-thumb-placeholder"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"/></svg></div>`;
+        const unreadHtml = item.unread_count > 0
+            ? `<span class="product-unread-badge">${item.unread_count}</span>`
+            : '';
+
+        return `<div class="product-item ${isActive ? 'active' : ''}" onclick="selectProduct('${escapeHtml(item.item_id)}')" style="animation-delay:${i*30}ms" title="${escapeHtml(item.title)}">
+            <div class="product-thumb-wrap">${thumbHtml}${unreadHtml}</div>
+            <div class="product-title">${escapeHtml((item.title || 'No title').substring(0, 30))}</div>
+        </div>`;
+    }).join('');
+}
+
+function selectProduct(itemId) {
+    currentItemId = itemId;
+    renderProductList();
+
+    // Show buyers for this product
+    const item = itemsList.find(i => i.item_id === itemId);
+    if (item) {
+        renderBuyerList(item.buyers || []);
+        // Auto-select first buyer
+        if (item.buyers?.length === 1) {
+            openThread(item.buyers[0].buyer, itemId);
+        }
+    }
+}
+
+// ── Buyer List (second column) ──────────────────────
+function renderBuyerList(buyers) {
+    const container = document.getElementById('buyerList');
+    if (!container) return;
+
+    if (!buyers.length) {
+        container.innerHTML = '<div class="thread-empty" style="padding:20px;"><span style="font-size:12px;">No buyers</span></div>';
+        return;
+    }
+
+    container.innerHTML = buyers.map((b, i) => {
+        const isActive = b.buyer === currentBuyer && b.item_id === currentItemId;
+        const isUnread = b.unread_count > 0;
+        const dateStr = b.last_date ? formatRelativeDate(b.last_date) : '';
+        const preview = getLang() === 'ja' && b.last_message_ja ? b.last_message_ja : b.last_message;
+        const sentimentColor = {positive:'var(--green)', neutral:'var(--gray-400)', negative:'var(--orange)', angry:'var(--red)'}[b.sentiment] || '';
+
+        return `<div class="buyer-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" onclick="openThread('${escapeHtml(b.buyer)}', '${escapeHtml(b.item_id)}')" style="animation-delay:${i*30}ms">
+            <div class="buyer-top-row">
+                <span class="buyer-name">
+                    ${sentimentColor ? `<span class="sentiment-dot" style="background:${sentimentColor};"></span>` : ''}
+                    ${escapeHtml(b.buyer)}
+                </span>
+                <span style="display:flex;align-items:center;gap:4px;">
+                    <span class="conv-date">${dateStr}</span>
+                    ${isUnread ? '<span class="unread-dot"></span>' : ''}
+                </span>
+            </div>
+            <div class="buyer-preview">${escapeHtml((preview || '').substring(0, 50))}</div>
+        </div>`;
+    }).join('');
 }
 
 function renderConversations() {
