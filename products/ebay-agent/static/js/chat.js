@@ -48,36 +48,32 @@ function renderConversations() {
         return;
     }
 
-    container.innerHTML = conversations.map(conv => {
+    container.innerHTML = conversations.map((conv, i) => {
         const isActive = conv.buyer === currentBuyer && conv.item_id === currentItemId;
         const isUnread = conv.unread_count > 0;
         const dateStr = conv.last_date ? formatRelativeDate(conv.last_date) : '';
         const preview = getLang() === 'ja' && conv.last_message_ja ? conv.last_message_ja : conv.last_message;
         const title = conv.item_title || conv.subject || '';
 
-        // Thumbnail
         const thumbHtml = conv.thumbnail
-            ? `<img src="${escapeHtml(conv.thumbnail)}" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid var(--gray-100);">`
-            : `<div style="width:44px;height:44px;border-radius:8px;background:var(--gray-100);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="var(--text-muted)" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" /></svg>
-               </div>`;
+            ? `<img class="conv-thumb" src="${escapeHtml(conv.thumbnail)}" alt="" loading="lazy">`
+            : `<div class="conv-thumb-placeholder"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"/></svg></div>`;
 
         return `
             <div class="conv-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
-                 onclick="openThread('${escapeHtml(conv.buyer)}', '${escapeHtml(conv.item_id)}')">
-                <div style="display:flex;gap:12px;align-items:start;">
-                    ${thumbHtml}
-                    <div style="flex:1;min-width:0;">
-                        <div class="conv-buyer">
-                            <span>${escapeHtml(conv.buyer)}</span>
-                            <span style="display:flex;align-items:center;gap:6px;">
-                                <span class="conv-date">${dateStr}</span>
-                                ${isUnread ? '<span class="unread-dot"></span>' : ''}
-                            </span>
-                        </div>
-                        <div class="conv-subject">${escapeHtml(title.substring(0, 50))}</div>
-                        <div class="conv-preview">${escapeHtml((preview || '').substring(0, 60))}</div>
+                 onclick="openThread('${escapeHtml(conv.buyer)}', '${escapeHtml(conv.item_id)}')"
+                 style="animation-delay:${i * 30}ms">
+                ${thumbHtml}
+                <div class="conv-content">
+                    <div class="conv-top-row">
+                        <span class="conv-buyer-name">
+                            ${isUnread ? '<span class="unread-dot"></span>' : ''}
+                            ${escapeHtml(conv.buyer)}
+                        </span>
+                        <span class="conv-date">${dateStr}</span>
                     </div>
+                    <div class="conv-item-title">${escapeHtml(title.substring(0, 45))}</div>
+                    <div class="conv-preview">${escapeHtml((preview || '').substring(0, 55))}</div>
                 </div>
             </div>`;
     }).join('');
@@ -154,16 +150,9 @@ function renderThread() {
         // Sentiment + urgency badges
         let sentimentHtml = '';
         if (dir === 'inbound' && msg.sentiment) {
-            const sentimentColors = {positive:'#12B76A', neutral:'#667085', negative:'#F79009', angry:'#F04438'};
-            const urgencyIcons = {low:'', medium:'⚡', high:'🔥', critical:'🚨'};
-            const color = sentimentColors[msg.sentiment] || '#667085';
-            const icon = urgencyIcons[msg.urgency] || '';
-            sentimentHtml = `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 6px;border-radius:4px;background:${color}15;color:${color};font-weight:600;">
-                ${icon} ${msg.sentiment}${msg.urgency && msg.urgency !== 'low' ? ' · ' + msg.urgency : ''}
-            </span>`;
-            if (msg.sentiment_note) {
-                sentimentHtml += ` <span style="font-size:10px;color:var(--text-muted);">${escapeHtml(msg.sentiment_note)}</span>`;
-            }
+            const urgencyLabels = {medium:'!', high:'!!', critical:'!!!'};
+            const urgencyLabel = urgencyLabels[msg.urgency] || '';
+            sentimentHtml = `<span class="sentiment-badge ${msg.sentiment}">${msg.sentiment}${urgencyLabel ? ' ' + urgencyLabel : ''}</span>`;
         }
 
         // Response time badge
@@ -171,8 +160,9 @@ function renderThread() {
         if (dir === 'inbound' && msg.response_time_min != null) {
             const mins = msg.response_time_min;
             const timeLabel = mins < 60 ? `${mins}m` : mins < 1440 ? `${Math.round(mins/60)}h` : `${Math.round(mins/1440)}d`;
-            const timeColor = mins <= 60 ? '#12B76A' : mins <= 1440 ? '#F79009' : '#F04438';
-            responseTimeHtml = `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:${timeColor}15;color:${timeColor};">↩ ${timeLabel}</span>`;
+            const bgColor = mins <= 60 ? 'var(--success-50)' : mins <= 1440 ? 'var(--warning-50)' : 'var(--error-50)';
+            const fgColor = mins <= 60 ? 'var(--success-700)' : mins <= 1440 ? 'var(--warning-700)' : 'var(--error-700)';
+            responseTimeHtml = `<span class="response-time-badge" style="background:${bgColor};color:${fgColor};">replied ${timeLabel}</span>`;
         }
 
         let translationHtml = '';
@@ -926,6 +916,23 @@ function formatMinutes(mins) {
     if (mins < 1440) return `${Math.round(mins / 60)}h`;
     return `${Math.round(mins / 1440)}d`;
 }
+
+// ── Scroll to Bottom ────────────────────────────────
+function scrollToBottom() {
+    const container = document.getElementById('threadMessages');
+    if (container) container.scrollTop = container.scrollHeight;
+}
+
+function initScrollDetection() {
+    const container = document.getElementById('threadMessages');
+    const btn = document.getElementById('scrollBottomBtn');
+    if (!container || !btn) return;
+    container.addEventListener('scroll', () => {
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+        btn.style.display = isNearBottom ? 'none' : 'flex';
+    });
+}
+document.addEventListener('DOMContentLoaded', initScrollDetection);
 
 // ── Mobile ──────────────────────────────────────────
 function backToList() {
