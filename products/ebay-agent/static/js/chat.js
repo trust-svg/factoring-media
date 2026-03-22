@@ -381,6 +381,8 @@ async function generateDraft() {
             document.getElementById('composeInput').value = data.draft_reply;
             document.getElementById('sendBtn').disabled = false;
             autoResize(document.getElementById('composeInput'));
+            // Show draft preview with JA translation + refine UI
+            showDraftPreview(data.draft_reply, data.draft_reply_ja || '');
         } else if (data.error) {
             alert(`Draft error: ${data.error}`);
         }
@@ -389,6 +391,59 @@ async function generateDraft() {
     } finally {
         btn.innerHTML = origHtml;
         btn.disabled = false;
+    }
+}
+
+function showDraftPreview(draftEn, draftJa) {
+    const preview = document.getElementById('translationPreview');
+    if (!preview) return;
+    const ja = getLang() === 'ja';
+    preview.innerHTML = `
+        <div style="margin-bottom:8px;">
+            <strong style="font-size:11px;color:var(--text-muted);">${ja ? '日本語訳' : 'Japanese Translation'}</strong>
+            <div style="margin-top:4px;font-size:12px;line-height:1.5;color:var(--text-primary);white-space:pre-wrap;">${escapeHtml(draftJa || (ja ? '翻訳中...' : 'Translating...'))}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+            <input type="text" id="refineInput" placeholder="${ja ? '修正指示（例: もっとカジュアルに）' : 'Refine instruction (e.g. more casual)'}" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:20px;font-size:12px;font-family:inherit;">
+            <button onclick="refineDraft()" style="padding:6px 14px;background:var(--blue);color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;">${ja ? '修正' : 'Refine'}</button>
+        </div>`;
+    preview.classList.add('visible');
+}
+
+async function refineDraft() {
+    const input = document.getElementById('refineInput');
+    const instruction = input?.value?.trim();
+    if (!instruction || !lastMessageId) return;
+
+    const currentDraft = document.getElementById('composeInput')?.value || '';
+    if (!currentDraft) return;
+
+    input.disabled = true;
+
+    try {
+        const resp = await fetch('/api/chat/draft/refine', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                message_id: lastMessageId,
+                current_draft: currentDraft,
+                instruction: instruction,
+            }),
+        });
+        const data = await resp.json();
+
+        if (data.draft_reply) {
+            document.getElementById('composeInput').value = data.draft_reply;
+            autoResize(document.getElementById('composeInput'));
+            showDraftPreview(data.draft_reply, data.draft_reply_ja || '');
+            input.value = '';
+        } else if (data.error) {
+            alert(`Refine error: ${data.error}`);
+        }
+    } catch (e) {
+        alert(`Refine error: ${e.message}`);
+    } finally {
+        input.disabled = false;
     }
 }
 

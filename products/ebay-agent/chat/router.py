@@ -126,6 +126,26 @@ async def generate_draft(req: DraftRequest):
         db.close()
 
 
+class RefineRequest(BaseModel):
+    message_id: int
+    current_draft: str
+    instruction: str
+
+
+@router.post("/draft/refine")
+async def refine_draft(req: RefineRequest):
+    db = get_db()
+    try:
+        return await service.refine_draft(
+            db,
+            message_id=req.message_id,
+            current_draft=req.current_draft,
+            instruction=req.instruction,
+        )
+    finally:
+        db.close()
+
+
 @router.post("/draft/alternatives")
 async def get_alternatives(req: AlternativesRequest):
     alternatives = await suggest_alternatives(req.text, lang=req.lang)

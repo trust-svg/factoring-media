@@ -302,20 +302,29 @@ def get_thread(db: Session, buyer: str, item_id: str = "") -> list[dict]:
 
 # ── AI返信ドラフト ───────────────────────────────────────
 
-REPLY_SYSTEM_PROMPT = """あなたはeBayセラーのカスタマーサポートAIアシスタントです。
+REPLY_SYSTEM_PROMPT = """You are Roki, an eBay seller based in Japan (store: Samurai Shop Japan SELECT).
 
-あなたの役割:
-- バイヤーからのメッセージに対して、プロフェッショナルで丁寧な返信ドラフトを作成する
-- 日本からの輸出セラーとしての立場を理解し、適切な対応をする
+Your job: Write reply drafts to buyer messages.
 
-重要ルール:
-1. 返信は必ず英語で作成する
-2. 丁寧で親切なトーン
-3. 具体的な情報を含める（追跡番号、到着予定、返品ポリシー等）
-4. 問題がある場合は解決策を提示する
-5. 「日本から発送」「丁寧な梱包」等の付加価値をさりげなく伝える
+STRICT RULES:
+1. Write in English only
+2. Sign off as "Roki" (not "Your eBay Store" or "Samurai Shop Japan")
+3. Output ONLY the message body — no subject lines, no "---", no "Here is a draft", no markdown
+4. Be professional, friendly, and helpful
+5. Include specific info when relevant (tracking, EDD, return policy)
+6. Subtly mention "shipped from Japan" and "carefully packed" when appropriate
+7. Keep responses concise — match the length to the buyer's message
+8. For simple questions, reply in 2-3 sentences. For complex issues, up to a paragraph
 
-返信本文のみを出力。JSON不要。"""
+Example sign-off style:
+"Best regards,
+Roki"
+
+Do NOT include:
+- "Subject:" lines
+- "---" separators
+- "Here is a professional reply draft:"
+- Any meta-commentary about the draft"""
 
 
 async def generate_draft(
@@ -361,6 +370,16 @@ Write a professional English reply."""
         )
         draft = resp.content[0].text.strip()
 
+        # 不要なヘッダー/フッター除去（念のため）
+        draft = _clean_draft(draft)
+
+        # 日本語訳を生成
+        draft_ja = ""
+        try:
+            draft_ja = await translate_to_ja(draft)
+        except Exception:
+            pass
+
         # DBに保存
         msg.draft_reply = draft
         db.commit()
@@ -368,6 +387,7 @@ Write a professional English reply."""
         return {
             "message_id": msg.id,
             "draft_reply": draft,
+            "draft_reply_ja": draft_ja,
             "original_body": msg.body,
             "buyer": msg.sender,
         }
@@ -637,6 +657,87 @@ def _get_buyer_status(db: Session, buyer_username: str) -> list:
             statuses.append("message")
 
     return statuses
+
+
+def _clean_draft(draft: str) -> str:
+    """AIドラフトから不要なヘッダー/フッターを除去する。"""
+    import re
+    lines = draft.split("\n")
+    clean = []
+    skip = False
+    for line in lines:
+        stripped = line.strip()
+        # 不要な行をスキップ
+        if re.match(r"^(Subject:|Re:|---+$|Here is|Below is|Draft:)", stripped, re.IGNORECASE):
+            continue
+        if re.match(r"^\*\*Your eBay Store\*\*", stripped):
+            continue
+        if stripped == "---":
+            continue
+        clean.append(line)
+
+    result = "\n".join(clean).strip()
+
+    # 署名がない場合は追加
+    if "Roki" not in result:
+        result += "\n\nBest regards,\nRoki"
+
+    return result
+
+
+async def refine_draft(
+    db: Session,
+    message_id: int,
+    current_draft: str,
+    instruction: str,
+) -> dict:
+    """ユーザーの指示に基づいてドラフトを修正する。"""
+    msg = db.query(BuyerMessage).filter(BuyerMessage.id == message_id).first()
+    if not msg:
+        return {"error": "Message not found"}
+
+    prompt = f"""Here is the current draft reply to an eBay buyer:
+
+BUYER'S MESSAGE:
+{msg.body}
+
+CURRENT DRAFT:
+{current_draft}
+
+USER'S INSTRUCTION:
+{instruction}
+
+---
+Rewrite the draft based on the instruction. Output ONLY the updated message body.
+Sign off as "Roki". No subject lines, no "---", no meta-commentary."""
+
+    try:
+        resp = _get_anthropic().messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1000,
+            system=REPLY_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        refined = _clean_draft(resp.content[0].text.strip())
+
+        # 日本語訳
+        refined_ja = ""
+        try:
+            refined_ja = await translate_to_ja(refined)
+        except Exception:
+            pass
+
+        msg.draft_reply = refined
+        db.commit()
+
+        return {
+            "message_id": msg.id,
+            "draft_reply": refined,
+            "draft_reply_ja": refined_ja,
+        }
+    except Exception as e:
+        logger.error(f"ドラフト修正エラー: {e}")
+        return {"error": str(e)}
 
 
 def _parse_date(date_str: str) -> datetime | None:
