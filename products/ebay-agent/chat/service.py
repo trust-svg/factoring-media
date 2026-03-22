@@ -61,17 +61,18 @@ async def sync_messages(db: Session, days: int = 7) -> dict:
             translated = ""
             sentiment_data = {"sentiment": "", "urgency": "", "note": ""}
 
-            if direction == "inbound" and msg.get("sender") != "eBay":
+            if msg.get("sender") != "eBay" and body:
                 try:
                     translated = await translate_to_ja(body)
                 except Exception as e:
                     logger.warning(f"翻訳スキップ: {e}")
 
-                try:
-                    from chat.intelligence import analyze_sentiment
-                    sentiment_data = await analyze_sentiment(body)
-                except Exception as e:
-                    logger.warning(f"センチメント分析スキップ: {e}")
+                if direction == "inbound":
+                    try:
+                        from chat.intelligence import analyze_sentiment
+                        sentiment_data = await analyze_sentiment(body)
+                    except Exception as e:
+                        logger.warning(f"センチメント分析スキップ: {e}")
 
             direction = msg.get("direction", "inbound")
             sender = msg.get("sender", "")

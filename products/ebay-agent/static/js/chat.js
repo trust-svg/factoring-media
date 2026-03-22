@@ -199,10 +199,8 @@ async function openThread(buyer, itemId) {
             loadConversations();
         }
 
-        // Update buyer info panel with score + sales
+        // Update buyer info panel (calls loadBuyerScore, loadBuyerFullHistory etc internally)
         updateBuyerPanel(buyer, itemId);
-        loadBuyerScore(buyer);
-        loadBuyerSales(buyer, itemId);
 
         // Store last inbound message ID for AI draft
         const lastInbound = [...currentThread].reverse().find(m => m.direction === 'inbound');
@@ -258,8 +256,8 @@ function renderThread() {
         }
 
         let translationHtml = '';
-        if (msg.body_translated && dir === 'inbound') {
-            translationHtml = `<div class="msg-translation">🇯🇵 ${escapeHtml(msg.body_translated)}</div>`;
+        if (msg.body_translated && !isSystem) {
+            translationHtml = `<div class="msg-translation">${escapeHtml(msg.body_translated)}</div>`;
         }
 
         let attachmentHtml = '';
