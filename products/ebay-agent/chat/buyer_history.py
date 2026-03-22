@@ -33,19 +33,21 @@ def get_buyer_full_history(db: Session, buyer_username: str) -> dict:
             "message_threads": [{item_id, message_count, last_date}],
         }
     """
-    # item_id経由でSalesRecordを検索（buyer_name=実名、sender=eBay ID）
-    buyer_item_ids = [
-        m.item_id for m in db.query(BuyerMessage.item_id).filter(
-            BuyerMessage.sender == buyer_username,
-            BuyerMessage.item_id != "",
-        ).distinct().all()
-    ]
-    if buyer_item_ids:
-        sales = db.query(SalesRecord).filter(
-            SalesRecord.item_id.in_(buyer_item_ids)
-        ).order_by(SalesRecord.sold_at.desc()).all()
-    else:
-        sales = []
+    # SalesRecordを検索: buyer_name直接 OR item_id経由
+    sales = db.query(SalesRecord).filter(
+        SalesRecord.buyer_name == buyer_username
+    ).order_by(SalesRecord.sold_at.desc()).all()
+    if not sales:
+        buyer_item_ids = [
+            m.item_id for m in db.query(BuyerMessage.item_id).filter(
+                BuyerMessage.sender == buyer_username,
+                BuyerMessage.item_id != "",
+            ).distinct().all()
+        ]
+        if buyer_item_ids:
+            sales = db.query(SalesRecord).filter(
+                SalesRecord.item_id.in_(buyer_item_ids)
+            ).order_by(SalesRecord.sold_at.desc()).all()
 
     # メッセージスレッド
     messages = db.query(BuyerMessage).filter(

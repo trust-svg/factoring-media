@@ -745,9 +745,11 @@ def _get_buyer_status(db: Session, buyer_username: str) -> list:
         ).distinct().all()
     ]
 
-    # item_id経由でSalesRecordを検索
-    orders = []
-    if buyer_item_ids:
+    # SalesRecordを検索: buyer_name直接 OR item_id経由
+    orders = db.query(SalesRecord).filter(
+        SalesRecord.buyer_name == buyer_username
+    ).all()
+    if not orders and buyer_item_ids:
         orders = db.query(SalesRecord).filter(
             SalesRecord.item_id.in_(buyer_item_ids)
         ).all()
