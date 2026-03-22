@@ -478,18 +478,25 @@ async function translateCompose() {
     preview.textContent = getLang() === 'ja' ? '翻訳中...' : 'Translating...';
     preview.classList.add('visible');
 
+    // Detect buyer's language from the latest inbound message
+    const lastInbound = [...currentThread].reverse().find(m => m.direction === 'inbound');
+    const buyerMsg = lastInbound?.body || '';
+
     try {
-        const resp = await fetch('/api/chat/translate', {
+        const resp = await fetch('/api/chat/draft/refine', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({text, direction: 'ja_to_en'}),
+            body: JSON.stringify({
+                message_id: lastMessageId || 0,
+                current_draft: '',
+                instruction: `以下の日本語をバイヤーのメッセージと同じ言語に翻訳してください。バイヤーのメッセージ: "${buyerMsg.substring(0, 200)}"\n\n翻訳対象:\n${text}\n\n署名はRokiで。出力は翻訳結果のみ。`,
+            }),
         });
         const data = await resp.json();
 
-        if (data.translated) {
-            preview.textContent = `EN: ${data.translated}`;
-            // Replace input with English translation
-            input.value = data.translated;
+        if (data.draft_reply) {
+            preview.innerHTML = `<strong style="font-size:11px;color:var(--text-muted);">${getLang() === 'ja' ? '元の日本語' : 'Original'}</strong><div style="margin:4px 0;font-size:12px;color:var(--text-secondary);">${escapeHtml(text)}</div>`;
+            input.value = data.draft_reply;
             document.getElementById('sendBtn').disabled = false;
             autoResize(input);
         }
