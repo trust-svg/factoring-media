@@ -381,8 +381,8 @@ async function generateDraft() {
             document.getElementById('composeInput').value = data.draft_reply;
             document.getElementById('sendBtn').disabled = false;
             autoResize(document.getElementById('composeInput'));
-            // Show draft preview with JA translation + refine UI
-            showDraftPreview(data.draft_reply, data.draft_reply_ja || '');
+            // Show analysis + draft preview with JA translation + refine UI
+            showDraftPreview(data.draft_reply, data.draft_reply_ja || '', data.analysis || '');
         } else if (data.error) {
             alert(`Draft error: ${data.error}`);
         }
@@ -394,20 +394,39 @@ async function generateDraft() {
     }
 }
 
-function showDraftPreview(draftEn, draftJa) {
+function showDraftPreview(draftEn, draftJa, analysis) {
     const preview = document.getElementById('translationPreview');
     if (!preview) return;
     const ja = getLang() === 'ja';
+
+    // 分析テキストをHTMLに変換（## → 太字、- → リスト）
+    let analysisHtml = '';
+    if (analysis) {
+        analysisHtml = escapeHtml(analysis)
+            .replace(/## (.+)/g, '<strong style="display:block;margin-top:8px;color:var(--text-primary);">$1</strong>')
+            .replace(/^- (.+)$/gm, '<div style="padding-left:12px;">- $1</div>')
+            .replace(/\n/g, '<br>');
+    }
+
     preview.innerHTML = `
+        ${analysis ? `
+        <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+            <div style="font-size:12px;line-height:1.6;color:var(--text-secondary);">${analysisHtml}</div>
+        </div>` : ''}
         <div style="margin-bottom:8px;">
-            <strong style="font-size:11px;color:var(--text-muted);">${ja ? '日本語訳' : 'Japanese Translation'}</strong>
-            <div style="margin-top:4px;font-size:12px;line-height:1.5;color:var(--text-primary);white-space:pre-wrap;">${escapeHtml(draftJa || (ja ? '翻訳中...' : 'Translating...'))}</div>
+            <strong style="font-size:11px;color:var(--text-muted);">${ja ? '返信ドラフト（日本語訳）' : 'Draft (Japanese)'}</strong>
+            <div style="margin-top:4px;font-size:12px;line-height:1.6;color:var(--text-primary);white-space:pre-wrap;">${escapeHtml(draftJa || (ja ? '翻訳中...' : 'Translating...'))}</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
-            <input type="text" id="refineInput" placeholder="${ja ? '修正指示（例: もっとカジュアルに）' : 'Refine instruction (e.g. more casual)'}" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:20px;font-size:12px;font-family:inherit;">
+            <input type="text" id="refineInput"
+                   placeholder="${ja ? '修正指示（例: 1350がギリギリのライン、もっとカジュアルに）' : 'Refine (e.g. counter at £1350, more casual)'}"
+                   style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:20px;font-size:12px;font-family:inherit;"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();refineDraft();}">
             <button onclick="refineDraft()" style="padding:6px 14px;background:var(--blue);color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;">${ja ? '修正' : 'Refine'}</button>
         </div>`;
     preview.classList.add('visible');
+    // スクロールして表示
+    preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 async function refineDraft() {
@@ -435,7 +454,9 @@ async function refineDraft() {
         if (data.draft_reply) {
             document.getElementById('composeInput').value = data.draft_reply;
             autoResize(document.getElementById('composeInput'));
-            showDraftPreview(data.draft_reply, data.draft_reply_ja || '');
+            // Keep existing analysis, update draft
+            const existingAnalysis = document.querySelector('#translationPreview strong')?.closest('div')?.querySelector('div[style*="line-height: 1.6"]')?.innerHTML || '';
+            showDraftPreview(data.draft_reply, data.draft_reply_ja || '', '');
             input.value = '';
         } else if (data.error) {
             alert(`Refine error: ${data.error}`);

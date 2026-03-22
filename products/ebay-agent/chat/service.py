@@ -327,6 +327,27 @@ Do NOT include:
 - Any meta-commentary about the draft"""
 
 
+ANALYSIS_SYSTEM_PROMPT = """あなたはeBay輸出ビジネスのアドバイザーです。セラーはRoki（日本から発送）。
+
+バイヤーのメッセージを分析し、以下を日本語で出力してください。
+
+出力形式（この通りに出力、見出しはそのまま使う）:
+
+## バイヤーの意味
+メッセージの内容を簡潔に日本語で説明（2-3行）
+
+## 戦略アドバイス
+- 交渉の場合: 相場感、値引き幅の目安、推奨カウンター価格
+- 質問の場合: 回答のポイント
+- クレーム/返品の場合: 対応方針
+- お礼/ポジティブの場合: リピーター化のチャンス
+
+ルール:
+- 出品価格が提供された場合、それを基準に戦略を立てる
+- 簡潔に（全体で10行以内）
+- マークダウンは ## と - のみ使用"""
+
+
 async def generate_draft(
     db: Session,
     message_id: int,
@@ -349,11 +370,18 @@ async def generate_draft(
             direction = "Buyer" if h.direction == "inbound" else "Seller"
             context += f"{direction}: {h.body[:200]}\n"
 
+    # 出品価格情報を取得
+    price_info = ""
+    if msg.item_id:
+        listing = db.query(Listing).filter(Listing.listing_id == msg.item_id).first()
+        if listing:
+            price_info = f"\nLISTING PRICE: ${listing.price_usd:.2f} USD"
+
     prompt = f"""Reply to this eBay buyer message:
 
 FROM: {msg.sender}
 SUBJECT: {msg.subject}
-ITEM ID: {msg.item_id}
+ITEM ID: {msg.item_id}{price_info}
 
 MESSAGE:
 {msg.body}
@@ -362,18 +390,38 @@ MESSAGE:
 Write a professional English reply."""
 
     try:
+        # 1. 分析（バイヤーの意味 + 戦略アドバイス）
+        analysis = ""
+        try:
+            analysis_prompt = f"""バイヤーメッセージを分析してください。
+
+FROM: {msg.sender}
+ITEM ID: {msg.item_id}{price_info}
+
+MESSAGE:
+{msg.body}
+{context}"""
+
+            analysis_resp = _get_anthropic().messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=500,
+                system=ANALYSIS_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": analysis_prompt}],
+            )
+            analysis = analysis_resp.content[0].text.strip()
+        except Exception as e:
+            logger.warning(f"分析生成エラー: {e}")
+
+        # 2. 返信ドラフト
         resp = _get_anthropic().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
             system=REPLY_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
-        draft = resp.content[0].text.strip()
+        draft = _clean_draft(resp.content[0].text.strip())
 
-        # 不要なヘッダー/フッター除去（念のため）
-        draft = _clean_draft(draft)
-
-        # 日本語訳を生成
+        # 3. 日本語訳
         draft_ja = ""
         try:
             draft_ja = await translate_to_ja(draft)
@@ -388,6 +436,7 @@ Write a professional English reply."""
             "message_id": msg.id,
             "draft_reply": draft,
             "draft_reply_ja": draft_ja,
+            "analysis": analysis,
             "original_body": msg.body,
             "buyer": msg.sender,
         }
