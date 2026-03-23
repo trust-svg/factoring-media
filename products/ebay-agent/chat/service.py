@@ -359,19 +359,25 @@ Relationship:
 
 🟡 PRICE NEGOTIATION:
 gratitude → understanding → price justification (market value, condition) → firm limit → soft close
-- Counter: 10-15% below listing (max)
-- Lowball (30%+ off): explain market value, counter at 85-90%
-- Bundle discounts are powerful closers
+- Counter: 10-15% below listing (max). Present as "the best I can do"
+- Single counter only — avoid back-and-forth haggling
+- Lowball (30%+ off): explain market value, give a larger counter at reasonable level
+- Frame current price as "already competitive" before countering
+- Bundle discounts are powerful closers (combine shipping saves cost)
 - "I would be happy to proceed right away" → urgency nudge
 - "This is just an optional suggestion" → never pushy (critical for EU)
+- If declining: never say "No" — say "difficult to reduce significantly"
 
 🔴 COMPLAINT/TROUBLE:
 apology → empathy → solution (return/refund/partial refund) → sincerity
-- ALWAYS apologize first, never make excuses
+- ALWAYS apologize first, never make excuses or dispute buyer's description
+- Present 2-3 options: full refund with return / partial refund to keep / exchange
 - PayPal refund = NEVER → eBay partial refund only
 - VAT issues: explain eBay's system, provide screenshots
+- For international returns: offer "keep item + partial refund" to avoid shipping cost
 - Always offer cancellation as last resort (builds massive trust)
 - "I sincerely apologize for the inconvenience caused."
+- "As a gesture of goodwill, I would like to offer..."
 
 🔵 TRUST/ANXIETY:
 track record → inspection details → packing quality → ongoing support
@@ -379,13 +385,18 @@ track record → inspection details → packing quality → ongoing support
 - "We inspect every item before shipping"
 - "Packed with protective materials, marked FRAGILE"
 - "I'm always available if you have any questions after purchase"
+- For technical items (audio, DJ gear, cameras): demonstrate product knowledge
 
 🟢 POST-PURCHASE:
 gratitude → reassurance (shipping timeline, tracking) → repeat buyer nudge
 - "Thank you so much for your purchase"
 - Share shipping schedule and tracking when available
 - "I look forward to serving you again in the future"
-- Mention ability to source other items
+- "I can also search for specific items from Japan if you're looking for something particular"
+
+🔵 CANCELLATION:
+- Buyer-requested: "No problem at all, I will process right away"
+- Stock issue: sincere apology → offer alternative → future discount
 
 ═══ CROSS-SELL ═══
 - Mention related products naturally with eBay links
@@ -405,11 +416,23 @@ gratitude → reassurance (shipping timeline, tracking) → repeat buyer nudge
 - Increase repeat buyers
 - Maintain prices without alienating buyers
 
-═══ OUTPUT ═══
-- ONLY the message body (ready to send)
+═══ OUTPUT FORMAT ═══
+Output THREE clearly separated sections:
+
+**REPLY**
+(The complete message in buyer's detected language, ready to send on eBay. No subject lines, no headers.)
+
+**JA**
+(Japanese translation of the reply for seller confirmation)
+
+**STRATEGY**
+(1-2 line strategy note in Japanese: what approach was taken and why)
+
+Rules:
 - Proper line breaks for readability
 - Sign off as "Roki"
-- End positively, always"""
+- End positively, always
+- No markdown formatting, no "---", no "Here is..." meta-commentary"""
 
 
 ANALYSIS_SYSTEM_PROMPT = """あなたはeBay輸出ビジネスのアドバイザーです。セラーはRoki（日本から発送）。
@@ -470,17 +493,29 @@ async def generate_draft(
         if listing:
             price_info = f"\nLISTING PRICE: ${listing.price_usd:.2f} USD"
 
+    # バイヤースコア情報
+    from chat.intelligence import get_buyer_score
+    score = get_buyer_score(db, msg.sender)
+    buyer_info = f"\nBUYER: {msg.sender} | Tier: {score['tier']} | Orders: {score['total_orders']} | Spent: ${score['total_spent_usd']} | Troubles: {score['trouble_count']}"
+
+    # SalesRecord情報
+    sale_info = ""
+    if msg.item_id:
+        sale = db.query(SalesRecord).filter(SalesRecord.item_id == msg.item_id).first()
+        if sale:
+            sale_info = f"\nORDER: {sale.order_id} | Status: {sale.progress} | Tracking: {sale.tracking_number or 'N/A'}"
+
     prompt = f"""Reply to this eBay buyer message:
 
 FROM: {msg.sender}
 SUBJECT: {msg.subject}
-ITEM ID: {msg.item_id}{price_info}
+ITEM ID: {msg.item_id}{price_info}{buyer_info}{sale_info}
 
 MESSAGE:
 {msg.body}
 {context}
 ---
-Write a professional English reply."""
+Detect the buyer's language and reply in THAT language. Follow the output format in your system prompt."""
 
     try:
         # 1. 分析（バイヤーの意味 + 戦略アドバイス）
@@ -489,7 +524,7 @@ Write a professional English reply."""
             analysis_prompt = f"""バイヤーメッセージを分析してください。
 
 FROM: {msg.sender}
-ITEM ID: {msg.item_id}{price_info}
+ITEM ID: {msg.item_id}{price_info}{buyer_info}{sale_info}
 
 MESSAGE:
 {msg.body}
@@ -505,21 +540,24 @@ MESSAGE:
         except Exception as e:
             logger.warning(f"分析生成エラー: {e}")
 
-        # 2. 返信ドラフト
+        # 2. 返信ドラフト（バイヤーの言語で + JA + STRATEGY を一括生成）
         resp = _get_anthropic().messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=1000,
+            max_tokens=2000,
             system=REPLY_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
-        draft = _clean_draft(resp.content[0].text.strip())
+        raw_output = resp.content[0].text.strip()
 
-        # 3. 日本語訳
-        draft_ja = ""
-        try:
-            draft_ja = await translate_to_ja(draft)
-        except Exception:
-            pass
+        # 3セクション分割: REPLY / JA / STRATEGY
+        draft, draft_ja, strategy = _parse_draft_sections(raw_output)
+        draft = _clean_draft(draft)
+
+        # 分析にSTRATEGYを追加
+        if strategy and analysis:
+            analysis = f"{analysis}\n\n## 返信戦略\n{strategy}"
+        elif strategy:
+            analysis = f"## 返信戦略\n{strategy}"
 
         # DBに保存
         msg.draft_reply = draft
@@ -801,6 +839,31 @@ def _get_buyer_status(db: Session, buyer_username: str) -> list:
             statuses.append("message")
 
     return statuses
+
+
+def _parse_draft_sections(raw: str) -> tuple:
+    """AI出力を REPLY / JA / STRATEGY の3セクションに分割する。"""
+    import re
+    reply = ""
+    ja = ""
+    strategy = ""
+
+    # セクションヘッダーで分割
+    sections = re.split(r'\*\*(?:REPLY|JA|STRATEGY)\*\*\s*\n?', raw)
+    if len(sections) >= 4:
+        reply = sections[1].strip()
+        ja = sections[2].strip()
+        strategy = sections[3].strip()
+    elif len(sections) >= 3:
+        reply = sections[1].strip()
+        ja = sections[2].strip()
+    elif len(sections) >= 2:
+        reply = sections[1].strip()
+    else:
+        # フォールバック: セクションヘッダーなし → 全体をreplyとして扱う
+        reply = raw.strip()
+
+    return reply, ja, strategy
 
 
 def _clean_draft(draft: str) -> str:
