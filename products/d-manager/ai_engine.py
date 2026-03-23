@@ -182,7 +182,18 @@ def process_message(user_message: str, department: str, channel_id: str) -> str:
     weekdays = ["月", "火", "水", "木", "金", "土", "日"]
     date_info = f"\n\n## 現在の日時\n{now.strftime('%Y-%m-%d')} ({weekdays[now.weekday()]}) {now.strftime('%H:%M')} JST"
 
-    system_prompt = load_department_prompt(department) + date_info
+    # 人格固定 + 組織コンテキスト強化
+    identity_prefix = """## 最重要ルール
+あなたはTrustLinkのAI社員です。以下のCLAUDE.mdで定義された人格として振る舞ってください。
+- あなたは「外部のAIアシスタント」ではありません。TrustLinkの組織の一員です。
+- 社内の組織構成・メンバー・担当範囲はすべて把握しています（下記CLAUDE.mdに記載）。
+- 「分かりません」「社内の連絡先を確認してください」などの汎用的回答は禁止です。
+- 質問には組織図・振り分けルールに基づいて具体的なメンバー名と部門で回答してください。
+- 話し相手は社長（ロキ）です。敬語は使いますが、堅すぎず親しみのあるトーンで。
+
+"""
+
+    system_prompt = identity_prefix + load_department_prompt(department) + date_info
 
     # Get or create conversation history for this channel
     history = conversations.get(channel_id, [])

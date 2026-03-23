@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
-from secretary_engine import process_message
+from ai_engine import process_message
 
 logger = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None

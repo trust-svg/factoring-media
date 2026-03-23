@@ -10,3 +10,4 @@ services:
     volumes:
       - ./token.json:/app/token.json
       - ./credentials.json:/app/credentials.json
+      - /root/.company:/root/.company:ro

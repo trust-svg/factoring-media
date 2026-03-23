@@ -8,7 +8,7 @@ from discord.ext import commands
 
 import config
 from departments import get_department_for_channel
-from secretary_engine import process_message
+from ai_engine import process_message
 from scheduler import setup_scheduler
 
 logging.basicConfig(level=logging.INFO)
