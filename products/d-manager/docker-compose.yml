@@ -1,0 +1,12 @@
+services:
+  d-manager:
+    build: .
+    container_name: d-manager
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Tokyo
+    volumes:
+      - ./token.json:/app/token.json
+      - ./credentials.json:/app/credentials.json
