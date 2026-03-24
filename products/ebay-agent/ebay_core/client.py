@@ -1164,7 +1164,35 @@ def _html_to_text(html: str) -> str:
     return result.strip()
 
 
-# ── メッセージ送信 (Trading API AddMemberMessageAAQToPartner) ──
+# ── メッセージ送信 (Trading API — 自動判定) ──
+
+def _is_transaction_partner(item_id: str, recipient_id: str) -> bool:
+    """バイヤーがその商品の取引パートナー（購入者）かどうか判定する。
+
+    SalesRecord + Fulfillment APIで確認。購入済み→True、問い合わせのみ→False。
+    """
+    try:
+        from database.models import get_db, SalesRecord
+        db = get_db()
+        # item_id経由でSalesRecordを検索
+        sale = db.query(SalesRecord).filter(
+            SalesRecord.item_id == item_id,
+            SalesRecord.buyer_name == recipient_id,
+        ).first()
+        db.close()
+        if sale:
+            return True
+        # buyer_nameが実名の場合もあるので、item_idだけでも確認
+        db = get_db()
+        sale_by_item = db.query(SalesRecord).filter(
+            SalesRecord.item_id == item_id,
+        ).first()
+        db.close()
+        return sale_by_item is not None
+    except Exception as e:
+        logger.warning(f"取引パートナー判定エラー: {e}")
+        return False
+
 
 def send_buyer_message(
     item_id: str,
@@ -1172,20 +1200,27 @@ def send_buyer_message(
     body: str,
     subject: str = "",
     image_urls: list[str] | None = None,
+    parent_message_id: str = "",
 ) -> dict:
     """Trading API でバイヤーにメッセージを送信する。
+
+    自動判定:
+    - 購入済みバイヤー → AddMemberMessageAAQToPartner
+    - 問い合わせのみ → AddMemberMessageRTQ (Response To Question)
 
     Args:
         item_id: eBay Item ID
         recipient_id: バイヤーのユーザーID
         body: メッセージ本文
         subject: 件名（空の場合はRe:で自動生成）
-        image_urls: EPS画像URLリスト（UploadSiteHostedPictures で取得）
+        image_urls: EPS画像URLリスト
+        parent_message_id: 返信先の元メッセージID（RTQ用）
 
     Returns:
         {"success": bool, "error": str | None}
     """
     token = get_access_token()
+    is_partner = _is_transaction_partner(item_id, recipient_id)
 
     # 画像添付XML生成
     media_xml = ""
@@ -1199,7 +1234,10 @@ def send_buyer_message(
 
     subject_xml = f"<Subject>{_xml_escape(subject)}</Subject>" if subject else ""
 
-    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+    if is_partner:
+        # 購入済みバイヤー → AAQToPartner
+        api_call = "AddMemberMessageAAQToPartner"
+        xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
 <AddMemberMessageAAQToPartnerRequest xmlns="urn:ebay:apis:eBLBaseComponents">
     <RequesterCredentials>
         <eBayAuthToken>{token}</eBayAuthToken>
@@ -1212,13 +1250,49 @@ def send_buyer_message(
         <QuestionType>General</QuestionType>{media_xml}
     </MemberMessage>
 </AddMemberMessageAAQToPartnerRequest>"""
+    else:
+        # 問い合わせのみ → RTQ (Response To Question)
+        api_call = "AddMemberMessageRTQ"
+        # 元メッセージIDを取得（DBから最新のinboundメッセージ）
+        if not parent_message_id:
+            try:
+                from database.models import get_db, BuyerMessage
+                db = get_db()
+                last_msg = db.query(BuyerMessage).filter(
+                    BuyerMessage.sender == recipient_id,
+                    BuyerMessage.item_id == item_id,
+                    BuyerMessage.direction == "inbound",
+                ).order_by(BuyerMessage.received_at.desc()).first()
+                if last_msg and last_msg.ebay_message_id:
+                    parent_message_id = last_msg.ebay_message_id
+                db.close()
+            except Exception as e:
+                logger.warning(f"親メッセージID取得エラー: {e}")
+
+        parent_xml = f"<ParentMessageID>{parent_message_id}</ParentMessageID>" if parent_message_id else ""
+
+        xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<AddMemberMessageRTQRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <ItemID>{item_id}</ItemID>
+    {parent_xml}
+    <MemberMessage>
+        {subject_xml}
+        <Body>{_xml_escape(body)}</Body>
+        <RecipientID>{_xml_escape(recipient_id)}</RecipientID>{media_xml}
+    </MemberMessage>
+</AddMemberMessageRTQRequest>"""
 
     headers = {
         "X-EBAY-API-SITEID": "0",
         "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
-        "X-EBAY-API-CALL-NAME": "AddMemberMessageAAQToPartner",
+        "X-EBAY-API-CALL-NAME": api_call,
         "Content-Type": "text/xml",
     }
+
+    logger.info(f"メッセージ送信: API={api_call}, to={recipient_id}, item={item_id}")
 
     resp = requests.post(
         f"{EBAY_API_BASE}/ws/api.dll",
@@ -1235,13 +1309,24 @@ def send_buyer_message(
     root = ET.fromstring(resp.text)
     ack = root.findtext("e:Ack", "", namespaces=ns_map)
     if ack in ("Success", "Warning"):
-        logger.info(f"メッセージ送信成功: {recipient_id} (item={item_id})")
+        logger.info(f"メッセージ送信成功: {recipient_id} (item={item_id}, api={api_call})")
         return {"success": True}
     else:
         errors = root.findall(".//e:Errors/e:ShortMessage", namespaces=ns_map)
         error_msg = errors[0].text if errors else "Unknown error"
-        logger.error(f"SendMessage error: {error_msg}")
-        return {"success": False, "error": error_msg}
+        long_errors = root.findall(".//e:Errors/e:LongMessage", namespaces=ns_map)
+        long_msg = long_errors[0].text if long_errors else ""
+        logger.error(f"SendMessage error ({api_call}): {error_msg} — {long_msg}")
+
+        # AAQToPartnerで失敗した場合、RTQにフォールバック
+        if api_call == "AddMemberMessageAAQToPartner" and "partner" in (long_msg or error_msg).lower():
+            logger.info("AAQToPartner失敗 → RTQにフォールバック")
+            return send_buyer_message(
+                item_id, recipient_id, body, subject, image_urls,
+                parent_message_id=parent_message_id,
+            )
+
+        return {"success": False, "error": f"{error_msg}: {long_msg}" if long_msg else error_msg}
 
 
 def mark_messages_read(message_ids: list[str], read: bool = True) -> dict:
