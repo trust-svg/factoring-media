@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 
+import httpx
 from anthropic import Anthropic
 
 import config
@@ -12,6 +14,8 @@ import config
 logger = logging.getLogger(__name__)
 
 _client: Anthropic | None = None
+
+EBAY_AGENT_URL = config.EBAY_AGENT_URL
 
 
 def _get_client() -> Anthropic:
@@ -42,6 +46,9 @@ SYSTEM_PROMPT = """\
 2. バイヤーメッセージの完全な日本語訳を出力（要約ではなく全文翻訳）
 3. バイヤーの言語でRokiスタイルの返信ドラフトを作成
 4. ドラフトの完全な日本語訳も出力（要約ではなく全文翻訳）
+
+※ 過去のやり取り履歴が提供される場合は、その流れを踏まえた上で最新メッセージへの返信を作成すること。
+  履歴の内容を繰り返す必要はないが、文脈を理解した上で返信すること。
 
 出力フォーマット:
 📨 翻訳:
@@ -179,6 +186,7 @@ class ReplySession:
     """Tracks one buyer conversation (buyer message + refinement iterations)."""
     messages: list = field(default_factory=list)
     finalized: bool = False
+    history_loaded: bool = False
 
 
 def _is_confirmation(text: str) -> bool:
@@ -187,9 +195,96 @@ def _is_confirmation(text: str) -> bool:
     return normalized in CONFIRMATION_TRIGGERS
 
 
+def _extract_buyer_name(text: str) -> str | None:
+    """Try to extract a buyer name (eBay user ID) from the message text.
+
+    Looks for common patterns:
+    - Explicit signatures like "Thanks, michael_123" or "Regards, BuyerName"
+    - "From: username" style headers
+    - eBay user ID patterns (alphanumeric with underscores/hyphens/dots)
+    """
+    # Pattern: signed off with name at the end
+    # e.g. "Thanks,\nMichael" or "Regards, buyer_name"
+    sign_off = re.search(
+        r"(?:thanks|thank you|regards|cheers|best|sincerely|kind regards)[,\s]*\n?\s*([a-zA-Z][\w.\-]{2,30})\s*$",
+        text, re.IGNORECASE | re.MULTILINE,
+    )
+    if sign_off:
+        return sign_off.group(1).strip()
+
+    # Pattern: "Hi, I'm [name]" or "My name is [name]"
+    intro = re.search(
+        r"(?:I'?m|my name is|this is)\s+([A-Z][\w.\-]{2,30})",
+        text, re.IGNORECASE,
+    )
+    if intro:
+        return intro.group(1).strip()
+
+    return None
+
+
+def _fetch_ebay_history(buyer_name: str) -> str | None:
+    """Fetch conversation history from ebay-agent API."""
+    if not EBAY_AGENT_URL:
+        return None
+
+    try:
+        url = f"{EBAY_AGENT_URL}/api/chat/conversations/{buyer_name}"
+        resp = httpx.get(url, timeout=5.0)
+        if resp.status_code != 200:
+            logger.info(f"No eBay history for {buyer_name}: HTTP {resp.status_code}")
+            return None
+
+        data = resp.json()
+        messages = data.get("messages", [])
+        if not messages:
+            return None
+
+        # Build readable history (most recent 20 messages max)
+        lines = []
+        for msg in messages[-20:]:
+            direction = msg.get("direction", "")
+            sender = msg.get("sender", "")
+            body = msg.get("body", "").strip()
+            date = msg.get("received_at", "")[:10]
+            if not body:
+                continue
+
+            if direction == "inbound":
+                lines.append(f"[{date}] {sender} (バイヤー): {body}")
+            elif direction == "outbound":
+                lines.append(f"[{date}] Roki (セラー): {body}")
+
+        if not lines:
+            return None
+
+        return "\n\n".join(lines)
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch eBay history for {buyer_name}: {e}")
+        return None
+
+
 def process(user_input: str, session: ReplySession) -> tuple[str, ReplySession]:
     """Process user input and return (reply_text, updated_session)."""
-    session.messages.append({"role": "user", "content": user_input})
+
+    # On first message of session, try to fetch eBay conversation history
+    context_prefix = ""
+    if not session.history_loaded and not session.messages:
+        buyer_name = _extract_buyer_name(user_input)
+        if buyer_name:
+            history = _fetch_ebay_history(buyer_name)
+            if history:
+                context_prefix = (
+                    f"【eBayでの過去のやり取り（{buyer_name}）】\n"
+                    f"{history}\n\n"
+                    f"【最新のメッセージ（これに返信してください）】\n"
+                )
+                logger.info(f"Loaded eBay history for buyer: {buyer_name}")
+        session.history_loaded = True
+
+    message_content = f"{context_prefix}{user_input}" if context_prefix else user_input
+    session.messages.append({"role": "user", "content": message_content})
 
     # If confirmation and we have at least one draft already
     is_confirm = _is_confirmation(user_input) and len(session.messages) >= 3
