@@ -188,6 +188,7 @@ class ReplySession:
     finalized: bool = False
     history_loaded: bool = False
     explicit_buyer: str | None = None
+    preloaded_context: str = ""
 
 
 def _is_confirmation(text: str) -> bool:
@@ -335,7 +336,10 @@ def process(user_input: str, session: ReplySession) -> tuple[str, ReplySession]:
 
     # On first message of session, try to fetch eBay conversation history
     context_prefix = ""
-    if not session.history_loaded and not session.messages:
+    if not session.messages and session.preloaded_context:
+        # Use pre-loaded history from /buyer command
+        context_prefix = session.preloaded_context
+    elif not session.history_loaded and not session.messages:
         context_prefix = _try_load_history(user_input, session.explicit_buyer)
         session.history_loaded = True
 

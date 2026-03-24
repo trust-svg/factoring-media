@@ -9,6 +9,11 @@ services:
       - .env
     environment:
       - TZ=Asia/Tokyo
-      - EBAY_AGENT_URL=http://host.docker.internal:8000
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - EBAY_AGENT_URL=http://ebay-agent:8000
+    networks:
+      - default
+      - ebay-agent_default
+
+networks:
+  ebay-agent_default:
+    external: true

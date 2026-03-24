@@ -78,16 +78,22 @@ async def _handle_text_message(update: Update):
         await _send(chat_id, HELP_TEXT)
         return
 
-    # /buyer command: set explicit buyer for history lookup
+    # /buyer command: set explicit buyer and pre-load history
     if user_text.lower().startswith("/buyer"):
         parts = user_text.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
             await _send(chat_id, "使い方: /buyer [eBay ID]\n例: /buyer michael_vintage_123")
             return
         buyer_id = parts[1].strip()
-        session = ReplySession(explicit_buyer=buyer_id)
+        from reply_engine import _try_load_history
+        history_prefix = _try_load_history("", explicit_buyer=buyer_id)
+        session = ReplySession(explicit_buyer=buyer_id, history_loaded=True, preloaded_context=history_prefix)
         sessions[chat_id] = session
-        await _send(chat_id, f"👤 バイヤー設定: {buyer_id}\nメッセージを貼り付けてください。")
+        if history_prefix:
+            await _send(chat_id, f"👤 バイヤー設定: {buyer_id}\n📂 過去のやり取り {history_prefix.count('[20')}"
+                                 f"件取得済み\nメッセージを貼り付けてください。")
+        else:
+            await _send(chat_id, f"👤 バイヤー設定: {buyer_id}\n（過去の履歴なし）\nメッセージを貼り付けてください。")
         return
 
     # Get or create session (auto-reset if finalized)
