@@ -59,7 +59,6 @@ def get_buyer_full_history(db: Session, buyer_username: str) -> dict:
     for s in sales:
         # 追跡番号 + キャリアリンク
         tracking_info = _build_tracking_info(s.tracking_number or "", s.shipping_method or "")
-        logger.info(f"tracking_info for {s.item_id}: method={s.shipping_method} track={s.tracking_number} -> {tracking_info}")
 
         # この注文に関するメッセージ数
         order_messages = [m for m in messages if m.item_id == s.item_id]
