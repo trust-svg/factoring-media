@@ -210,7 +210,7 @@ def _detect_carrier(tracking_number: str, shipping_method: str = "") -> str:
         return "DHL"
     if "fedex" in method:
         return "FedEx"
-    if "speedpak" in method or "speed pak" in method or "orangeconnex" in method:
+    if any(k in method for k in ("speedpak", "speed pak", "orangeconnex", "sppeedpak", "expeditedsppeedpak")):
         return "SpeedPAK"
     if "ups" in method:
         return "UPS"
@@ -218,6 +218,9 @@ def _detect_carrier(tracking_number: str, shipping_method: str = "") -> str:
         return "EMS"
     if "japan post" in method or "jp post" in method:
         return "Japan Post"
+    # eBay固有のshipping method名にSpeedPAKが隠れているケース
+    if "expedited" in method and ("outside" in method or "international" in method):
+        return "SpeedPAK"
 
     # パターンベース判定
     if re.match(r"^\d{10}$", num):
@@ -230,7 +233,9 @@ def _detect_carrier(tracking_number: str, shipping_method: str = "") -> str:
         return "EMS"
     if re.match(r"^\d{13}$", num):
         return "Japan Post"
-    # SpeedPAKは番号パターンが不定のためキャリア名依存
+    # SpeedPAK: EX/EM始まりの長い番号（OrangeConnex形式）
+    if re.match(r"^E[MX]\d{10,}", num):
+        return "SpeedPAK"
 
     return ""
 
