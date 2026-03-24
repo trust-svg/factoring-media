@@ -210,7 +210,7 @@ def _detect_carrier(tracking_number: str, shipping_method: str = "") -> str:
         return "DHL"
     if "fedex" in method:
         return "FedEx"
-    if any(k in method for k in ("speedpak", "speed pak", "orangeconnex", "sppeedpak", "expeditedsppeedpak")):
+    if any(k in method for k in ("speedpak", "speed pak", "orangeconnex", "sppeedpak", "sppedpak")):
         return "SpeedPAK"
     if "ups" in method:
         return "UPS"
