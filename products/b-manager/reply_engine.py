@@ -289,7 +289,7 @@ def _fetch_ebay_history(buyer_id: str) -> tuple[str | None, str]:
         return "\n\n".join(lines), buyer_id
 
     except Exception as e:
-        logger.warning(f"Failed to fetch eBay history for {buyer_id}: {e}")
+        logger.warning(f"Failed to fetch eBay history for {buyer_id}: {e}", exc_info=True)
         return None, buyer_id
 
 

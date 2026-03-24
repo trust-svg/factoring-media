@@ -84,16 +84,30 @@ async def _handle_text_message(update: Update):
         if len(parts) < 2 or not parts[1].strip():
             await _send(chat_id, "使い方: /buyer [eBay ID]\n例: /buyer michael_vintage_123")
             return
-        buyer_id = parts[1].strip()
+        rest = parts[1].strip()
+        # buyer ID is the first line/word only; remaining text is the buyer message
+        lines = rest.split("\n", 1)
+        buyer_id = lines[0].strip().split()[0]
+        buyer_message = lines[1].strip() if len(lines) > 1 else ""
+
         from reply_engine import _try_load_history
         history_prefix = _try_load_history("", explicit_buyer=buyer_id)
         session = ReplySession(explicit_buyer=buyer_id, history_loaded=True, preloaded_context=history_prefix)
         sessions[chat_id] = session
+
         if history_prefix:
-            await _send(chat_id, f"👤 バイヤー設定: {buyer_id}\n📂 過去のやり取り {history_prefix.count('[20')}"
-                                 f"件取得済み\nメッセージを貼り付けてください。")
+            msg_count = history_prefix.count("[20")
+            await _send(chat_id, f"👤 バイヤー: {buyer_id}\n📂 過去のやり取り {msg_count}件取得済み")
         else:
-            await _send(chat_id, f"👤 バイヤー設定: {buyer_id}\n（過去の履歴なし）\nメッセージを貼り付けてください。")
+            await _send(chat_id, f"👤 バイヤー: {buyer_id}\n（過去の履歴なし）")
+
+        # If buyer message was included after the ID, process it immediately
+        if buyer_message:
+            reply, session = process(buyer_message, session)
+            sessions[chat_id] = session
+            await _send(chat_id, reply)
+        else:
+            await _send(chat_id, "メッセージを貼り付けてください。")
         return
 
     # Get or create session (auto-reset if finalized)
