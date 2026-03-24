@@ -27,8 +27,11 @@ HELP_TEXT = """\
 3.「OK」で確定 → コピペ用テキスト出力
 
 コマンド:
+/buyer [eBay ID] — バイヤー指定（過去のやり取りを自動取得）
 /new — 新しいセッション開始
-/help — このヘルプ\
+/help — このヘルプ
+
+💡 バイヤーのeBay IDを指定すると、過去のやり取りを踏まえた返信が作れます。\
 """
 
 
@@ -73,6 +76,18 @@ async def _handle_text_message(update: Update):
 
     if user_text.lower() in ("/help", "/start"):
         await _send(chat_id, HELP_TEXT)
+        return
+
+    # /buyer command: set explicit buyer for history lookup
+    if user_text.lower().startswith("/buyer"):
+        parts = user_text.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            await _send(chat_id, "使い方: /buyer [eBay ID]\n例: /buyer michael_vintage_123")
+            return
+        buyer_id = parts[1].strip()
+        session = ReplySession(explicit_buyer=buyer_id)
+        sessions[chat_id] = session
+        await _send(chat_id, f"👤 バイヤー設定: {buyer_id}\nメッセージを貼り付けてください。")
         return
 
     # Get or create session (auto-reset if finalized)

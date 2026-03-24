@@ -187,6 +187,7 @@ class ReplySession:
     messages: list = field(default_factory=list)
     finalized: bool = False
     history_loaded: bool = False
+    explicit_buyer: str | None = None
 
 
 def _is_confirmation(text: str) -> bool:
@@ -196,15 +197,11 @@ def _is_confirmation(text: str) -> bool:
 
 
 def _extract_buyer_name(text: str) -> str | None:
-    """Try to extract a buyer name (eBay user ID) from the message text.
+    """Try to extract a buyer/sender name from the message text.
 
-    Looks for common patterns:
-    - Explicit signatures like "Thanks, michael_123" or "Regards, BuyerName"
-    - "From: username" style headers
-    - eBay user ID patterns (alphanumeric with underscores/hyphens/dots)
+    Returns a name or partial name that can be used to search ebay-agent.
     """
     # Pattern: signed off with name at the end
-    # e.g. "Thanks,\nMichael" or "Regards, buyer_name"
     sign_off = re.search(
         r"(?:thanks|thank you|regards|cheers|best|sincerely|kind regards)[,\s]*\n?\s*([a-zA-Z][\w.\-]{2,30})\s*$",
         text, re.IGNORECASE | re.MULTILINE,
@@ -223,22 +220,52 @@ def _extract_buyer_name(text: str) -> str | None:
     return None
 
 
-def _fetch_ebay_history(buyer_name: str) -> str | None:
-    """Fetch conversation history from ebay-agent API."""
+def _search_buyer(search_term: str) -> str | None:
+    """Search for a buyer in ebay-agent by partial name match.
+
+    Returns the eBay account name if found, None otherwise.
+    """
     if not EBAY_AGENT_URL:
         return None
 
     try:
-        url = f"{EBAY_AGENT_URL}/api/chat/conversations/{buyer_name}"
+        url = f"{EBAY_AGENT_URL}/api/chat/conversations"
+        resp = httpx.get(url, params={"search": search_term, "limit": 5}, timeout=5.0)
+        if resp.status_code != 200:
+            return None
+
+        data = resp.json()
+        conversations = data.get("conversations", [])
+        if not conversations:
+            return None
+
+        # Return the most recent matching buyer
+        return conversations[0].get("buyer")
+
+    except Exception as e:
+        logger.warning(f"Buyer search failed for '{search_term}': {e}")
+        return None
+
+
+def _fetch_ebay_history(buyer_id: str) -> tuple[str | None, str]:
+    """Fetch conversation history from ebay-agent API.
+
+    Returns (history_text, buyer_id) — buyer_id is the eBay account name.
+    """
+    if not EBAY_AGENT_URL:
+        return None, buyer_id
+
+    try:
+        url = f"{EBAY_AGENT_URL}/api/chat/conversations/{buyer_id}"
         resp = httpx.get(url, timeout=5.0)
         if resp.status_code != 200:
-            logger.info(f"No eBay history for {buyer_name}: HTTP {resp.status_code}")
-            return None
+            logger.info(f"No eBay history for {buyer_id}: HTTP {resp.status_code}")
+            return None, buyer_id
 
         data = resp.json()
         messages = data.get("messages", [])
         if not messages:
-            return None
+            return None, buyer_id
 
         # Build readable history (most recent 20 messages max)
         lines = []
@@ -256,13 +283,51 @@ def _fetch_ebay_history(buyer_name: str) -> str | None:
                 lines.append(f"[{date}] Roki (セラー): {body}")
 
         if not lines:
-            return None
+            return None, buyer_id
 
-        return "\n\n".join(lines)
+        return "\n\n".join(lines), buyer_id
 
     except Exception as e:
-        logger.warning(f"Failed to fetch eBay history for {buyer_name}: {e}")
-        return None
+        logger.warning(f"Failed to fetch eBay history for {buyer_id}: {e}")
+        return None, buyer_id
+
+
+def _try_load_history(text: str, explicit_buyer: str | None = None) -> str:
+    """Try to load eBay conversation history. Returns context prefix string."""
+    buyer_id = explicit_buyer
+
+    if not buyer_id:
+        # Step 1: Extract name from message
+        name = _extract_buyer_name(text)
+        if not name:
+            return ""
+
+        # Step 2: Try direct match first (name might be eBay ID)
+        history, buyer_id = _fetch_ebay_history(name)
+        if history:
+            logger.info(f"Loaded eBay history for buyer: {buyer_id} (direct match)")
+            return (
+                f"【eBayでの過去のやり取り（{buyer_id}）】\n"
+                f"{history}\n\n"
+                f"【最新のメッセージ（これに返信してください）】\n"
+            )
+
+        # Step 3: Search by partial name
+        buyer_id = _search_buyer(name)
+        if not buyer_id:
+            return ""
+
+    # Fetch history with resolved buyer ID
+    history, buyer_id = _fetch_ebay_history(buyer_id)
+    if history:
+        logger.info(f"Loaded eBay history for buyer: {buyer_id}")
+        return (
+            f"【eBayでの過去のやり取り（{buyer_id}）】\n"
+            f"{history}\n\n"
+            f"【最新のメッセージ（これに返信してください）】\n"
+        )
+
+    return ""
 
 
 def process(user_input: str, session: ReplySession) -> tuple[str, ReplySession]:
@@ -271,16 +336,7 @@ def process(user_input: str, session: ReplySession) -> tuple[str, ReplySession]:
     # On first message of session, try to fetch eBay conversation history
     context_prefix = ""
     if not session.history_loaded and not session.messages:
-        buyer_name = _extract_buyer_name(user_input)
-        if buyer_name:
-            history = _fetch_ebay_history(buyer_name)
-            if history:
-                context_prefix = (
-                    f"【eBayでの過去のやり取り（{buyer_name}）】\n"
-                    f"{history}\n\n"
-                    f"【最新のメッセージ（これに返信してください）】\n"
-                )
-                logger.info(f"Loaded eBay history for buyer: {buyer_name}")
+        context_prefix = _try_load_history(user_input, session.explicit_buyer)
         session.history_loaded = True
 
     message_content = f"{context_prefix}{user_input}" if context_prefix else user_input
