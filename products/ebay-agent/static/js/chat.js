@@ -217,20 +217,28 @@ async function openThread(buyer, itemId) {
     try {
         const threadKey = `${buyer}|${itemId}`;
         const cached = cacheGet(_cache.threads, threadKey);
+        const hadCache = !!cached;
         if (cached) {
             currentThread = cached;
             renderThread();
             showCompose();
         }
 
-        // Always fetch fresh (but show cached first for speed)
+        // Fetch fresh data
         const params = new URLSearchParams({ item_id: itemId });
         const resp = await fetch(`/api/chat/conversations/${encodeURIComponent(buyer)}?${params}`);
         const data = await resp.json();
-        currentThread = data.messages || [];
-        cacheSet(_cache.threads, threadKey, currentThread);
-        renderThread();
-        showCompose();
+        const freshThread = data.messages || [];
+        cacheSet(_cache.threads, threadKey, freshThread);
+
+        // Only re-render if data changed or no cache was shown
+        if (!hadCache || freshThread.length !== currentThread.length) {
+            currentThread = freshThread;
+            renderThread();
+            showCompose();
+        } else {
+            currentThread = freshThread;
+        }
 
         // Mark inbound messages as read
         const unreadIds = currentThread

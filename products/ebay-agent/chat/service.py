@@ -182,18 +182,8 @@ def get_conversations(
                     elif subj:
                         item_title = subj[:60]
 
-                # 画像がない場合、eBay Browse APIで取得を試みる
-                if not thumbnail and iid:
-                    try:
-                        from ebay_core.client import get_item_details
-                        details = get_item_details(iid)
-                        if details and not details.get("error"):
-                            img = details.get("image", {})
-                            thumbnail = img.get("imageUrl", "")
-                            if not item_title:
-                                item_title = details.get("title", "")
-                    except Exception:
-                        pass
+                # 画像がない場合 → 商品詳細APIで個別取得（/api/chat/item/{id}経由）
+                # ここではBrowse APIを呼ばない（高速化のため）
 
             item_map[iid] = {
                 "item_id": iid if iid != "_no_item" else "",
@@ -772,7 +762,11 @@ def get_unread_count(db: Session) -> int:
     ).scalar() or 0
 
 
+_buyer_status_cache = {}  # session-level cache
+
 def _get_buyer_status(db: Session, buyer_username: str) -> list:
+    if buyer_username in _buyer_status_cache:
+        return _buyer_status_cache[buyer_username]
     """バイヤーのステータスアイコン用リストを返す。
 
     注意: SalesRecordのbuyer_nameは実名、BuyerMessageのsenderはeBay ID。
@@ -842,6 +836,7 @@ def _get_buyer_status(db: Session, buyer_username: str) -> list:
         if has_thread:
             statuses.append("message")
 
+    _buyer_status_cache[buyer_username] = statuses
     return statuses
 
 

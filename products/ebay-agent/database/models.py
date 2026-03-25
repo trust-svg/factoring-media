@@ -376,7 +376,9 @@ class AutoMessageRule(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     event_type: Mapped[str] = mapped_column(String(32), index=True)
-    # event_type: feedback_received / fixed_price_transaction / item_shipped / best_offer_declined
+    # event_type: feedback_received / fixed_price_transaction / item_shipped /
+    #   item_delivered / best_offer_declined / best_offer_received /
+    #   after_delivery_n_days / outside_business_hours
     name: Mapped[str] = mapped_column(String(256), default="")
     template_id: Mapped[int] = mapped_column(Integer, default=0)  # FK to message_templates
     repeat_buyer_template_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

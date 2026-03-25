@@ -254,10 +254,14 @@
 {% block scripts %}
 <script>
 const EVENT_TYPES = {
-    feedback_received: { label: 'Feedback Received', labelJa: 'フィードバック受領', css: 'feedback' },
+    best_offer_received: { label: 'Offer Received', labelJa: 'オファー受信', css: 'offer' },
+    best_offer_declined: { label: 'Offer Declined', labelJa: 'オファー拒否', css: 'offer' },
     fixed_price_transaction: { label: 'Item Purchased', labelJa: '商品購入', css: 'transaction' },
     item_shipped: { label: 'Item Shipped', labelJa: '商品発送', css: 'shipped' },
-    best_offer_declined: { label: 'Offer Declined', labelJa: 'オファー拒否', css: 'offer' },
+    item_delivered: { label: 'Item Delivered', labelJa: '配達完了', css: 'shipped' },
+    after_delivery_n_days: { label: 'N Days After Delivery', labelJa: '配達後N日', css: 'shipped' },
+    feedback_received: { label: 'Feedback Received', labelJa: 'フィードバック受領', css: 'feedback' },
+    outside_business_hours: { label: 'Outside Business Hours', labelJa: '営業時間外', css: 'transaction' },
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -319,18 +323,63 @@ async function deleteRule(id) {
 }
 
 function showAddRule() {
-    const name = prompt('Rule name:');
-    if (!name) return;
-    const eventType = prompt('Event type (feedback_received / fixed_price_transaction / item_shipped / best_offer_declined):');
-    if (!eventType) return;
-    const templateId = prompt('Template ID:');
-    if (!templateId) return;
+    const ja = document.documentElement.lang === 'ja';
+    const eventOptions = Object.entries(EVENT_TYPES).map(([k, v]) =>
+        `<option value="${k}">${ja ? v.labelJa : v.label}</option>`
+    ).join('');
 
-    fetch('/api/chat/auto-rules', {
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-secondary);border-radius:12px;padding:24px;width:420px;max-width:90vw;">
+            <h3 style="margin:0 0 16px;">${ja ? '自動メッセージルール追加' : 'Add Auto-Message Rule'}</h3>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <label style="font-size:13px;font-weight:600;">${ja ? 'ルール名' : 'Rule Name'}
+                    <input type="text" id="addRuleName" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;" placeholder="${ja ? '例: 購入感謝メッセージ' : 'e.g. Purchase thank you'}">
+                </label>
+                <label style="font-size:13px;font-weight:600;">${ja ? 'トリガー' : 'Trigger Event'}
+                    <select id="addRuleEvent" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;">${eventOptions}</select>
+                </label>
+                <label style="font-size:13px;font-weight:600;">${ja ? '遅延（分）' : 'Delay (minutes)'}
+                    <input type="number" id="addRuleDelay" value="0" min="0" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;" placeholder="0">
+                    <span style="font-size:11px;color:var(--text-muted);">${ja ? '0=即時送信。配達後N日の場合は1440(=1日)の倍数で入力' : '0=immediate. For N days after delivery, use multiples of 1440'}</span>
+                </label>
+                <label style="font-size:13px;font-weight:600;">${ja ? 'テンプレートID（新規バイヤー用）' : 'Template ID (New Buyer)'}
+                    <input type="number" id="addRuleTemplate" value="0" min="0" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;">
+                </label>
+                <label style="font-size:13px;font-weight:600;">${ja ? 'テンプレートID（リピーター用・空欄可）' : 'Template ID (Repeat Buyer, optional)'}
+                    <input type="number" id="addRuleRepeatTemplate" value="" min="0" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;" placeholder="${ja ? '未設定=新規と同じ' : 'Empty=same as new'}">
+                </label>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+                <button onclick="this.closest('div[style]').remove()" style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);font-size:13px;">${ja ? 'キャンセル' : 'Cancel'}</button>
+                <button onclick="submitAddRule(this)" style="padding:8px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-size:13px;font-weight:600;">${ja ? '追加' : 'Add'}</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+async function submitAddRule(btn) {
+    const name = document.getElementById('addRuleName')?.value?.trim();
+    const eventType = document.getElementById('addRuleEvent')?.value;
+    const delay = parseInt(document.getElementById('addRuleDelay')?.value || '0');
+    const templateId = parseInt(document.getElementById('addRuleTemplate')?.value || '0');
+    const repeatTemplateId = document.getElementById('addRuleRepeatTemplate')?.value?.trim();
+    if (!name || !eventType) return;
+
+    await fetch('/api/chat/auto-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, event_type: eventType, template_id: parseInt(templateId) }),
-    }).then(() => loadRules());
+        body: JSON.stringify({
+            name,
+            event_type: eventType,
+            template_id: templateId,
+            repeat_buyer_template_id: repeatTemplateId ? parseInt(repeatTemplateId) : null,
+            delay_minutes: delay,
+        }),
+    });
+    btn.closest('div[style*="position:fixed"]').remove();
+    loadRules();
 }
 
 function editRule(id) { showAddRule(); }
