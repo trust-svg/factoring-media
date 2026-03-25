@@ -238,7 +238,12 @@ class CacheStaticMiddleware:
 app.add_middleware(CacheStaticMiddleware)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.auto_reload = True
-templates.env.cache = {}  # Avoid LRUCache unhashable dict error with new Jinja2
+
+
+def render(request: Request, template: str, context: dict = None):
+    """Starlette 1.0互換テンプレートレンダー"""
+    ctx = context or {}
+    return templates.TemplateResponse(request=request, name=template, context=ctx)
 
 # Chat API Router
 from chat.router import router as chat_router
@@ -252,9 +257,7 @@ async def overview_page(request: Request):
     db = get_db()
     try:
         stats = crud.get_dashboard_stats(db)
-        return templates.TemplateResponse("pages/overview.html", {
-            "request": request, "stats": stats,
-        })
+        return render(request, "pages/overview.html", {"stats": stats})
     finally:
         db.close()
 
@@ -267,9 +270,7 @@ async def listings_page(request: Request):
     db = get_db()
     try:
         listings = crud.get_all_listings(db)
-        return templates.TemplateResponse("pages/listings.html", {
-            "request": request, "listings": listings,
-        })
+        return render(request, "pages/listings.html", {"listings": listings})
     finally:
         db.close()
 
@@ -277,7 +278,7 @@ async def listings_page(request: Request):
 @app.get("/procurement", response_class=HTMLResponse)
 async def procurement_page(request: Request):
     """仕入れ管理（Ledger + Sales Management 統合）"""
-    return templates.TemplateResponse("pages/procurement.html", {"request": request})
+    return render(request, "pages/procurement.html")
 
 
 @app.get("/research", response_class=HTMLResponse)
@@ -292,16 +293,13 @@ async def research_page(request: Request):
             scan_status = resp.json()
     except Exception:
         pass
-    return templates.TemplateResponse("pages/research.html", {
-        "request": request, **data,
-        "scan_status": scan_status, "interval": 3,
-    })
+    return render(request, "pages/research.html", {**data, "scan_status": scan_status, "interval": 3})
 
 
 @app.get("/sales", response_class=HTMLResponse)
 async def sales_page(request: Request):
     """売上・利益（Profit + Analytics 統合）"""
-    return templates.TemplateResponse("pages/sales.html", {"request": request})
+    return render(request, "pages/sales.html")
 
 
 # ── 旧URL → 新URLリダイレクト ──────────────────────────
@@ -336,13 +334,13 @@ async def messages_redirect():
 @app.get("/chat", response_class=HTMLResponse)
 async def chat_page(request: Request):
     """バイヤーメッセージ（チャットUI）"""
-    return templates.TemplateResponse("pages/chat.html", {"request": request})
+    return render(request, "pages/chat.html")
 
 
 @app.get("/chat/settings", response_class=HTMLResponse)
 async def chat_settings_page(request: Request):
     """自動メッセージ設定"""
-    return templates.TemplateResponse("pages/chat_settings.html", {"request": request})
+    return render(request, "pages/chat_settings.html")
 
 
 # ── eBay Platform Notifications Webhook ──────────────────
@@ -373,13 +371,13 @@ async def ebay_webhook_receive(request: Request):
 
 @app.get("/agent", response_class=HTMLResponse)
 async def agent_page(request: Request):
-    return templates.TemplateResponse("pages/agent.html", {"request": request})
+    return render(request, "pages/agent.html")
 
 
 @app.get("/reports", response_class=HTMLResponse)
 async def reports_page(request: Request):
     """分析レポート"""
-    return templates.TemplateResponse("pages/reports.html", {"request": request})
+    return render(request, "pages/reports.html")
 
 
 @app.get("/api/reports")
@@ -414,7 +412,7 @@ async def api_generate_report(request: Request):
 
 @app.get("/instagram", response_class=HTMLResponse)
 async def instagram_page(request: Request):
-    return templates.TemplateResponse("pages/instagram.html", {"request": request})
+    return render(request, "pages/instagram.html")
 
 
 # ── Deal Watcher ──────────────────────────────────────────
