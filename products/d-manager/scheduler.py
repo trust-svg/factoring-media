@@ -12,7 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
 from ai_engine import process_message
-from tools.dream import get_dream_briefing
+from tools.dream import get_dream_briefing, get_pyramid_summary, list_dreams
 
 logger = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None
@@ -314,6 +314,39 @@ async def evening_review():
     logger.info("Evening review sent")
 
 
+async def dream_checkin():
+    """Weekly dream check-in — ask about dreams, review pyramid balance."""
+    logger.info("Running dream check-in...")
+
+    # Get current dream state for context
+    pyramid = get_pyramid_summary()
+    dream_list = list_dreams()
+
+    prompt = (
+        "週に1回の「夢チェックイン」の時間です。以下のルールで社長に話しかけてください。\n\n"
+        "## ルール\n"
+        "- 親しみのあるトーンで、夢について対話を促す\n"
+        "- 現在の夢リストとピラミッドの状態を踏まえて話す\n"
+        "- 以下のうち状況に合うものを1〜2個だけ聞く（全部聞かない）:\n"
+        "  1. 最近新しくやりたいと思ったことはあるか？\n"
+        "  2. 登録済みの夢で進捗があったものはあるか？\n"
+        "  3. ピラミッドで空の分野があれば、その分野で興味あることを軽く聞く\n"
+        "  4. 優先度Aの夢について、今週何か動けたか聞く\n"
+        "- 短く（5行以内）、プレッシャーにならない聞き方で\n"
+        "- 「夢を追加して」「進捗更新して」と返せば対応できることを自然に伝える\n\n"
+        f"## 現在の夢リスト\n{dream_list}\n\n"
+        f"## ピラミッド\n{pyramid}"
+    )
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        None, process_message, prompt, "secretary", "scheduler-dream-checkin"
+    )
+    if _send_fn:
+        await _send_fn("秘書-アイ-general", result)
+    logger.info("Dream check-in sent")
+
+
 async def weekly_review():
     """Generate and send weekly review."""
     logger.info("Running weekly review...")
@@ -350,6 +383,14 @@ def setup_scheduler(send_fn):
         hour=config.EVENING_REVIEW_HOUR,
         minute=config.EVENING_REVIEW_MINUTE,
         name="夕方の振り返り",
+    )
+    _scheduler.add_job(
+        dream_checkin,
+        "cron",
+        day_of_week="wed",
+        hour=21,
+        minute=0,
+        name="夢チェックイン",
     )
     _scheduler.add_job(
         weekly_review,
