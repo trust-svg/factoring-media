@@ -30,10 +30,11 @@ TODOS_DIR = SECRETARY_DIR / "todos"
 INBOX_DIR = SECRETARY_DIR / "inbox"
 NOTES_DIR = SECRETARY_DIR / "notes"
 DECISIONS_DIR = SECRETARY_DIR / "decisions"
+DREAMS_DIR = SECRETARY_DIR / "dreams"
 RULES_FILE = SECRETARY_DIR / "rules.md"
 
 # Auto-create directories
-for _d in [TODOS_DIR, INBOX_DIR, NOTES_DIR, DECISIONS_DIR]:
+for _d in [TODOS_DIR, INBOX_DIR, NOTES_DIR, DECISIONS_DIR, DREAMS_DIR]:
     _d.mkdir(parents=True, exist_ok=True)
 
 # Scheduler

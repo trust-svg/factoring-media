@@ -12,6 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
 from ai_engine import process_message
+from tools.dream import get_dream_briefing
 
 logger = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None
@@ -238,7 +239,13 @@ async def morning_briefing():
             if _send_fn:
                 await _send_fn(channel, "\n".join(lines))
 
-    # 3. AI briefing (アイ)
+    # 3. Dream briefing to 秘書チャンネル
+    dream_summary = get_dream_briefing()
+    if dream_summary and _send_fn:
+        await _send_fn("秘書-アイ-general", dream_summary)
+    logger.info("Dream briefing sent")
+
+    # 4. AI briefing (アイ)
     teaching = _pick_daily_teaching()
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
@@ -255,7 +262,7 @@ async def morning_briefing():
         await _send_fn("秘書-アイ-general", result)
     logger.info("Morning briefing sent")
 
-    # 4. Department KPI reports (部門別朝レポート)
+    # 5. Department KPI reports (部門別朝レポート)
     kpi = _collect_kpi()
     for dept, kpi_data in kpi.items():
         prompt_info = DEPT_REPORT_PROMPTS.get(dept)
