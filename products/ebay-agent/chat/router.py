@@ -454,8 +454,17 @@ async def list_auto_logs(limit: int = 50):
 # ── 商品詳細 (item_id で検索) ────────────────────────────
 
 @router.get("/item/{item_id}")
+_item_cache: dict = {}  # item_id → {data, ts}
+_ITEM_CACHE_TTL = 1800  # 30分
+
 async def get_item_info(item_id: str):
-    """item_idで商品情報を取得（Listing DB + Browse API fallback）"""
+    """item_idで商品情報を取得（Listing DB + Browse API fallback + キャッシュ）"""
+    import time
+    # キャッシュチェック
+    cached = _item_cache.get(item_id)
+    if cached and (time.time() - cached["ts"]) < _ITEM_CACHE_TTL:
+        return cached["data"]
+
     from database.models import Listing
     import json as _json
     db = get_db()
@@ -467,7 +476,7 @@ async def get_item_info(item_id: str):
                 imgs = _json.loads(listing.image_urls_json) if listing.image_urls_json else []
             except Exception:
                 pass
-            return {
+            result = {
                 "sku": listing.sku,
                 "title": listing.title,
                 "price_usd": listing.price_usd,
@@ -478,11 +487,13 @@ async def get_item_info(item_id: str):
                 "thumbnail": imgs[0] if imgs else "",
                 "seo_score": listing.seo_score,
             }
+            _item_cache[item_id] = {"data": result, "ts": time.time()}
+            return result
         # Browse API fallback
         from ebay_core.client import get_item_details
         details = get_item_details(item_id)
         if details:
-            return {
+            result = {
                 "sku": "",
                 "title": details.get("title", ""),
                 "price_usd": float(details.get("price", {}).get("value", 0)),
@@ -492,6 +503,8 @@ async def get_item_info(item_id: str):
                 "listing_id": item_id,
                 "thumbnail": details.get("image", {}).get("imageUrl", ""),
             }
+            _item_cache[item_id] = {"data": result, "ts": time.time()}
+            return result
         return {"error": "Not found"}
     finally:
         db.close()

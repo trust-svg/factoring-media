@@ -12,6 +12,35 @@ let currentThread = [];
 let uploadedImageUrls = [];
 let lastMessageId = null;
 
+// ── Cache ───────────────────────────────────────────
+const _cache = {
+    threads: {},        // key: "buyer|item_id" → {data, ts}
+    scores: {},         // key: buyer → {data, ts}
+    histories: {},      // key: buyer → {data, ts}
+    items: {},          // key: item_id → {data, ts}
+    TTL: 5 * 60 * 1000, // 5分
+    TTL_ITEM: 30 * 60 * 1000, // 商品情報は30分
+};
+
+function cacheGet(store, key, ttl) {
+    const entry = store[key];
+    if (!entry) return null;
+    if (Date.now() - entry.ts > (ttl || _cache.TTL)) {
+        delete store[key];
+        return null;
+    }
+    return entry.data;
+}
+
+function cacheSet(store, key, data) {
+    store[key] = { data, ts: Date.now() };
+}
+
+function cacheInvalidate(store, key) {
+    if (key) delete store[key];
+    else Object.keys(store).forEach(k => delete store[k]);
+}
+
 // ── Init ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     loadConversations();
@@ -179,10 +208,20 @@ async function openThread(buyer, itemId) {
     if (item) renderBuyerList(item.buyers || []);
 
     try {
+        const threadKey = `${buyer}|${itemId}`;
+        const cached = cacheGet(_cache.threads, threadKey);
+        if (cached) {
+            currentThread = cached;
+            renderThread();
+            showCompose();
+        }
+
+        // Always fetch fresh (but show cached first for speed)
         const params = new URLSearchParams({ item_id: itemId });
         const resp = await fetch(`/api/chat/conversations/${encodeURIComponent(buyer)}?${params}`);
         const data = await resp.json();
         currentThread = data.messages || [];
+        cacheSet(_cache.threads, threadKey, currentThread);
         renderThread();
         showCompose();
 
@@ -331,6 +370,10 @@ async function sendMessage() {
             input.value = '';
             uploadedImageUrls = [];
             hideTranslationPreview();
+            // Invalidate caches after sending
+            cacheInvalidate(_cache.threads, `${currentBuyer}|${currentItemId}`);
+            cacheInvalidate(_cache.scores, currentBuyer);
+            cacheInvalidate(_cache.histories, currentBuyer);
             await openThread(currentBuyer, currentItemId);
         } else {
             alert(`Send failed: ${result.error || 'Unknown error'}`);
@@ -559,6 +602,10 @@ async function syncMessages(silent = false) {
             ? `同期完了: 新規${data.new || 0}件`
             : `Synced: ${data.new || 0} new`;
         status.textContent = msg;
+        // Clear all caches on sync
+        cacheInvalidate(_cache.threads);
+        cacheInvalidate(_cache.scores);
+        cacheInvalidate(_cache.histories);
         await loadConversations();
 
         // Refresh current thread if open
@@ -743,10 +790,14 @@ async function loadItemDetails(itemId) {
     if (!grid || !itemId) return;
 
     try {
-        const resp = await fetch(`/api/chat/item/${itemId}`);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (!data || data.error) return;
+        let data = cacheGet(_cache.items, itemId, _cache.TTL_ITEM);
+        if (!data) {
+            const resp = await fetch(`/api/chat/item/${itemId}`);
+            if (!resp.ok) return;
+            data = await resp.json();
+            if (!data || data.error) return;
+            cacheSet(_cache.items, itemId, data);
+        }
 
         const ja = getLang() === 'ja';
         grid.innerHTML = `
@@ -795,8 +846,12 @@ async function loadBuyerScore(buyer) {
     if (!section) return;
 
     try {
-        const resp = await fetch(`/api/chat/buyer/${encodeURIComponent(buyer)}/score`);
-        const data = await resp.json();
+        let data = cacheGet(_cache.scores, buyer);
+        if (!data) {
+            const resp = await fetch(`/api/chat/buyer/${encodeURIComponent(buyer)}/score`);
+            data = await resp.json();
+            cacheSet(_cache.scores, buyer, data);
+        }
 
         const tierConfig = {
             vip:     { label: 'VIP',    color: '#7C3AED', bg: '#7C3AED15', icon: '⭐' },
@@ -832,8 +887,12 @@ async function loadBuyerFullHistory(buyer) {
     if (!section) return;
 
     try {
-        const resp = await fetch(`/api/chat/buyer/${encodeURIComponent(buyer)}/history`);
-        const data = await resp.json();
+        let data = cacheGet(_cache.histories, buyer);
+        if (!data) {
+            const resp = await fetch(`/api/chat/buyer/${encodeURIComponent(buyer)}/history`);
+            data = await resp.json();
+            cacheSet(_cache.histories, buyer, data);
+        }
 
         if (!data.orders?.length) {
             section.innerHTML = '';

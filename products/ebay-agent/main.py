@@ -206,23 +206,36 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # 静的ファイルのキャッシュ無効化（開発用） — raw ASGI middleware（BaseHTTPMiddleware不使用）
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-class NoCacheStaticMiddleware:
+class CacheStaticMiddleware:
+    """静的ファイルにブラウザキャッシュヘッダーを設定する。
+
+    JS/CSS: 1時間キャッシュ（開発中は短め、本番では延長可）
+    画像: 7日間キャッシュ（ebayimg.comはプロキシしないので対象外）
+    """
     def __init__(self, app: ASGIApp):
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] == "http" and scope["path"].startswith("/static/"):
-            async def send_with_no_cache(message):
+            path = scope["path"].lower()
+            if any(path.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".gif")):
+                max_age = 604800  # 7日
+            elif any(path.endswith(ext) for ext in (".js", ".css")):
+                max_age = 3600  # 1時間
+            else:
+                max_age = 3600
+
+            async def send_with_cache(message):
                 if message["type"] == "http.response.start":
                     headers = list(message.get("headers", []))
-                    headers.append((b"cache-control", b"no-cache, no-store, must-revalidate"))
+                    headers.append((b"cache-control", f"public, max-age={max_age}".encode()))
                     message["headers"] = headers
                 await send(message)
-            await self.app(scope, receive, send_with_no_cache)
+            await self.app(scope, receive, send_with_cache)
         else:
             await self.app(scope, receive, send)
 
-app.add_middleware(NoCacheStaticMiddleware)
+app.add_middleware(CacheStaticMiddleware)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.auto_reload = True
 
