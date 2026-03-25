@@ -510,6 +510,68 @@ async def get_item_info(item_id: str):
         db.close()
 
 
+@router.get("/buyer/{buyer}/details")
+async def buyer_details(buyer: str, item_id: str = ""):
+    """バイヤーの詳細情報（名前・住所・電話番号）をFulfillment APIから取得"""
+    db = get_db()
+    try:
+        # item_id経由でSalesRecordのorder_idを取得
+        from database.models import SalesRecord, BuyerMessage
+        order_id = None
+
+        # 直接マッチ
+        sale = db.query(SalesRecord).filter(SalesRecord.buyer_name == buyer).order_by(SalesRecord.sold_at.desc()).first()
+        if not sale and item_id:
+            sale = db.query(SalesRecord).filter(SalesRecord.item_id == item_id).first()
+        if not sale:
+            buyer_items = [m.item_id for m in db.query(BuyerMessage.item_id).filter(
+                BuyerMessage.sender == buyer, BuyerMessage.item_id != ""
+            ).distinct().all()]
+            if buyer_items:
+                sale = db.query(SalesRecord).filter(SalesRecord.item_id.in_(buyer_items)).first()
+
+        if not sale:
+            return {"buyer_id": buyer, "full_name": "", "country": "", "address": "", "phone": "", "email": ""}
+
+        # Fulfillment APIから注文詳細を取得
+        from ebay_core.client import get_access_token
+        import requests as req
+        token = get_access_token()
+        api_order_id = sale.order_id.replace("-", "-")  # eBay format
+        resp = req.get(
+            f"https://api.ebay.com/sell/fulfillment/v1/order/{api_order_id}",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return {"buyer_id": buyer, "full_name": sale.buyer_name or "", "country": sale.buyer_country or "", "address": "", "phone": "", "email": ""}
+
+        order_data = resp.json()
+        buyer_data = order_data.get("buyer", {})
+        reg_addr = buyer_data.get("buyerRegistrationAddress", {})
+        ship_instr = order_data.get("fulfillmentStartInstructions", [{}])
+        ship_to = ship_instr[0].get("shippingStep", {}).get("shipTo", {}) if ship_instr else {}
+
+        contact = ship_to.get("contactAddress", {})
+        address_parts = [contact.get("addressLine1", ""), contact.get("addressLine2", "")]
+        city = contact.get("city", "")
+        state = contact.get("stateOrProvince", "")
+        postal = contact.get("postalCode", "")
+        country = contact.get("countryCode", "")
+        full_address = ", ".join(p for p in [*address_parts, city, state, postal, country] if p)
+
+        return {
+            "buyer_id": buyer,
+            "full_name": ship_to.get("fullName", reg_addr.get("fullName", sale.buyer_name or "")),
+            "country": country or sale.buyer_country or "",
+            "address": full_address,
+            "phone": ship_to.get("primaryPhone", {}).get("phoneNumber", ""),
+            "email": ship_to.get("email", ""),
+        }
+    finally:
+        db.close()
+
+
 # ── バイヤー履歴・トラブル・商品編集 (Phase 3) ──────────
 
 @router.get("/buyer/{buyer}/history")

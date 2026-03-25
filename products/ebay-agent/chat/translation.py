@@ -24,20 +24,20 @@ For eBay-specific terms (tracking number, refund, return, etc.), use standard tr
 
 
 async def translate_to_ja(text: str) -> str:
-    """英語→日本語翻訳"""
+    """任意の言語→日本語翻訳（Haiku高速モデル）"""
     if not text.strip():
         return ""
     try:
         resp = _get_client().messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=2000,
             system=TRANSLATE_SYSTEM,
-            messages=[{"role": "user", "content": f"Translate this English eBay message to Japanese:\n\n{text}"}],
+            messages=[{"role": "user", "content": f"Translate this eBay message to Japanese:\n\n{text}"}],
         )
         return resp.content[0].text.strip()
     except Exception as e:
-        logger.error(f"翻訳エラー (EN→JA): {e}")
-        return f"[翻訳エラー] {text}"
+        logger.error(f"翻訳エラー (→JA): {e}")
+        return ""
 
 
 async def translate_to_en(text: str) -> str:

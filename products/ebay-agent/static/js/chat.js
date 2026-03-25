@@ -127,25 +127,25 @@ function renderBuyerList(buyers) {
         const dateStr = b.last_date ? formatRelativeDate(b.last_date) : '';
 
         // Status icons (all SVG, 18x18 for visibility)
-        // Color-coded pill badges instead of SVG icons
-        const statusBadges = {
-            message: { label: 'MSG', bg: '#E8EAF6', color: '#3949AB' },
-            purchased: { label: 'PAID', bg: '#E8F5E9', color: '#2E7D32' },
-            repeat: { label: 'RPT', bg: '#E3F2FD', color: '#1565C0' },
-            shipped: { label: 'SHIP', bg: '#FFF3E0', color: '#E65100' },
-            delivered: { label: 'DLVD', bg: '#E8F5E9', color: '#1B5E20' },
-            offer: { label: 'OFFR', bg: '#FCE4EC', color: '#C62828' },
-            feedback: { label: 'FB', bg: '#FFFDE7', color: '#F57F17' },
-            'return': { label: 'RTN', bg: '#FFF3E0', color: '#E65100' },
-            cancel: { label: 'CNCL', bg: '#FFEBEE', color: '#C62828' },
-            refund: { label: 'RFND', bg: '#FFF3E0', color: '#BF360C' },
-            dispute: { label: 'DISP', bg: '#FFEBEE', color: '#B71C1C' },
+        // Color-coded circle icon badges
+        const statusIcons = {
+            message: { icon: '💬', title: 'Message' },
+            purchased: { icon: '✅', title: 'Purchased' },
+            repeat: { icon: '🔄', title: 'Repeat buyer' },
+            shipped: { icon: '📦', title: 'Shipped' },
+            delivered: { icon: '🏠', title: 'Delivered' },
+            offer: { icon: '💰', title: 'Offer' },
+            feedback: { icon: '⭐', title: 'Feedback' },
+            'return': { icon: '↩️', title: 'Return' },
+            cancel: { icon: '❌', title: 'Cancelled' },
+            refund: { icon: '💸', title: 'Refunded' },
+            dispute: { icon: '⚠️', title: 'Dispute' },
         };
         const icons = (b.status || []).map(s => {
-            const badge = statusBadges[s];
+            const badge = statusIcons[s];
             if (!badge) return '';
-            return `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:${badge.bg};color:${badge.color};line-height:1.3;letter-spacing:0.3px;">${badge.label}</span>`;
-        }).join('');
+            return `<span title="${badge.title}" style="font-size:14px;cursor:default;">${badge.icon}</span>`;
+        }).join(' ');
 
         return `<div class="buyer-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" onclick="openThread('${escapeHtml(b.buyer)}', '${escapeHtml(b.item_id || currentItemId)}')" style="animation-delay:${i*30}ms">
             <div class="buyer-top-row">
@@ -303,7 +303,7 @@ function renderThread() {
 
         let translationHtml = '';
         if (msg.body_translated && !isSystem) {
-            translationHtml = `<div class="msg-translation">${escapeHtml(msg.body_translated)}</div>`;
+            translationHtml = `<div class="msg-translation">${escapeHtml(msg.body_translated).replace(/\n/g, '<br>')}</div>`;
         }
 
         let attachmentHtml = '';
@@ -766,13 +766,14 @@ function updateBuyerPanel(buyer, itemId) {
         <h4>${ja ? 'バイヤー情報' : 'Buyer Info'}</h4>
         <div class="buyer-info-card">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div class="info-value">${escapeHtml(buyer)}</div>
-                <a href="${ebayBuyerUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;padding:4px 8px;background:var(--bg-primary);color:var(--text-secondary);border-radius:6px;font-size:10px;font-weight:500;text-decoration:none;">
+                <div class="info-value" style="font-size:14px;font-weight:700;">${escapeHtml(buyer)}</div>
+                <a href="${ebayBuyerUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;padding:4px 8px;background:var(--brand-25);color:var(--blue);border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
                     eBay
                 </a>
             </div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${ja ? 'スレッド' : 'Thread'}: ${currentThread.length} ${ja ? '件' : 'messages'}</div>
+            <div id="buyerDetailsSection" style="margin-top:8px;font-size:12px;color:var(--text-secondary);"></div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">${ja ? 'スレッド' : 'Thread'}: ${currentThread.length} ${ja ? '件' : 'messages'}</div>
         </div>
 
         <div id="buyerScoreSection"></div>
@@ -781,6 +782,7 @@ function updateBuyerPanel(buyer, itemId) {
         <div id="productEditSection"></div>
         <div id="responseStatsSection"></div>`;
 
+    loadBuyerDetails(buyer, itemId);
     loadBuyerScore(buyer);
     loadBuyerFullHistory(buyer);
     loadBuyerTroubles(buyer);
@@ -845,6 +847,34 @@ function useSmartReply(btn) {
     document.getElementById('composeInput').value = text;
     document.getElementById('sendBtn').disabled = false;
     autoResize(document.getElementById('composeInput'));
+}
+
+// ── Buyer Details (name, address, phone) ────────────
+async function loadBuyerDetails(buyer, itemId) {
+    const section = document.getElementById('buyerDetailsSection');
+    if (!section) return;
+
+    try {
+        const params = new URLSearchParams({ item_id: itemId || '' });
+        const resp = await fetch(`/api/chat/buyer/${encodeURIComponent(buyer)}/details?${params}`);
+        const data = await resp.json();
+
+        if (!data.full_name && !data.address) {
+            section.innerHTML = '';
+            return;
+        }
+
+        const ja = getLang() === 'ja';
+        const rows = [];
+        if (data.full_name) rows.push(`<div><span style="color:var(--text-muted);">${ja ? '氏名' : 'Name'}:</span> <strong>${escapeHtml(data.full_name)}</strong></div>`);
+        if (data.country) rows.push(`<div><span style="color:var(--text-muted);">${ja ? '国' : 'Country'}:</span> ${escapeHtml(data.country)}</div>`);
+        if (data.address) rows.push(`<div style="margin-top:2px;"><span style="color:var(--text-muted);">${ja ? '住所' : 'Address'}:</span> <span style="font-size:11px;">${escapeHtml(data.address)}</span></div>`);
+        if (data.phone) rows.push(`<div><span style="color:var(--text-muted);">${ja ? '電話' : 'Phone'}:</span> ${escapeHtml(data.phone)}</div>`);
+
+        section.innerHTML = rows.join('');
+    } catch (e) {
+        console.error('Failed to load buyer details:', e);
+    }
 }
 
 // ── Buyer Score ─────────────────────────────────────
