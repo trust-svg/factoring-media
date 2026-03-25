@@ -809,11 +809,11 @@ def get_all_orders(from_date: str = "", to_date: str = "") -> list[dict]:
 
 # ── バイヤーメッセージ (Trading API GetMyMessages) ────────
 
-def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
-    """Trading API (GetMyMessages) でバイヤーメッセージを取得する。
+def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
+    """Trading API (GetMyMessages) でバイヤーメッセージを全件取得する。
 
-    2段階API呼び出し:
-    1. ReturnHeaders でメッセージID一覧を取得
+    2段階API呼び出し（ページネーション対応）:
+    1. ReturnHeaders でメッセージID一覧を取得（全ページ）
     2. ReturnMessages + MessageIDs でメッセージ本文を取得
     """
     token = get_access_token()
@@ -827,64 +827,98 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
     }
     ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
 
-    # Step 1: ヘッダー取得（メッセージID + メタデータ）
-    xml_headers = f"""<?xml version="1.0" encoding="utf-8"?>
+    def _fetch_headers(folder_id: int, is_sent: bool = False) -> dict:
+        """指定フォルダからメッセージヘッダーを全ページ取得する。"""
+        all_headers = {}
+        page = 1
+        per_page = min(limit, 200)  # eBay APIの最大は200件/ページ
+
+        while True:
+            xml_req = f"""<?xml version="1.0" encoding="utf-8"?>
 <GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
     <RequesterCredentials>
         <eBayAuthToken>{token}</eBayAuthToken>
     </RequesterCredentials>
-    <FolderID>0</FolderID>
+    <FolderID>{folder_id}</FolderID>
     <StartTime>{from_date}</StartTime>
     <Pagination>
-        <EntriesPerPage>{limit}</EntriesPerPage>
-        <PageNumber>1</PageNumber>
+        <EntriesPerPage>{per_page}</EntriesPerPage>
+        <PageNumber>{page}</PageNumber>
     </Pagination>
     <DetailLevel>ReturnHeaders</DetailLevel>
 </GetMyMessagesRequest>"""
 
-    resp = requests.post(
-        f"{EBAY_API_BASE}/ws/api.dll",
-        headers=headers,
-        data=xml_headers.encode("utf-8"),
-        timeout=60,
-    )
+            resp = requests.post(
+                f"{EBAY_API_BASE}/ws/api.dll",
+                headers=headers,
+                data=xml_req.encode("utf-8"),
+                timeout=60,
+            )
 
-    if resp.status_code != 200:
-        logger.error(f"GetMyMessages (headers) failed: {resp.status_code}")
-        return []
+            if resp.status_code != 200:
+                logger.error(f"GetMyMessages folder={folder_id} page={page} failed: {resp.status_code}")
+                break
 
-    root = ET.fromstring(resp.text)
-    ack = root.findtext("e:Ack", "", namespaces=ns_map)
-    if ack not in ("Success", "Warning"):
-        logger.warning(f"GetMyMessages (headers) Ack={ack}")
-        return []
+            root = ET.fromstring(resp.text)
+            ack = root.findtext("e:Ack", "", namespaces=ns_map)
+            if ack not in ("Success", "Warning"):
+                break
 
-    # ヘッダーからメッセージ情報を抽出
-    msg_headers = {}
-    for msg_el in root.findall(".//e:Messages/e:Message", namespaces=ns_map):
-        msg_id = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
-        if not msg_id:
-            continue
-        subject_raw = msg_el.findtext("e:Subject", "", namespaces=ns_map)
-        # UTF-8 mojibake修正
-        try:
-            subject_raw = subject_raw.encode("latin-1").decode("utf-8")
-        except (UnicodeDecodeError, UnicodeEncodeError):
-            pass
-        msg_headers[msg_id] = {
-            "message_id": msg_id,
-            "sender": msg_el.findtext("e:Sender", "", namespaces=ns_map),
-            "subject": subject_raw,
-            "body": "",
-            "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
-            "is_read": msg_el.findtext("e:Read", "false", namespaces=ns_map) == "true",
-            "item_id": msg_el.findtext("e:ItemID", "", namespaces=ns_map),
-            "responded": msg_el.findtext("e:Replied", "false", namespaces=ns_map) == "true",
-        }
+            page_msgs = root.findall(".//e:Messages/e:Message", namespaces=ns_map)
+            if not page_msgs:
+                break
+
+            for msg_el in page_msgs:
+                msg_id = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
+                if not msg_id or msg_id in all_headers:
+                    continue
+                subject_raw = msg_el.findtext("e:Subject", "", namespaces=ns_map)
+                try:
+                    subject_raw = subject_raw.encode("latin-1").decode("utf-8")
+                except (UnicodeDecodeError, UnicodeEncodeError):
+                    pass
+
+                if is_sent:
+                    recipient = msg_el.findtext("e:SendToName", "", namespaces=ns_map) or msg_el.findtext("e:RecipientUserID", "", namespaces=ns_map) or ""
+                    all_headers[msg_id] = {
+                        "message_id": msg_id,
+                        "sender": "me",
+                        "recipient": recipient,
+                        "subject": subject_raw,
+                        "body": "",
+                        "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
+                        "is_read": True,
+                        "item_id": msg_el.findtext("e:ItemID", "", namespaces=ns_map),
+                        "responded": True,
+                        "direction": "outbound",
+                    }
+                else:
+                    all_headers[msg_id] = {
+                        "message_id": msg_id,
+                        "sender": msg_el.findtext("e:Sender", "", namespaces=ns_map),
+                        "subject": subject_raw,
+                        "body": "",
+                        "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
+                        "is_read": msg_el.findtext("e:Read", "false", namespaces=ns_map) == "true",
+                        "item_id": msg_el.findtext("e:ItemID", "", namespaces=ns_map),
+                        "responded": msg_el.findtext("e:Replied", "false", namespaces=ns_map) == "true",
+                    }
+
+            # 次ページがあるか確認
+            total_pages = int(root.findtext(".//e:PaginationResult/e:TotalNumberOfPages", "1", namespaces=ns_map))
+            logger.info(f"GetMyMessages folder={folder_id} page={page}/{total_pages}: {len(page_msgs)} msgs")
+            if page >= total_pages:
+                break
+            page += 1
+
+        return all_headers
+
+    # Step 1: 受信メッセージヘッダー（全ページ）
+    msg_headers = _fetch_headers(0, is_sent=False)
+    logger.info(f"GetMyMessages 受信: {len(msg_headers)} 件")
 
     if not msg_headers:
-        logger.info("GetMyMessages: 0件")
-        return []
+        logger.info("GetMyMessages: 受信0件")
 
     # Step 2: メッセージ本文を取得（10件ずつバッチ）
     all_ids = list(msg_headers.keys())
@@ -929,55 +963,11 @@ def get_buyer_messages(days: int = 7, limit: int = 20) -> list[dict]:
                         if media_urls:
                             msg_headers[mid]["attachment_urls"] = media_urls
 
-    # Step 3: 送信済みフォルダ(FolderID=1)からも取得
-    xml_sent = f"""<?xml version="1.0" encoding="utf-8"?>
-<GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-    <RequesterCredentials>
-        <eBayAuthToken>{token}</eBayAuthToken>
-    </RequesterCredentials>
-    <FolderID>1</FolderID>
-    <StartTime>{from_date}</StartTime>
-    <Pagination>
-        <EntriesPerPage>{limit}</EntriesPerPage>
-        <PageNumber>1</PageNumber>
-    </Pagination>
-    <DetailLevel>ReturnHeaders</DetailLevel>
-</GetMyMessagesRequest>"""
-
-    resp_sent = requests.post(
-        f"{EBAY_API_BASE}/ws/api.dll",
-        headers=headers,
-        data=xml_sent.encode("utf-8"),
-        timeout=60,
-    )
-
-    sent_headers = {}
-    if resp_sent.status_code == 200:
-        root_sent = ET.fromstring(resp_sent.text)
-        ack_sent = root_sent.findtext("e:Ack", "", namespaces=ns_map)
-        if ack_sent in ("Success", "Warning"):
-            for msg_el in root_sent.findall(".//e:Messages/e:Message", namespaces=ns_map):
-                msg_id = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
-                if not msg_id or msg_id in msg_headers:
-                    continue
-                subject_raw = msg_el.findtext("e:Subject", "", namespaces=ns_map)
-                try:
-                    subject_raw = subject_raw.encode("latin-1").decode("utf-8")
-                except (UnicodeDecodeError, UnicodeEncodeError):
-                    pass
-                recipient = msg_el.findtext("e:SendToName", "", namespaces=ns_map) or msg_el.findtext("e:RecipientUserID", "", namespaces=ns_map) or ""
-                sent_headers[msg_id] = {
-                    "message_id": msg_id,
-                    "sender": "me",
-                    "recipient": recipient,
-                    "subject": subject_raw,
-                    "body": "",
-                    "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
-                    "is_read": True,
-                    "item_id": msg_el.findtext("e:ItemID", "", namespaces=ns_map),
-                    "responded": True,
-                    "direction": "outbound",
-                }
+    # Step 3: 送信済みフォルダ(FolderID=1)からも全ページ取得
+    sent_headers = _fetch_headers(1, is_sent=True)
+    # 受信と重複するIDを除外
+    sent_headers = {k: v for k, v in sent_headers.items() if k not in msg_headers}
+    logger.info(f"GetMyMessages 送信: {len(sent_headers)} 件")
 
     # 送信メッセージの本文取得
     if sent_headers:

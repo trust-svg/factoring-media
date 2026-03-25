@@ -27,8 +27,9 @@ def _get_anthropic() -> anthropic.Anthropic:
 
 # ── メッセージ同期 ───────────────────────────────────────
 
-async def sync_messages(db: Session, days: int = 30) -> dict:
-    """eBay APIからメッセージを取得してDBに同期する。"""
+async def sync_messages(db: Session, days: int = 90) -> dict:
+    """eBay APIからメッセージを取得してDBに同期する。全期間のメッセージを取得。"""
+    # 初回は90日分。既にDBにデータがあれば差分のみ取得される（ebay_message_id重複チェック）
     raw_messages = get_buyer_messages(days=days, limit=200)
     new_count = 0
     updated_count = 0
