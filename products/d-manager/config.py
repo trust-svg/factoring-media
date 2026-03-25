@@ -42,16 +42,20 @@ MORNING_BRIEFING_MINUTE = int(os.getenv("MORNING_BRIEFING_MINUTE", "30"))
 EVENING_REVIEW_HOUR = int(os.getenv("EVENING_REVIEW_HOUR", "21"))
 EVENING_REVIEW_MINUTE = int(os.getenv("EVENING_REVIEW_MINUTE", "0"))
 
+# External service URLs (for KPI collection)
+EBAY_AGENT_URL = os.getenv("EBAY_AGENT_URL", "")  # https://ebay.trustlink-tk.com
+THREADS_AUTO_URL = os.getenv("THREADS_AUTO_URL", "")  # https://threads-sho.trustlink-tk.com
+
 # Channel-to-department mapping (set after bot connects)
 CHANNEL_MAP = {
-    "general": "secretary",
-    "operations": "operations",
-    "product": "product",
-    "marketing": "marketing",
-    "finance": "finance",
-    "research": "research",
-    "strategy": "strategy",
-    "decisions": "secretary",
-    "alerts": "secretary",
-    "daily-digest": "research",
+    "秘書-アイ-general": "secretary",
+    "運営-リク-operations": "operations",
+    "開発-レン-product": "product",
+    "マーケティング-ユウ-marketing": "marketing",
+    "経理-ケイ-finance": "finance",
+    "調査-アキラ-research": "research",
+    "戦略-ナオ-strategy": "strategy",
+    "決裁-decisions": "secretary",
+    "アラート-alerts": "secretary",
+    "日報-daily-digest": "research",
 }

@@ -1,8 +1,12 @@
-"""Scheduled tasks — morning briefing, evening review, etc."""
+"""Scheduled tasks — morning briefing, evening review, task board, KPI reports."""
 
 import logging
 import asyncio
-from datetime import datetime, timezone, timedelta
+import json
+import re
+import urllib.request
+from datetime import datetime, timezone, timedelta, date
+from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -14,12 +18,23 @@ _scheduler: AsyncIOScheduler | None = None
 _send_fn = None
 
 JST = timezone(timedelta(hours=9))
+ACTIVE_TASKS_PATH = config.COMPANY_DIR / "secretary" / "todos" / "active.md"
+
+# Department -> channel mapping for task routing
+DEPT_CHANNELS = {
+    "アイ": "秘書-アイ-general",
+    "リク": "運営-リク-operations",
+    "レン": "開発-レン-product",
+    "ユウ": "マーケティング-ユウ-marketing",
+    "ケイ": "経理-ケイ-finance",
+    "アキラ": "調査-アキラ-research",
+    "ナオ": "戦略-ナオ-strategy",
+}
 
 
 def _pick_daily_teaching() -> str:
     """Pick a daily teaching based on the date."""
     import random
-    from datetime import date
     teachings = [
         "【7つの習慣】主体的であれ — 今日の出来事に対する反応は自分で選べる。",
         "【7つの習慣】目的を持って始める — 今日をどんな自分で終えたいか。",
@@ -33,9 +48,197 @@ def _pick_daily_teaching() -> str:
     return rng.choice(teachings)
 
 
+def _parse_active_tasks() -> list[dict]:
+    """Parse active.md and return list of task dicts."""
+    if not ACTIVE_TASKS_PATH.exists():
+        return []
+
+    content = ACTIVE_TASKS_PATH.read_text(encoding="utf-8")
+    tasks = []
+    # Match: - [ ] Task name | 担当: X | 期限: Y | 追加: Z | スキップ: N
+    pattern = re.compile(
+        r"^- \[ \] (.+?) \| 担当: (\S+) \| 期限: (\S+) \| 追加: (\S+) \| スキップ: (\d+)",
+        re.MULTILINE,
+    )
+    for m in pattern.finditer(content):
+        added = m.group(4)
+        days = (date.today() - date.fromisoformat(added)).days
+        tasks.append({
+            "name": m.group(1),
+            "owner": m.group(2),
+            "deadline": m.group(3),
+            "added": added,
+            "skip_count": int(m.group(5)),
+            "age_days": days,
+        })
+    return tasks
+
+
+def _build_task_board() -> str:
+    """Build a formatted task board message for Discord."""
+    tasks = _parse_active_tasks()
+    today = date.today().isoformat()
+
+    if not tasks:
+        return f"📋 **タスクボード — {today}**\n\nタスクなし！素晴らしい！🎉"
+
+    lines = [f"📋 **タスクボード — {today}**\n"]
+
+    # Categorize
+    urgent = [t for t in tasks if t["deadline"] != "なし" and t["deadline"] <= today]
+    overdue = [t for t in tasks if t["age_days"] >= 7 and t not in urgent]
+    warning = [t for t in tasks if 3 <= t["age_days"] < 7 and t not in urgent]
+    normal = [t for t in tasks if t["age_days"] < 3 and t not in urgent]
+    stale = [t for t in tasks if t["skip_count"] >= 3]
+
+    if urgent:
+        lines.append("🚨 **期限切れ・緊急**")
+        for t in urgent:
+            lines.append(f"  ⚡ **{t['name']}** → {t['owner']}（期限: {t['deadline']}）")
+        lines.append("")
+
+    if stale:
+        lines.append("⚠️ **3回スキップ — やる？捨てる？**")
+        for t in stale:
+            lines.append(f"  🗑️ **{t['name']}** → {t['owner']}（{t['age_days']}日経過）")
+        lines.append("")
+
+    if overdue:
+        lines.append("🟠 **7日以上放置**")
+        for t in overdue:
+            lines.append(f"  📌 {t['name']} → {t['owner']}（{t['age_days']}日）")
+        lines.append("")
+
+    if warning:
+        lines.append("🟡 **3日以上**")
+        for t in warning:
+            lines.append(f"  📌 {t['name']} → {t['owner']}（{t['age_days']}日）")
+        lines.append("")
+
+    if normal:
+        lines.append("🟢 **新規・通常**")
+        for t in normal:
+            lines.append(f"  ✏️ {t['name']} → {t['owner']}")
+        lines.append("")
+
+    lines.append(f"合計: **{len(tasks)}件** | 放置警告: {len(overdue)}件 | 要判断: {len(stale)}件")
+    return "\n".join(lines)
+
+
+def _increment_skip_counts():
+    """Increment skip count for all incomplete tasks (called at evening review)."""
+    if not ACTIVE_TASKS_PATH.exists():
+        return
+
+    content = ACTIVE_TASKS_PATH.read_text(encoding="utf-8")
+    pattern = re.compile(r"(- \[ \] .+?\| スキップ: )(\d+)")
+
+    def increment(m):
+        return f"{m.group(1)}{int(m.group(2)) + 1}"
+
+    updated = pattern.sub(increment, content)
+
+    # Update the 'updated' date in frontmatter
+    updated = re.sub(
+        r'updated: "\d{4}-\d{2}-\d{2}"',
+        f'updated: "{date.today().isoformat()}"',
+        updated,
+    )
+    ACTIVE_TASKS_PATH.write_text(updated, encoding="utf-8")
+    logger.info("Skip counts incremented for all active tasks")
+
+
+def _api_get(url: str, timeout: int = 10) -> dict | list | None:
+    """Simple HTTP GET → JSON. Returns None on failure."""
+    headers = {"User-Agent": "D-Manager/1.0"}
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except Exception as e:
+        logger.warning(f"API fetch failed ({url}): {e}")
+        return None
+
+
+def _collect_kpi() -> dict[str, str]:
+    """Collect KPI data from external services for department reports."""
+    kpi = {}
+
+    # eBay KPI → リク（運営）
+    if config.EBAY_AGENT_URL:
+        base = config.EBAY_AGENT_URL.rstrip("/")
+        sales = _api_get(f"{base}/api/sales/summary?days=7")
+        listings = _api_get(f"{base}/api/listings")
+        parts = []
+        if sales:
+            parts.append(f"売上データ(7日): {json.dumps(sales, ensure_ascii=False)}")
+        if listings and isinstance(listings, list):
+            active = len(listings)
+            oos = sum(1 for l in listings if l.get("quantity", 0) == 0)
+            parts.append(f"出品数: {active}件, 在庫切れ: {oos}件")
+        if parts:
+            kpi["operations"] = "\n".join(parts)
+
+    # Threads KPI → ユウ（マーケティング）
+    if config.THREADS_AUTO_URL:
+        base = config.THREADS_AUTO_URL.rstrip("/")
+        status = _api_get(f"{base}/api/status")
+        if status:
+            kpi["marketing"] = f"Threads状況: {json.dumps(status, ensure_ascii=False)}"
+
+    return kpi
+
+
+# --- Department morning reports ---
+
+DEPT_REPORT_PROMPTS = {
+    "operations": (
+        "リク",
+        "運営-リク-operations",
+        "おはようございます。eBay運営の朝レポートをお願いします。"
+        "以下のKPIデータを元に、売上状況・在庫アラート・今日の優先アクションを報告してください。"
+        "短く要点のみ（5行以内）で。\n\n{kpi_data}",
+    ),
+    "marketing": (
+        "ユウ",
+        "マーケティング-ユウ-marketing",
+        "おはようございます。マーケティングの朝レポートをお願いします。"
+        "以下のデータを元に、Threads運用状況・エンゲージメント・今日のアクションを報告してください。"
+        "短く要点のみ（5行以内）で。\n\n{kpi_data}",
+    ),
+}
+
+
 async def morning_briefing():
-    """Generate and send morning briefing."""
+    """Generate and send morning briefing + task board."""
     logger.info("Running morning briefing...")
+
+    # 1. Task board to 秘書チャンネル
+    task_board = _build_task_board()
+    if _send_fn:
+        await _send_fn("秘書-アイ-general", task_board)
+    logger.info("Task board sent")
+
+    # 2. Send tasks to each department channel
+    tasks = _parse_active_tasks()
+    dept_tasks: dict[str, list] = {}
+    for t in tasks:
+        owner = t["owner"]
+        dept_tasks.setdefault(owner, []).append(t)
+
+    for owner, task_list in dept_tasks.items():
+        channel = DEPT_CHANNELS.get(owner)
+        if channel and channel != "秘書-アイ-general":
+            lines = [f"📋 **{owner}の今日のタスク**\n"]
+            for t in task_list:
+                age = f"（{t['age_days']}日経過）" if t['age_days'] >= 3 else ""
+                deadline = f" 🔥期限: {t['deadline']}" if t['deadline'] != "なし" else ""
+                lines.append(f"- [ ] {t['name']}{deadline}{age}")
+            lines.append("\n今日やる？延期？捨てる？")
+            if _send_fn:
+                await _send_fn(channel, "\n".join(lines))
+
+    # 3. AI briefing (アイ)
     teaching = _pick_daily_teaching()
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
@@ -49,13 +252,48 @@ async def morning_briefing():
         "scheduler-briefing",
     )
     if _send_fn:
-        await _send_fn("general", result)
+        await _send_fn("秘書-アイ-general", result)
     logger.info("Morning briefing sent")
+
+    # 4. Department KPI reports (部門別朝レポート)
+    kpi = _collect_kpi()
+    for dept, kpi_data in kpi.items():
+        prompt_info = DEPT_REPORT_PROMPTS.get(dept)
+        if not prompt_info:
+            continue
+        char_name, channel, prompt_template = prompt_info
+        prompt = prompt_template.format(kpi_data=kpi_data)
+        try:
+            dept_result = await loop.run_in_executor(
+                None, process_message, prompt, dept, f"scheduler-kpi-{dept}"
+            )
+            if _send_fn:
+                await _send_fn(channel, dept_result)
+            logger.info(f"KPI report sent: {dept} → {channel}")
+        except Exception as e:
+            logger.error(f"KPI report failed for {dept}: {e}")
 
 
 async def evening_review():
-    """Generate and send evening review."""
+    """Generate and send evening review + increment skip counts."""
     logger.info("Running evening review...")
+
+    # Increment skip counts for tasks not completed today
+    _increment_skip_counts()
+
+    # Build evening summary
+    tasks = _parse_active_tasks()
+    stale = [t for t in tasks if t["skip_count"] >= 3]
+
+    if stale:
+        lines = ["⚠️ **3回以上スキップされたタスク — 判断してください**\n"]
+        for t in stale:
+            lines.append(f"🗑️ **{t['name']}** → {t['owner']}（{t['age_days']}日経過、{t['skip_count']}回スキップ）")
+            lines.append(f"  → 「やる」「捨てる」「来週に延期」のどれかを返信してください\n")
+        if _send_fn:
+            await _send_fn("秘書-アイ-general", "\n".join(lines))
+
+    # AI review
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
         None,
@@ -65,7 +303,7 @@ async def evening_review():
         "scheduler-review",
     )
     if _send_fn:
-        await _send_fn("general", result)
+        await _send_fn("秘書-アイ-general", result)
     logger.info("Evening review sent")
 
 
@@ -81,7 +319,7 @@ async def weekly_review():
         "scheduler-weekly",
     )
     if _send_fn:
-        await _send_fn("strategy", result)
+        await _send_fn("戦略-ナオ-strategy", result)
     logger.info("Weekly review sent")
 
 
