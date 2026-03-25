@@ -90,7 +90,7 @@ function renderProductList() {
             <div class="product-thumb-wrap">${thumbHtml}${unreadHtml}</div>
             <div class="product-info">
                 <div class="product-title">${escapeHtml((item.title || '#' + item.item_id).substring(0, 40))}</div>
-                <div class="product-buyers-count">${item.buyers?.length || 0} ${getLang() === 'ja' ? '件' : 'msg'}</div>
+                <div class="product-buyers-count"><span style="display:inline-block;padding:1px 8px;border-radius:10px;background:#E8EAF6;color:#3949AB;font-weight:700;font-size:11px;">${item.buyers?.length || 0}</span> ${getLang() === 'ja' ? 'バイヤー' : 'buyers'}</div>
             </div>
         </div>`;
     }).join('');
