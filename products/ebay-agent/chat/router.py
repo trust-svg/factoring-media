@@ -453,10 +453,10 @@ async def list_auto_logs(limit: int = 50):
 
 # ── 商品詳細 (item_id で検索) ────────────────────────────
 
-@router.get("/item/{item_id}")
-_item_cache: dict = {}  # item_id → {data, ts}
+_item_cache = {}  # item_id → {data, ts}
 _ITEM_CACHE_TTL = 1800  # 30分
 
+@router.get("/item/{item_id}")
 async def get_item_info(item_id: str):
     """item_idで商品情報を取得（Listing DB + Browse API fallback + キャッシュ）"""
     import time
