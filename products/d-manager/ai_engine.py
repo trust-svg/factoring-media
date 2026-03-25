@@ -2,10 +2,11 @@
 
 import json
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from anthropic import Anthropic
+from anthropic import Anthropic, APIStatusError
 
 import config
 from departments import load_department_prompt
@@ -319,13 +320,30 @@ def process_message(user_message: str, department: str, channel_id: str) -> str:
     messages = list(history)
     max_iterations = 10
     for _ in range(max_iterations):
-        response = client.messages.create(
-            model=config.CLAUDE_MODEL,
-            max_tokens=2048,
-            system=system_prompt,
-            tools=TOOLS,
-            messages=messages,
-        )
+        # Retry with exponential backoff for transient API errors
+        response = None
+        for attempt in range(3):
+            try:
+                response = client.messages.create(
+                    model=config.CLAUDE_MODEL,
+                    max_tokens=2048,
+                    system=system_prompt,
+                    tools=TOOLS,
+                    messages=messages,
+                )
+                break
+            except APIStatusError as e:
+                if e.status_code in (429, 529) and attempt < 2:
+                    wait = 5 * (2 ** attempt)  # 5s, 10s, 20s
+                    logger.warning(f"API {e.status_code}, retrying in {wait}s (attempt {attempt + 1}/3)")
+                    time.sleep(wait)
+                else:
+                    raise
+
+        if response is None:
+            result = "⚠️ APIが混み合っています。少し後にもう一度話しかけてください。"
+            history.append({"role": "assistant", "content": result})
+            return result
 
         text_parts = []
         tool_calls = []
