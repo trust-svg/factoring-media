@@ -238,6 +238,7 @@ class CacheStaticMiddleware:
 app.add_middleware(CacheStaticMiddleware)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.auto_reload = True
+templates.env.cache = {}  # Avoid LRUCache unhashable dict error with new Jinja2
 
 # Chat API Router
 from chat.router import router as chat_router
