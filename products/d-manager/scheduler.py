@@ -347,6 +347,55 @@ async def dream_checkin():
     logger.info("Dream check-in sent")
 
 
+async def ad_report_analysis():
+    """Read ad report logs and have ユウ provide strategic analysis."""
+    logger.info("Running ad report analysis...")
+
+    meta_log = Path("/root/marketing/meta-ads/exports/cron.log")
+    google_log = Path("/root/marketing/google-ads/cron.log")
+
+    reports = []
+
+    for name, log_path in [("Meta Ads", meta_log), ("Google Ads", google_log)]:
+        if not log_path.exists():
+            continue
+        content = log_path.read_text(encoding="utf-8")
+        # Get today's report (last run block)
+        blocks = content.split("日次レポート生成")
+        if len(blocks) >= 2:
+            latest = blocks[-1]
+            # Only use if it's from today
+            today = date.today().isoformat()
+            yesterday = (date.today() - timedelta(days=1)).isoformat()
+            if today in latest or yesterday in latest:
+                reports.append(f"## {name} レポート\n{latest[:3000]}")
+
+    if not reports:
+        logger.info("No ad reports found for today, skipping analysis")
+        return
+
+    report_data = "\n\n".join(reports)
+
+    prompt = (
+        "広告日報が届きました。以下のデータを分析して戦略的な提案をしてください。\n\n"
+        "## 分析ルール\n"
+        "- Facebook vs Google の統合比較（CPA・CVR・ROAS）\n"
+        "- 各プラットフォームの緊急課題を特定\n"
+        "- 具体的な戦略提案（予算配分変更、クリエイティブ改善、停止すべき広告）\n"
+        "- 社長決裁が必要な案件は明示する\n"
+        "- 短く要点のみ。数値で語る。\n\n"
+        f"{report_data}"
+    )
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        None, process_message, prompt, "marketing", "scheduler-ad-analysis"
+    )
+    if _send_fn:
+        await _send_fn("マーケティング-ユウ-marketing", result)
+    logger.info("Ad report analysis sent")
+
+
 async def weekly_review():
     """Generate and send weekly review."""
     logger.info("Running weekly review...")
@@ -383,6 +432,13 @@ def setup_scheduler(send_fn):
         hour=config.EVENING_REVIEW_HOUR,
         minute=config.EVENING_REVIEW_MINUTE,
         name="夕方の振り返り",
+    )
+    _scheduler.add_job(
+        ad_report_analysis,
+        "cron",
+        hour=8,
+        minute=30,
+        name="広告レポート分析",
     )
     _scheduler.add_job(
         dream_checkin,

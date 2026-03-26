@@ -801,6 +801,40 @@ def build_notify_message(rows, since, until, suggestions=None):
     return "\n".join(lines)
 
 
+def send_discord_message(rows, since, until, suggestions=None):
+    """Discord Webhookでレポートサマリーを送信"""
+    webhook_url = os.getenv("DISCORD_MARKETING_WEBHOOK")
+
+    if not webhook_url:
+        print("⚠️  DISCORD_MARKETING_WEBHOOK が未設定。Discord通知をスキップ。")
+        return False
+
+    msg = build_notify_message(rows, since, until, suggestions=suggestions)
+    chunks = [msg[i:i + 1900] for i in range(0, len(msg), 1900)]
+    for chunk in chunks:
+        payload = json.dumps({"content": chunk}).encode()
+        req = urllib.request.Request(
+            webhook_url,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "TrustLink-AdReport/1.0",
+            },
+            method="POST",
+        )
+        try:
+            urllib.request.urlopen(req)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()
+            print(f"⚠️  Discord通知エラー: {e.code} {body}")
+            return False
+        except Exception as e:
+            print(f"⚠️  Discord通知エラー: {e}")
+            return False
+    print("📱 Discord通知を送信しました")
+    return True
+
+
 def send_line_message(rows, since, until, suggestions=None):
     """LINE Messaging APIでレポートサマリーを送信（broadcast: 友だち全員に配信）"""
     channel_token = os.getenv("LINE_CHANNEL_TOKEN")
@@ -889,9 +923,10 @@ def main():
         html_path = export_html(rows, analysis, suggestions, since, until, out_dir)
         export_pdf(html_path, out_dir)
 
-    # LINE通知
+    # 通知（Discord優先、フォールバックでLINE）
     if args.notify:
-        send_line_message(rows, since, until, suggestions=suggestions)
+        if not send_discord_message(rows, since, until, suggestions=suggestions):
+            send_line_message(rows, since, until, suggestions=suggestions)
 
     print("\n✅ レポート生成完了\n")
 
