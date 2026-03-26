@@ -87,7 +87,7 @@ def _process_cli(user_message: str, department: str, channel_id: str) -> str:
     full_prompt = f"{system_prompt}\n\n---\n\nユーザーメッセージ:\n{user_message}"
 
     try:
-        cmd = ["claude", "-p", full_prompt, "--output-format", "text", "--max-turns", "10"]
+        cmd = ["claude", "-p", full_prompt, "--output-format", "text", "--max-turns", "10", "--dangerously-skip-permissions"]
         if config.CLAUDE_MODEL_CLI:
             cmd.extend(["--model", config.CLAUDE_MODEL_CLI])
         result = subprocess.run(

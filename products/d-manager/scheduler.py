@@ -17,7 +17,8 @@ from tools.dream import get_dream_briefing, get_pyramid_summary, list_dreams
 
 logger = logging.getLogger(__name__)
 _scheduler: Optional[AsyncIOScheduler] = None
-_send_fn = None
+_send_fn = None       # send_to_channel(channel_name, text, view=None)
+_task_view_fn = None  # function to create TaskBoardView(tasks)
 
 JST = timezone(timedelta(hours=9))
 ACTIVE_TASKS_PATH = config.COMPANY_DIR / "secretary" / "todos" / "active.md"
@@ -215,14 +216,15 @@ async def morning_briefing():
     """Generate and send morning briefing + task board."""
     logger.info("Running morning briefing...")
 
-    # 1. Task board to 秘書チャンネル
+    # 1. Task board with buttons to 秘書チャンネル
+    tasks = _parse_active_tasks()
     task_board = _build_task_board()
     if _send_fn:
-        await _send_fn("秘書-アイ-general", task_board)
+        view = _task_view_fn(tasks) if _task_view_fn and tasks else None
+        await _send_fn("秘書-アイ-general", task_board, view)
     logger.info("Task board sent")
 
     # 2. Send tasks to each department channel
-    tasks = _parse_active_tasks()
     dept_tasks = {}
     for t in tasks:
         owner = t["owner"]
@@ -413,10 +415,11 @@ async def weekly_review():
     logger.info("Weekly review sent")
 
 
-def setup_scheduler(send_fn):
+def setup_scheduler(send_fn, task_view_fn=None):
     """Setup APScheduler with scheduled jobs."""
-    global _scheduler, _send_fn
+    global _scheduler, _send_fn, _task_view_fn
     _send_fn = send_fn
+    _task_view_fn = task_view_fn
 
     _scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
 

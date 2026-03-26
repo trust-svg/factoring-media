@@ -10,6 +10,7 @@ import config
 from departments import get_department_for_channel
 from ai_engine import process_message
 from scheduler import setup_scheduler
+from tools.todo import complete_todo
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -247,7 +248,7 @@ async def on_ready():
             logger.warning(f"Webhook setup failed for #{ch_name}: {e}")
 
     # Setup scheduler
-    setup_scheduler(send_to_channel)
+    setup_scheduler(send_to_channel, task_view_fn=TaskBoardView)
     logger.info("D-Manager ready!")
 
 
@@ -296,8 +297,43 @@ async def on_message(message: discord.Message):
     logger.info("SEND COMPLETE")
 
 
-async def send_to_channel(channel_name: str, text: str):
-    """Send a message to a specific channel via webhook."""
+class TaskCompleteButton(discord.ui.Button):
+    """Button to complete a single TODO task."""
+
+    def __init__(self, task_name: str, row: int = 0):
+        # Truncate label to 80 chars (Discord limit)
+        label = task_name[:60] if len(task_name) > 60 else task_name
+        super().__init__(
+            style=discord.ButtonStyle.success,
+            label=f"✅ {label}",
+            custom_id=f"complete:{task_name[:80]}",
+            row=row,
+        )
+        self.task_name = task_name
+
+    async def callback(self, interaction: discord.Interaction):
+        result = complete_todo(self.task_name)
+        await interaction.response.send_message(f"📝 {result}", ephemeral=False)
+        # Disable the button after completion
+        self.disabled = True
+        self.style = discord.ButtonStyle.secondary
+        self.label = f"✔ {self.task_name[:60]}"
+        await interaction.message.edit(view=self.view)
+
+
+class TaskBoardView(discord.ui.View):
+    """Interactive task board with completion buttons."""
+
+    def __init__(self, tasks: list):
+        super().__init__(timeout=None)  # No timeout
+        # Discord allows max 25 buttons, 5 per row
+        for i, task in enumerate(tasks[:20]):
+            row = i // 5
+            self.add_item(TaskCompleteButton(task["name"], row=row))
+
+
+async def send_to_channel(channel_name: str, text: str, view: discord.ui.View = None):
+    """Send a message to a specific channel. Supports optional View (buttons)."""
     channel = channel_cache.get(channel_name)
     if not channel:
         for guild in bot.guilds:
@@ -307,7 +343,16 @@ async def send_to_channel(channel_name: str, text: str):
                 break
 
     if channel:
-        await send_as_character_with_avatar(channel, text, channel_name)
+        if view:
+            # Send with buttons via bot (not webhook — webhooks don't support views)
+            chunks = [text[i:i + 1900] for i in range(0, len(text), 1900)]
+            for i, chunk in enumerate(chunks):
+                if i == len(chunks) - 1:
+                    await channel.send(content=chunk, view=view)
+                else:
+                    await channel.send(content=chunk)
+        else:
+            await send_as_character_with_avatar(channel, text, channel_name)
     else:
         logger.error(f"Channel not found: {channel_name}")
 
