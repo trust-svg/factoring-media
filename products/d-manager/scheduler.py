@@ -441,7 +441,7 @@ def setup_scheduler(send_fn, task_view_fn=None):
         ad_report_analysis,
         "cron",
         hour=8,
-        minute=30,
+        minute=10,
         name="広告レポート分析",
     )
     _scheduler.add_job(
