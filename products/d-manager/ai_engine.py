@@ -87,23 +87,24 @@ def _process_cli(user_message: str, department: str, channel_id: str) -> str:
     full_prompt = f"{system_prompt}\n\n---\n\nユーザーメッセージ:\n{user_message}"
 
     try:
+        cmd = ["claude", "-p", full_prompt, "--output-format", "text", "--max-turns", "10"]
+        if config.CLAUDE_MODEL_CLI:
+            cmd.extend(["--model", config.CLAUDE_MODEL_CLI])
         result = subprocess.run(
-            [
-                "claude", "-p", full_prompt,
-                "--output-format", "text",
-                "--max-turns", "10",
-                "--model", config.CLAUDE_MODEL_CLI,
-            ],
+            cmd,
             capture_output=True,
             text=True,
             timeout=120,
             cwd=str(COMPANY_DIR),
         )
 
-        if result.returncode == 0 and result.stdout.strip():
+        logger.info(f"CLI returncode={result.returncode} stdout_len={len(result.stdout)} stderr_len={len(result.stderr)}")
+        if result.stderr:
+            logger.warning(f"CLI stderr: {result.stderr[:500]}")
+        if result.stdout.strip():
             return result.stdout.strip()
         else:
-            error = result.stderr.strip() if result.stderr else "不明なエラー"
+            error = result.stderr.strip() if result.stderr else f"returncode={result.returncode}, stdout empty"
             logger.error(f"CLI error: {error}")
             return f"⚠️ 処理中にエラーが発生しました。少し後にもう一度話しかけてください。"
 
@@ -297,7 +298,7 @@ def _process_api(user_message: str, department: str, channel_id: str) -> str:
 # Public interface
 # ---------------------------------------------------------------------------
 
-conversations: dict[str, list] = {}
+conversations = {}
 MAX_HISTORY = 20
 
 

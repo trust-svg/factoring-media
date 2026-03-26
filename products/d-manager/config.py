@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+_dir = Path(__file__).parent
+load_dotenv(_dir / ".env.local")  # Local overrides (if exists)
+load_dotenv(_dir / ".env")        # Default .env
 
 # Discord
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")
@@ -14,7 +16,7 @@ if not DISCORD_BOT_TOKEN:
 # Anthropic
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = "claude-sonnet-4-20250514"  # API mode
-CLAUDE_MODEL_CLI = os.getenv("CLAUDE_MODEL_CLI", "sonnet")  # CLI mode
+CLAUDE_MODEL_CLI = os.getenv("CLAUDE_MODEL_CLI", "claude-sonnet-4-20250514")  # CLI mode
 
 # Google
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "credentials.json")

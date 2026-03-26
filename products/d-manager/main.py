@@ -37,10 +37,10 @@ async def _traced_request(self, route, **kwargs):
 discord.http.HTTPClient.request = _traced_request
 
 # Channel ID cache
-channel_cache: dict[str, discord.TextChannel] = {}
+channel_cache = {}
 
 # Webhook cache: channel_name -> discord.Webhook
-webhook_cache: dict[str, discord.Webhook] = {}
+webhook_cache = {}
 
 # Channel -> AI character mapping
 CHANNELS = [

@@ -7,6 +7,7 @@ import re
 import urllib.request
 from datetime import datetime, timezone, timedelta, date
 from pathlib import Path
+from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -15,7 +16,7 @@ from ai_engine import process_message
 from tools.dream import get_dream_briefing, get_pyramid_summary, list_dreams
 
 logger = logging.getLogger(__name__)
-_scheduler: AsyncIOScheduler | None = None
+_scheduler: Optional[AsyncIOScheduler] = None
 _send_fn = None
 
 JST = timezone(timedelta(hours=9))
@@ -49,7 +50,7 @@ def _pick_daily_teaching() -> str:
     return rng.choice(teachings)
 
 
-def _parse_active_tasks() -> list[dict]:
+def _parse_active_tasks() -> list:
     """Parse active.md and return list of task dicts."""
     if not ACTIVE_TASKS_PATH.exists():
         return []
@@ -149,7 +150,7 @@ def _increment_skip_counts():
     logger.info("Skip counts incremented for all active tasks")
 
 
-def _api_get(url: str, timeout: int = 10) -> dict | list | None:
+def _api_get(url: str, timeout: int = 10):
     """Simple HTTP GET → JSON. Returns None on failure."""
     headers = {"User-Agent": "D-Manager/1.0"}
     req = urllib.request.Request(url, headers=headers)
@@ -161,7 +162,7 @@ def _api_get(url: str, timeout: int = 10) -> dict | list | None:
         return None
 
 
-def _collect_kpi() -> dict[str, str]:
+def _collect_kpi() -> dict:
     """Collect KPI data from external services for department reports."""
     kpi = {}
 
@@ -222,7 +223,7 @@ async def morning_briefing():
 
     # 2. Send tasks to each department channel
     tasks = _parse_active_tasks()
-    dept_tasks: dict[str, list] = {}
+    dept_tasks = {}
     for t in tasks:
         owner = t["owner"]
         dept_tasks.setdefault(owner, []).append(t)

@@ -90,7 +90,7 @@ birth_year: {BIRTH_YEAR}
     return content
 
 
-def _parse_dreams(content: str) -> list[dict]:
+def _parse_dreams(content: str) -> list:
     """Parse all dreams from dreams.md."""
     dreams = []
     for m in DREAM_PATTERN.finditer(content):
@@ -435,7 +435,7 @@ def get_future_timeline(year: Optional[int] = None) -> str:
         age = _current_age()
 
         # Group by target year
-        by_year: dict[str, list] = {"未定": []}
+        by_year = {"未定": []}
         for d in dreams:
             td = d["target_date"]
             if td == "未定":
