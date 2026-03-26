@@ -59,24 +59,11 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
                 existing.synced_at = datetime.utcnow()
                 updated_count += 1
         else:
-            # 新規メッセージ → 自動翻訳（inboundのみ）
+            # 新規メッセージ → 翻訳はスレッド表示時にオンデマンド実行（Sync高速化）
             body = msg.get("body", "")
             direction = msg.get("direction", "inbound")
             translated = ""
             sentiment_data = {"sentiment": "", "urgency": "", "note": ""}
-
-            if msg.get("sender") != "eBay" and body:
-                try:
-                    translated = await translate_to_ja(body)
-                except Exception as e:
-                    logger.warning(f"翻訳スキップ: {e}")
-
-                if direction == "inbound":
-                    try:
-                        from chat.intelligence import analyze_sentiment
-                        sentiment_data = await analyze_sentiment(body)
-                    except Exception as e:
-                        logger.warning(f"センチメント分析スキップ: {e}")
 
             direction = msg.get("direction", "inbound")
             sender = msg.get("sender", "")
@@ -255,6 +242,25 @@ def get_conversations(
 
     conversations = sorted(conv_map.values(), key=lambda c: c["last_date"], reverse=True)
     return {"items": items[:limit], "conversations": conversations[:limit]}
+
+
+async def translate_untranslated(db: Session, message_ids: list[int]):
+    """未翻訳メッセージをバッチ翻訳する（バックグラウンド用）。"""
+    msgs = db.query(BuyerMessage).filter(
+        BuyerMessage.id.in_(message_ids),
+        (BuyerMessage.body_translated.is_(None)) | (BuyerMessage.body_translated == ""),
+    ).all()
+    for msg in msgs:
+        if not msg.body or msg.sender == "eBay":
+            continue
+        try:
+            translated = await translate_to_ja(msg.body)
+            msg.body_translated = translated
+        except Exception as e:
+            logger.warning(f"翻訳エラー msg={msg.id}: {e}")
+    if msgs:
+        db.commit()
+    return len(msgs)
 
 
 def get_thread(db: Session, buyer: str, item_id: str = "") -> list[dict]:

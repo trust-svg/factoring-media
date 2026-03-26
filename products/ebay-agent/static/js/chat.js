@@ -81,7 +81,7 @@ function renderProductList() {
         const isActive = item.item_id === currentItemId;
         const thumbHtml = item.thumbnail
             ? `<img class="product-thumb" src="${escapeHtml(item.thumbnail)}" alt="" loading="lazy">`
-            : `<div class="product-thumb-placeholder"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"/></svg></div>`;
+            : `<div class="product-thumb-placeholder" data-item-id="${escapeHtml(item.item_id)}"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"/></svg></div>`;
         const unreadHtml = item.unread_count > 0
             ? `<span class="product-unread-badge">${item.unread_count}</span>`
             : '';
@@ -94,6 +94,30 @@ function renderProductList() {
             </div>
         </div>`;
     }).join('');
+
+    // Lazy-load missing thumbnails from item API
+    const missingThumbs = container.querySelectorAll('.product-thumb-placeholder[data-item-id]');
+    missingThumbs.forEach(el => {
+        const itemId = el.dataset.itemId;
+        if (!itemId) return;
+        const cached = cacheGet(_cache.items, itemId, _cache.TTL_ITEM);
+        if (cached && cached.thumbnail) {
+            el.outerHTML = `<img class="product-thumb" src="${escapeHtml(cached.thumbnail)}" alt="" loading="lazy">`;
+            return;
+        }
+        fetch(`/api/chat/item/${itemId}`).then(r => r.json()).then(data => {
+            if (data.thumbnail) {
+                cacheSet(_cache.items, itemId, data);
+                // Update itemsList too
+                const item = itemsList.find(i => i.item_id === itemId);
+                if (item) {
+                    item.thumbnail = data.thumbnail;
+                    if (!item.title && data.title) item.title = data.title;
+                }
+                el.outerHTML = `<img class="product-thumb" src="${escapeHtml(data.thumbnail)}" alt="" loading="lazy">`;
+            }
+        }).catch(() => {});
+    });
 }
 
 function selectProduct(itemId) {
@@ -266,6 +290,29 @@ async function openThread(buyer, itemId) {
         // Mobile: show thread
         document.getElementById('convList')?.classList.add('hidden');
         document.getElementById('threadView')?.classList.add('active');
+
+        // Translate untranslated messages in background
+        const untranslatedIds = currentThread
+            .filter(m => !m.body_translated && m.body && m.direction !== 'system')
+            .map(m => m.id);
+        if (untranslatedIds.length) {
+            fetch('/api/chat/translate-batch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message_ids: untranslatedIds}),
+            }).then(r => r.json()).then(d => {
+                if (d.translated > 0) {
+                    // Re-fetch thread to get translations
+                    const params = new URLSearchParams({ item_id: currentItemId });
+                    fetch(`/api/chat/conversations/${encodeURIComponent(currentBuyer)}?${params}`)
+                        .then(r => r.json()).then(data => {
+                            currentThread = data.messages || [];
+                            cacheSet(_cache.threads, `${currentBuyer}|${currentItemId}`, currentThread);
+                            renderThread();
+                        });
+                }
+            }).catch(() => {});
+        }
     } catch (e) {
         console.error('Failed to load thread:', e);
     }

@@ -566,17 +566,17 @@
     word-break: break-word;
 }
 .msg-bubble.inbound .msg-content {
-    background: #F0F4FF;
-    color: #1a1a2e;
-    border-radius: 4px 18px 18px 18px;
-    box-shadow: 0 1px 4px rgba(70,95,255,0.08);
-    border: 1px solid #D6E0FF;
-}
-.msg-bubble.outbound .msg-content {
     background: linear-gradient(135deg, #4F6BFF 0%, #7B61FF 100%);
     color: #fff;
-    border-radius: 18px 4px 18px 18px;
+    border-radius: 4px 18px 18px 18px;
     box-shadow: 0 2px 8px rgba(79,107,255,0.25);
+}
+.msg-bubble.outbound .msg-content {
+    background: #F0F4FF;
+    color: #1a1a2e;
+    border-radius: 18px 4px 18px 18px;
+    box-shadow: 0 1px 4px rgba(70,95,255,0.08);
+    border: 1px solid #D6E0FF;
 }
 /* System messages (eBay notifications) */
 .msg-bubble.system {

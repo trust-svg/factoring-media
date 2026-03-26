@@ -85,6 +85,20 @@ async def get_thread(buyer: str, item_id: str = ""):
         db.close()
 
 
+@router.post("/translate-batch")
+async def translate_batch(req: dict):
+    """未翻訳メッセージをバッチ翻訳する。"""
+    message_ids = req.get("message_ids", [])
+    if not message_ids:
+        return {"translated": 0}
+    db = get_db()
+    try:
+        count = await service.translate_untranslated(db, message_ids)
+        return {"translated": count}
+    finally:
+        db.close()
+
+
 # ── 送信 ─────────────────────────────────────────────────
 
 @router.post("/send")
