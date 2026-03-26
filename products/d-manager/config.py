@@ -13,7 +13,8 @@ if not DISCORD_BOT_TOKEN:
 
 # Anthropic
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL = "claude-sonnet-4-20250514"  # API mode
+CLAUDE_MODEL_CLI = os.getenv("CLAUDE_MODEL_CLI", "sonnet")  # CLI mode
 
 # Google
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "credentials.json")
