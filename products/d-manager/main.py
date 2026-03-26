@@ -276,6 +276,18 @@ async def on_message(message: discord.Message):
 
     logger.info(f"PROCESSING: {message.content[:50]} in #{channel_name}")
 
+    # Quick command: task board with buttons
+    content_lower = message.content.lower()
+    task_keywords = ["タスクボード", "todo", "タスク一覧", "タスク見せて", "todoは", "todoを"]
+    if any(kw in content_lower for kw in task_keywords):
+        from scheduler import _parse_active_tasks, _build_task_board
+        tasks = _parse_active_tasks()
+        board = _build_task_board()
+        view = TaskBoardView(tasks) if tasks else None
+        await send_to_channel(channel_name, board, view)
+        logger.info("SEND COMPLETE (task board with buttons)")
+        return
+
     loop = asyncio.get_event_loop()
     try:
         response = await loop.run_in_executor(

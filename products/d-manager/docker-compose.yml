@@ -8,6 +8,7 @@ services:
     environment:
       - TZ=Asia/Tokyo
     volumes:
+      - /root/.company:/root/.company
+      - /root/marketing:/root/marketing:ro
       - ./token.json:/app/token.json
       - ./credentials.json:/app/credentials.json
-      - /root/.company:/root/.company:ro
