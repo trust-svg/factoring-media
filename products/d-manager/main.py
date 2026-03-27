@@ -10,7 +10,7 @@ import config
 from departments import get_department_for_channel
 from ai_engine import process_message
 from scheduler import setup_scheduler
-from tools.todo import complete_todo
+from tools.todo import complete_todo, drop_todo, defer_todo
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -309,39 +309,53 @@ async def on_message(message: discord.Message):
     logger.info("SEND COMPLETE")
 
 
-class TaskCompleteButton(discord.ui.Button):
-    """Button to complete a single TODO task."""
+class TaskActionButton(discord.ui.Button):
+    """Button for a task action (complete/defer/drop)."""
 
-    def __init__(self, task_name: str, row: int = 0):
-        # Truncate label to 80 chars (Discord limit)
-        label = task_name[:60] if len(task_name) > 60 else task_name
+    def __init__(self, task_name: str, action: str, row: int = 0):
+        styles = {
+            "complete": (discord.ButtonStyle.success, "✅ やる"),
+            "defer": (discord.ButtonStyle.primary, "⏰ 延期"),
+            "drop": (discord.ButtonStyle.danger, "🗑 捨てる"),
+        }
+        style, label = styles[action]
         super().__init__(
-            style=discord.ButtonStyle.success,
-            label=f"✅ {label}",
-            custom_id=f"complete:{task_name[:80]}",
+            style=style,
+            label=label,
+            custom_id=f"{action}:{task_name[:80]}",
             row=row,
         )
         self.task_name = task_name
+        self.action = action
 
     async def callback(self, interaction: discord.Interaction):
-        result = complete_todo(self.task_name)
-        await interaction.response.send_message(f"📝 {result}", ephemeral=False)
-        # Disable the button after completion
-        self.disabled = True
-        self.style = discord.ButtonStyle.secondary
-        self.label = f"✔ {self.task_name[:60]}"
+        actions = {
+            "complete": (complete_todo, "✅"),
+            "defer": (defer_todo, "⏰"),
+            "drop": (drop_todo, "🗑"),
+        }
+        func, emoji = actions[self.action]
+        result = func(self.task_name)
+        await interaction.response.send_message(f"{emoji} {result}", ephemeral=False)
+        # Disable all buttons in this row
+        for item in self.view.children:
+            if isinstance(item, TaskActionButton) and item.task_name == self.task_name:
+                item.disabled = True
+                item.style = discord.ButtonStyle.secondary
         await interaction.message.edit(view=self.view)
 
 
 class TaskBoardView(discord.ui.View):
-    """Interactive task board with completion buttons."""
+    """Interactive task board with 3-action buttons per task."""
 
     def __init__(self, tasks: list):
-        super().__init__(timeout=None)  # No timeout
-        # Discord allows max 25 buttons, 5 per row
-        for i, task in enumerate(tasks[:20]):
-            row = i // 5
-            self.add_item(TaskCompleteButton(task["name"], row=row))
+        super().__init__(timeout=None)
+        # 3 buttons per task, 5 rows max = max 5 tasks with buttons
+        # Discord limit: 25 components, 5 per row
+        for i, task in enumerate(tasks[:5]):
+            self.add_item(TaskActionButton(task["name"], "complete", row=i))
+            self.add_item(TaskActionButton(task["name"], "defer", row=i))
+            self.add_item(TaskActionButton(task["name"], "drop", row=i))
 
 
 async def send_to_channel(channel_name: str, text: str, view: discord.ui.View = None):
