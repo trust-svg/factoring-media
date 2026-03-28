@@ -313,10 +313,11 @@ class TaskActionButton(discord.ui.Button):
     """Button for a task action (complete/defer/drop)."""
 
     def __init__(self, task_name: str, action: str, row: int = 0):
+        short_name = task_name[:20] if len(task_name) > 20 else task_name
         styles = {
-            "complete": (discord.ButtonStyle.success, "✅ やる"),
-            "defer": (discord.ButtonStyle.primary, "⏰ 延期"),
-            "drop": (discord.ButtonStyle.danger, "🗑 捨てる"),
+            "complete": (discord.ButtonStyle.success, f"✅ {short_name}"),
+            "defer": (discord.ButtonStyle.primary, f"⏰ {short_name}"),
+            "drop": (discord.ButtonStyle.danger, f"🗑 {short_name}"),
         }
         style, label = styles[action]
         super().__init__(
@@ -337,7 +338,7 @@ class TaskActionButton(discord.ui.Button):
         func, emoji = actions[self.action]
         result = func(self.task_name)
         await interaction.response.send_message(f"{emoji} {result}", ephemeral=False)
-        # Disable all buttons in this row
+        # Disable all buttons for this task
         for item in self.view.children:
             if isinstance(item, TaskActionButton) and item.task_name == self.task_name:
                 item.disabled = True
@@ -346,12 +347,11 @@ class TaskActionButton(discord.ui.Button):
 
 
 class TaskBoardView(discord.ui.View):
-    """Interactive task board with 3-action buttons per task."""
+    """Interactive task board — one row per task with task name on each button."""
 
     def __init__(self, tasks: list):
         super().__init__(timeout=None)
-        # 3 buttons per task, 5 rows max = max 5 tasks with buttons
-        # Discord limit: 25 components, 5 per row
+        # 3 buttons per task, 5 rows max (Discord limit)
         for i, task in enumerate(tasks[:5]):
             self.add_item(TaskActionButton(task["name"], "complete", row=i))
             self.add_item(TaskActionButton(task["name"], "defer", row=i))

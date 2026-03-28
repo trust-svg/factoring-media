@@ -367,10 +367,12 @@ async def ad_report_analysis():
         blocks = content.split("日次レポート生成")
         if len(blocks) >= 2:
             latest = blocks[-1]
-            # Only use if it's from today
-            today = date.today().isoformat()
-            yesterday = (date.today() - timedelta(days=1)).isoformat()
-            if today in latest or yesterday in latest:
+            # Use if from today, yesterday, or 2 days ago (timezone offset tolerance)
+            today = date.today()
+            dates_to_check = [
+                (today - timedelta(days=i)).isoformat() for i in range(3)
+            ]
+            if any(d in latest for d in dates_to_check):
                 reports.append(f"## {name} レポート\n{latest[:3000]}")
 
     if not reports:
