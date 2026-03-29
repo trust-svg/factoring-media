@@ -3,6 +3,7 @@
 import logging
 import asyncio
 import json
+import os
 import re
 import urllib.request
 from datetime import datetime, timezone, timedelta, date
@@ -350,28 +351,52 @@ async def dream_checkin():
     logger.info("Dream check-in sent")
 
 
+def _fetch_vps_log(remote_path: str) -> str:
+    """Fetch a log file from VPS via SSH."""
+    import subprocess as _sp
+    vps_host = os.getenv("VPS_HOST", "root@46.250.252.99")
+    try:
+        result = _sp.run(
+            ["ssh", "-o", "ConnectTimeout=10", vps_host, f"cat {remote_path}"],
+            capture_output=True, text=True, timeout=30,
+        )
+        return result.stdout if result.returncode == 0 else ""
+    except Exception as e:
+        logger.warning(f"VPS log fetch failed ({remote_path}): {e}")
+        return ""
+
+
 async def ad_report_analysis():
-    """Read ad report logs and have ユウ provide strategic analysis."""
+    """Read ad report logs (via SSH if needed) and have ユウ provide strategic analysis."""
     logger.info("Running ad report analysis...")
 
-    meta_log = Path("/root/marketing/meta-ads/exports/cron.log")
-    google_log = Path("/root/marketing/google-ads/cron.log")
+    # Try local paths first (Docker mount), then SSH
+    meta_local = Path("/root/marketing/meta-ads/exports/cron.log")
+    google_local = Path("/root/marketing/google-ads/cron.log")
+
+    log_sources = [
+        ("Meta Ads", meta_local, "/root/marketing/meta-ads/exports/cron.log"),
+        ("Google Ads", google_local, "/root/marketing/google-ads/cron.log"),
+    ]
 
     reports = []
+    today = date.today()
+    dates_to_check = [(today - timedelta(days=i)).isoformat() for i in range(3)]
 
-    for name, log_path in [("Meta Ads", meta_log), ("Google Ads", google_log)]:
-        if not log_path.exists():
+    for name, local_path, remote_path in log_sources:
+        # Local first, SSH fallback
+        if local_path.exists():
+            content = local_path.read_text(encoding="utf-8")
+        else:
+            loop = asyncio.get_event_loop()
+            content = await loop.run_in_executor(None, _fetch_vps_log, remote_path)
+
+        if not content:
             continue
-        content = log_path.read_text(encoding="utf-8")
-        # Get today's report (last run block)
+
         blocks = content.split("日次レポート生成")
         if len(blocks) >= 2:
             latest = blocks[-1]
-            # Use if from today, yesterday, or 2 days ago (timezone offset tolerance)
-            today = date.today()
-            dates_to_check = [
-                (today - timedelta(days=i)).isoformat() for i in range(3)
-            ]
             if any(d in latest for d in dates_to_check):
                 reports.append(f"## {name} レポート\n{latest[:3000]}")
 
