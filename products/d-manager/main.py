@@ -123,31 +123,17 @@ async def send_as_character_with_avatar(channel: discord.TextChannel, text: str,
     ch_name = channel_name or channel.name
     char_name, avatar_file = CHANNEL_CHARACTERS.get(ch_name, ("アイ", "ai.png"))
 
-    # Get or create webhook, set avatar on first use per channel
-    cache_key = ch_name
-    if cache_key not in webhook_cache:
-        webhooks = await channel.webhooks()
-        webhook = None
-        for wh in webhooks:
-            if wh.name == f"DM-{char_name}":
-                webhook = wh
-                break
+    # Use cached webhook (created in on_ready)
+    webhook = webhook_cache.get(ch_name)
+    if not webhook:
+        logger.warning(f"No webhook cached for #{ch_name}, sending as bot")
+        chunks = [text[i:i + 1900] for i in range(0, len(text), 1900)]
+        for chunk in chunks:
+            await channel.send(chunk)
+        return
 
-        if not webhook:
-            avatar_path = AVATAR_DIR / avatar_file
-            avatar_bytes = avatar_path.read_bytes() if avatar_path.exists() else None
-            webhook = await channel.create_webhook(
-                name=f"DM-{char_name}",
-                avatar=avatar_bytes,
-            )
-            logger.info(f"Created webhook DM-{char_name} for #{ch_name}")
-
-        webhook_cache[cache_key] = webhook
-
-    webhook = webhook_cache[cache_key]
     chunks = [text[i:i + 1900] for i in range(0, len(text), 1900)]
     for chunk in chunks:
-        # Use HTTP request directly to avoid discord.py double-send
         import aiohttp
         async with aiohttp.ClientSession() as session:
             await session.post(
@@ -225,15 +211,16 @@ async def on_ready():
 
             channel_cache[ch_name] = channel
 
-    # Ensure webhooks exist for notification channels and log URLs
+    # Ensure webhooks exist — use bot-specific prefix to avoid token conflicts
+    bot_prefix = bot.user.name.replace(" ", "")[:10] if bot.user else "DM"
     for ch_name, channel in channel_cache.items():
         try:
             char_name = CHANNEL_CHARACTERS.get(ch_name, ("アイ", "ai.png"))[0]
-            webhook_name = f"DM-{char_name}"
+            webhook_name = f"{bot_prefix}-{char_name}"
             webhooks = await channel.webhooks()
             wh = None
             for w in webhooks:
-                if w.name == webhook_name:
+                if w.name == webhook_name and w.token:
                     wh = w
                     break
             if not wh:
