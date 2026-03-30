@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id             Int       @id @default(autoincrement())
+  slug           String    @unique
+  name           String
+  officialUrl    String
+  affiliateUrl   String?
+  description    String
+  minAmount      Int?
+  maxAmount      Int?
+  fee            String?
+  depositSpeed   String?
+  targetBusiness String?
+  features       String[]
+  pros           String[]
+  cons           String[]
+  rating         Float?
+  reviewCount    Int       @default(0)
+  isRecommended  Boolean   @default(false)
+  rankingOrder   Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  reviews        Review[]
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  companyId  Int
+  company    Company  @relation(fields: [companyId], references: [id])
+  rating     Int
+  title      String
+  body       String
+  userType   String?
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model EstimateRequest {
+  id            Int      @id @default(autoincrement())
+  businessType  String
+  invoiceAmount Int
+  urgency       String
+  email         String
+  phone         String?
+  memo          String?
+  createdAt     DateTime @default(now())
+}
