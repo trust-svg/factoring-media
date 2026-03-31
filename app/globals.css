@@ -34,8 +34,20 @@
 
 body {
   font-family: var(--font-sans);
+  font-size: 16px;
   color: var(--color-gray-800);
   background-color: #f8fafc;
+}
+
+/* Minimum font size override for readability */
+.text-xs {
+  font-size: 0.8125rem !important; /* 13px instead of 12px */
+}
+.text-\[10px\] {
+  font-size: 0.75rem !important; /* 12px instead of 10px */
+}
+.text-\[11px\] {
+  font-size: 0.8125rem !important; /* 13px instead of 11px */
 }
 
 /* Smooth scroll */

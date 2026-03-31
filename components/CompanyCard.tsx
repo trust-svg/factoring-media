@@ -41,13 +41,13 @@ export function CompanyCard({
   rankingOrder,
 }: CompanyCardProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm card-hover overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm card-hover overflow-hidden h-full flex flex-col">
       {isRecommended && (
         <div className="bg-primary text-white text-xs font-bold px-4 py-1.5 text-center">
           おすすめ
         </div>
       )}
-      <div className="p-5">
+      <div className="p-5 flex-1 flex flex-col">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             {rankingOrder && rankingOrder <= 3 ? (
@@ -112,7 +112,7 @@ export function CompanyCard({
           ))}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-auto">
           <Link
             href={`/companies/${slug}`}
             className="flex-1 text-center text-sm border-2 border-primary text-primary py-2.5 rounded-lg font-bold hover:bg-primary hover:text-white transition-colors"

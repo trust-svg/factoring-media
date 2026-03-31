@@ -201,7 +201,7 @@ export default async function HomePage() {
           </div>
 
           {/* Right: teleoperator cutout - aligned to bottom */}
-          <div className="hidden md:block flex-shrink-0 self-end -ml-24">
+          <div className="hidden md:block flex-shrink-0 self-end -ml-32">
             <Image
               src="/images/hero-teleop.png"
               alt="ファクセル - 無料相談"
@@ -256,13 +256,19 @@ export default async function HomePage() {
           <div className="w-16 h-0.5 bg-primary mx-auto mt-4" />
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-6 items-stretch">
           {topCompanies.map((company) => (
-            <CompanyCard key={company.slug} {...company} />
+            <div key={company.slug} className="flex">
+              <CompanyCard {...company} />
+            </div>
           ))}
         </div>
 
-        <div className="text-center mt-8">
+        <AdvisorComment>
+          1位のOLTAはAI審査で最短即日入金、手数料も2%〜9%と業界最低水準です。初めてファクタリングを利用する方にはまずOLTAをおすすめしています。2位のペイトナーは審査最短10分でフリーランスの方に最適。3位のQuQuMoは買取上限なしで大口案件にも対応できます。まずは複数社に見積もりを取って比較することが大切です。
+        </AdvisorComment>
+
+        <div className="text-center mt-6">
           <a
             href="/ranking"
             className="inline-flex items-center gap-1 text-primary font-bold hover:underline"
