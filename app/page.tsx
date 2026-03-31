@@ -138,14 +138,14 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Hero photo - teleoperator */}
+          {/* Hero photo - teleoperator cutout */}
           <div className="flex-1 hidden md:flex justify-end items-end relative">
             <Image
-              src="/images/hero-teleop.jpg"
+              src="/images/hero-teleop.png"
               alt="ファクタリング比較ナビ - 無料相談"
-              width={360}
-              height={480}
-              className="object-contain drop-shadow-2xl"
+              width={340}
+              height={450}
+              className="object-contain drop-shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
               priority
             />
           </div>
