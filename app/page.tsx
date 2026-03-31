@@ -201,7 +201,7 @@ export default async function HomePage() {
           </div>
 
           {/* Right: teleoperator cutout - aligned to bottom */}
-          <div className="hidden md:block flex-shrink-0 self-end -ml-32">
+          <div className="hidden md:block flex-shrink-0 self-end -ml-44">
             <Image
               src="/images/hero-teleop.png"
               alt="ファクセル - 無料相談"
@@ -340,6 +340,12 @@ export default async function HomePage() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 mt-6">
+          <AdvisorComment>
+            手数料だけで業者を選ぶのは危険です。入金スピード、審査の柔軟性、オンライン対応の有無など、総合的に判断することが大切です。上記の一覧を参考に、ご自身の状況に合った業者を2〜3社ピックアップして見積もりを比較することをおすすめします。
+          </AdvisorComment>
         </div>
       </section>
 

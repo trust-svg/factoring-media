@@ -42,9 +42,9 @@ export function CompanyCard({
 }: CompanyCardProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm card-hover overflow-hidden h-full flex flex-col">
-      {isRecommended && (
+      {features.length > 0 && (
         <div className="bg-primary text-white text-xs font-bold px-4 py-1.5 text-center">
-          おすすめ
+          {features[0]}
         </div>
       )}
       <div className="p-5 flex-1 flex flex-col">
