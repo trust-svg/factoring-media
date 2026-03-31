@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ファクタリングの窓口 | 口コミ・評判で業者を徹底比較【2026年最新】",
-    template: "%s | ファクタリングの窓口",
+    default: "ファクセル | 口コミ・評判で業者を徹底比較【2026年最新】",
+    template: "%s | ファクセル",
   },
   description:
     "ファクタリング業者の口コミ・評判を比較。手数料・入金速度・審査の甘さで徹底比較。おすすめランキングや一括見積もりで最適な業者が見つかります。",
@@ -12,9 +13,9 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
   openGraph: {
-    title: "ファクタリングの窓口 | 口コミ・評判で業者を徹底比較【2026年最新】",
+    title: "ファクセル | 口コミ・評判で業者を徹底比較【2026年最新】",
     description: "ファクタリング業者10社の口コミ・手数料・入金速度を徹底比較。無料一括見積もりであなたに最適な業者が見つかります。",
-    siteName: "ファクタリングの窓口",
+    siteName: "ファクセル",
     locale: "ja_JP",
     type: "website",
     images: [
@@ -22,13 +23,13 @@ export const metadata: Metadata = {
         url: "/images/hero-teleop.jpg",
         width: 1200,
         height: 630,
-        alt: "ファクタリングの窓口",
+        alt: "ファクセル",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ファクタリングの窓口 | 口コミ・評判で業者を徹底比較",
+    title: "ファクセル | 口コミ・評判で業者を徹底比較",
     description: "ファクタリング業者10社の口コミ・手数料・入金速度を徹底比較。",
     images: ["/images/hero-teleop.jpg"],
   },
@@ -82,11 +83,8 @@ function Header() {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2">
-          <div>
-            <span className="text-lg font-black text-primary">ファクタリングの窓口</span>
-            <span className="hidden sm:inline text-[10px] text-gray-400 ml-1">口コミ・評判で業者を比較</span>
-          </div>
+        <a href="/" className="flex items-center gap-1">
+          <Image src="/images/logo-faccel.png" alt="ファクセル" width={140} height={36} priority />
         </a>
         <nav className="hidden lg:flex items-center gap-1">
           <a href="/companies" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
@@ -158,7 +156,7 @@ function Footer() {
         <div className="grid md:grid-cols-4 gap-8">
           <div>
             <div className="mb-4">
-              <span className="text-white font-bold text-lg">ファクタリングの窓口</span>
+              <span className="text-white font-bold text-lg">ファクセル</span>
             </div>
             <p className="text-sm leading-relaxed">
               ファクタリング業者の口コミ・評判を徹底比較。あなたに最適な業者選びをサポートします。
@@ -192,7 +190,7 @@ function Footer() {
           </div>
         </div>
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-xs">
-          <p>&copy; 2026 ファクタリングの窓口 All Rights Reserved.</p>
+          <p>&copy; 2026 ファクセル All Rights Reserved.</p>
           <p className="mt-1 text-gray-500">※ 当サイトはアフィリエイトプログラムに参加しています。</p>
         </div>
       </div>

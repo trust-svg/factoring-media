@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const SITE_NAME = "ファクタリングの窓口";
+const SITE_NAME = "ファクセル";
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://factoring-navi.com";
 const DEFAULT_DESCRIPTION =

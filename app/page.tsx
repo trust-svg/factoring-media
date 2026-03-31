@@ -43,6 +43,20 @@ const industries = [
   },
 ];
 
+function AdvisorComment({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3 items-start my-6 bg-primary/5 border border-primary/10 rounded-xl p-4">
+      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-primary/20">
+        <Image src="/images/advisor-sanada-main.png" alt="真田" width={48} height={48} className="object-cover" />
+      </div>
+      <div className="flex-1">
+        <p className="text-xs font-bold text-primary mb-1">アドバイザー 真田</p>
+        <div className="text-sm text-gray-700 leading-relaxed">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default async function HomePage() {
   const topCompanies = await prisma.company.findMany({
     where: { isRecommended: true },
@@ -74,12 +88,12 @@ export default async function HomePage() {
             "@graph": [
               {
                 "@type": "WebSite",
-                name: "ファクタリングの窓口",
+                name: "ファクセル",
                 url: "https://factoring-media.vercel.app",
                 description: "ファクタリング業者の口コミ・評判を比較。手数料・入金速度・審査基準で徹底比較し、最適な業者が見つかります。",
                 publisher: {
                   "@type": "Organization",
-                  name: "ファクタリングの窓口",
+                  name: "ファクセル",
                 },
               },
               {
@@ -190,7 +204,7 @@ export default async function HomePage() {
           <div className="hidden md:block flex-shrink-0 self-end -ml-24">
             <Image
               src="/images/hero-teleop.png"
-              alt="ファクタリングの窓口 - 無料相談"
+              alt="ファクセル - 無料相談"
               width={420}
               height={560}
               className="object-contain object-bottom"
@@ -393,6 +407,65 @@ export default async function HomePage() {
             </div>
           </div>
 
+          <div className="mt-8 space-y-6">
+            <AdvisorComment>
+              ファクタリングは「借金」ではなく「売掛金の売却」です。そのため信用情報に記録されず、銀行融資の審査にも影響しません。資金繰りに困った時の選択肢として、まず知っておくべきサービスです。
+            </AdvisorComment>
+
+            <h3 className="text-lg font-bold text-gray-900">2社間ファクタリングと3社間ファクタリングの違い</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h4 className="font-bold text-primary mb-2">2社間ファクタリング</h4>
+                <ul className="text-sm text-gray-600 space-y-1.5">
+                  <li>・あなたとファクタリング会社の2者間で契約</li>
+                  <li>・取引先に知られずに利用可能</li>
+                  <li>・手数料相場: 5%〜20%</li>
+                  <li>・入金スピード: 最短即日</li>
+                  <li>・スピード重視の方におすすめ</li>
+                </ul>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h4 className="font-bold text-primary mb-2">3社間ファクタリング</h4>
+                <ul className="text-sm text-gray-600 space-y-1.5">
+                  <li>・あなた・ファクタリング会社・取引先の3者間で契約</li>
+                  <li>・取引先の承諾が必要</li>
+                  <li>・手数料相場: 1%〜10%</li>
+                  <li>・入金スピード: 数日〜1週間</li>
+                  <li>・手数料を抑えたい方におすすめ</li>
+                </ul>
+              </div>
+            </div>
+
+            <AdvisorComment>
+              初めてファクタリングを利用する方には、取引先にバレない「2社間ファクタリング」が人気です。ただし手数料は3社間より高めなので、取引先との関係性が良好な場合は3社間も検討してみてください。
+            </AdvisorComment>
+
+            <h3 className="text-lg font-bold text-gray-900">ファクタリングと銀行融資の違い</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="px-4 py-2 text-left font-medium text-gray-600 border-b">比較項目</th>
+                    <th className="px-4 py-2 text-center font-medium text-primary border-b">ファクタリング</th>
+                    <th className="px-4 py-2 text-center font-medium text-gray-600 border-b">銀行融資</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b"><td className="px-4 py-2 text-gray-700">資金化スピード</td><td className="px-4 py-2 text-center font-bold text-primary">最短即日</td><td className="px-4 py-2 text-center">2週間〜1ヶ月</td></tr>
+                  <tr className="border-b bg-gray-50"><td className="px-4 py-2 text-gray-700">審査基準</td><td className="px-4 py-2 text-center font-bold text-primary">売掛先の信用力</td><td className="px-4 py-2 text-center">自社の業績</td></tr>
+                  <tr className="border-b"><td className="px-4 py-2 text-gray-700">信用情報への影響</td><td className="px-4 py-2 text-center font-bold text-primary">なし</td><td className="px-4 py-2 text-center">あり</td></tr>
+                  <tr className="border-b bg-gray-50"><td className="px-4 py-2 text-gray-700">担保・保証人</td><td className="px-4 py-2 text-center font-bold text-primary">不要</td><td className="px-4 py-2 text-center">必要な場合あり</td></tr>
+                  <tr className="border-b"><td className="px-4 py-2 text-gray-700">赤字決算での利用</td><td className="px-4 py-2 text-center font-bold text-primary">可能</td><td className="px-4 py-2 text-center">困難</td></tr>
+                  <tr><td className="px-4 py-2 text-gray-700">コスト</td><td className="px-4 py-2 text-center">手数料2%〜20%</td><td className="px-4 py-2 text-center font-bold">金利1%〜3%</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <AdvisorComment>
+              銀行融資の方がコストは安いですが、審査に2週間以上かかります。「来週の支払いに間に合わない」という急ぎの場合はファクタリング一択です。理想は銀行融資をメインにしつつ、緊急時のバックアップとしてファクタリングを使い分けることです。
+            </AdvisorComment>
+          </div>
+
           <div className="text-center mt-8">
             <a
               href="/articles/what-is-factoring"
@@ -469,6 +542,12 @@ export default async function HomePage() {
                 無料で相談してみる
               </a>
             </div>
+          </div>
+
+          <div className="max-w-3xl mx-auto mt-8 text-center">
+            <AdvisorComment>
+              多くの経営者が「ファクタリングは怪しい」と思っていますが、売掛債権の売買は民法で認められた合法的な取引です。ただし悪質な業者も存在するため、当サイトでは厳選した優良業者のみをご紹介しています。
+            </AdvisorComment>
           </div>
         </div>
       </section>
@@ -606,6 +685,10 @@ export default async function HomePage() {
               </details>
             ))}
           </div>
+
+          <AdvisorComment>
+            ファクタリングは正しく使えば非常に有効な資金調達手段です。特に「売上はあるのにキャッシュがない」という状況の企業にとっては、最も合理的な選択肢と言えます。まずは複数社から見積もりを取って、手数料と条件を比較することをおすすめします。
+          </AdvisorComment>
         </div>
       </section>
 
@@ -671,6 +754,10 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
+          <AdvisorComment>
+            業者選びで最も重要なのは「手数料の透明性」と「契約条件の確認」です。見積もり段階で手数料の上限を明示しない業者や、契約書の内容を十分に説明しない業者は避けましょう。当サイトに掲載している業者は、いずれも手数料体系が明確な優良企業です。
+          </AdvisorComment>
+
           <div className="text-center mt-8">
             <a href="/articles/how-to-choose" className="text-primary font-bold text-sm hover:underline">
               業者の選び方をもっと詳しく見る →
@@ -776,6 +863,10 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
+          <AdvisorComment>
+            上記はあくまで一例ですが、ファクタリングは業種を問わず活用できます。「うちの業種でも使えるの？」と不安な方は、まず無料の一括見積もりをお試しください。対応可能かどうかも含めて、各業者から回答が届きます。
+          </AdvisorComment>
+
           <div className="text-center mt-8">
             <a
               href="/estimate"
