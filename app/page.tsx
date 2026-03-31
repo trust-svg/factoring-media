@@ -86,18 +86,15 @@ export default async function HomePage() {
   return (
     <>
       {/* ==================== 1. Hero Section ==================== */}
-      <section className="bg-gradient-to-br from-primary-darker via-primary-dark to-primary text-white overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 py-14 md:py-20 flex flex-col md:flex-row items-center gap-8">
-          <div className="flex-1 text-center md:text-left">
-            <div className="inline-block mb-4">
-              <Image
-                src="/images/badge-ranking.jpg"
-                alt="2026年 最新ランキング公開中"
-                width={320}
-                height={56}
-                className="rounded-xl"
-                priority
-              />
+      <section className="bg-gradient-to-br from-primary-darker via-primary-dark to-primary text-white overflow-hidden relative">
+        <div className="max-w-6xl mx-auto px-4 pt-12 md:pt-16 pb-0 flex flex-col md:flex-row items-end gap-0">
+          {/* Left: text content */}
+          <div className="flex-1 text-center md:text-left pb-12 md:pb-16">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm mb-5">
+              <span className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
+              <span className="font-bold text-white">2026年</span>
+              <span className="text-blue-200">最新ランキング公開中</span>
             </div>
             <h1 className="text-3xl md:text-5xl font-black leading-tight mb-4">
               ファクタリング業者を
@@ -125,27 +122,31 @@ export default async function HomePage() {
                 ランキングを見る
               </a>
             </div>
-            {/* Stats image */}
-            <div>
-              <Image
-                src="/images/stats-bar.jpg"
-                alt="掲載業者数10社 / 利用満足度96% / 最短10分入金スピード"
-                width={520}
-                height={120}
-                className="rounded-xl"
-                priority
-              />
+            {/* Stats */}
+            <div className="flex gap-0 justify-center md:justify-start">
+              <div className="text-center px-5 py-3 bg-white/10 rounded-l-xl border border-white/15">
+                <p className="text-3xl font-black text-white leading-none">10<span className="text-base font-bold text-secondary-light">社</span></p>
+                <p className="text-[11px] text-blue-300 mt-1">掲載業者数</p>
+              </div>
+              <div className="text-center px-5 py-3 bg-white/10 border-y border-white/15">
+                <p className="text-3xl font-black text-white leading-none">96<span className="text-base font-bold text-secondary-light">%</span></p>
+                <p className="text-[11px] text-blue-300 mt-1">利用満足度</p>
+              </div>
+              <div className="text-center px-5 py-3 bg-white/10 rounded-r-xl border border-white/15">
+                <p className="text-2xl font-black text-white leading-none">最短<span className="text-secondary-light">10</span>分</p>
+                <p className="text-[11px] text-blue-300 mt-1">入金スピード</p>
+              </div>
             </div>
           </div>
 
-          {/* Hero photo - teleoperator cutout */}
-          <div className="flex-1 hidden md:flex justify-end items-end relative">
+          {/* Right: teleoperator cutout - aligned to bottom */}
+          <div className="hidden md:block flex-shrink-0 self-end">
             <Image
               src="/images/hero-teleop.png"
               alt="ファクタリング比較ナビ - 無料相談"
-              width={340}
-              height={450}
-              className="object-contain drop-shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+              width={300}
+              height={400}
+              className="object-contain object-bottom"
               priority
             />
           </div>

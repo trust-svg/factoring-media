@@ -40,8 +40,8 @@ export default function RootLayout({
         )}
       </head>
       <body className="min-h-screen flex flex-col">
-        {/* Top bar */}
-        <div className="bg-primary-darker text-xs text-blue-200 py-1.5">
+        {/* Top bar - hidden, info moved to hero */}
+        <div className="bg-primary-darker text-xs text-blue-200 py-1">
           <div className="max-w-6xl mx-auto px-4 flex justify-between items-center">
             <p>掲載業者数 <span className="text-white font-bold">10社</span> ｜ 口コミ掲載数 <span className="text-white font-bold">随時更新中</span></p>
             <p className="hidden sm:block">最終更新: 2026年3月</p>
