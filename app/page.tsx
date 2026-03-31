@@ -13,52 +13,32 @@ const medalColors = [
 const industries = [
   {
     name: "建設業",
-    href: "/industry/construction",
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg>
-    ),
+    href: "/articles/construction-factoring",
+    icon: "/images/icon-construction.jpg",
     desc: "工事代金の入金サイクルが長い建設業に最適",
   },
   {
     name: "運送業",
-    href: "/industry/transport",
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-      </svg>
-    ),
+    href: "/articles/transport-factoring",
+    icon: "/images/icon-transport.jpg",
     desc: "燃料費・車両維持費の資金繰りをサポート",
   },
   {
     name: "IT・フリーランス",
-    href: "/industry/it-freelance",
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
+    href: "/articles/it-freelance-factoring",
+    icon: "/images/icon-it.jpg",
     desc: "少額債権もOK、個人でも利用しやすい",
   },
   {
     name: "医療・介護",
-    href: "/industry/medical",
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-      </svg>
-    ),
+    href: "/articles/medical-factoring",
+    icon: "/images/icon-medical.jpg",
     desc: "診療報酬債権の早期現金化が可能",
   },
   {
     name: "個人事業主",
-    href: "/industry/sole-proprietor",
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
+    href: "/articles/sole-proprietor-factoring",
+    icon: "/images/icon-sole.jpg",
     desc: "法人でなくても利用できる業者を厳選",
   },
 ];
@@ -182,11 +162,14 @@ export default async function HomePage() {
       {/* ==================== Quick Comparison Table ==================== */}
       <section className="max-w-4xl mx-auto px-4 -mt-8 relative z-10 mb-12">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-primary to-primary-light text-white px-6 py-3 flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <h2 className="font-bold">TOP5 ファクタリング業者 早見表【2026年3月最新】</h2>
+          <div className="relative">
+            <Image
+              src="/images/section-top5-header.jpg"
+              alt="TOP5 ファクタリング業者 早見表 2026年最新版"
+              width={960}
+              height={180}
+              className="w-full rounded-t-2xl object-cover"
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -296,65 +279,15 @@ export default async function HomePage() {
               </p>
             </div>
 
-            {/* Flow diagram SVG */}
-            <div className="flex-1 flex justify-center">
-              <svg
-                width="340"
-                height="200"
-                viewBox="0 0 340 200"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="max-w-full"
-              >
-                {/* Your Company */}
-                <rect x="0" y="60" width="90" height="80" rx="10" fill="#1e40af" />
-                <text x="45" y="95" fill="white" fontSize="11" fontWeight="bold" textAnchor="middle">
-                  あなたの
-                </text>
-                <text x="45" y="112" fill="white" fontSize="11" fontWeight="bold" textAnchor="middle">
-                  会社
-                </text>
-                {/* Arrow 1 */}
-                <path d="M95 90 L125 90" stroke="#3b82f6" strokeWidth="3" markerEnd="url(#arrowhead)" />
-                <text x="110" y="82" fill="#3b82f6" fontSize="8" textAnchor="middle">
-                  売掛金
-                </text>
-                {/* Factoring Company */}
-                <rect x="130" y="50" width="90" height="100" rx="10" fill="#0ea5e9" />
-                <text x="175" y="90" fill="white" fontSize="10" fontWeight="bold" textAnchor="middle">
-                  ファクタリング
-                </text>
-                <text x="175" y="106" fill="white" fontSize="10" fontWeight="bold" textAnchor="middle">
-                  業者
-                </text>
-                {/* Arrow 2 */}
-                <path d="M130 130 L95 130" stroke="#10b981" strokeWidth="3" markerEnd="url(#arrowhead-green)" />
-                <text x="110" y="148" fill="#10b981" fontSize="8" textAnchor="middle" fontWeight="bold">
-                  即日入金
-                </text>
-                {/* Arrow 3 */}
-                <path d="M225 100 L255 100" stroke="#3b82f6" strokeWidth="3" markerEnd="url(#arrowhead)" />
-                <text x="240" y="92" fill="#3b82f6" fontSize="8" textAnchor="middle">
-                  回収
-                </text>
-                {/* Client Company */}
-                <rect x="260" y="60" width="80" height="80" rx="10" fill="#64748b" />
-                <text x="300" y="95" fill="white" fontSize="11" fontWeight="bold" textAnchor="middle">
-                  取引先
-                </text>
-                <text x="300" y="112" fill="white" fontSize="11" fontWeight="bold" textAnchor="middle">
-                  企業
-                </text>
-                {/* Arrow markers */}
-                <defs>
-                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
-                  </marker>
-                  <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
-                    <polygon points="10 0, 0 3.5, 10 7" fill="#10b981" />
-                  </marker>
-                </defs>
-              </svg>
+            {/* Flow diagram */}
+            <div className="my-6">
+              <Image
+                src="/images/section-flow-diagram.jpg"
+                alt="ファクタリングの仕組み - あなたの会社・ファクタリング業者・取引先の関係"
+                width={960}
+                height={540}
+                className="w-full rounded-xl"
+              />
             </div>
           </div>
 
@@ -416,41 +349,35 @@ export default async function HomePage() {
             こんなお悩みありませんか?
           </h2>
 
-          <div className="space-y-5 mb-10">
+          <div className="grid md:grid-cols-3 gap-5 mb-10">
             {/* Pain 1 */}
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+              <div className="h-40 relative">
+                <Image src="/images/worry-cashflow.jpg" alt="資金繰りの悩み" fill className="object-cover" />
               </div>
-              <div className="flex-1 bg-gray-50 rounded-2xl rounded-tl-sm px-5 py-4 border border-gray-100">
+              <div className="p-5">
                 <p className="text-gray-700 font-medium">
                   売掛金の入金が2ヶ月後で資金繰りが厳しい...
                 </p>
               </div>
             </div>
             {/* Pain 2 */}
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+              <div className="h-40 relative">
+                <Image src="/images/worry-rejected.jpg" alt="融資審査の悩み" fill className="object-cover" />
               </div>
-              <div className="flex-1 bg-gray-50 rounded-2xl rounded-tl-sm px-5 py-4 border border-gray-100">
+              <div className="p-5">
                 <p className="text-gray-700 font-medium">
                   銀行融資の審査に落ちてしまった...
                 </p>
               </div>
             </div>
             {/* Pain 3 */}
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+              <div className="h-40 relative">
+                <Image src="/images/worry-urgent.jpg" alt="急な出費の悩み" fill className="object-cover" />
               </div>
-              <div className="flex-1 bg-gray-50 rounded-2xl rounded-tl-sm px-5 py-4 border border-gray-100">
+              <div className="p-5">
                 <p className="text-gray-700 font-medium">
                   急な出費で今すぐ現金が必要...
                 </p>
@@ -500,8 +427,8 @@ export default async function HomePage() {
                 href={industry.href}
                 className="bg-white rounded-xl p-5 text-center border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
               >
-                <div className="w-14 h-14 mx-auto bg-primary/5 group-hover:bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-3 transition-colors">
-                  {industry.icon}
+                <div className="w-14 h-14 mx-auto mb-3">
+                  <Image src={industry.icon} alt={industry.name} width={64} height={64} className="rounded-full" />
                 </div>
                 <h3 className="font-bold text-primary-dark text-sm mb-1">{industry.name}</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">{industry.desc}</p>
