@@ -20,6 +20,12 @@ type CompanyCardProps = {
   rankingOrder: number | null;
 };
 
+const medalColors: Record<number, { bg: string; text: string; border: string }> = {
+  1: { bg: "bg-amber-400", text: "text-amber-900", border: "border-amber-400" },
+  2: { bg: "bg-gray-300", text: "text-gray-700", border: "border-gray-300" },
+  3: { bg: "bg-amber-600", text: "text-amber-100", border: "border-amber-600" },
+};
+
 export function CompanyCard({
   slug,
   name,
@@ -34,21 +40,27 @@ export function CompanyCard({
   rankingOrder,
 }: CompanyCardProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm card-hover overflow-hidden">
       {isRecommended && (
-        <div className="bg-green text-white text-xs font-bold px-4 py-1 text-center">
-          おすすめ
+        <div className="bg-gradient-to-r from-primary to-primary-light text-white text-xs font-bold px-4 py-1.5 text-center badge-shine">
+          &#9733; おすすめファクタリング業者
         </div>
       )}
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
-          <div>
-            {rankingOrder && (
-              <span className="text-xs font-bold text-navy bg-gray-100 px-2 py-1 rounded mr-2">
-                #{rankingOrder}
-              </span>
-            )}
-            <h3 className="text-lg font-bold text-navy inline">{name}</h3>
+          <div className="flex items-center gap-2">
+            {rankingOrder && rankingOrder <= 3 ? (
+              <div className={`w-10 h-10 ${medalColors[rankingOrder]?.bg || "bg-gray-200"} rounded-full flex items-center justify-center shrink-0 shadow-md`}>
+                <span className={`text-sm font-black ${medalColors[rankingOrder]?.text || "text-gray-600"}`}>
+                  {rankingOrder}
+                </span>
+              </div>
+            ) : rankingOrder ? (
+              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+                <span className="text-sm font-bold text-primary">{rankingOrder}</span>
+              </div>
+            ) : null}
+            <h3 className="text-lg font-bold text-primary-darker">{name}</h3>
           </div>
           {rating && (
             <div className="flex items-center gap-1 shrink-0">
@@ -61,17 +73,27 @@ export function CompanyCard({
 
         <p className="text-sm text-gray-600 mb-4 line-clamp-2">{description}</p>
 
-        <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+        <div className="grid grid-cols-2 gap-2 mb-4">
           {fee && (
-            <div className="bg-gray-50 rounded-lg px-3 py-2">
-              <span className="text-gray-400 text-xs block">手数料</span>
-              <span className="font-bold text-navy">{fee}</span>
+            <div className="bg-primary/5 rounded-lg px-3 py-2.5 flex items-center gap-2">
+              <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <span className="text-[10px] text-gray-400 block">手数料</span>
+                <span className="font-bold text-primary text-sm">{fee}</span>
+              </div>
             </div>
           )}
           {depositSpeed && (
-            <div className="bg-gray-50 rounded-lg px-3 py-2">
-              <span className="text-gray-400 text-xs block">入金速度</span>
-              <span className="font-bold text-navy">{depositSpeed}</span>
+            <div className="bg-secondary/5 rounded-lg px-3 py-2.5 flex items-center gap-2">
+              <svg className="w-4 h-4 text-secondary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <div>
+                <span className="text-[10px] text-gray-400 block">入金速度</span>
+                <span className="font-bold text-secondary text-sm">{depositSpeed}</span>
+              </div>
             </div>
           )}
         </div>
@@ -80,7 +102,7 @@ export function CompanyCard({
           {features.slice(0, 4).map((feature) => (
             <span
               key={feature}
-              className="text-xs bg-navy/5 text-navy px-2.5 py-1 rounded-full"
+              className="text-xs bg-primary/5 text-primary border border-primary/15 px-2.5 py-1 rounded-full font-medium"
             >
               {feature}
             </span>
@@ -90,7 +112,7 @@ export function CompanyCard({
         <div className="flex gap-2">
           <Link
             href={`/companies/${slug}`}
-            className="flex-1 text-center text-sm border border-navy text-navy py-2.5 rounded-lg font-medium hover:bg-navy hover:text-white transition-colors"
+            className="flex-1 text-center text-sm border-2 border-primary text-primary py-2.5 rounded-lg font-bold hover:bg-primary hover:text-white transition-colors"
           >
             詳細を見る
           </Link>
@@ -99,7 +121,7 @@ export function CompanyCard({
               href={affiliateUrl}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="flex-1 text-center text-sm bg-green text-white py-2.5 rounded-lg font-bold hover:bg-green-dark transition-colors"
+              className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md"
               onClick={() => {
                 if (typeof window !== "undefined" && window.gtag) {
                   window.gtag("event", "affiliate_click", {
@@ -109,14 +131,14 @@ export function CompanyCard({
                 }
               }}
             >
-              公式サイトを見る
+              公式サイトへ &rarr;
             </a>
           ) : (
             <a
-              href={`/estimate`}
-              className="flex-1 text-center text-sm bg-green text-white py-2.5 rounded-lg font-bold hover:bg-green-dark transition-colors"
+              href="/estimate"
+              className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md"
             >
-              無料見積もり
+              無料見積もり &rarr;
             </a>
           )}
         </div>
