@@ -165,9 +165,10 @@ export default async function HomePage() {
           <Image
             src="/images/section-top3-header.jpg"
             alt="厳選ランキング おすすめファクタリング業者 TOP3 2026年最新版"
-            width={420}
-            height={130}
+            width={400}
+            height={100}
             className="mx-auto"
+            style={{ maxHeight: "90px", objectFit: "contain" }}
           />
         </div>
 
@@ -206,13 +207,16 @@ export default async function HomePage() {
       <section className="max-w-4xl mx-auto px-4 -mt-8 relative z-10 mb-12">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="relative">
-            <Image
-              src="/images/section-company-list.jpg"
-              alt="ファクタリング業者一覧"
-              width={640}
-              height={160}
-              className="mx-auto py-4"
-            />
+            <div className="bg-gray-50 py-3">
+              <Image
+                src="/images/section-company-list.jpg"
+                alt="ファクタリング業者一覧"
+                width={360}
+                height={80}
+                className="mx-auto"
+                style={{ maxHeight: "70px", objectFit: "contain" }}
+              />
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
