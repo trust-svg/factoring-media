@@ -25,13 +25,13 @@ export function ArticleLayout({ title, date, author, children }: ArticleLayoutPr
           最適なファクタリング業者をお探しですか？
         </p>
         <p className="text-sm text-gray-600 mb-4">
-          無料で複数社の見積もりを比較できます
+          無料で複数社の業者を比較できます
         </p>
         <a
           href="/estimate"
           className="inline-block bg-green text-white px-8 py-3 rounded-lg font-bold hover:bg-green-dark transition-colors"
         >
-          無料で一括見積もりする
+          無料で診断する
         </a>
       </div>
     </article>

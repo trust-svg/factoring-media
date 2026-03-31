@@ -17,7 +17,7 @@ export default function PrivacyPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-3">1. 収集する情報</h2>
           <p>当サイトでは、以下の情報を収集することがあります。</p>
           <ul className="list-disc pl-6 mt-2 space-y-1">
-            <li>一括見積もりフォームに入力された情報（事業形態、請求書金額、メールアドレス、電話番号等）</li>
+            <li>無料診断フォームに入力された情報（事業形態、請求書金額、メールアドレス、電話番号等）</li>
             <li>口コミ投稿に含まれる情報（評価、投稿内容、利用者属性）</li>
             <li>アクセスログ（IPアドレス、ブラウザ情報、閲覧ページ等）</li>
             <li>Cookie情報</li>
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-3">2. 情報の利用目的</h2>
           <ul className="list-disc pl-6 space-y-1">
-            <li>一括見積もりサービスの提供および最適な業者のご紹介</li>
+            <li>無料診断サービスの提供および最適な業者のご紹介</li>
             <li>口コミ情報の掲載およびサイトコンテンツの充実</li>
             <li>サイトの改善およびユーザー体験の向上</li>
             <li>アクセス解析によるサイト運営の最適化</li>
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-6 mt-2 space-y-1">
             <li>ユーザーの同意がある場合</li>
             <li>法令に基づく場合</li>
-            <li>一括見積もりサービスにおいて、提携ファクタリング業者に見積もり依頼を送信する場合</li>
+            <li>無料診断サービスにおいて、提携ファクタリング業者に診断依頼を送信する場合</li>
           </ul>
         </section>
 

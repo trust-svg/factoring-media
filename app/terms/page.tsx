@@ -16,7 +16,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-3">第1条（適用範囲）</h2>
-          <p>本規約は、当サイトが提供するすべてのサービス（情報提供、口コミ掲載、一括見積もり等）に適用されます。</p>
+          <p>本規約は、当サイトが提供するすべてのサービス（情報提供、口コミ掲載、無料診断等）に適用されます。</p>
         </section>
 
         <section>

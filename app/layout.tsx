@@ -8,13 +8,13 @@ export const metadata: Metadata = {
     template: "%s | ファクセル",
   },
   description:
-    "ファクタリング業者の口コミ・評判を比較。手数料・入金速度・審査の甘さで徹底比較。おすすめランキングや一括見積もりで最適な業者が見つかります。",
+    "ファクタリング業者の口コミ・評判を比較。手数料・入金速度・審査の甘さで徹底比較。おすすめランキングや無料診断で最適な業者が見つかります。",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
   openGraph: {
     title: "ファクセル | 口コミ・評判で業者を徹底比較【2026年最新】",
-    description: "ファクタリング業者10社の口コミ・手数料・入金速度を徹底比較。無料一括見積もりであなたに最適な業者が見つかります。",
+    description: "ファクタリング業者10社の口コミ・手数料・入金速度を徹底比較。無料診断であなたに最適な業者が見つかります。",
     siteName: "ファクセル",
     locale: "ja_JP",
     type: "website",
@@ -83,8 +83,9 @@ function Header() {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="/" className="flex items-center gap-1">
-          <Image src="/images/logo-faccel.png" alt="ファクセル" width={220} height={56} priority />
+        <a href="/" className="flex items-center gap-2">
+          <Image src="/images/logo-icon.png" alt="" width={32} height={32} />
+          <Image src="/images/logo-faccel.png" alt="ファクセル" width={180} height={46} priority />
         </a>
         <nav className="hidden lg:flex items-center gap-1">
           <a href="/companies" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
@@ -103,7 +104,7 @@ function Header() {
             href="/estimate"
             className="ml-2 bg-cta hover:bg-cta-dark text-white px-5 py-2.5 rounded-lg font-bold transition-colors text-sm shadow-md pulse-cta"
           >
-            無料一括見積もり
+            無料診断
           </a>
         </nav>
         <button className="lg:hidden text-gray-600" aria-label="メニュー">
@@ -122,13 +123,13 @@ function CtaBanner() {
       <div className="max-w-3xl mx-auto px-4 text-center text-white">
         <p className="text-sm font-medium mb-2 text-blue-100">最適なファクタリング業者をお探しの方</p>
         <h2 className="text-xl md:text-2xl font-bold mb-4">
-          30秒の入力で複数社の見積もりを無料比較
+          30秒の入力で複数社を無料比較
         </h2>
         <a
           href="/estimate"
           className="inline-block bg-cta hover:bg-cta-dark text-white px-10 py-4 rounded-xl text-lg font-bold transition-colors shadow-lg pulse-cta"
         >
-          無料で一括見積もりする
+          無料で診断する
         </a>
         <p className="text-xs text-blue-200 mt-3">※ 利用料は一切かかりません</p>
       </div>
@@ -143,7 +144,7 @@ function MobileFixedCta() {
         href="/estimate"
         className="block w-full bg-cta hover:bg-cta-dark text-white text-center py-3 rounded-xl font-bold text-sm shadow-md pulse-cta"
       >
-        無料で一括見積もり（30秒で完了）
+        無料で診断する（30秒で完了）
       </a>
     </div>
   );
@@ -168,7 +169,7 @@ function Footer() {
               <li><a href="/companies" className="hover:text-white transition-colors">業者一覧</a></li>
               <li><a href="/ranking" className="hover:text-white transition-colors">おすすめランキング</a></li>
               <li><a href="/reviews" className="hover:text-white transition-colors">口コミ一覧</a></li>
-              <li><a href="/estimate" className="hover:text-white transition-colors">一括見積もり</a></li>
+              <li><a href="/estimate" className="hover:text-white transition-colors">無料診断</a></li>
             </ul>
           </div>
           <div>

@@ -44,13 +44,13 @@ export default async function RankingPage() {
           どの業者を選べばいいか迷ったら
         </h2>
         <p className="text-gray-300 mb-6">
-          無料の一括見積もりで、あなたの条件に最適な業者をご紹介します
+          無料の無料診断で、あなたの条件に最適な業者をご紹介します
         </p>
         <a
           href="/estimate"
           className="inline-block bg-green hover:bg-green-dark text-white px-8 py-4 rounded-xl font-bold transition-colors shadow-lg"
         >
-          無料で一括見積もりする
+          無料で診断する
         </a>
       </div>
     </div>

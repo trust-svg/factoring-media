@@ -141,7 +141,7 @@ export function CompanyCard({
               href="/estimate"
               className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md"
             >
-              無料見積もり &rarr;
+              無料診断 &rarr;
             </a>
           )}
         </div>

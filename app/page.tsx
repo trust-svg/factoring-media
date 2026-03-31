@@ -174,7 +174,7 @@ export default async function HomePage() {
                 href="/estimate"
                 className="bg-cta hover:bg-cta-dark text-white px-8 py-4 rounded-xl text-lg font-bold transition-colors shadow-lg pulse-cta"
               >
-                無料で一括見積もり
+                無料で診断する
               </a>
               <a
                 href="/ranking"
@@ -265,7 +265,7 @@ export default async function HomePage() {
         </div>
 
         <AdvisorComment>
-          1位のOLTAはAI審査で最短即日入金、手数料も2%〜9%と業界最低水準です。初めてファクタリングを利用する方にはまずOLTAをおすすめしています。2位のペイトナーは審査最短10分でフリーランスの方に最適。3位のQuQuMoは買取上限なしで大口案件にも対応できます。まずは複数社に見積もりを取って比較することが大切です。
+          1位のOLTAはAI審査で最短即日入金、手数料も2%〜9%と業界最低水準です。初めてファクタリングを利用する方にはまずOLTAをおすすめしています。2位のペイトナーは審査最短10分でフリーランスの方に最適。3位のQuQuMoは買取上限なしで大口案件にも対応できます。まずは複数社を比較することが大切です。
         </AdvisorComment>
 
         <div className="text-center mt-6">
@@ -344,7 +344,7 @@ export default async function HomePage() {
 
         <div className="max-w-4xl mx-auto px-4 mt-6">
           <AdvisorComment>
-            手数料だけで業者を選ぶのは危険です。入金スピード、審査の柔軟性、オンライン対応の有無など、総合的に判断することが大切です。上記の一覧を参考に、ご自身の状況に合った業者を2〜3社ピックアップして見積もりを比較することをおすすめします。
+            手数料だけで業者を選ぶのは危険です。入金スピード、審査の柔軟性、オンライン対応の有無など、総合的に判断することが大切です。上記の一覧を参考に、ご自身の状況に合った業者を2〜3社ピックアップして業者を比較することをおすすめします。
           </AdvisorComment>
         </div>
       </section>
@@ -447,53 +447,26 @@ export default async function HomePage() {
             </AdvisorComment>
 
             <h3 className="text-lg font-bold text-gray-900">2社間ファクタリングと3社間ファクタリングの違い</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h4 className="font-bold text-primary mb-2">2社間ファクタリング</h4>
-                <ul className="text-sm text-gray-600 space-y-1.5">
-                  <li>・あなたとファクタリング会社の2者間で契約</li>
-                  <li>・取引先に知られずに利用可能</li>
-                  <li>・手数料相場: 5%〜20%</li>
-                  <li>・入金スピード: 最短即日</li>
-                  <li>・スピード重視の方におすすめ</li>
-                </ul>
-              </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h4 className="font-bold text-primary mb-2">3社間ファクタリング</h4>
-                <ul className="text-sm text-gray-600 space-y-1.5">
-                  <li>・あなた・ファクタリング会社・取引先の3者間で契約</li>
-                  <li>・取引先の承諾が必要</li>
-                  <li>・手数料相場: 1%〜10%</li>
-                  <li>・入金スピード: 数日〜1週間</li>
-                  <li>・手数料を抑えたい方におすすめ</li>
-                </ul>
-              </div>
-            </div>
+            <Image
+              src="/images/diagram-2vs3.jpg"
+              alt="2社間ファクタリングと3社間ファクタリングの比較"
+              width={800}
+              height={450}
+              className="w-full rounded-xl"
+            />
 
             <AdvisorComment>
               初めてファクタリングを利用する方には、取引先にバレない「2社間ファクタリング」が人気です。ただし手数料は3社間より高めなので、取引先との関係性が良好な場合は3社間も検討してみてください。
             </AdvisorComment>
 
             <h3 className="text-lg font-bold text-gray-900">ファクタリングと銀行融資の違い</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="px-4 py-2 text-left font-medium text-gray-600 border-b">比較項目</th>
-                    <th className="px-4 py-2 text-center font-medium text-primary border-b">ファクタリング</th>
-                    <th className="px-4 py-2 text-center font-medium text-gray-600 border-b">銀行融資</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b"><td className="px-4 py-2 text-gray-700">資金化スピード</td><td className="px-4 py-2 text-center font-bold text-primary">最短即日</td><td className="px-4 py-2 text-center">2週間〜1ヶ月</td></tr>
-                  <tr className="border-b bg-gray-50"><td className="px-4 py-2 text-gray-700">審査基準</td><td className="px-4 py-2 text-center font-bold text-primary">売掛先の信用力</td><td className="px-4 py-2 text-center">自社の業績</td></tr>
-                  <tr className="border-b"><td className="px-4 py-2 text-gray-700">信用情報への影響</td><td className="px-4 py-2 text-center font-bold text-primary">なし</td><td className="px-4 py-2 text-center">あり</td></tr>
-                  <tr className="border-b bg-gray-50"><td className="px-4 py-2 text-gray-700">担保・保証人</td><td className="px-4 py-2 text-center font-bold text-primary">不要</td><td className="px-4 py-2 text-center">必要な場合あり</td></tr>
-                  <tr className="border-b"><td className="px-4 py-2 text-gray-700">赤字決算での利用</td><td className="px-4 py-2 text-center font-bold text-primary">可能</td><td className="px-4 py-2 text-center">困難</td></tr>
-                  <tr><td className="px-4 py-2 text-gray-700">コスト</td><td className="px-4 py-2 text-center">手数料2%〜20%</td><td className="px-4 py-2 text-center font-bold">金利1%〜3%</td></tr>
-                </tbody>
-              </table>
-            </div>
+            <Image
+              src="/images/diagram-vs-loan.jpg"
+              alt="ファクタリングと銀行融資の比較"
+              width={800}
+              height={450}
+              className="w-full rounded-xl"
+            />
 
             <AdvisorComment>
               銀行融資の方がコストは安いですが、審査に2週間以上かかります。「来週の支払いに間に合わない」という急ぎの場合はファクタリング一択です。理想は銀行融資をメインにしつつ、緊急時のバックアップとしてファクタリングを使い分けることです。
@@ -721,7 +694,7 @@ export default async function HomePage() {
           </div>
 
           <AdvisorComment>
-            ファクタリングは正しく使えば非常に有効な資金調達手段です。特に「売上はあるのにキャッシュがない」という状況の企業にとっては、最も合理的な選択肢と言えます。まずは複数社から見積もりを取って、手数料と条件を比較することをおすすめします。
+            ファクタリングは正しく使えば非常に有効な資金調達手段です。特に「売上はあるのにキャッシュがない」という状況の企業にとっては、最も合理的な選択肢と言えます。まずは複数社から診断を取って、手数料と条件を比較することをおすすめします。
           </AdvisorComment>
         </div>
       </section>
@@ -732,12 +705,19 @@ export default async function HomePage() {
       <section className="py-16">
         <div className="max-w-4xl mx-auto px-4">
           <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             ファクタリング利用の流れ
           </h2>
+          <Image
+            src="/images/diagram-steps.jpg"
+            alt="ファクタリング利用の5ステップ"
+            width={800}
+            height={300}
+            className="w-full rounded-xl mb-8"
+          />
           <div className="space-y-0">
             {[
-              { step: "1", title: "無料相談・見積もり依頼", desc: "当サイトの一括見積もりフォームから、事業形態・請求書金額・急ぎ度を入力するだけ。最短30秒で複数社に見積もり依頼ができます。" },
+              { step: "1", title: "無料相談・診断依頼", desc: "当サイトの無料診断フォームから、事業形態・請求書金額・急ぎ度を入力するだけ。最短30秒で複数社に診断依頼ができます。" },
               { step: "2", title: "業者から連絡・条件提示", desc: "入力内容に基づいて、最適なファクタリング業者から手数料・入金スピードなどの条件が提示されます。複数社の条件を比較検討できます。" },
               { step: "3", title: "必要書類の提出", desc: "本人確認書類、請求書、通帳のコピーなど、必要書類を提出します。オンライン完結型の業者なら、スマホで写真を撮って送るだけで完了します。" },
               { step: "4", title: "審査・契約", desc: "売掛先の信用力をもとに審査が行われます。最短10分〜数時間で審査完了。条件に合意すれば電子契約で締結します。" },
@@ -789,7 +769,7 @@ export default async function HomePage() {
             ))}
           </div>
           <AdvisorComment>
-            業者選びで最も重要なのは「手数料の透明性」と「契約条件の確認」です。見積もり段階で手数料の上限を明示しない業者や、契約書の内容を十分に説明しない業者は避けましょう。当サイトに掲載している業者は、いずれも手数料体系が明確な優良企業です。
+            業者選びで最も重要なのは「手数料の透明性」と「契約条件の確認」です。診断段階で手数料の上限を明示しない業者や、契約書の内容を十分に説明しない業者は避けましょう。当サイトに掲載している業者は、いずれも手数料体系が明確な優良企業です。
           </AdvisorComment>
 
           <div className="text-center mt-8">
@@ -898,7 +878,7 @@ export default async function HomePage() {
             ))}
           </div>
           <AdvisorComment>
-            上記はあくまで一例ですが、ファクタリングは業種を問わず活用できます。「うちの業種でも使えるの？」と不安な方は、まず無料の一括見積もりをお試しください。対応可能かどうかも含めて、各業者から回答が届きます。
+            上記はあくまで一例ですが、ファクタリングは業種を問わず活用できます。「うちの業種でも使えるの？」と不安な方は、まず無料の無料診断をお試しください。対応可能かどうかも含めて、各業者から回答が届きます。
           </AdvisorComment>
 
           <div className="text-center mt-8">
@@ -906,7 +886,7 @@ export default async function HomePage() {
               href="/estimate"
               className="inline-block bg-cta hover:bg-cta-dark text-white px-8 py-4 rounded-xl font-bold transition-colors shadow-md pulse-cta"
             >
-              あなたも無料で見積もりしてみる
+              あなたも無料で診断してみる
             </a>
           </div>
         </div>
@@ -943,7 +923,7 @@ export default async function HomePage() {
             href="/estimate"
             className="inline-block bg-cta hover:bg-cta-dark text-white px-10 py-4 rounded-xl text-lg font-bold transition-colors shadow-lg pulse-cta"
           >
-            無料で一括見積もりする
+            無料で診断する
           </a>
           <p className="text-sm text-blue-300 mt-4">
             ※ 完全無料・最短30秒で入力完了

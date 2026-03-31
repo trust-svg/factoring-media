@@ -4,7 +4,7 @@ const SITE_NAME = "ファクセル";
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://factoring-navi.com";
 const DEFAULT_DESCRIPTION =
-  "ファクタリング業者の口コミ・評判を比較。手数料・入金速度・審査の甘さで徹底比較。おすすめランキングや一括見積もりで最適な業者が見つかります。";
+  "ファクタリング業者の口コミ・評判を比較。手数料・入金速度・審査の甘さで徹底比較。おすすめランキングや無料診断で最適な業者が見つかります。";
 
 export function generateMetadata({
   title,

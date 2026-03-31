@@ -141,7 +141,7 @@ export function RankingTable({ companies }: { companies: RankingCompany[] }) {
                   rel={c.affiliateUrl ? "noopener noreferrer nofollow" : undefined}
                   className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md pulse-cta"
                 >
-                  {c.affiliateUrl ? "公式サイトへ \u2192" : "無料見積もり \u2192"}
+                  {c.affiliateUrl ? "公式サイトへ \u2192" : "無料診断 \u2192"}
                 </a>
               </div>
             </div>
