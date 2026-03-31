@@ -89,8 +89,15 @@ export default async function HomePage() {
       <section className="bg-gradient-to-br from-primary-darker via-primary-dark to-primary text-white overflow-hidden">
         <div className="max-w-6xl mx-auto px-4 py-14 md:py-20 flex flex-col md:flex-row items-center gap-8">
           <div className="flex-1 text-center md:text-left">
-            <div className="inline-block bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-              <span className="text-accent font-bold">2026年3月</span> 最新ランキング公開中
+            <div className="inline-block mb-4">
+              <Image
+                src="/images/badge-ranking.jpg"
+                alt="2026年3月 最新ランキング公開中"
+                width={280}
+                height={52}
+                className="rounded-full"
+                priority
+              />
             </div>
             <h1 className="text-3xl md:text-5xl font-black leading-tight mb-4">
               ファクタリング業者を
@@ -144,15 +151,14 @@ export default async function HomePage() {
           </div>
 
           {/* Hero photo */}
-          <div className="flex-1 hidden md:flex justify-center">
-            <div className="relative">
-              <div className="absolute -inset-4 bg-white/10 rounded-3xl blur-xl" />
+          <div className="flex-1 hidden md:flex justify-end relative">
+            <div className="relative w-[340px] h-[440px]">
               <Image
                 src="/images/hero-woman.jpg"
                 alt="ファクタリング比較ナビ"
-                width={480}
-                height={320}
-                className="relative rounded-2xl shadow-2xl object-cover"
+                fill
+                className="object-cover object-top rounded-2xl"
+                style={{ maskImage: "linear-gradient(to bottom, black 75%, transparent 100%)" }}
                 priority
               />
             </div>
