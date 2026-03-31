@@ -165,50 +165,29 @@ export default async function HomePage() {
           <Image
             src="/images/section-top3-header.jpg"
             alt="厳選ランキング おすすめファクタリング業者 TOP3 2026年最新版"
-            width={700}
-            height={220}
+            width={540}
+            height={170}
             className="mx-auto rounded-xl"
           />
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {[
-            { slug: "olta", image: "/images/card-olta.jpg", rank: "/images/rank-1.jpg" },
-            { slug: "paytoday", image: "/images/card-paytner.jpg", rank: "/images/rank-2.jpg" },
-            { slug: "ququmo", image: "/images/card-ququmo.jpg", rank: "/images/rank-3.jpg" },
-          ].map((card, i) => {
-            const company = topCompanies[i];
-            if (!company) return null;
-            return (
-              <div key={card.slug} className="bg-white rounded-xl overflow-hidden shadow-md card-hover border border-gray-100">
-                <div className="relative">
-                  <div className="absolute top-3 left-3 z-10">
-                    <Image src={card.rank} alt={`第${i + 1}位`} width={48} height={48} className="drop-shadow-lg" />
-                  </div>
+          {topCompanies.map((company, index) => (
+            <div key={company.slug} className="relative">
+              {index < 3 && (
+                <div className="absolute -top-4 left-4 z-10">
                   <Image
-                    src={card.image}
-                    alt={company.name}
-                    width={640}
-                    height={360}
-                    className="w-full"
+                    src={`/images/rank-${index + 1}.jpg`}
+                    alt={`第${index + 1}位`}
+                    width={44}
+                    height={44}
+                    className="drop-shadow-lg"
                   />
                 </div>
-                <div className="p-4 text-center">
-                  <a
-                    href={company.affiliateUrl || `/companies/${company.slug}`}
-                    target={company.affiliateUrl ? "_blank" : undefined}
-                    rel={company.affiliateUrl ? "noopener noreferrer nofollow" : undefined}
-                    className="block w-full bg-cta hover:bg-cta-dark text-white py-3 rounded-lg font-bold transition-colors shadow-md pulse-cta mb-2"
-                  >
-                    公式サイトを見る →
-                  </a>
-                  <a href={`/companies/${company.slug}`} className="text-sm text-primary font-medium hover:underline">
-                    詳細・口コミを確認
-                  </a>
-                </div>
-              </div>
-            );
-          })}
+              )}
+              <CompanyCard {...company} />
+            </div>
+          ))}
         </div>
 
         <div className="text-center mt-8">
@@ -232,9 +211,8 @@ export default async function HomePage() {
               src="/images/section-company-list.jpg"
               alt="ファクタリング業者一覧"
               width={960}
-              height={120}
-              className="w-full rounded-t-2xl object-cover"
-              style={{ maxHeight: "100px" }}
+              height={540}
+              className="w-full rounded-t-2xl object-contain"
             />
           </div>
           <div className="overflow-x-auto">
@@ -513,37 +491,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-
-      {/* ==================== Supervisor Section ==================== */}
-      <section className="max-w-4xl mx-auto px-4 py-12">
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-8">
-          <h2 className="text-lg font-bold text-primary-darker mb-6 flex items-center gap-2">
-            <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            当サイトの監修者
-          </h2>
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex gap-4 flex-1">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-light rounded-full flex items-center justify-center shrink-0 shadow-md">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-bold text-primary-darker">田中 健太郎</p>
-                <p className="text-xs text-gray-500 mb-2">中小企業診断士 / ファイナンシャルプランナー</p>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  大手銀行で15年間の融資業務経験を経て独立。中小企業の資金繰り改善を専門とし、ファクタリングを含む多様な資金調達手段のアドバイスを提供。延べ500社以上の資金繰り相談に対応。
-                </p>
-              </div>
-            </div>
-          </div>
-          <p className="text-xs text-gray-400 mt-4 border-t border-gray-100 pt-4">
-            ※ 当サイトのランキング・評価は、手数料、入金速度、口コミ評判、サービスの充実度等を独自の基準で総合的に評価しています。
-          </p>
-        </div>
-      </section>
 
       {/* ==================== Case Studies Section ==================== */}
       <section className="bg-gray-50 py-16">
