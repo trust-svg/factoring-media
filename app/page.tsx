@@ -92,10 +92,10 @@ export default async function HomePage() {
             <div className="inline-block mb-4">
               <Image
                 src="/images/badge-ranking.jpg"
-                alt="2026年3月 最新ランキング公開中"
-                width={280}
-                height={52}
-                className="rounded-full"
+                alt="2026年 最新ランキング公開中"
+                width={320}
+                height={56}
+                className="rounded-xl"
                 priority
               />
             </div>
@@ -125,43 +125,29 @@ export default async function HomePage() {
                 ランキングを見る
               </a>
             </div>
-            {/* Stats */}
-            <div className="flex gap-6 justify-center md:justify-start">
-              <div className="text-center">
-                <p className="text-3xl font-black text-white">
-                  10<span className="text-lg">社</span>
-                </p>
-                <p className="text-xs text-blue-300">掲載業者数</p>
-              </div>
-              <div className="w-px bg-white/20" />
-              <div className="text-center">
-                <p className="text-3xl font-black text-white">
-                  96<span className="text-lg">%</span>
-                </p>
-                <p className="text-xs text-blue-300">利用満足度</p>
-              </div>
-              <div className="w-px bg-white/20" />
-              <div className="text-center">
-                <p className="text-3xl font-black text-white">
-                  最短<span className="text-lg">10分</span>
-                </p>
-                <p className="text-xs text-blue-300">入金スピード</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Hero photo */}
-          <div className="flex-1 hidden md:flex justify-end relative">
-            <div className="relative w-[340px] h-[440px]">
+            {/* Stats image */}
+            <div>
               <Image
-                src="/images/hero-woman.jpg"
-                alt="ファクタリング比較ナビ"
-                fill
-                className="object-cover object-top rounded-2xl"
-                style={{ maskImage: "linear-gradient(to bottom, black 75%, transparent 100%)" }}
+                src="/images/stats-bar.jpg"
+                alt="掲載業者数10社 / 利用満足度96% / 最短10分入金スピード"
+                width={520}
+                height={120}
+                className="rounded-xl"
                 priority
               />
             </div>
+          </div>
+
+          {/* Hero photo - teleoperator */}
+          <div className="flex-1 hidden md:flex justify-end items-end relative">
+            <Image
+              src="/images/hero-teleop.jpg"
+              alt="ファクタリング比較ナビ - 無料相談"
+              width={360}
+              height={480}
+              className="object-contain drop-shadow-2xl"
+              priority
+            />
           </div>
         </div>
       </section>
