@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getAllArticles } from "@/lib/articles";
 
 export const metadata: Metadata = {
   title: "ファクタリングお役立ちコラム",
@@ -7,50 +8,9 @@ export const metadata: Metadata = {
     "ファクタリングに関する基礎知識、業者の選び方、注意点などをわかりやすく解説するコラム記事一覧。",
 };
 
-const articles = [
-  {
-    slug: "what-is-factoring",
-    title: "ファクタリングとは？仕組み・種類・メリットをわかりやすく解説",
-    excerpt:
-      "ファクタリングの基本的な仕組み、2社間・3社間の違い、メリット・デメリットを初心者向けにわかりやすく解説します。",
-    date: "2026-03-01",
-    category: "基礎知識",
-  },
-  {
-    slug: "how-to-choose",
-    title: "失敗しないファクタリング業者の選び方【7つのチェックポイント】",
-    excerpt:
-      "手数料だけで選ぶと失敗する？信頼できるファクタリング業者を見極めるための7つのチェックポイントを解説。",
-    date: "2026-03-05",
-    category: "業者選び",
-  },
-  {
-    slug: "fee-comparison",
-    title: "ファクタリング手数料の相場は？業者別に徹底比較【2026年版】",
-    excerpt:
-      "2社間・3社間のファクタリング手数料の相場と、主要10社の手数料を一覧で比較します。",
-    date: "2026-03-10",
-    category: "費用",
-  },
-  {
-    slug: "vs-bank-loan",
-    title: "ファクタリングと銀行融資の違い｜どちらを選ぶべき？",
-    excerpt:
-      "ファクタリングと銀行融資の違いを「スピード」「審査基準」「コスト」の3軸で比較し、適切な選択をサポート。",
-    date: "2026-03-15",
-    category: "比較",
-  },
-  {
-    slug: "illegal-factoring",
-    title: "悪徳ファクタリング業者の見分け方と被害事例",
-    excerpt:
-      "違法な給与ファクタリングや闇金まがいの業者を見抜くポイントと、実際の被害事例を紹介します。",
-    date: "2026-03-20",
-    category: "注意点",
-  },
-];
-
 export default function ArticlesPage() {
+  const articles = getAllArticles();
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
       <h1 className="text-2xl md:text-3xl font-bold text-navy mb-2">
@@ -74,7 +34,7 @@ export default function ArticlesPage() {
               <time className="text-xs text-gray-400">{article.date}</time>
             </div>
             <h2 className="text-lg font-bold text-navy mb-2">{article.title}</h2>
-            <p className="text-sm text-gray-600">{article.excerpt}</p>
+            <p className="text-sm text-gray-600">{article.description}</p>
           </Link>
         ))}
       </div>

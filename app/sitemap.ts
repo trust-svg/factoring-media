@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getAllArticles } from "@/lib/articles";
 import type { MetadataRoute } from "next";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const companies = await prisma.company.findMany({
     select: { slug: true, updatedAt: true },
   });
+
+  const articles = getAllArticles();
 
   const staticPages = [
     { url: baseUrl, lastModified: new Date(), changeFrequency: "weekly" as const, priority: 1 },
@@ -26,10 +29,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  const articleSlugs = ["what-is-factoring", "how-to-choose", "fee-comparison", "vs-bank-loan", "illegal-factoring"];
-  const articlePages = articleSlugs.map((slug) => ({
-    url: `${baseUrl}/articles/${slug}`,
-    lastModified: new Date(),
+  const articlePages = articles.map((a) => ({
+    url: `${baseUrl}/articles/${a.slug}`,
+    lastModified: new Date(a.date),
     changeFrequency: "monthly" as const,
     priority: 0.6,
   }));
