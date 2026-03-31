@@ -370,41 +370,63 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* 3 Merit Cards */}
-          <div className="grid md:grid-cols-3 gap-5">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 card-hover">
-              <div className="w-12 h-12 bg-green/10 rounded-xl flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+          {/* 6 Points - AGビジネスサポート参考デザイン */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-5">
+            {[
+              {
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />,
+                color: "text-primary bg-primary/10",
+                num: "01",
+                title: "最短即日入金",
+                desc: "申込みから最短10分〜即日で現金化。急な資金需要にもスピーディーに対応できます。",
+              },
+              {
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />,
+                color: "text-secondary bg-secondary/10",
+                num: "02",
+                title: "借入ではない",
+                desc: "売掛金の売却なので借入に該当せず、信用情報に記録されません。融資枠にも影響なし。",
+              },
+              {
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />,
+                color: "text-green bg-green/10",
+                num: "03",
+                title: "赤字・税金滞納OK",
+                desc: "審査は売掛先の信用力がベース。自社が赤字・債務超過でも利用可能です。",
+              },
+              {
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />,
+                color: "text-primary bg-primary/10",
+                num: "04",
+                title: "担保・保証人不要",
+                desc: "不動産担保や連帯保証人は一切不要。売掛金さえあれば申し込みできます。",
+              },
+              {
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />,
+                color: "text-secondary bg-secondary/10",
+                num: "05",
+                title: "オンラインで完結",
+                desc: "来店不要でWeb完結。スマホから請求書を送るだけで、全国どこからでも利用可能。",
+              },
+              {
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />,
+                color: "text-green bg-green/10",
+                num: "06",
+                title: "取引先に知られない",
+                desc: "2社間ファクタリングなら取引先への通知不要。秘密厳守で資金調達できます。",
+              },
+            ].map((point) => (
+              <div key={point.num} className="bg-white rounded-xl p-5 border border-gray-100 text-center card-hover">
+                <div className="text-[10px] font-bold text-primary/40 mb-2">POINT {point.num}</div>
+                <div className={`w-14 h-14 ${point.color} rounded-2xl flex items-center justify-center mx-auto mb-3`}>
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {point.icon}
+                  </svg>
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2 text-sm">{point.title}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">{point.desc}</p>
               </div>
-              <h3 className="font-bold text-primary-dark mb-2">最短即日入金</h3>
-              <p className="text-sm text-gray-600">
-                申込みから最短即日で現金化。急な資金需要にも対応できます。
-              </p>
-            </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 card-hover">
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-primary-dark mb-2">借入ではない</h3>
-              <p className="text-sm text-gray-600">
-                売掛金の売却なので借入に該当せず、信用情報に影響しません。
-              </p>
-            </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 card-hover">
-              <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-primary-dark mb-2">赤字でもOK</h3>
-              <p className="text-sm text-gray-600">
-                審査は売掛先の信用力がベース。自社の業績に関わらず利用可能です。
-              </p>
-            </div>
+            ))}
           </div>
 
           <div className="mt-8 space-y-6">
