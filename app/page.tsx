@@ -159,91 +159,56 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ==================== Quick Comparison Table ==================== */}
-      <section className="max-w-4xl mx-auto px-4 -mt-8 relative z-10 mb-12">
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="relative">
-            <Image
-              src="/images/section-top5-header.jpg"
-              alt="TOP5 ファクタリング業者 早見表 2026年最新版"
-              width={960}
-              height={180}
-              className="w-full rounded-t-2xl object-cover"
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">順位</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">業者名</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-600">手数料</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-600">入金速度</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-600">評価</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-600">詳細</th>
-                </tr>
-              </thead>
-              <tbody>
-                {top5Companies.map((c, i) => (
-                  <tr key={c.slug} className={`border-b border-gray-100 ${i === 0 ? "bg-amber-50/50" : ""}`}>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black ${
-                        i === 0 ? "bg-amber-400 text-amber-900" :
-                        i === 1 ? "bg-gray-300 text-gray-700" :
-                        i === 2 ? "bg-amber-600 text-white" :
-                        "bg-primary/10 text-primary"
-                      }`}>{i + 1}</span>
-                    </td>
-                    <td className="px-4 py-3 font-bold text-primary-darker whitespace-nowrap">{c.name}</td>
-                    <td className="px-4 py-3 text-center font-bold whitespace-nowrap">{c.fee || "-"}</td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">{c.depositSpeed || "-"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="text-star font-bold">{c.rating?.toFixed(1) || "-"}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <a href={`/companies/${c.slug}`} className="inline-block bg-cta text-white text-xs px-3 py-1.5 rounded font-bold hover:bg-cta-dark transition-colors whitespace-nowrap">
-                        詳細 →
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
       {/* ==================== 3. TOP3 Ranking ==================== */}
       <section className="max-w-6xl mx-auto px-4 py-16">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-primary/5 px-4 py-1.5 rounded-full mb-4">
-            <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-            </svg>
-            <span className="text-primary font-bold text-sm">厳選ランキング</span>
-          </div>
-          <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-3">
-            おすすめファクタリング業者 TOP3
-          </h2>
-          <p className="text-gray-500">
-            2026年3月最新版 -- 口コミ・手数料・入金速度を総合評価
-          </p>
+          <Image
+            src="/images/section-top3-header.jpg"
+            alt="厳選ランキング おすすめファクタリング業者 TOP3 2026年最新版"
+            width={700}
+            height={220}
+            className="mx-auto rounded-xl"
+          />
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {topCompanies.map((company, index) => (
-            <div key={company.slug} className="relative">
-              {/* Medal badge */}
-              {index < 3 && (
-                <div
-                  className={`absolute -top-3 left-4 z-10 ${medalColors[index].bg} ${medalColors[index].text} text-xs font-black px-3 py-1 rounded-full shadow-md`}
-                >
-                  {medalColors[index].label}
+          {[
+            { slug: "olta", image: "/images/card-olta.jpg", rank: "/images/rank-1.jpg" },
+            { slug: "paytoday", image: "/images/card-paytner.jpg", rank: "/images/rank-2.jpg" },
+            { slug: "ququmo", image: "/images/card-ququmo.jpg", rank: "/images/rank-3.jpg" },
+          ].map((card, i) => {
+            const company = topCompanies[i];
+            if (!company) return null;
+            return (
+              <div key={card.slug} className="bg-white rounded-xl overflow-hidden shadow-md card-hover border border-gray-100">
+                <div className="relative">
+                  <div className="absolute top-3 left-3 z-10">
+                    <Image src={card.rank} alt={`第${i + 1}位`} width={48} height={48} className="drop-shadow-lg" />
+                  </div>
+                  <Image
+                    src={card.image}
+                    alt={company.name}
+                    width={640}
+                    height={360}
+                    className="w-full"
+                  />
                 </div>
-              )}
-              <CompanyCard {...company} />
-            </div>
-          ))}
+                <div className="p-4 text-center">
+                  <a
+                    href={company.affiliateUrl || `/companies/${company.slug}`}
+                    target={company.affiliateUrl ? "_blank" : undefined}
+                    rel={company.affiliateUrl ? "noopener noreferrer nofollow" : undefined}
+                    className="block w-full bg-cta hover:bg-cta-dark text-white py-3 rounded-lg font-bold transition-colors shadow-md pulse-cta mb-2"
+                  >
+                    公式サイトを見る →
+                  </a>
+                  <a href={`/companies/${company.slug}`} className="text-sm text-primary font-medium hover:underline">
+                    詳細・口コミを確認
+                  </a>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="text-center mt-8">
@@ -256,6 +221,62 @@ export default async function HomePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </a>
+        </div>
+      </section>
+
+      {/* ==================== Quick Comparison Table ==================== */}
+      <section className="max-w-4xl mx-auto px-4 -mt-8 relative z-10 mb-12">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="relative">
+            <Image
+              src="/images/section-company-list.jpg"
+              alt="ファクタリング業者一覧"
+              width={960}
+              height={120}
+              className="w-full rounded-t-2xl object-cover"
+              style={{ maxHeight: "100px" }}
+            />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-4 py-4 text-left font-medium text-gray-600">順位</th>
+                  <th className="px-4 py-4 text-left font-medium text-gray-600">業者名</th>
+                  <th className="px-4 py-4 text-center font-medium text-gray-600">手数料</th>
+                  <th className="px-4 py-4 text-center font-medium text-gray-600">入金速度</th>
+                  <th className="px-4 py-4 text-center font-medium text-gray-600">評価</th>
+                  <th className="px-4 py-4 text-center font-medium text-gray-600">詳細</th>
+                </tr>
+              </thead>
+              <tbody>
+                {top5Companies.map((c, i) => (
+                  <tr key={c.slug} className={`border-b border-gray-100 ${i === 0 ? "bg-amber-50/50" : ""}`}>
+                    <td className="px-4 py-4">
+                      <Image
+                        src={`/images/rank-${i + 1}.jpg`}
+                        alt={`第${i + 1}位`}
+                        width={40}
+                        height={40}
+                        className="rounded-full"
+                      />
+                    </td>
+                    <td className="px-4 py-4 font-bold text-primary-darker whitespace-nowrap">{c.name}</td>
+                    <td className="px-4 py-4 text-center font-bold whitespace-nowrap">{c.fee || "-"}</td>
+                    <td className="px-4 py-4 text-center whitespace-nowrap">{c.depositSpeed || "-"}</td>
+                    <td className="px-4 py-4 text-center">
+                      <span className="text-star font-bold">{c.rating?.toFixed(1) || "-"}</span>
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <a href={`/companies/${c.slug}`} className="inline-block bg-cta text-white text-xs px-3 py-1.5 rounded font-bold hover:bg-cta-dark transition-colors whitespace-nowrap">
+                        詳細 →
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
