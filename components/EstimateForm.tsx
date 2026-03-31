@@ -1,209 +1,220 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+
+type Result = {
+  slug: string;
+  name: string;
+  fee: string;
+  speed: string;
+  point: string;
+  url: string;
+};
+
+const allResults: Record<string, Result[]> = {
+  "法人_即日": [
+    { slug: "ququmo", name: "QuQuMo", fee: "1%〜14.8%", speed: "最短2時間", point: "買取上限なし・オンライン完結", url: "/companies/ququmo" },
+    { slug: "beat-trading", name: "ビートレーディング", fee: "2%〜12%", speed: "最短5時間", point: "累計1,300億円超の実績", url: "/companies/beat-trading" },
+    { slug: "accel-factor", name: "アクセルファクター", fee: "2%〜20%", speed: "最短即日", point: "審査通過率93%以上", url: "/companies/accel-factor" },
+  ],
+  "法人_通常": [
+    { slug: "factoru", name: "ファクトル", fee: "1.5%〜10%", speed: "最短即日", point: "非営利法人運営で信頼性◎", url: "/companies/factoru" },
+    { slug: "ququmo", name: "QuQuMo", fee: "1%〜14.8%", speed: "最短2時間", point: "手数料1%〜で業界最安級", url: "/companies/ququmo" },
+    { slug: "beat-trading", name: "ビートレーディング", fee: "2%〜12%", speed: "最短5時間", point: "2社間・3社間両対応", url: "/companies/beat-trading" },
+  ],
+  "個人事業主_即日": [
+    { slug: "ququmo", name: "QuQuMo", fee: "1%〜14.8%", speed: "最短2時間", point: "個人事業主OK・上限なし", url: "/companies/ququmo" },
+    { slug: "accel-factor", name: "アクセルファクター", fee: "2%〜20%", speed: "最短即日", point: "審査通過率93%・少額OK", url: "/companies/accel-factor" },
+    { slug: "paytoday", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "最短10分で審査完了", url: "/companies/paytoday" },
+  ],
+  "個人事業主_通常": [
+    { slug: "factoru", name: "ファクトル", fee: "1.5%〜10%", speed: "最短即日", point: "非営利法人の安心感", url: "/companies/factoru" },
+    { slug: "ququmo", name: "QuQuMo", fee: "1%〜14.8%", speed: "最短2時間", point: "手数料1%〜", url: "/companies/ququmo" },
+    { slug: "beat-trading", name: "ビートレーディング", fee: "2%〜12%", speed: "最短5時間", point: "実績1,300億円超", url: "/companies/beat-trading" },
+  ],
+  "フリーランス_即日": [
+    { slug: "paytoday", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "請求書1枚・最短10分", url: "/companies/paytoday" },
+    { slug: "labol", name: "ラボル", fee: "一律10%", speed: "最短60分", point: "1万円から・上場企業G", url: "/companies/labol" },
+    { slug: "ququmo", name: "QuQuMo", fee: "1%〜14.8%", speed: "最短2時間", point: "大口にも対応可能", url: "/companies/ququmo" },
+  ],
+  "フリーランス_通常": [
+    { slug: "paytoday", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "フリーランス特化No.1", url: "/companies/paytoday" },
+    { slug: "labol", name: "ラボル", fee: "一律10%", speed: "最短60分", point: "24時間365日対応", url: "/companies/labol" },
+    { slug: "factoru", name: "ファクトル", fee: "1.5%〜10%", speed: "最短即日", point: "手数料を抑えたい方に", url: "/companies/factoru" },
+  ],
+};
+
+function getResults(businessType: string, urgency: string): Result[] {
+  const isUrgent = urgency === "即日" || urgency === "2-3日以内";
+  const key = `${businessType}_${isUrgent ? "即日" : "通常"}`;
+  return allResults[key] || allResults["法人_通常"];
+}
 
 export function EstimateForm() {
-  const [formData, setFormData] = useState({
-    businessType: "",
-    invoiceAmount: "",
-    urgency: "",
-    email: "",
-    phone: "",
-    memo: "",
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
+  const [step, setStep] = useState(1);
+  const [businessType, setBusinessType] = useState("");
+  const [amount, setAmount] = useState("");
+  const [urgency, setUrgency] = useState("");
+  const [results, setResults] = useState<Result[] | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/estimate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          invoiceAmount: parseInt(formData.invoiceAmount),
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "送信に失敗しました");
-      }
-
-      setSubmitted(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "送信に失敗しました");
-    } finally {
-      setSubmitting(false);
-    }
+  const handleDiagnose = () => {
+    setResults(getResults(businessType, urgency));
+    setStep(4);
   };
 
-  if (submitted) {
+  if (results) {
     return (
-      <div className="bg-green/5 border-2 border-green rounded-xl p-8 text-center max-w-lg mx-auto">
-        <div className="w-16 h-16 bg-green rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-          </svg>
+      <div className="space-y-6">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-1">診断結果</h3>
+          <p className="text-gray-500">
+            {businessType}・{amount ? `${amount}万円` : ""}・{urgency}
+          </p>
         </div>
-        <h3 className="text-xl font-bold text-primary-darker mb-2">お見積もり依頼を受け付けました</h3>
-        <p className="text-gray-600">
-          ご入力いただいたメールアドレス宛に、最適なファクタリング業者の情報をお送りいたします。
-        </p>
+
+        <div className="flex gap-3 items-start bg-primary/5 border border-primary/10 rounded-xl p-4">
+          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 border-primary/20">
+            <Image src="/images/advisor-sanada-main.png" alt="真田" width={40} height={40} className="object-cover" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-primary mb-1">アドバイザー 真田</p>
+            <p className="text-sm text-gray-700">
+              {businessType === "フリーランス"
+                ? "フリーランスの方には少額対応・オンライン完結の業者がおすすめです。以下の3社を比較してみてください。"
+                : urgency === "即日"
+                ? "即日入金をご希望ですね。スピード重視の3社をピックアップしました。午前中の申込みで当日入金の可能性が高まります。"
+                : "条件に合う3社を厳選しました。手数料と入金スピードのバランスが良い業者です。複数社に相談して比較することをおすすめします。"}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {results.map((r, i) => (
+            <div key={r.slug} className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black ${
+                  i === 0 ? "bg-amber-400 text-amber-900" :
+                  i === 1 ? "bg-gray-300 text-gray-700" :
+                  "bg-amber-600 text-white"
+                }`}>{i + 1}</span>
+                <h4 className="font-bold text-gray-900">{r.name}</h4>
+                <span className="text-xs text-primary bg-primary/5 px-2 py-0.5 rounded-full ml-auto">{r.point}</span>
+              </div>
+              <div className="flex gap-4 mb-3">
+                <div>
+                  <span className="text-xs text-gray-400 block">手数料</span>
+                  <span className="font-bold text-primary">{r.fee}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-400 block">入金速度</span>
+                  <span className="font-bold text-secondary">{r.speed}</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <a
+                  href={r.url}
+                  className="flex-1 text-center text-sm border-2 border-primary text-primary py-2.5 rounded-lg font-bold hover:bg-primary hover:text-white transition-colors"
+                >
+                  詳細・口コミ
+                </a>
+                <a
+                  href={r.url}
+                  className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md"
+                >
+                  公式サイトへ →
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={() => { setResults(null); setStep(1); setBusinessType(""); setAmount(""); setUrgency(""); }}
+          className="w-full text-center text-sm text-gray-400 hover:text-gray-600 py-2"
+        >
+          もう一度診断する
+        </button>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1.5">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            事業形態 <span className="text-cta">*</span>
-          </span>
-        </label>
-        <select
-          required
-          value={formData.businessType}
-          onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
-          className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-        >
-          <option value="">選択してください</option>
-          <option value="法人">法人</option>
-          <option value="個人事業主">個人事業主</option>
-          <option value="フリーランス">フリーランス</option>
-        </select>
+    <div className="space-y-6">
+      {/* Progress bar */}
+      <div className="flex gap-1">
+        {[1, 2, 3].map((s) => (
+          <div key={s} className={`h-1.5 flex-1 rounded-full ${step >= s ? "bg-primary" : "bg-gray-200"}`} />
+        ))}
       </div>
 
-      <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1.5">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            請求書金額（万円） <span className="text-cta">*</span>
-          </span>
-        </label>
-        <input
-          type="number"
-          required
-          min={1}
-          value={formData.invoiceAmount}
-          onChange={(e) => setFormData({ ...formData, invoiceAmount: e.target.value })}
-          className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-          placeholder="例: 500"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1.5">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            急ぎ度 <span className="text-cta">*</span>
-          </span>
-        </label>
-        <select
-          required
-          value={formData.urgency}
-          onChange={(e) => setFormData({ ...formData, urgency: e.target.value })}
-          className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-        >
-          <option value="">選択してください</option>
-          <option value="即日">即日（今日中に資金が必要）</option>
-          <option value="2-3日以内">2〜3日以内</option>
-          <option value="1週間以内">1週間以内</option>
-          <option value="急ぎではない">急ぎではない</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1.5">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            メールアドレス <span className="text-cta">*</span>
-          </span>
-        </label>
-        <input
-          type="email"
-          required
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-          placeholder="example@company.com"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1.5">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-            電話番号
-          </span>
-        </label>
-        <input
-          type="tel"
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-          placeholder="090-1234-5678"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1.5">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            備考
-          </span>
-        </label>
-        <textarea
-          rows={3}
-          value={formData.memo}
-          onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
-          className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-          placeholder="その他ご要望があればご記入ください"
-        />
-      </div>
-
-      {error && (
-        <div className="bg-cta/5 border border-cta/20 rounded-lg px-4 py-3 flex items-center gap-2">
-          <svg className="w-4 h-4 text-cta shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-cta text-sm">{error}</p>
+      {step === 1 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-900 text-center">事業形態を選択</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {["法人", "個人事業主", "フリーランス"].map((type) => (
+              <button
+                key={type}
+                onClick={() => { setBusinessType(type); setStep(2); }}
+                className="w-full text-left px-5 py-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition-all font-bold text-gray-700"
+              >
+                {type}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full bg-cta text-white py-4 rounded-xl text-lg font-bold hover:bg-cta-dark transition-colors disabled:opacity-50 shadow-lg pulse-cta"
-      >
-        {submitting ? "送信中..." : "無料で一括見積もりする"}
-      </button>
+      {step === 2 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-900 text-center">請求書金額は？</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "〜50万円", value: "50" },
+              { label: "50〜100万円", value: "100" },
+              { label: "100〜500万円", value: "500" },
+              { label: "500万円〜", value: "1000" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { setAmount(opt.value); setStep(3); }}
+                className="px-4 py-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition-all font-bold text-gray-700 text-center"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setStep(1)} className="text-sm text-gray-400 hover:text-gray-600">← 戻る</button>
+        </div>
+      )}
 
-      <p className="text-xs text-gray-400 text-center flex items-center justify-center gap-1">
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-        </svg>
-        個人情報は見積もり目的のみに使用し、第三者に無断で提供することはありません。
-      </p>
-    </form>
+      {step === 3 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-900 text-center">急ぎ度は？</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {[
+              { label: "即日（今日中に必要）", value: "即日" },
+              { label: "2〜3日以内", value: "2-3日以内" },
+              { label: "1週間以内", value: "1週間以内" },
+              { label: "急ぎではない", value: "急ぎではない" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { setUrgency(opt.value); handleDiagnose(); }}
+                className="w-full text-left px-5 py-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition-all font-bold text-gray-700"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setStep(2)} className="text-sm text-gray-400 hover:text-gray-600">← 戻る</button>
+        </div>
+      )}
+    </div>
   );
 }
