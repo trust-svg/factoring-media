@@ -48,25 +48,25 @@ export function CompanyCard({
         </div>
       )}
       <div className="p-5 flex-1 flex flex-col">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
+        <div className="mb-3">
+          <div className="flex items-center gap-2 mb-2">
             {rankingOrder && rankingOrder <= 3 ? (
               <Image
                 src={`/images/rank-${rankingOrder}.png`}
                 alt={`第${rankingOrder}位`}
-                width={36}
-                height={36}
+                width={32}
+                height={32}
                 className="shrink-0"
               />
             ) : rankingOrder ? (
-              <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
                 <span className="text-sm font-bold text-primary">{rankingOrder}</span>
               </div>
             ) : null}
-            <h3 className="text-base font-bold text-primary-darker whitespace-nowrap">{name}</h3>
+            <h3 className="text-base font-bold text-primary-darker">{name}</h3>
           </div>
           {rating && (
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1">
               <Stars rating={rating} />
               <span className="text-sm font-bold text-gray-700">{rating.toFixed(1)}</span>
               <span className="text-xs text-gray-400">({reviewCount}件)</span>
