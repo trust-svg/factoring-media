@@ -124,28 +124,28 @@ export default async function HomePage() {
             </div>
             {/* Stats */}
             <div className="flex gap-0 justify-center md:justify-start">
-              <div className="text-center px-5 py-3 bg-white/10 rounded-l-xl border border-white/15">
-                <p className="text-3xl font-black text-white leading-none">10<span className="text-base font-bold text-secondary-light">社</span></p>
-                <p className="text-[11px] text-blue-300 mt-1">掲載業者数</p>
+              <div className="text-center px-5 py-3.5 bg-white/10 rounded-l-xl border border-white/15">
+                <p className="text-3xl font-black leading-none"><span className="text-secondary-light">10</span><span className="text-base font-bold text-white">社</span></p>
+                <p className="text-[11px] text-blue-300 mt-1.5">掲載業者数</p>
               </div>
-              <div className="text-center px-5 py-3 bg-white/10 border-y border-white/15">
-                <p className="text-3xl font-black text-white leading-none">96<span className="text-base font-bold text-secondary-light">%</span></p>
-                <p className="text-[11px] text-blue-300 mt-1">利用満足度</p>
+              <div className="text-center px-5 py-3.5 bg-white/10 border-y border-white/15">
+                <p className="text-3xl font-black leading-none"><span className="text-secondary-light">96</span><span className="text-base font-bold text-white">%</span></p>
+                <p className="text-[11px] text-blue-300 mt-1.5">利用満足度</p>
               </div>
-              <div className="text-center px-5 py-3 bg-white/10 rounded-r-xl border border-white/15">
-                <p className="text-2xl font-black text-white leading-none">最短<span className="text-secondary-light">10</span>分</p>
-                <p className="text-[11px] text-blue-300 mt-1">入金スピード</p>
+              <div className="text-center px-5 py-3.5 bg-white/10 rounded-r-xl border border-white/15">
+                <p className="text-3xl font-black leading-none"><span className="text-white">最短</span><span className="text-secondary-light">10</span><span className="text-base font-bold text-white">分</span></p>
+                <p className="text-[11px] text-blue-300 mt-1.5">入金スピード</p>
               </div>
             </div>
           </div>
 
-          {/* Right: teleoperator cutout - aligned to bottom */}
-          <div className="hidden md:block flex-shrink-0 self-end">
+          {/* Right: teleoperator cutout - aligned to bottom, larger, shifted left */}
+          <div className="hidden md:block flex-shrink-0 self-end -ml-8">
             <Image
               src="/images/hero-teleop.png"
               alt="ファクタリング比較ナビ - 無料相談"
-              width={300}
-              height={400}
+              width={420}
+              height={560}
               className="object-contain object-bottom"
               priority
             />
