@@ -87,7 +87,7 @@ export default async function HomePage() {
     <>
       {/* ==================== 1. Hero Section ==================== */}
       <section className="bg-gradient-to-br from-primary-darker via-primary-dark to-primary text-white overflow-hidden relative">
-        <div className="max-w-5xl mx-auto px-4 pt-12 md:pt-16 pb-0 flex flex-col md:flex-row items-end gap-0">
+        <div className="max-w-6xl mx-auto px-4 pt-12 md:pt-16 pb-0 flex flex-col md:flex-row items-end gap-0">
           {/* Left: text content */}
           <div className="flex-1 text-center md:text-left pb-12 md:pb-16">
             {/* Badge */}
@@ -140,7 +140,7 @@ export default async function HomePage() {
           </div>
 
           {/* Right: teleoperator cutout - aligned to bottom */}
-          <div className="hidden md:block flex-shrink-0 self-end -ml-20">
+          <div className="hidden md:block flex-shrink-0 self-end -ml-8">
             <Image
               src="/images/hero-teleop.png"
               alt="ファクタリング比較ナビ - 無料相談"
