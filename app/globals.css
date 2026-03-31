@@ -105,3 +105,11 @@ html {
 .number-highlight {
   font-variant-numeric: tabular-nums;
 }
+
+/* Section divider */
+.section-divider {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e2e8f0, transparent);
+  margin: 0;
+}

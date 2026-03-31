@@ -187,7 +187,7 @@ export default async function HomePage() {
           </div>
 
           {/* Right: teleoperator cutout - aligned to bottom */}
-          <div className="hidden md:block flex-shrink-0 self-end -ml-16">
+          <div className="hidden md:block flex-shrink-0 self-end -ml-24">
             <Image
               src="/images/hero-teleop.png"
               alt="ファクタリングの窓口 - 無料相談"
@@ -229,13 +229,17 @@ export default async function HomePage() {
       {/* ==================== 3. TOP3 Ranking ==================== */}
       <section className="max-w-6xl mx-auto px-4 py-16">
         <div className="text-center mb-10">
-          <p className="text-sm font-bold text-primary mb-2">厳選ランキング</p>
+          <div className="inline-flex items-center gap-1.5 bg-primary/5 border border-primary/10 px-4 py-1.5 rounded-full mb-3">
+            <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+            <span className="text-sm font-bold text-primary">厳選ランキング</span>
+          </div>
           <h2 className="text-2xl md:text-3xl font-black text-gray-900 mb-2">
             おすすめファクタリング業者 TOP3
           </h2>
           <p className="text-sm text-gray-500">
             2026年最新版 — 口コミ・手数料・入金速度を総合評価
           </p>
+          <div className="w-16 h-0.5 bg-primary mx-auto mt-4" />
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -257,13 +261,18 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <hr className="section-divider" />
+
       {/* ==================== Quick Comparison Table ==================== */}
       <section className="max-w-4xl mx-auto px-4 -mt-8 relative z-10 mb-12">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="relative">
-            <div className="text-center py-4 border-b border-gray-200">
-              <h2 className="text-xl font-black text-gray-900">ファクタリング業者一覧</h2>
-              <p className="text-xs text-gray-500 mt-1">手数料・入金速度・評価を一目で比較</p>
+            <div className="text-center py-5 bg-gray-50 border-b border-gray-200">
+              <div className="inline-flex items-center gap-1.5 mb-2">
+                <div className="w-1 h-5 bg-primary rounded-full" />
+                <h2 className="text-lg font-black text-gray-900">ファクタリング業者一覧</h2>
+              </div>
+              <p className="text-xs text-gray-500">手数料・入金速度・評価を一目で比較</p>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -317,6 +326,7 @@ export default async function HomePage() {
       {/* ==================== 4. What is Factoring ==================== */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
           <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-10 text-center">
             ファクタリングとは?
           </h2>
@@ -397,9 +407,12 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <hr className="section-divider" />
+
       {/* ==================== 5. Pain Points ==================== */}
       <section className="py-16 bg-white">
         <div className="max-w-4xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
           <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-10 text-center">
             こんなお悩みありませんか?
           </h2>
@@ -442,11 +455,6 @@ export default async function HomePage() {
 
           {/* Solution */}
           <div className="relative">
-            <div className="absolute left-1/2 -translate-x-1/2 -top-4">
-              <svg className="w-8 h-8 text-primary" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l-2 7H3l6 4.5L7 21l5-3.5L17 21l-2-7.5L21 9h-7z" />
-              </svg>
-            </div>
             <div className="bg-gradient-to-r from-primary to-secondary rounded-2xl p-6 md:p-8 text-center text-white">
               <h3 className="text-xl md:text-2xl font-bold mb-3">
                 ファクタリングで解決できます!
@@ -468,6 +476,7 @@ export default async function HomePage() {
       {/* ==================== 6. Industry Recommendations ==================== */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
           <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-3 text-center">
             業種別おすすめファクタリング
           </h2>
@@ -548,9 +557,12 @@ export default async function HomePage() {
         </section>
       )}
 
+      <hr className="section-divider" />
+
       {/* ==================== FAQ Section ==================== */}
       <section className="bg-white py-16">
         <div className="max-w-4xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
             よくある質問
           </h2>
@@ -597,9 +609,12 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <hr className="section-divider" />
+
       {/* ==================== How to Use Section ==================== */}
       <section className="py-16">
         <div className="max-w-4xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
             ファクタリング利用の流れ
           </h2>
@@ -628,9 +643,12 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <hr className="section-divider" />
+
       {/* ==================== Selection Points Section ==================== */}
       <section className="bg-white py-16">
         <div className="max-w-4xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
             ファクタリング業者を選ぶ5つのポイント
           </h2>
@@ -661,10 +679,13 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <hr className="section-divider" />
+
       {/* ==================== Case Studies Section ==================== */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-10">
+            <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
             <h2 className="text-2xl md:text-3xl font-bold text-primary-darker mb-3">
               ファクタリング活用事例
             </h2>
