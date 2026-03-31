@@ -65,6 +65,73 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "WebSite",
+                name: "ファクタリングの窓口",
+                url: "https://factoring-media.vercel.app",
+                description: "ファクタリング業者の口コミ・評判を比較。手数料・入金速度・審査基準で徹底比較し、最適な業者が見つかります。",
+                publisher: {
+                  "@type": "Organization",
+                  name: "ファクタリングの窓口",
+                },
+              },
+              {
+                "@type": "FAQPage",
+                mainEntity: [
+                  {
+                    "@type": "Question",
+                    name: "ファクタリングとは何ですか？",
+                    acceptedAnswer: {
+                      "@type": "Answer",
+                      text: "ファクタリングとは、企業が保有する売掛金（請求書）をファクタリング会社に売却して、支払期日前に現金化する資金調達方法です。融資と異なり借入ではないため、信用情報に影響しません。",
+                    },
+                  },
+                  {
+                    "@type": "Question",
+                    name: "ファクタリングの手数料の相場はいくらですか？",
+                    acceptedAnswer: {
+                      "@type": "Answer",
+                      text: "2社間ファクタリングの手数料相場は5%〜20%、3社間ファクタリングは1%〜10%程度です。業者や取引条件により異なります。",
+                    },
+                  },
+                  {
+                    "@type": "Question",
+                    name: "ファクタリングの審査に落ちることはありますか？",
+                    acceptedAnswer: {
+                      "@type": "Answer",
+                      text: "審査は主に売掛先（取引先）の信用力で判断されるため、自社が赤字でも利用可能な場合が多いです。ただし売掛先の信用力が低い場合は断られることがあります。",
+                    },
+                  },
+                  {
+                    "@type": "Question",
+                    name: "即日入金は本当に可能ですか？",
+                    acceptedAnswer: {
+                      "@type": "Answer",
+                      text: "はい、最短10分〜即日入金に対応した業者があります。ただし午前中の申込みや必要書類の事前準備が条件となる場合が多いです。",
+                    },
+                  },
+                  {
+                    "@type": "Question",
+                    name: "個人事業主でもファクタリングを利用できますか？",
+                    acceptedAnswer: {
+                      "@type": "Answer",
+                      text: "はい、個人事業主やフリーランスでも利用可能な業者があります。ペイトナーファクタリングやラボルなど、1万円から少額対応している業者もあります。",
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        }}
+      />
+
       {/* ==================== 1. Hero Section ==================== */}
       <section className="bg-gradient-to-br from-primary-darker via-primary-dark to-primary text-white overflow-hidden relative">
         <div className="max-w-6xl mx-auto px-4 pt-12 md:pt-16 pb-0 flex flex-col md:flex-row items-end gap-0">
@@ -235,7 +302,7 @@ export default async function HomePage() {
                       <span className="text-star font-bold">{c.rating?.toFixed(1) || "-"}</span>
                     </td>
                     <td className="px-4 py-4 text-center">
-                      <a href={`/companies/${c.slug}`} className="inline-block bg-cta text-white text-xs px-3 py-1.5 rounded font-bold hover:bg-cta-dark transition-colors whitespace-nowrap">
+                      <a href={`/companies/${c.slug}`} className="inline-block bg-cta text-white text-xs px-4 py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors whitespace-nowrap">
                         詳細 →
                       </a>
                     </td>
@@ -480,6 +547,119 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ==================== FAQ Section ==================== */}
+      <section className="bg-white py-16">
+        <div className="max-w-4xl mx-auto px-4">
+          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+            よくある質問
+          </h2>
+          <div className="space-y-4">
+            {[
+              {
+                q: "ファクタリングとは何ですか？",
+                a: "ファクタリングとは、企業が保有する売掛金（請求書）をファクタリング会社に売却して、支払期日前に現金化する資金調達方法です。銀行融資とは異なり「借入」ではないため、貸借対照表の負債が増えず、信用情報にも影響しません。最短即日で資金を得ることができ、赤字決算や税金滞納があっても利用可能な場合が多いのが特徴です。",
+              },
+              {
+                q: "ファクタリングの手数料の相場はいくらですか？",
+                a: "2社間ファクタリング（取引先に知らせない方式）の手数料相場は5%〜20%、3社間ファクタリング（取引先の承諾が必要な方式）は1%〜10%程度です。手数料は売掛先の信用力、売掛金の金額、支払期日までの日数などにより変動します。OLTAは2%〜9%、ペイトナーファクタリングは一律10%と明確な料金体系を提示しています。",
+              },
+              {
+                q: "ファクタリングの審査に落ちることはありますか？",
+                a: "ファクタリングの審査は主に売掛先（取引先）の信用力で判断されるため、自社が赤字や債務超過でも利用可能な場合が多いです。審査通過率93%以上を公表している業者もあります。ただし、売掛先が個人や設立間もない企業の場合、また売掛金の存在が確認できない場合は断られることがあります。",
+              },
+              {
+                q: "即日入金は本当に可能ですか？",
+                a: "はい、最短10分（ペイトナーファクタリング）から即日入金に対応した業者が複数あります。ただし、即日入金を確実にするためには、午前中の申込み、必要書類（本人確認書類・請求書・通帳コピーなど）の事前準備、オンライン完結型業者の利用が条件となる場合が多いです。",
+              },
+              {
+                q: "個人事業主でもファクタリングを利用できますか？",
+                a: "はい、個人事業主やフリーランスでも利用可能な業者が増えています。ペイトナーファクタリングやラボルは1万円から少額対応しており、請求書1枚から利用できます。法人向けの大手業者でも個人事業主に対応しているケースが多くあります。",
+              },
+              {
+                q: "取引先にファクタリングの利用がバレますか？",
+                a: "2社間ファクタリングであれば、取引先に知られることなく利用できます。契約はあなたとファクタリング会社の2者間で行われるため、取引先への通知は不要です。一方、3社間ファクタリングは取引先の承諾が必要ですが、手数料が低いメリットがあります。",
+              },
+            ].map((item, i) => (
+              <details key={i} className="group border border-gray-200 rounded-lg">
+                <summary className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                  <span className="font-bold text-gray-800 text-sm pr-4">{item.q}</span>
+                  <svg className="w-5 h-5 text-gray-400 shrink-0 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="px-5 pb-4">
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.a}</p>
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== How to Use Section ==================== */}
+      <section className="py-16">
+        <div className="max-w-4xl mx-auto px-4">
+          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+            ファクタリング利用の流れ
+          </h2>
+          <div className="space-y-0">
+            {[
+              { step: "1", title: "無料相談・見積もり依頼", desc: "当サイトの一括見積もりフォームから、事業形態・請求書金額・急ぎ度を入力するだけ。最短30秒で複数社に見積もり依頼ができます。" },
+              { step: "2", title: "業者から連絡・条件提示", desc: "入力内容に基づいて、最適なファクタリング業者から手数料・入金スピードなどの条件が提示されます。複数社の条件を比較検討できます。" },
+              { step: "3", title: "必要書類の提出", desc: "本人確認書類、請求書、通帳のコピーなど、必要書類を提出します。オンライン完結型の業者なら、スマホで写真を撮って送るだけで完了します。" },
+              { step: "4", title: "審査・契約", desc: "売掛先の信用力をもとに審査が行われます。最短10分〜数時間で審査完了。条件に合意すれば電子契約で締結します。" },
+              { step: "5", title: "入金", desc: "契約完了後、最短即日で指定の銀行口座に入金されます。あとは支払期日に売掛先から入金があれば、ファクタリング会社に支払いを行います。" },
+            ].map((item, i) => (
+              <div key={i} className="flex gap-4">
+                <div className="flex flex-col items-center">
+                  <div className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm shrink-0">
+                    {item.step}
+                  </div>
+                  {i < 4 && <div className="w-0.5 h-full bg-primary/20 my-1" />}
+                </div>
+                <div className="pb-8">
+                  <h3 className="font-bold text-gray-900 mb-1">{item.title}</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== Selection Points Section ==================== */}
+      <section className="bg-white py-16">
+        <div className="max-w-4xl mx-auto px-4">
+          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+            ファクタリング業者を選ぶ5つのポイント
+          </h2>
+          <div className="space-y-6">
+            {[
+              { num: "1", title: "手数料の透明性", desc: "手数料の範囲が明確に提示されているかを確認しましょう。「1%〜」のように下限だけを強調し、実際には高い手数料を請求する業者も存在します。OLTAの2%〜9%やペイトナーの一律10%のように、上限も明示している業者が信頼できます。" },
+              { num: "2", title: "入金スピードと対応時間", desc: "即日入金を謳っていても、「午前中の申込みに限る」「初回は翌営業日」などの条件がある場合があります。24時間対応のえんナビや、土日も審査可能な業者を選ぶと急ぎの資金需要にも対応できます。" },
+              { num: "3", title: "運営会社の信頼性", desc: "会社の所在地・設立年数・資本金・代表者名が明記されているか確認しましょう。日本中小企業金融サポート機構のような一般社団法人や、上場企業グループのラボル（東証プライム上場・セレス子会社）は特に信頼性が高いです。" },
+              { num: "4", title: "契約条件（償還請求権の有無）", desc: "ノンリコース（償還請求権なし）の契約であれば、万が一売掛先が倒産しても返金義務がありません。リコース契約の場合は実質的に借入と変わらないため、契約前に必ず確認しましょう。" },
+              { num: "5", title: "実際の利用者の口コミ", desc: "公式サイトの情報だけでなく、実際に利用した方の口コミ・評判を確認することが重要です。当サイトでは各業者の口コミを掲載していますので、業者選びの参考にしてください。" },
+            ].map((item) => (
+              <div key={item.num} className="flex gap-4">
+                <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
+                  {item.num}
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">{item.title}</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <a href="/articles/how-to-choose" className="text-primary font-bold text-sm hover:underline">
+              業者の選び方をもっと詳しく見る →
+            </a>
+          </div>
+        </div>
+      </section>
 
       {/* ==================== Case Studies Section ==================== */}
       <section className="bg-gray-50 py-16">

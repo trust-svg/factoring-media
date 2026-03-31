@@ -11,6 +11,27 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
+  openGraph: {
+    title: "ファクタリングの窓口 | 口コミ・評判で業者を徹底比較【2026年最新】",
+    description: "ファクタリング業者10社の口コミ・手数料・入金速度を徹底比較。無料一括見積もりであなたに最適な業者が見つかります。",
+    siteName: "ファクタリングの窓口",
+    locale: "ja_JP",
+    type: "website",
+    images: [
+      {
+        url: "/images/hero-teleop.jpg",
+        width: 1200,
+        height: 630,
+        alt: "ファクタリングの窓口",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ファクタリングの窓口 | 口コミ・評判で業者を徹底比較",
+    description: "ファクタリング業者10社の口コミ・手数料・入金速度を徹底比較。",
+    images: ["/images/hero-teleop.jpg"],
+  },
 };
 
 export default function RootLayout({
