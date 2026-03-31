@@ -41,16 +41,18 @@ body {
 
 /* Minimum font size override for readability */
 .text-xs {
-  font-size: 0.875rem !important; /* 14px instead of 12px */
+  font-size: 0.9375rem !important; /* 15px instead of 12px */
+  line-height: 1.5 !important;
 }
 .text-\[10px\] {
-  font-size: 0.8125rem !important; /* 13px instead of 10px */
+  font-size: 0.875rem !important; /* 14px instead of 10px */
 }
 .text-\[11px\] {
-  font-size: 0.875rem !important; /* 14px instead of 11px */
+  font-size: 0.9375rem !important; /* 15px instead of 11px */
 }
 .text-sm {
-  font-size: 0.9375rem !important; /* 15px instead of 14px */
+  font-size: 1rem !important; /* 16px instead of 14px */
+  line-height: 1.6 !important;
 }
 
 /* Smooth scroll */

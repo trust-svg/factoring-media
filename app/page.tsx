@@ -148,9 +148,9 @@ export default async function HomePage() {
 
       {/* ==================== 1. Hero Section ==================== */}
       <section className="bg-gradient-to-br from-primary-darker via-primary-dark to-primary text-white overflow-hidden relative">
-        <div className="max-w-6xl mx-auto px-4 pt-12 md:pt-16 pb-0 flex flex-col md:flex-row items-end gap-0">
+        <div className="max-w-6xl mx-auto px-4 pt-12 md:pt-16 pb-0 flex flex-col md:flex-row items-end justify-center gap-0">
           {/* Left: text content */}
-          <div className="flex-1 text-center md:text-left pb-12 md:pb-16">
+          <div className="md:max-w-xl text-center md:text-left pb-12 md:pb-16">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm mb-5">
               <span className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
@@ -201,7 +201,7 @@ export default async function HomePage() {
           </div>
 
           {/* Right: teleoperator cutout - aligned to bottom */}
-          <div className="hidden md:block flex-shrink-0 self-end -ml-44">
+          <div className="hidden md:block flex-shrink-0 self-end">
             <Image
               src="/images/hero-teleop.png"
               alt="ファクセル - 無料相談"
