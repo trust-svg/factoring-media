@@ -3,8 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ファクタリング比較ナビ | 口コミ・評判で業者を徹底比較【2026年最新】",
-    template: "%s | ファクタリング比較ナビ",
+    default: "ファクタリングの窓口 | 口コミ・評判で業者を徹底比較【2026年最新】",
+    template: "%s | ファクタリングの窓口",
   },
   description:
     "ファクタリング業者の口コミ・評判を比較。手数料・入金速度・審査の甘さで徹底比較。おすすめランキングや一括見積もりで最適な業者が見つかります。",
@@ -62,13 +62,8 @@ function Header() {
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-          </div>
           <div>
-            <span className="text-lg font-black text-primary">ファクタリング比較ナビ</span>
+            <span className="text-lg font-black text-primary">ファクタリングの窓口</span>
             <span className="hidden sm:inline text-[10px] text-gray-400 ml-1">口コミ・評判で業者を比較</span>
           </div>
         </a>
@@ -141,13 +136,8 @@ function Footer() {
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="grid md:grid-cols-4 gap-8">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <span className="text-white font-bold">ファクタリング比較ナビ</span>
+            <div className="mb-4">
+              <span className="text-white font-bold text-lg">ファクタリングの窓口</span>
             </div>
             <p className="text-sm leading-relaxed">
               ファクタリング業者の口コミ・評判を徹底比較。あなたに最適な業者選びをサポートします。
@@ -181,7 +171,7 @@ function Footer() {
           </div>
         </div>
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-xs">
-          <p>&copy; 2026 ファクタリング比較ナビ All Rights Reserved.</p>
+          <p>&copy; 2026 ファクタリングの窓口 All Rights Reserved.</p>
           <p className="mt-1 text-gray-500">※ 当サイトはアフィリエイトプログラムに参加しています。</p>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 declare global {
   interface Window {
@@ -42,21 +43,23 @@ export function CompanyCard({
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm card-hover overflow-hidden">
       {isRecommended && (
-        <div className="bg-gradient-to-r from-primary to-primary-light text-white text-xs font-bold px-4 py-1.5 text-center badge-shine">
-          &#9733; おすすめファクタリング業者
+        <div className="bg-primary text-white text-xs font-bold px-4 py-1.5 text-center">
+          おすすめ
         </div>
       )}
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             {rankingOrder && rankingOrder <= 3 ? (
-              <div className={`w-10 h-10 ${medalColors[rankingOrder]?.bg || "bg-gray-200"} rounded-full flex items-center justify-center shrink-0 shadow-md`}>
-                <span className={`text-sm font-black ${medalColors[rankingOrder]?.text || "text-gray-600"}`}>
-                  {rankingOrder}
-                </span>
-              </div>
+              <Image
+                src={`/images/rank-${rankingOrder}.png`}
+                alt={`第${rankingOrder}位`}
+                width={36}
+                height={36}
+                className="shrink-0"
+              />
             ) : rankingOrder ? (
-              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
                 <span className="text-sm font-bold text-primary">{rankingOrder}</span>
               </div>
             ) : null}

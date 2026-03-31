@@ -120,10 +120,10 @@ export default async function HomePage() {
           </div>
 
           {/* Right: teleoperator cutout - aligned to bottom */}
-          <div className="hidden md:block flex-shrink-0 self-end -ml-8">
+          <div className="hidden md:block flex-shrink-0 self-end -ml-16">
             <Image
               src="/images/hero-teleop.png"
-              alt="ファクタリング比較ナビ - 無料相談"
+              alt="ファクタリングの窓口 - 無料相談"
               width={420}
               height={560}
               className="object-contain object-bottom"
@@ -162,30 +162,18 @@ export default async function HomePage() {
       {/* ==================== 3. TOP3 Ranking ==================== */}
       <section className="max-w-6xl mx-auto px-4 py-16">
         <div className="text-center mb-10">
-          <Image
-            src="/images/section-top3-header.jpg"
-            alt="厳選ランキング おすすめファクタリング業者 TOP3 2026年最新版"
-            width={640}
-            height={233}
-            className="mx-auto"
-          />
+          <p className="text-sm font-bold text-primary mb-2">厳選ランキング</p>
+          <h2 className="text-2xl md:text-3xl font-black text-gray-900 mb-2">
+            おすすめファクタリング業者 TOP3
+          </h2>
+          <p className="text-sm text-gray-500">
+            2026年最新版 — 口コミ・手数料・入金速度を総合評価
+          </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {topCompanies.map((company, index) => (
-            <div key={company.slug} className="relative">
-              {index < 3 && (
-                <div className="absolute -top-4 left-4 z-10">
-                  <Image
-                    src={`/images/rank-${index + 1}.png`}
-                    alt={`第${index + 1}位`}
-                    width={40}
-                    height={40}
-                  />
-                </div>
-              )}
-              <CompanyCard {...company} />
-            </div>
+          {topCompanies.map((company) => (
+            <CompanyCard key={company.slug} {...company} />
           ))}
         </div>
 
@@ -206,13 +194,10 @@ export default async function HomePage() {
       <section className="max-w-4xl mx-auto px-4 -mt-8 relative z-10 mb-12">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="relative">
-            <Image
-              src="/images/section-company-list.jpg"
-              alt="ファクタリング業者一覧"
-              width={640}
-              height={201}
-              className="mx-auto"
-            />
+            <div className="text-center py-4 border-b border-gray-200">
+              <h2 className="text-xl font-black text-gray-900">ファクタリング業者一覧</h2>
+              <p className="text-xs text-gray-500 mt-1">手数料・入金速度・評価を一目で比較</p>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
