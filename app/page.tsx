@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { CompanyCard } from "@/components/CompanyCard";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -142,85 +143,19 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Hero illustration - business person */}
+          {/* Hero photo */}
           <div className="flex-1 hidden md:flex justify-center">
-            <svg
-              width="360"
-              height="360"
-              viewBox="0 0 400 400"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Background circles */}
-              <circle cx="200" cy="200" r="180" fill="white" fillOpacity="0.05" />
-              <circle cx="200" cy="200" r="140" fill="white" fillOpacity="0.05" />
-              {/* Person body */}
-              <rect x="150" y="160" width="100" height="130" rx="8" fill="#3b82f6" />
-              {/* Shirt/tie */}
-              <rect x="180" y="160" width="40" height="60" fill="white" fillOpacity="0.9" />
-              <polygon points="200,160 190,190 210,190" fill="#1e40af" />
-              {/* Head */}
-              <circle cx="200" cy="130" r="40" fill="#fbbf24" fillOpacity="0.2" />
-              <circle cx="200" cy="130" r="35" fill="#fed7aa" />
-              {/* Hair */}
-              <ellipse cx="200" cy="110" rx="38" ry="20" fill="#374151" />
-              {/* Eyes */}
-              <circle cx="188" cy="128" r="3" fill="#1e293b" />
-              <circle cx="212" cy="128" r="3" fill="#1e293b" />
-              {/* Smile */}
-              <path
-                d="M192 140 Q200 148 208 140"
-                stroke="#1e293b"
-                strokeWidth="2"
-                fill="none"
-                strokeLinecap="round"
+            <div className="relative">
+              <div className="absolute -inset-4 bg-white/10 rounded-3xl blur-xl" />
+              <Image
+                src="/images/hero-woman.jpg"
+                alt="ファクタリング比較ナビ"
+                width={480}
+                height={320}
+                className="relative rounded-2xl shadow-2xl object-cover"
+                priority
               />
-              {/* Arms */}
-              <rect x="110" y="170" width="45" height="16" rx="8" fill="#3b82f6" />
-              <rect x="245" y="170" width="45" height="16" rx="8" fill="#3b82f6" />
-              {/* Document in hand */}
-              <rect x="270" y="145" width="50" height="65" rx="4" fill="white" />
-              <rect x="278" y="155" width="34" height="3" rx="1" fill="#93c5fd" />
-              <rect x="278" y="163" width="34" height="3" rx="1" fill="#93c5fd" />
-              <rect x="278" y="171" width="24" height="3" rx="1" fill="#93c5fd" />
-              <rect
-                x="278"
-                y="185"
-                width="34"
-                height="10"
-                rx="2"
-                fill="#10b981"
-                fillOpacity="0.3"
-              />
-              <text x="285" y="193" fill="#10b981" fontSize="8" fontWeight="bold">
-                OK
-              </text>
-              {/* Legs */}
-              <rect x="165" y="285" width="30" height="50" rx="4" fill="#1e3a8a" />
-              <rect x="205" y="285" width="30" height="50" rx="4" fill="#1e3a8a" />
-              {/* Shoes */}
-              <rect x="160" y="330" width="40" height="12" rx="6" fill="#0f172a" />
-              <rect x="200" y="330" width="40" height="12" rx="6" fill="#0f172a" />
-              {/* Floating elements */}
-              <rect x="60" y="100" width="50" height="35" rx="6" fill="white" fillOpacity="0.1" />
-              <text x="72" y="115" fill="white" fillOpacity="0.6" fontSize="8">
-                ¥
-              </text>
-              <text x="68" y="128" fill="white" fillOpacity="0.4" fontSize="7">
-                即日
-              </text>
-              <rect x="300" y="80" width="55" height="35" rx="6" fill="white" fillOpacity="0.1" />
-              <text x="310" y="95" fill="#fbbf24" fontSize="10">
-                ★★★
-              </text>
-              <text x="310" y="108" fill="white" fillOpacity="0.4" fontSize="7">
-                4.5
-              </text>
-              <rect x="80" y="260" width="50" height="35" rx="6" fill="white" fillOpacity="0.1" />
-              <text x="92" y="280" fill="white" fillOpacity="0.6" fontSize="10">
-                比較
-              </text>
-            </svg>
+            </div>
           </div>
         </div>
       </section>
@@ -666,6 +601,111 @@ export default async function HomePage() {
           <p className="text-xs text-gray-400 mt-4 border-t border-gray-100 pt-4">
             ※ 当サイトのランキング・評価は、手数料、入金速度、口コミ評判、サービスの充実度等を独自の基準で総合的に評価しています。
           </p>
+        </div>
+      </section>
+
+      {/* ==================== Case Studies Section ==================== */}
+      <section className="bg-gray-50 py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold text-primary-darker mb-3">
+              ファクタリング活用事例
+            </h2>
+            <p className="text-gray-500">
+              実際にファクタリングで資金繰りを改善した事例をご紹介
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                image: "/images/case-construction.jpg",
+                industry: "建設業",
+                title: "工事代金の入金を3ヶ月→即日に短縮",
+                amount: "500万円",
+                fee: "4.5%",
+                speed: "即日",
+                body: "大型工事の下請けで、元請からの入金が3ヶ月後。材料費の支払いが先行し資金繰りが悪化していたが、ファクタリングで売掛金を即日現金化。追加の工事案件も受注できるようになった。",
+              },
+              {
+                image: "/images/case-transport.jpg",
+                industry: "運送業",
+                title: "燃料費高騰でも安定した経営を実現",
+                amount: "300万円",
+                fee: "5.0%",
+                speed: "翌日",
+                body: "燃料費が前年比30%上昇し、月末の支払いが厳しくなっていた。売掛金をファクタリングで早期現金化し、燃料費の支払いに充当。ドライバーの給与遅延もなくなった。",
+              },
+              {
+                image: "/images/case-freelance.jpg",
+                industry: "ITフリーランス",
+                title: "請求書1枚・10万円から即日入金",
+                amount: "45万円",
+                fee: "10%",
+                speed: "最短10分",
+                body: "大手SIerの案件で月末締め翌々月払い。生活費が足りなくなりペイトナーファクタリングを利用。請求書をアップロードするだけで10分後に入金され、非常に助かった。",
+              },
+              {
+                image: "/images/case-medical.jpg",
+                industry: "医療（クリニック）",
+                title: "診療報酬の入金待ち2ヶ月を解消",
+                amount: "800万円",
+                fee: "1.5%",
+                speed: "3営業日",
+                body: "開業2年目のクリニック。診療報酬の入金が2ヶ月後で、医療機器のリース料や人件費の支払いに苦労。診療報酬ファクタリングで手数料わずか1.5%で資金化できた。",
+              },
+              {
+                image: "/images/case-cafe.jpg",
+                industry: "飲食（カフェ経営）",
+                title: "コロナ後の売上回復期に資金確保",
+                amount: "80万円",
+                fee: "8.0%",
+                speed: "即日",
+                body: "法人向けケータリングの売掛金があったが、仕入れ費用が先に必要だった。ファクタリングで即日80万円を調達し、食材の仕入れと新メニュー開発に充てることができた。",
+              },
+            ].map((c, i) => (
+              <div key={i} className="bg-white rounded-xl overflow-hidden shadow-sm card-hover border border-gray-100">
+                <div className="relative h-48">
+                  <Image
+                    src={c.image}
+                    alt={`${c.industry}のファクタリング活用事例`}
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute top-3 left-3">
+                    <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
+                      {c.industry}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <h3 className="font-bold text-primary-darker mb-2">{c.title}</h3>
+                  <div className="flex gap-3 mb-3">
+                    <div className="bg-primary/5 rounded-lg px-2.5 py-1.5 text-center flex-1">
+                      <span className="text-[10px] text-gray-400 block">調達額</span>
+                      <span className="text-sm font-bold text-primary">{c.amount}</span>
+                    </div>
+                    <div className="bg-secondary/5 rounded-lg px-2.5 py-1.5 text-center flex-1">
+                      <span className="text-[10px] text-gray-400 block">手数料</span>
+                      <span className="text-sm font-bold text-secondary">{c.fee}</span>
+                    </div>
+                    <div className="bg-green/5 rounded-lg px-2.5 py-1.5 text-center flex-1">
+                      <span className="text-[10px] text-gray-400 block">入金</span>
+                      <span className="text-sm font-bold text-green">{c.speed}</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">{c.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <a
+              href="/estimate"
+              className="inline-block bg-cta hover:bg-cta-dark text-white px-8 py-4 rounded-xl font-bold transition-colors shadow-md pulse-cta"
+            >
+              あなたも無料で見積もりしてみる
+            </a>
+          </div>
         </div>
       </section>
 
