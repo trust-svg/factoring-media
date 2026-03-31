@@ -165,9 +165,9 @@ export default async function HomePage() {
           <Image
             src="/images/section-top3-header.jpg"
             alt="厳選ランキング おすすめファクタリング業者 TOP3 2026年最新版"
-            width={540}
-            height={170}
-            className="mx-auto rounded-xl"
+            width={420}
+            height={130}
+            className="mx-auto"
           />
         </div>
 
@@ -177,11 +177,10 @@ export default async function HomePage() {
               {index < 3 && (
                 <div className="absolute -top-4 left-4 z-10">
                   <Image
-                    src={`/images/rank-${index + 1}.jpg`}
+                    src={`/images/rank-${index + 1}.png`}
                     alt={`第${index + 1}位`}
-                    width={44}
-                    height={44}
-                    className="drop-shadow-lg"
+                    width={40}
+                    height={40}
                   />
                 </div>
               )}
@@ -210,9 +209,9 @@ export default async function HomePage() {
             <Image
               src="/images/section-company-list.jpg"
               alt="ファクタリング業者一覧"
-              width={960}
-              height={540}
-              className="w-full rounded-t-2xl object-contain"
+              width={640}
+              height={160}
+              className="mx-auto py-4"
             />
           </div>
           <div className="overflow-x-auto">
@@ -231,13 +230,18 @@ export default async function HomePage() {
                 {top5Companies.map((c, i) => (
                   <tr key={c.slug} className={`border-b border-gray-100 ${i === 0 ? "bg-amber-50/50" : ""}`}>
                     <td className="px-4 py-4">
-                      <Image
-                        src={`/images/rank-${i + 1}.jpg`}
-                        alt={`第${i + 1}位`}
-                        width={40}
-                        height={40}
-                        className="rounded-full"
-                      />
+                      {i < 3 ? (
+                        <Image
+                          src={`/images/rank-${i + 1}.png`}
+                          alt={`第${i + 1}位`}
+                          width={36}
+                          height={36}
+                        />
+                      ) : (
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                          {i + 1}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-4 font-bold text-primary-darker whitespace-nowrap">{c.name}</td>
                     <td className="px-4 py-4 text-center font-bold whitespace-nowrap">{c.fee || "-"}</td>
