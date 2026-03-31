@@ -63,7 +63,7 @@ export function CompanyCard({
                 <span className="text-sm font-bold text-primary">{rankingOrder}</span>
               </div>
             ) : null}
-            <h3 className="text-lg font-bold text-primary-darker">{name}</h3>
+            <h3 className="text-base font-bold text-primary-darker whitespace-nowrap">{name}</h3>
           </div>
           {rating && (
             <div className="flex items-center gap-1 shrink-0">
