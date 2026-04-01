@@ -33,6 +33,9 @@ export const metadata: Metadata = {
     description: "ファクタリング業者10社の口コミ・手数料・入金速度を徹底比較。",
     images: ["/images/hero-teleop.jpg"],
   },
+  verification: {
+    google: "tDElDjRsPz_r_OvH3hk7DynYbkTx4NLtmLda8E6r23k",
+  },
 };
 
 export default function RootLayout({
