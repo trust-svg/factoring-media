@@ -349,7 +349,86 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ==================== 4. What is Factoring ==================== */}
+      {/* ==================== 5. Pain Points ==================== */}
+      <section className="py-16 bg-white">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
+          <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-10 text-center">
+            こんなお悩みありませんか?
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-5 mb-10">
+            {/* Pain 1 */}
+            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+              <div className="h-40 relative">
+                <Image src="/images/worry-cashflow.jpg" alt="資金繰りの悩み" fill className="object-cover" />
+              </div>
+              <div className="p-5">
+                <p className="text-gray-700 font-medium">
+                  売掛金の入金が2ヶ月後で資金繰りが厳しい...
+                </p>
+              </div>
+            </div>
+            {/* Pain 2 */}
+            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+              <div className="h-40 relative">
+                <Image src="/images/worry-rejected.jpg" alt="融資審査の悩み" fill className="object-cover" />
+              </div>
+              <div className="p-5">
+                <p className="text-gray-700 font-medium">
+                  銀行融資の審査に落ちてしまった...
+                </p>
+              </div>
+            </div>
+            {/* Pain 3 */}
+            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+              <div className="h-40 relative">
+                <Image src="/images/worry-urgent.jpg" alt="急な出費の悩み" fill className="object-cover" />
+              </div>
+              <div className="p-5">
+                <p className="text-gray-700 font-medium">
+                  急な出費で今すぐ現金が必要...
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Solution */}
+          <div className="relative">
+            <div className="bg-gradient-to-r from-primary to-secondary rounded-2xl p-6 md:p-8 text-center text-white">
+              <h3 className="text-xl md:text-2xl font-bold mb-3">
+                ファクタリングで解決できます!
+              </h3>
+              <p className="text-blue-100 mb-5">
+                売掛金を即日現金化。借入ではないので信用情報にも影響しません。
+              </p>
+              <a
+                href="/estimate"
+                className="inline-block bg-cta hover:bg-cta-dark text-white px-8 py-3.5 rounded-xl font-bold transition-colors shadow-lg pulse-cta"
+              >
+                無料で相談してみる
+              </a>
+            </div>
+          </div>
+
+          <div className="max-w-3xl mx-auto mt-8">
+            <p className="text-gray-700 leading-relaxed">
+              ファクタリングは「怪しい」「違法ではないか」と心配される方もいますが、売掛債権の売買は民法第466条で認められた合法的な取引です。
+              2020年の民法改正により、譲渡制限特約が付いた売掛債権でも譲渡が原則有効になり、法的な安全性はさらに高まりました。
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-3">
+              ただし注意が必要なのは、<strong>「給与ファクタリング」は違法</strong>であるという点です。
+              給与を債権として買い取る行為は実質的に貸付にあたるとして、金融庁が注意喚起を行っています。
+              当サイトでは事業者向けの正規のファクタリング業者のみを掲載しており、給与ファクタリング業者は一切掲載していません。
+            </p>
+            <AdvisorComment>
+              ファクタリングは正しく使えば非常に有効な資金調達手段です。重要なのは「信頼できる業者を選ぶこと」。手数料の透明性、運営会社の実態、契約条件（特に償還請求権の有無）をしっかり確認しましょう。当サイトでは、これらの基準をクリアした優良業者のみをご紹介しています。
+            </AdvisorComment>
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== 6. What is Factoring ==================== */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-4">
           <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
@@ -519,228 +598,7 @@ export default async function HomePage() {
 
       <hr className="section-divider" />
 
-      {/* ==================== 5. Pain Points ==================== */}
-      <section className="py-16 bg-white">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
-          <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-10 text-center">
-            こんなお悩みありませんか?
-          </h2>
-
-          <div className="grid md:grid-cols-3 gap-5 mb-10">
-            {/* Pain 1 */}
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="h-40 relative">
-                <Image src="/images/worry-cashflow.jpg" alt="資金繰りの悩み" fill className="object-cover" />
-              </div>
-              <div className="p-5">
-                <p className="text-gray-700 font-medium">
-                  売掛金の入金が2ヶ月後で資金繰りが厳しい...
-                </p>
-              </div>
-            </div>
-            {/* Pain 2 */}
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="h-40 relative">
-                <Image src="/images/worry-rejected.jpg" alt="融資審査の悩み" fill className="object-cover" />
-              </div>
-              <div className="p-5">
-                <p className="text-gray-700 font-medium">
-                  銀行融資の審査に落ちてしまった...
-                </p>
-              </div>
-            </div>
-            {/* Pain 3 */}
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="h-40 relative">
-                <Image src="/images/worry-urgent.jpg" alt="急な出費の悩み" fill className="object-cover" />
-              </div>
-              <div className="p-5">
-                <p className="text-gray-700 font-medium">
-                  急な出費で今すぐ現金が必要...
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Solution */}
-          <div className="relative">
-            <div className="bg-gradient-to-r from-primary to-secondary rounded-2xl p-6 md:p-8 text-center text-white">
-              <h3 className="text-xl md:text-2xl font-bold mb-3">
-                ファクタリングで解決できます!
-              </h3>
-              <p className="text-blue-100 mb-5">
-                売掛金を即日現金化。借入ではないので信用情報にも影響しません。
-              </p>
-              <a
-                href="/estimate"
-                className="inline-block bg-cta hover:bg-cta-dark text-white px-8 py-3.5 rounded-xl font-bold transition-colors shadow-lg pulse-cta"
-              >
-                無料で相談してみる
-              </a>
-            </div>
-          </div>
-
-          <div className="max-w-3xl mx-auto mt-8">
-            <p className="text-gray-700 leading-relaxed">
-              ファクタリングは「怪しい」「違法ではないか」と心配される方もいますが、売掛債権の売買は民法第466条で認められた合法的な取引です。
-              2020年の民法改正により、譲渡制限特約が付いた売掛債権でも譲渡が原則有効になり、法的な安全性はさらに高まりました。
-            </p>
-            <p className="text-gray-700 leading-relaxed mt-3">
-              ただし注意が必要なのは、<strong>「給与ファクタリング」は違法</strong>であるという点です。
-              給与を債権として買い取る行為は実質的に貸付にあたるとして、金融庁が注意喚起を行っています。
-              当サイトでは事業者向けの正規のファクタリング業者のみを掲載しており、給与ファクタリング業者は一切掲載していません。
-            </p>
-            <AdvisorComment>
-              ファクタリングは正しく使えば非常に有効な資金調達手段です。重要なのは「信頼できる業者を選ぶこと」。手数料の透明性、運営会社の実態、契約条件（特に償還請求権の有無）をしっかり確認しましょう。当サイトでは、これらの基準をクリアした優良業者のみをご紹介しています。
-            </AdvisorComment>
-          </div>
-        </div>
-      </section>
-
-      {/* ==================== 6. Industry Recommendations ==================== */}
-      <section className="bg-gray-50 py-16">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
-          <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-3 text-center">
-            業種別おすすめファクタリング
-          </h2>
-          <p className="text-gray-500 text-center mb-10">
-            業種ごとに最適なファクタリング業者をご紹介
-          </p>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {industries.map((industry) => (
-              <a
-                key={industry.name}
-                href={industry.href}
-                className="bg-white rounded-xl p-5 text-center border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
-              >
-                <div className="w-14 h-14 mx-auto mb-3">
-                  <Image src={industry.icon} alt={industry.name} width={64} height={64} className="rounded-full" />
-                </div>
-                <h3 className="font-bold text-primary-dark text-sm mb-1">{industry.name}</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">{industry.desc}</p>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ==================== 7. Latest Reviews ==================== */}
-      {latestReviews.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 py-16">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-3">
-              最新の口コミ
-            </h2>
-            <p className="text-gray-500">実際に利用した方のリアルな声をお届けします</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {latestReviews.map((review) => (
-              <div
-                key={review.id}
-                className="bg-white border border-gray-200 rounded-xl p-5 card-hover"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex text-star">
-                    {Array.from({ length: review.rating }).map((_, i) => (
-                      <span key={i}>&#9733;</span>
-                    ))}
-                  </div>
-                  <span className="text-xs text-gray-400">
-                    {review.createdAt.toLocaleDateString("ja-JP")}
-                  </span>
-                </div>
-                <h3 className="font-bold text-primary-dark mb-2">{review.title}</h3>
-                <p className="text-sm text-gray-600 line-clamp-3 mb-3">{review.body}</p>
-                <a
-                  href={`/companies/${review.company.slug}`}
-                  className="inline-flex items-center gap-1 text-sm text-primary font-medium hover:underline"
-                >
-                  {review.company.name}の詳細
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </a>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-8">
-            <a
-              href="/reviews"
-              className="inline-flex items-center gap-1 text-primary font-bold hover:underline"
-            >
-              すべての口コミを見る
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </a>
-          </div>
-        </section>
-      )}
-
-      <hr className="section-divider" />
-
-      {/* ==================== FAQ Section ==================== */}
-      <section className="bg-white py-16">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
-            よくある質問
-          </h2>
-          <div className="space-y-4">
-            {[
-              {
-                q: "ファクタリングとは何ですか？",
-                a: "ファクタリングとは、企業が保有する売掛金（請求書）をファクタリング会社に売却して、支払期日前に現金化する資金調達方法です。銀行融資とは異なり「借入」ではないため、貸借対照表の負債が増えず、信用情報にも影響しません。最短即日で資金を得ることができ、赤字決算や税金滞納があっても利用可能な場合が多いのが特徴です。",
-              },
-              {
-                q: "ファクタリングの手数料の相場はいくらですか？",
-                a: "2社間ファクタリング（取引先に知らせない方式）の手数料相場は5%〜20%、3社間ファクタリング（取引先の承諾が必要な方式）は1%〜10%程度です。手数料は売掛先の信用力、売掛金の金額、支払期日までの日数などにより変動します。OLTAは2%〜9%、ペイトナーファクタリングは一律10%と明確な料金体系を提示しています。",
-              },
-              {
-                q: "ファクタリングの審査に落ちることはありますか？",
-                a: "ファクタリングの審査は主に売掛先（取引先）の信用力で判断されるため、自社が赤字や債務超過でも利用可能な場合が多いです。審査通過率93%以上を公表している業者もあります。ただし、売掛先が個人や設立間もない企業の場合、また売掛金の存在が確認できない場合は断られることがあります。",
-              },
-              {
-                q: "即日入金は本当に可能ですか？",
-                a: "はい、最短10分（ペイトナーファクタリング）から即日入金に対応した業者が複数あります。ただし、即日入金を確実にするためには、午前中の申込み、必要書類（本人確認書類・請求書・通帳コピーなど）の事前準備、オンライン完結型業者の利用が条件となる場合が多いです。",
-              },
-              {
-                q: "個人事業主でもファクタリングを利用できますか？",
-                a: "はい、個人事業主やフリーランスでも利用可能な業者が増えています。ペイトナーファクタリングやラボルは1万円から少額対応しており、請求書1枚から利用できます。法人向けの大手業者でも個人事業主に対応しているケースが多くあります。",
-              },
-              {
-                q: "取引先にファクタリングの利用がバレますか？",
-                a: "2社間ファクタリングであれば、取引先に知られることなく利用できます。契約はあなたとファクタリング会社の2者間で行われるため、取引先への通知は不要です。一方、3社間ファクタリングは取引先の承諾が必要ですが、手数料が低いメリットがあります。",
-              },
-            ].map((item, i) => (
-              <details key={i} className="group border border-gray-200 rounded-lg">
-                <summary className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                  <span className="font-bold text-gray-800 text-sm pr-4">{item.q}</span>
-                  <svg className="w-5 h-5 text-gray-400 shrink-0 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </summary>
-                <div className="px-5 pb-4">
-                  <p className="text-sm text-gray-600 leading-relaxed">{item.a}</p>
-                </div>
-              </details>
-            ))}
-          </div>
-
-          <AdvisorComment>
-            ファクタリングは正しく使えば非常に有効な資金調達手段です。特に「売上はあるのにキャッシュがない」という状況の企業にとっては、最も合理的な選択肢と言えます。まずは複数社から診断を取って、手数料と条件を比較することをおすすめします。
-          </AdvisorComment>
-        </div>
-      </section>
-
-      <hr className="section-divider" />
-
-      {/* ==================== How to Use Section ==================== */}
+      {/* ==================== 7. How to Use Section ==================== */}
       <section className="py-16">
         <div className="max-w-4xl mx-auto px-4">
           <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
@@ -781,47 +639,7 @@ export default async function HomePage() {
 
       <hr className="section-divider" />
 
-      {/* ==================== Selection Points Section ==================== */}
-      <section className="bg-white py-16">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
-            ファクタリング業者を選ぶ5つのポイント
-          </h2>
-          <div className="space-y-6">
-            {[
-              { num: "1", title: "手数料の透明性", desc: "手数料の範囲が明確に提示されているかを確認しましょう。「1%〜」のように下限だけを強調し、実際には高い手数料を請求する業者も存在します。OLTAの2%〜9%やペイトナーの一律10%のように、上限も明示している業者が信頼できます。" },
-              { num: "2", title: "入金スピードと対応時間", desc: "即日入金を謳っていても、「午前中の申込みに限る」「初回は翌営業日」などの条件がある場合があります。24時間対応のえんナビや、土日も審査可能な業者を選ぶと急ぎの資金需要にも対応できます。" },
-              { num: "3", title: "運営会社の信頼性", desc: "会社の所在地・設立年数・資本金・代表者名が明記されているか確認しましょう。日本中小企業金融サポート機構のような一般社団法人や、上場企業グループのラボル（東証プライム上場・セレス子会社）は特に信頼性が高いです。" },
-              { num: "4", title: "契約条件（償還請求権の有無）", desc: "ノンリコース（償還請求権なし）の契約であれば、万が一売掛先が倒産しても返金義務がありません。リコース契約の場合は実質的に借入と変わらないため、契約前に必ず確認しましょう。" },
-              { num: "5", title: "実際の利用者の口コミ", desc: "公式サイトの情報だけでなく、実際に利用した方の口コミ・評判を確認することが重要です。当サイトでは各業者の口コミを掲載していますので、業者選びの参考にしてください。" },
-            ].map((item) => (
-              <div key={item.num} className="flex gap-4">
-                <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
-                  {item.num}
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-1">{item.title}</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <AdvisorComment>
-            業者選びで最も重要なのは「手数料の透明性」と「契約条件の確認」です。診断段階で手数料の上限を明示しない業者や、契約書の内容を十分に説明しない業者は避けましょう。当サイトに掲載している業者は、いずれも手数料体系が明確な優良企業です。
-          </AdvisorComment>
-
-          <div className="text-center mt-8">
-            <a href="/articles/how-to-choose" className="text-primary font-bold text-sm hover:underline">
-              業者の選び方をもっと詳しく見る →
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <hr className="section-divider" />
-
-      {/* ==================== Case Studies Section ==================== */}
+      {/* ==================== 8. Case Studies Section ==================== */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-10">
@@ -931,7 +749,187 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ==================== 8. CTA Banner ==================== */}
+      <hr className="section-divider" />
+
+      {/* ==================== 9. Latest Reviews ==================== */}
+      {latestReviews.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 py-16">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-3">
+              最新の口コミ
+            </h2>
+            <p className="text-gray-500">実際に利用した方のリアルな声をお届けします</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {latestReviews.map((review) => (
+              <div
+                key={review.id}
+                className="bg-white border border-gray-200 rounded-xl p-5 card-hover"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex text-star">
+                    {Array.from({ length: review.rating }).map((_, i) => (
+                      <span key={i}>&#9733;</span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {review.createdAt.toLocaleDateString("ja-JP")}
+                  </span>
+                </div>
+                <h3 className="font-bold text-primary-dark mb-2">{review.title}</h3>
+                <p className="text-sm text-gray-600 line-clamp-3 mb-3">{review.body}</p>
+                <a
+                  href={`/companies/${review.company.slug}`}
+                  className="inline-flex items-center gap-1 text-sm text-primary font-medium hover:underline"
+                >
+                  {review.company.name}の詳細
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-8">
+            <a
+              href="/reviews"
+              className="inline-flex items-center gap-1 text-primary font-bold hover:underline"
+            >
+              すべての口コミを見る
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+        </section>
+      )}
+
+      {/* ==================== 10. Selection Points Section ==================== */}
+      <section className="bg-white py-16">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+            ファクタリング業者を選ぶ5つのポイント
+          </h2>
+          <div className="space-y-6">
+            {[
+              { num: "1", title: "手数料の透明性", desc: "手数料の範囲が明確に提示されているかを確認しましょう。「1%〜」のように下限だけを強調し、実際には高い手数料を請求する業者も存在します。OLTAの2%〜9%やペイトナーの一律10%のように、上限も明示している業者が信頼できます。" },
+              { num: "2", title: "入金スピードと対応時間", desc: "即日入金を謳っていても、「午前中の申込みに限る」「初回は翌営業日」などの条件がある場合があります。24時間対応のえんナビや、土日も審査可能な業者を選ぶと急ぎの資金需要にも対応できます。" },
+              { num: "3", title: "運営会社の信頼性", desc: "会社の所在地・設立年数・資本金・代表者名が明記されているか確認しましょう。日本中小企業金融サポート機構のような一般社団法人や、上場企業グループのラボル（東証プライム上場・セレス子会社）は特に信頼性が高いです。" },
+              { num: "4", title: "契約条件（償還請求権の有無）", desc: "ノンリコース（償還請求権なし）の契約であれば、万が一売掛先が倒産しても返金義務がありません。リコース契約の場合は実質的に借入と変わらないため、契約前に必ず確認しましょう。" },
+              { num: "5", title: "実際の利用者の口コミ", desc: "公式サイトの情報だけでなく、実際に利用した方の口コミ・評判を確認することが重要です。当サイトでは各業者の口コミを掲載していますので、業者選びの参考にしてください。" },
+            ].map((item) => (
+              <div key={item.num} className="flex gap-4">
+                <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
+                  {item.num}
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">{item.title}</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <AdvisorComment>
+            業者選びで最も重要なのは「手数料の透明性」と「契約条件の確認」です。診断段階で手数料の上限を明示しない業者や、契約書の内容を十分に説明しない業者は避けましょう。当サイトに掲載している業者は、いずれも手数料体系が明確な優良企業です。
+          </AdvisorComment>
+
+          <div className="text-center mt-8">
+            <a href="/articles/how-to-choose" className="text-primary font-bold text-sm hover:underline">
+              業者の選び方をもっと詳しく見る →
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <hr className="section-divider" />
+
+      {/* ==================== 11. FAQ Section ==================== */}
+      <section className="bg-white py-16">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+            よくある質問
+          </h2>
+          <div className="space-y-4">
+            {[
+              {
+                q: "ファクタリングとは何ですか？",
+                a: "ファクタリングとは、企業が保有する売掛金（請求書）をファクタリング会社に売却して、支払期日前に現金化する資金調達方法です。銀行融資とは異なり「借入」ではないため、貸借対照表の負債が増えず、信用情報にも影響しません。最短即日で資金を得ることができ、赤字決算や税金滞納があっても利用可能な場合が多いのが特徴です。",
+              },
+              {
+                q: "ファクタリングの手数料の相場はいくらですか？",
+                a: "2社間ファクタリング（取引先に知らせない方式）の手数料相場は5%〜20%、3社間ファクタリング（取引先の承諾が必要な方式）は1%〜10%程度です。手数料は売掛先の信用力、売掛金の金額、支払期日までの日数などにより変動します。OLTAは2%〜9%、ペイトナーファクタリングは一律10%と明確な料金体系を提示しています。",
+              },
+              {
+                q: "ファクタリングの審査に落ちることはありますか？",
+                a: "ファクタリングの審査は主に売掛先（取引先）の信用力で判断されるため、自社が赤字や債務超過でも利用可能な場合が多いです。審査通過率93%以上を公表している業者もあります。ただし、売掛先が個人や設立間もない企業の場合、また売掛金の存在が確認できない場合は断られることがあります。",
+              },
+              {
+                q: "即日入金は本当に可能ですか？",
+                a: "はい、最短10分（ペイトナーファクタリング）から即日入金に対応した業者が複数あります。ただし、即日入金を確実にするためには、午前中の申込み、必要書類（本人確認書類・請求書・通帳コピーなど）の事前準備、オンライン完結型業者の利用が条件となる場合が多いです。",
+              },
+              {
+                q: "個人事業主でもファクタリングを利用できますか？",
+                a: "はい、個人事業主やフリーランスでも利用可能な業者が増えています。ペイトナーファクタリングやラボルは1万円から少額対応しており、請求書1枚から利用できます。法人向けの大手業者でも個人事業主に対応しているケースが多くあります。",
+              },
+              {
+                q: "取引先にファクタリングの利用がバレますか？",
+                a: "2社間ファクタリングであれば、取引先に知られることなく利用できます。契約はあなたとファクタリング会社の2者間で行われるため、取引先への通知は不要です。一方、3社間ファクタリングは取引先の承諾が必要ですが、手数料が低いメリットがあります。",
+              },
+            ].map((item, i) => (
+              <details key={i} className="group border border-gray-200 rounded-lg">
+                <summary className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                  <span className="font-bold text-gray-800 text-sm pr-4">{item.q}</span>
+                  <svg className="w-5 h-5 text-gray-400 shrink-0 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="px-5 pb-4">
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.a}</p>
+                </div>
+              </details>
+            ))}
+          </div>
+
+          <AdvisorComment>
+            ファクタリングは正しく使えば非常に有効な資金調達手段です。特に「売上はあるのにキャッシュがない」という状況の企業にとっては、最も合理的な選択肢と言えます。まずは複数社から診断を取って、手数料と条件を比較することをおすすめします。
+          </AdvisorComment>
+        </div>
+      </section>
+
+      {/* ==================== 12. Industry Recommendations ==================== */}
+      <section className="bg-gray-50 py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="w-12 h-0.5 bg-primary mx-auto mb-4" />
+          <h2 className="text-2xl md:text-3xl font-bold text-primary-dark mb-3 text-center">
+            業種別おすすめファクタリング
+          </h2>
+          <p className="text-gray-500 text-center mb-10">
+            業種ごとに最適なファクタリング業者をご紹介
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {industries.map((industry) => (
+              <a
+                key={industry.name}
+                href={industry.href}
+                className="bg-white rounded-xl p-5 text-center border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
+              >
+                <div className="w-14 h-14 mx-auto mb-3">
+                  <Image src={industry.icon} alt={industry.name} width={64} height={64} className="rounded-full" />
+                </div>
+                <h3 className="font-bold text-primary-dark text-sm mb-1">{industry.name}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">{industry.desc}</p>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== 13. CTA Banner ==================== */}
       <section className="bg-gradient-to-br from-primary-darker via-primary-dark to-primary py-16">
         <div className="max-w-3xl mx-auto px-4 text-center text-white">
           <div className="mb-6">
