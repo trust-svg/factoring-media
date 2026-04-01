@@ -239,9 +239,9 @@ async def morning_briefing():
                 age = f"（{t['age_days']}日経過）" if t['age_days'] >= 3 else ""
                 deadline = f" 🔥期限: {t['deadline']}" if t['deadline'] != "なし" else ""
                 lines.append(f"- [ ] {t['name']}{deadline}{age}")
-            lines.append("\n今日やる？延期？捨てる？")
             if _send_fn:
-                await _send_fn(channel, "\n".join(lines))
+                view = _task_view_fn(task_list) if _task_view_fn and task_list else None
+                await _send_fn(channel, "\n".join(lines), view)
 
     # 3. Dream briefing to 秘書チャンネル
     dream_summary = get_dream_briefing()

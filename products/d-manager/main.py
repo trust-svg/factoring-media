@@ -265,8 +265,8 @@ async def on_message(message: discord.Message):
 
     # Quick command: task board with buttons
     content_lower = message.content.lower()
-    task_keywords = ["タスクボード", "todo", "タスク一覧", "タスク見せて", "todoは", "todoを"]
-    if any(kw in content_lower for kw in task_keywords):
+    task_keywords = ["タスクボード", "タスク一覧", "タスク見せて"]
+    if content_lower in task_keywords or any(content_lower == kw for kw in task_keywords):
         from scheduler import _parse_active_tasks, _build_task_board
         tasks = _parse_active_tasks()
         board = _build_task_board()
