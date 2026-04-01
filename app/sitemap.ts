@@ -5,7 +5,7 @@ import type { MetadataRoute } from "next";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://factoring-navi.com";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://faccel.jp";
 
   const companies = await prisma.company.findMany({
     select: { slug: true, updatedAt: true },
