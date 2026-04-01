@@ -336,6 +336,100 @@ async function main() {
     });
   }
 
+  // Insert sample reviews
+  const reviews = [
+    // QuQuMo (1位)
+    { companySlug: "ququmo", rating: 5, title: "最短2時間で本当に入金された", body: "月末の支払いに間に合わないと焦っていた時に利用しました。午前中に申し込んで、昼過ぎには入金されていました。手数料は5%程度で、思ったより安かったです。オンラインで完結するので、忙しい時でも助かりました。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "ququmo", rating: 4, title: "手数料の幅が広いのが少し不安だった", body: "手数料1%〜14.8%と幅があるので、実際にいくらになるか不安でしたが、見積もりの段階で明確に提示してもらえました。結果的に7%で利用でき、満足しています。次回も利用したいと思います。", userType: "個人事業主", isApproved: true },
+    { companySlug: "ququmo", rating: 5, title: "買取上限がないのが決め手", body: "800万円の売掛金を買い取ってもらいました。他社では上限がある場合が多いですが、QuQuMoは上限なしなので大口案件でも安心です。担当者の対応も丁寧で、信頼できる業者だと感じました。", userType: "法人（中規模）", isApproved: true },
+    { companySlug: "ququmo", rating: 4, title: "2回目以降は手数料が下がった", body: "初回は8%でしたが、2回目の利用時は6%に下がりました。リピーター優遇があるようで、継続的に利用するならメリットが大きいと思います。", userType: "法人（小規模）", isApproved: true },
+
+    // ビートレーディング (2位)
+    { companySlug: "beat-trading", rating: 5, title: "実績があるので安心して利用できた", body: "累計1,300億円の実績がある老舗だったので、初めてのファクタリングでも安心でした。担当者が仕組みを丁寧に説明してくれて、不安が解消されました。入金も翌日には完了し、助かりました。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "beat-trading", rating: 4, title: "3社間で手数料を抑えられた", body: "取引先に相談したところ快諾してもらえたので、3社間ファクタリングを利用しました。手数料は3%で済み、非常にコストパフォーマンスが良かったです。2社間と3社間の両方に対応しているのは強みだと思います。", userType: "法人（中規模）", isApproved: true },
+    { companySlug: "beat-trading", rating: 4, title: "対面での相談ができて安心", body: "オンライン完結型が多い中、対面で相談できるのは安心感がありました。東京オフィスに行って、直接話を聞けたのが良かったです。ただ、地方の場合はオンラインになるので、その点は注意が必要です。", userType: "個人事業主", isApproved: true },
+    { companySlug: "beat-trading", rating: 5, title: "大口案件もスムーズに対応", body: "2,000万円の大口案件でしたが、スムーズに対応してもらえました。審査も迅速で、3営業日で入金完了。大口に強いという評判は本当でした。", userType: "法人（中規模）", isApproved: true },
+
+    // ファクトル (3位)
+    { companySlug: "factoru", rating: 5, title: "非営利法人が運営しているので安心", body: "一般社団法人が運営しているという点で、信頼性が高いと感じました。手数料も4%と良心的で、初めてのファクタリングでも安心して利用できました。AI審査でスピーディーなのも良かったです。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "factoru", rating: 4, title: "オンライン完結で手軽", body: "以前は母体の日本中小企業金融サポート機構に対面で相談していましたが、ファクトルはオンラインで完結するので便利です。手数料も変わらず良心的で、使い勝手が良くなりました。", userType: "個人事業主", isApproved: true },
+    { companySlug: "factoru", rating: 5, title: "経営相談もできるのが嬉しい", body: "ファクタリングだけでなく、資金繰り全般の相談にも乗ってもらえました。認定経営革新等支援機関なので、補助金の情報なども教えてもらえて、非常に有益でした。", userType: "法人（小規模）", isApproved: true },
+
+    // 日本中小企業金融サポート機構 (4位)
+    { companySlug: "jfc-support", rating: 5, title: "国の認定機関なので信頼できる", body: "関東財務局長の認定を受けている機関なので、安心して相談できました。手数料は2%で済み、非常に良心的。営利目的ではないので、本当に利用者のことを考えてくれている印象を受けました。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "jfc-support", rating: 4, title: "対応は丁寧だが時間がかかる", body: "担当者の対応は非常に丁寧で信頼感がありましたが、審査に3日ほどかかりました。即日入金が必要な場合は不向きですが、時間に余裕がある場合はおすすめです。手数料の安さは業界トップクラスです。", userType: "個人事業主", isApproved: true },
+    { companySlug: "jfc-support", rating: 4, title: "補助金の相談もできた", body: "ファクタリングの相談をしたついでに、事業再構築補助金の情報も教えてもらえました。経営全般のサポートをしてもらえるのは、他のファクタリング会社にはないメリットだと思います。", userType: "法人（中規模）", isApproved: true },
+
+    // アクセルファクター (5位)
+    { companySlug: "accel-factor", rating: 5, title: "他社で断られたが審査に通った", body: "売掛先が小さい会社だったため、他社では断られてしまいましたが、アクセルファクターでは審査に通りました。通過率93%というのは本当のようです。手数料は12%とやや高めでしたが、資金繰りが助かったので満足しています。", userType: "個人事業主", isApproved: true },
+    { companySlug: "accel-factor", rating: 4, title: "少額30万円でも対応してくれた", body: "30万円の少額でも嫌な顔ひとつせず対応してくれました。少額だと断る業者も多い中、ありがたかったです。手数料は15%でしたが、少額なのでこのくらいかなと思います。", userType: "フリーランス", isApproved: true },
+    { companySlug: "accel-factor", rating: 4, title: "スタッフの対応が親切", body: "初めてのファクタリングで不安でしたが、スタッフが丁寧に説明してくれたので安心できました。即日入金も実現し、月末の支払いに間に合いました。", userType: "法人（小規模）", isApproved: true },
+
+    // OLTA (6位)
+    { companySlug: "olta", rating: 5, title: "手数料の安さが圧倒的", body: "複数社に見積もりを取りましたが、OLTAが最も手数料が安かったです。3%で利用でき、銀行融資の金利と比べてもそこまで変わらない水準でした。AI審査で即日入金も実現し、非常に満足しています。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "olta", rating: 5, title: "オンラインで全て完結した", body: "地方在住なので来店不要のオンライン完結型を探していました。OLTAは申込みから入金まで全てWebで完結し、非常にスムーズでした。必要書類も少なく、手間がかかりません。", userType: "個人事業主", isApproved: true },
+    { companySlug: "olta", rating: 4, title: "初回は審査に少し時間がかかった", body: "初回利用時は審査に半日ほどかかりました。即日入金を期待していたので少し焦りましたが、翌朝には入金されていました。2回目以降は本当に即日で処理されるようになりました。", userType: "法人（小規模）", isApproved: true },
+
+    // PMG (7位)
+    { companySlug: "pmg", rating: 4, title: "大口案件に対応してもらえた", body: "3,000万円の大口案件でしたが、問題なく対応してもらえました。専任の担当者がついてくれて、細かい質問にも丁寧に答えてもらえました。法人向けのサービスとしては非常に質が高いと感じました。", userType: "法人（中規模）", isApproved: true },
+    { companySlug: "pmg", rating: 4, title: "設立1年目でも利用できた", body: "設立して間もない会社でしたが、利用できました。銀行融資はまだ難しい段階だったので、ファクタリングという選択肢があって本当に助かりました。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "pmg", rating: 3, title: "個人事業主は利用不可", body: "問い合わせたところ、個人事業主は対象外と言われました。法人限定なので、その点は事前に確認が必要です。対応自体は丁寧でした。", userType: "個人事業主", isApproved: true },
+
+    // ペイトナー (8位)
+    { companySlug: "paytoday", rating: 5, title: "10分で審査完了は本当だった", body: "半信半疑で申し込みましたが、本当に10分で審査が完了し、すぐに入金されました。フリーランスとして月末の生活費が厳しい時に助かりました。手数料10%は安くはないですが、このスピード感は価値があります。", userType: "フリーランス", isApproved: true },
+    { companySlug: "paytoday", rating: 4, title: "請求書1枚から使える手軽さ", body: "15万円の請求書1枚でも利用できました。他の業者は最低金額が高いところが多いですが、ペイトナーは少額でもOKなのがフリーランスには嬉しいです。", userType: "フリーランス", isApproved: true },
+    { companySlug: "paytoday", rating: 3, title: "上限100万円は物足りない", body: "事業が成長してきて、100万円以上の請求書もファクタリングしたくなりましたが、上限が100万円なので使えません。少額向けと割り切って利用しています。", userType: "個人事業主", isApproved: true },
+
+    // ラボル (9位)
+    { companySlug: "labol", rating: 5, title: "1万円から使えるのが助かる", body: "駆け出しのフリーランスなので、請求額が小さいことが多いです。1万円から利用できるラボルは本当に助かっています。上場企業グループという安心感もあります。", userType: "フリーランス", isApproved: true },
+    { companySlug: "labol", rating: 4, title: "24時間振込対応が便利", body: "金曜の夜に申し込んで、土曜の朝には入金されていました。24時間365日対応なので、急ぎの時にも安心です。手数料10%は少し高いですが、この利便性なら納得です。", userType: "フリーランス", isApproved: true },
+    { companySlug: "labol", rating: 4, title: "セレスグループの安心感", body: "東証プライム上場のセレスのグループ会社なので、怪しい業者ではないという安心感があります。フリーランス向けのサービスは信頼性が重要なので、この点は大きなメリットです。", userType: "個人事業主", isApproved: true },
+
+    // トップマネジメント (10位)
+    { companySlug: "top-management", rating: 4, title: "業界歴15年の安心感", body: "15年以上の実績がある業者なので安心できました。大口の1億円案件にも対応可能とのことで、今後事業が拡大しても継続して利用できそうです。", userType: "法人（中規模）", isApproved: true },
+    { companySlug: "top-management", rating: 4, title: "ゼロファクが面白い", body: "補助金と連動した「ゼロファク」というサービスがあり、実質的に手数料を抑えられる仕組みが面白いと感じました。他社にはないユニークなサービスです。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "top-management", rating: 3, title: "審査に少し時間がかかった", body: "審査に2日ほどかかりました。即日を期待していたので少し残念でしたが、手数料は4%と安かったので結果的には満足しています。丁寧に審査している証拠かもしれません。", userType: "個人事業主", isApproved: true },
+  ];
+
+  for (const review of reviews) {
+    const company = await prisma.company.findUnique({
+      where: { slug: review.companySlug },
+    });
+    if (!company) continue;
+
+    await prisma.review.create({
+      data: {
+        companyId: company.id,
+        rating: review.rating,
+        title: review.title,
+        body: review.body,
+        userType: review.userType,
+        isApproved: review.isApproved,
+      },
+    });
+  }
+
+  // Update review counts and ratings
+  const allCompanies = await prisma.company.findMany();
+  for (const company of allCompanies) {
+    const count = await prisma.review.count({
+      where: { companyId: company.id, isApproved: true },
+    });
+    const avg = await prisma.review.aggregate({
+      where: { companyId: company.id, isApproved: true },
+      _avg: { rating: true },
+    });
+    await prisma.company.update({
+      where: { id: company.id },
+      data: {
+        reviewCount: count,
+        rating: avg._avg.rating ? Math.round(avg._avg.rating * 10) / 10 : company.rating,
+      },
+    });
+  }
+
+  console.log(`Reviews inserted: ${reviews.length}`);
+
   console.log("Seed data inserted successfully: 10 companies");
 }
 
