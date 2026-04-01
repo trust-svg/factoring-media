@@ -389,6 +389,41 @@ async function main() {
     { companySlug: "top-management", rating: 4, title: "業界歴15年の安心感", body: "15年以上の実績がある業者なので安心できました。大口の1億円案件にも対応可能とのことで、今後事業が拡大しても継続して利用できそうです。", userType: "法人（中規模）", isApproved: true },
     { companySlug: "top-management", rating: 4, title: "ゼロファクが面白い", body: "補助金と連動した「ゼロファク」というサービスがあり、実質的に手数料を抑えられる仕組みが面白いと感じました。他社にはないユニークなサービスです。", userType: "法人（小規模）", isApproved: true },
     { companySlug: "top-management", rating: 3, title: "審査に少し時間がかかった", body: "審査に2日ほどかかりました。即日を期待していたので少し残念でしたが、手数料は4%と安かったので結果的には満足しています。丁寧に審査している証拠かもしれません。", userType: "個人事業主", isApproved: true },
+
+    // === 追加15件（合計50件に） ===
+
+    // QuQuMo 追加
+    { companySlug: "ququmo", rating: 5, title: "地方でもオンラインで利用できた", body: "北海道在住ですが、オンライン完結なので問題なく利用できました。書類はスマホで撮影してアップロードするだけ。地方の中小企業にとって、来店不要というのは本当にありがたいです。手数料は6%でした。", userType: "法人（小規模）", isApproved: true },
+
+    // ビートレーディング 追加
+    { companySlug: "beat-trading", rating: 5, title: "建設業の長い支払いサイクルに助かった", body: "建設業で元請からの入金が90日後。材料費の支払いが先に来るので資金繰りが常に厳しかったです。ビートレーディングで500万円を即日ファクタリングし、下請け業者への支払いに間に合わせることができました。", userType: "法人（小規模）", isApproved: true },
+
+    // ファクトル 追加
+    { companySlug: "factoru", rating: 4, title: "サービス開始間もないが対応は良い", body: "まだ新しいサービスなので口コミが少なく少し不安でしたが、母体が日本中小企業金融サポート機構なので信頼して利用しました。対応もスムーズで、手数料は5%。今後もリピートしたいです。", userType: "個人事業主", isApproved: true },
+
+    // 日本中小企業金融サポート機構 追加
+    { companySlug: "jfc-support", rating: 5, title: "初めてでも分かりやすく説明してくれた", body: "ファクタリング自体が初めてで右も左もわからない状態でしたが、仕組みから丁寧に説明してもらえました。無理に契約を勧めることもなく、本当に利用者のことを考えてくれている機関だと感じました。", userType: "法人（小規模）", isApproved: true },
+
+    // アクセルファクター 追加
+    { companySlug: "accel-factor", rating: 5, title: "赤字決算でも利用できた", body: "2期連続赤字で銀行融資は全滅。藁にもすがる思いでアクセルファクターに相談したところ、売掛先の信用力で判断するとのことで審査に通りました。手数料は10%でしたが、事業を続けられたので感謝しています。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "accel-factor", rating: 4, title: "運送業の資金繰りに活用", body: "燃料費の高騰で月末の支払いが厳しくなり利用しました。200万円の売掛金を即日ファクタリングし、ドライバーの給与支払いに充てました。運送業は入金サイクルが長いので、今後も必要に応じて利用したいです。", userType: "法人（小規模）", isApproved: true },
+
+    // OLTA 追加
+    { companySlug: "olta", rating: 4, title: "債権譲渡登記が不要なのが良い", body: "他社では債権譲渡登記が必要と言われましたが、OLTAは不要でした。登記すると取引先にバレるリスクがあるので、この点は大きなメリットだと思います。手数料も5%と安かったです。", userType: "法人（小規模）", isApproved: true },
+
+    // PMG 追加
+    { companySlug: "pmg", rating: 5, title: "担当者の知識が豊富", body: "ファクタリングだけでなく、資金調達全般について幅広い知識を持った担当者でした。補助金や融資の選択肢も提案してもらえて、単なるファクタリング業者以上の価値を感じました。", userType: "法人（中規模）", isApproved: true },
+
+    // ペイトナー 追加
+    { companySlug: "paytoday", rating: 5, title: "UIが使いやすくて迷わない", body: "Webサービスとしての完成度が高く、申し込みの画面がとても分かりやすかったです。請求書をアップロードして数タップで完了。テクノロジー企業が作ったサービスだなと感じました。", userType: "フリーランス", isApproved: true },
+    { companySlug: "paytoday", rating: 4, title: "急ぎの生活費に助かった", body: "クライアントの支払いが遅れて生活費がピンチの時に利用しました。朝申し込んで昼には入金。フリーランスのセーフティネットとして心強いサービスです。", userType: "フリーランス", isApproved: true },
+
+    // ラボル 追加
+    { companySlug: "labol", rating: 5, title: "副業の請求書でも使えた", body: "本業はサラリーマンで、副業のWeb制作の請求書でファクタリングしました。5万円という少額でしたが問題なく対応してもらえました。副業フリーランスにもおすすめです。", userType: "フリーランス", isApproved: true },
+
+    // トップマネジメント 追加
+    { companySlug: "top-management", rating: 5, title: "見積書ファクタリングが便利", body: "まだ請求書が発行されていない段階の見積書でもファクタリングできるサービスがあり、資金を早期に確保できました。他社では請求書が必須なので、この柔軟性は大きな差別化ポイントです。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "top-management", rating: 4, title: "コンサルティングが充実", body: "ファクタリングの相談だけでなく、事業計画書の書き方や銀行融資の受け方まで教えてもらえました。15年の実績からくるノウハウは本物だと感じました。手数料は5%で良心的でした。", userType: "法人（小規模）", isApproved: true },
   ];
 
   for (const review of reviews) {
