@@ -375,8 +375,8 @@ export default async function HomePage() {
               <Image
                 src="/images/section-flow-diagram.jpg"
                 alt="ファクタリングの仕組み - あなたの会社・ファクタリング業者・取引先の関係"
-                width={960}
-                height={540}
+                width={1100}
+                height={620}
                 className="w-full rounded-xl"
               />
             </div>
