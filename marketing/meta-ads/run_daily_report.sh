@@ -4,7 +4,8 @@
 cd "$(dirname "$0")"
 source venv/bin/activate
 
-# 前日の日付
+# 前日の日付（JST基準）
+export TZ=Asia/Tokyo
 if [ "$(uname)" = "Darwin" ]; then
     SINCE=$(date -v-1d +%Y-%m-%d)
 else

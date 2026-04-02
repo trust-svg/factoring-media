@@ -56,8 +56,6 @@ def fetch_ad_insights(account, since, until):
     params = {
         "time_range": {"since": since, "until": until},
         "level": "ad",
-        "filtering": [{"field": "ad.effective_status", "operator": "IN",
-                        "value": ["ACTIVE", "PAUSED"]}],
     }
     insights = account.get_insights(fields=FIELDS, params=params)
     return list(insights)
