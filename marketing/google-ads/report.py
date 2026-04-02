@@ -523,6 +523,777 @@ def _aggregate_geo(geo_list):
 
 
 # ============================================================
+# Mutation（書き込み）操作
+# ============================================================
+
+def _confirm_action(description: str, dry_run: bool, confirm: bool) -> bool:
+    """操作前の確認処理。dry_runならFalse、confirmフラグなしならy/nプロンプト"""
+    print(f"\n📝 操作内容: {description}")
+    if dry_run:
+        print("  [DRY RUN] 実際の変更は行いません。")
+        return False
+    if confirm:
+        return True
+    answer = input("  実行しますか？ (y/n): ").strip().lower()
+    return answer == "y"
+
+
+def _get_active_campaign_id(client):
+    """有効なキャンペーンのリソース名を取得（最初の1件）"""
+    service = client.get_service("GoogleAdsService")
+    query = """
+        SELECT campaign.id, campaign.name, campaign.resource_name, campaign.status
+        FROM campaign
+        WHERE campaign.status = 'ENABLED'
+        LIMIT 1
+    """
+    try:
+        response = service.search_stream(customer_id=CUSTOMER_ID, query=query)
+        for batch in response:
+            for row in batch.results:
+                return row.campaign.resource_name, row.campaign.name, row.campaign.id
+    except Exception as e:
+        print(f"⚠️  キャンペーン取得エラー: {e}")
+        # ENABLED で見つからない場合、ステータスなしで再試行
+        try:
+            query2 = """
+                SELECT campaign.id, campaign.name, campaign.resource_name, campaign.status
+                FROM campaign
+                LIMIT 5
+            """
+            response2 = service.search_stream(customer_id=CUSTOMER_ID, query=query2)
+            campaigns = []
+            for batch in response2:
+                for row in batch.results:
+                    status = str(row.campaign.status).split(".")[-1]
+                    campaigns.append(f"  {row.campaign.name} [{status}] (ID: {row.campaign.id})")
+            if campaigns:
+                print("利用可能なキャンペーン:")
+                for c in campaigns:
+                    print(c)
+            else:
+                print("⚠️  アカウントにキャンペーンが存在しません。")
+        except Exception as e2:
+            print(f"⚠️  再試行エラー: {e2}")
+    return None, None, None
+
+
+def _get_active_adgroup_id(client):
+    """有効な広告グループのリソース名を取得（最初の1件）"""
+    service = client.get_service("GoogleAdsService")
+    query = """
+        SELECT ad_group.id, ad_group.name, ad_group.resource_name, campaign.name
+        FROM ad_group
+        WHERE campaign.status = 'ENABLED'
+            AND ad_group.status = 'ENABLED'
+        LIMIT 1
+    """
+    try:
+        response = service.search_stream(customer_id=CUSTOMER_ID, query=query)
+        for batch in response:
+            for row in batch.results:
+                return row.ad_group.resource_name, row.ad_group.name, row.campaign.name
+    except Exception as e:
+        print(f"⚠️  広告グループ取得エラー: {e}")
+    return None, None, None
+
+
+# --- 1. コンバージョンアクション一覧 ---
+
+def list_conversion_actions(client):
+    """全コンバージョンアクションを取得して表形式で表示"""
+    service = client.get_service("GoogleAdsService")
+
+    # Step 1: コンバージョンアクション一覧を取得
+    query = """
+        SELECT
+            conversion_action.name,
+            conversion_action.status,
+            conversion_action.category,
+            conversion_action.counting_type,
+            conversion_action.resource_name,
+            conversion_action.id,
+            conversion_action.type
+        FROM conversion_action
+        ORDER BY conversion_action.name
+    """
+
+    actions = []
+    try:
+        response = service.search_stream(customer_id=CUSTOMER_ID, query=query)
+        for batch in response:
+            for row in batch.results:
+                actions.append({
+                    "name": row.conversion_action.name,
+                    "status": str(row.conversion_action.status).split(".")[-1],
+                    "category": str(row.conversion_action.category).split(".")[-1],
+                    "counting": str(row.conversion_action.counting_type).split(".")[-1],
+                    "type": str(row.conversion_action.type).split(".")[-1],
+                    "resource_name": row.conversion_action.resource_name,
+                    "id": row.conversion_action.id,
+                })
+    except Exception as e:
+        print(f"❌ コンバージョンアクション取得エラー: {e}")
+        return
+
+    # Step 2: カスタマーコンバージョンゴールを取得（主要/副次の判定）
+    primary_rns = set()
+    try:
+        goal_query = """
+            SELECT
+                customer_conversion_goal.category,
+                customer_conversion_goal.origin,
+                customer_conversion_goal.resource_name
+            FROM customer_conversion_goal
+        """
+        response = service.search_stream(customer_id=CUSTOMER_ID, query=goal_query)
+        for batch in response:
+            for row in batch.results:
+                primary_rns.add(row.customer_conversion_goal.resource_name)
+    except Exception:
+        pass  # ゴール取得できなくても一覧は表示する
+
+    if not actions:
+        print("コンバージョンアクションが見つかりません。")
+        return
+
+    # テーブル表示
+    print(f"\n{'=' * 100}")
+    print(f"コンバージョンアクション一覧 ({len(actions)}件)")
+    print(f"{'=' * 100}")
+    header = f"{'名前':<35} {'ステータス':<10} {'カテゴリ':<20} {'カウント':<12} {'タイプ':<15}"
+    print(header)
+    print("-" * 100)
+    for a in actions:
+        name_display = a['name'][:33] if len(a['name']) > 33 else a['name']
+        print(f"{name_display:<35} {a['status']:<10} {a['category']:<20} {a['counting']:<12} {a['type']:<15}")
+    print(f"{'=' * 100}")
+    print(f"合計: {len(actions)}件 (有効: {sum(1 for a in actions if a['status'] == 'ENABLED')}件)\n")
+
+
+# --- 2. コンバージョンアクションをセカンダリに変更 ---
+
+def set_conversions_secondary(client, names: list[str], dry_run: bool = False, confirm: bool = False):
+    """指定名（部分一致）のコンバージョンアクションをステータス変更
+
+    Note: Google Ads APIでは「主要/副次」はcustomer_conversion_goalで管理される。
+    ここではコンバージョンアクション自体のステータスを ENABLED/PAUSED に変更する。
+    主要/副次の変更はGoogle Ads管理画面から行う必要がある。
+    代替手段: コンバージョンアクションを PAUSED にすることで入札対象から外す。
+    """
+    service = client.get_service("GoogleAdsService")
+    conv_service = client.get_service("ConversionActionService")
+
+    # 全アクションを取得
+    query = """
+        SELECT
+            conversion_action.name,
+            conversion_action.resource_name,
+            conversion_action.status,
+            conversion_action.category
+        FROM conversion_action
+        WHERE conversion_action.status = 'ENABLED'
+    """
+    actions = []
+    try:
+        response = service.search_stream(customer_id=CUSTOMER_ID, query=query)
+        for batch in response:
+            for row in batch.results:
+                actions.append({
+                    "name": row.conversion_action.name,
+                    "resource_name": row.conversion_action.resource_name,
+                    "category": str(row.conversion_action.category).split(".")[-1],
+                })
+    except Exception as e:
+        print(f"❌ コンバージョンアクション取得エラー: {e}")
+        return
+
+    # 部分一致でフィルタ
+    matched = []
+    seen = set()
+    for name_pattern in names:
+        for a in actions:
+            if name_pattern in a["name"] and a["resource_name"] not in seen:
+                matched.append(a)
+                seen.add(a["resource_name"])
+
+    if not matched:
+        print(f"⚠️  一致するコンバージョンが見つかりません: {names}")
+        if actions:
+            print(f"利用可能なコンバージョン ({len(actions)}件):")
+            for a in actions[:10]:
+                print(f"    - {a['name']} [{a['category']}]")
+        return
+
+    desc = "以下のコンバージョンアクションを一時停止（PAUSED）に変更:\n" + \
+           "\n".join(f"    - {a['name']} [{a['category']}]" for a in matched)
+    print(f"\n⚠️  注意: APIではコンバージョンの「主要→副次」変更はできません。")
+    print(f"代わりにステータスをPAUSEDにして入札対象から除外します。")
+    print(f"主要/副次の変更はGoogle Ads管理画面 → 目標 → コンバージョンから行ってください。\n")
+
+    if not _confirm_action(desc, dry_run, confirm):
+        return
+
+    # ミューテーション実行: ステータスを PAUSED に変更
+    operations = []
+    for a in matched:
+        op = client.get_type("ConversionActionOperation")
+        action = op.update
+        action.resource_name = a["resource_name"]
+        action.status = client.enums.ConversionActionStatusEnum.PAUSED
+        client.copy_from(
+            op.update_mask,
+            client.get_type("FieldMask")(paths=["status"]),
+        )
+        operations.append(op)
+
+    try:
+        response = conv_service.mutate_conversion_actions(
+            customer_id=CUSTOMER_ID,
+            operations=operations,
+        )
+        print(f"✅ {len(response.results)}件のコンバージョンを一時停止しました。")
+        for result in response.results:
+            print(f"    {result.resource_name}")
+    except Exception as e:
+        print(f"❌ エラー: {e}")
+
+
+# --- 3. 除外キーワード追加 ---
+
+def add_negative_keywords(client, keywords: list[str], negative_list_name: str = None,
+                          dry_run: bool = False, confirm: bool = False):
+    """キャンペーンレベルの除外キーワードを追加（またはリスト経由）"""
+    campaign_rn, campaign_name, campaign_id = _get_active_campaign_id(client)
+    if not campaign_rn:
+        print("⚠️  有効なキャンペーンが見つかりません。")
+        return
+
+    if negative_list_name:
+        _add_negative_keywords_via_list(client, keywords, negative_list_name, campaign_rn,
+                                        campaign_name, dry_run, confirm)
+    else:
+        _add_negative_keywords_to_campaign(client, keywords, campaign_rn, campaign_name,
+                                           dry_run, confirm)
+
+
+def _add_negative_keywords_to_campaign(client, keywords, campaign_rn, campaign_name,
+                                        dry_run, confirm):
+    """キャンペーンに直接除外キーワードを追加"""
+    desc = f"キャンペーン「{campaign_name}」に除外キーワードを追加:\n" + \
+           "\n".join(f"    - {kw}" for kw in keywords)
+    if not _confirm_action(desc, dry_run, confirm):
+        return
+
+    campaign_criterion_service = client.get_service("CampaignCriterionService")
+    operations = []
+    for kw in keywords:
+        op = client.get_type("CampaignCriterionOperation")
+        criterion = op.create
+        criterion.campaign = campaign_rn
+        criterion.negative = True
+        criterion.keyword.text = kw
+        criterion.keyword.match_type = client.enums.KeywordMatchTypeEnum.PHRASE
+        operations.append(op)
+
+    try:
+        response = campaign_criterion_service.mutate_campaign_criteria(
+            customer_id=CUSTOMER_ID,
+            operations=operations,
+        )
+        print(f"✅ {len(response.results)}件の除外キーワードを追加しました。")
+        for result in response.results:
+            print(f"    {result.resource_name}")
+    except Exception as e:
+        print(f"❌ エラー: {e}")
+
+
+def _add_negative_keywords_via_list(client, keywords, list_name, campaign_rn, campaign_name,
+                                     dry_run, confirm):
+    """共有除外キーワードリスト経由で追加"""
+    service = client.get_service("GoogleAdsService")
+    skl_service = client.get_service("SharedSetService")
+    shared_criterion_service = client.get_service("SharedCriterionService")
+    campaign_shared_set_service = client.get_service("CampaignSharedSetService")
+
+    # 既存リストを検索
+    query = f"""
+        SELECT shared_set.name, shared_set.resource_name, shared_set.id
+        FROM shared_set
+        WHERE shared_set.type = 'NEGATIVE_KEYWORDS'
+            AND shared_set.status = 'ENABLED'
+    """
+    existing_list_rn = None
+    response = service.search_stream(customer_id=CUSTOMER_ID, query=query)
+    for batch in response:
+        for row in batch.results:
+            if row.shared_set.name == list_name:
+                existing_list_rn = row.shared_set.resource_name
+                break
+
+    desc = f"除外リスト「{list_name}」にキーワードを追加 → キャンペーン「{campaign_name}」に適用:\n" + \
+           "\n".join(f"    - {kw}" for kw in keywords)
+    if existing_list_rn:
+        desc += f"\n    (既存リスト使用: {existing_list_rn})"
+    else:
+        desc += "\n    (新規リスト作成)"
+    if not _confirm_action(desc, dry_run, confirm):
+        return
+
+    # リストが無ければ作成
+    if not existing_list_rn:
+        op = client.get_type("SharedSetOperation")
+        shared_set = op.create
+        shared_set.name = list_name
+        shared_set.type_ = client.enums.SharedSetTypeEnum.NEGATIVE_KEYWORDS
+        try:
+            resp = skl_service.mutate_shared_sets(
+                customer_id=CUSTOMER_ID,
+                operations=[op],
+            )
+            existing_list_rn = resp.results[0].resource_name
+            print(f"  📁 除外リスト「{list_name}」を作成しました。")
+        except Exception as e:
+            print(f"❌ リスト作成エラー: {e}")
+            return
+
+    # リストにキーワード追加
+    operations = []
+    for kw in keywords:
+        op = client.get_type("SharedCriterionOperation")
+        criterion = op.create
+        criterion.shared_set = existing_list_rn
+        criterion.keyword.text = kw
+        criterion.keyword.match_type = client.enums.KeywordMatchTypeEnum.PHRASE
+        operations.append(op)
+
+    try:
+        resp = shared_criterion_service.mutate_shared_criteria(
+            customer_id=CUSTOMER_ID,
+            operations=operations,
+        )
+        print(f"  ✅ {len(resp.results)}件のキーワードをリストに追加しました。")
+    except Exception as e:
+        print(f"❌ リストへのキーワード追加エラー: {e}")
+        return
+
+    # リストをキャンペーンに関連付け（未関連付けの場合）
+    query_linked = f"""
+        SELECT campaign_shared_set.shared_set
+        FROM campaign_shared_set
+        WHERE campaign_shared_set.campaign = '{campaign_rn}'
+            AND campaign_shared_set.shared_set = '{existing_list_rn}'
+    """
+    already_linked = False
+    try:
+        resp = service.search_stream(customer_id=CUSTOMER_ID, query=query_linked)
+        for batch in resp:
+            if batch.results:
+                already_linked = True
+                break
+    except Exception:
+        pass
+
+    if not already_linked:
+        op = client.get_type("CampaignSharedSetOperation")
+        css = op.create
+        css.campaign = campaign_rn
+        css.shared_set = existing_list_rn
+        try:
+            campaign_shared_set_service.mutate_campaign_shared_sets(
+                customer_id=CUSTOMER_ID,
+                operations=[op],
+            )
+            print(f"  🔗 リストをキャンペーン「{campaign_name}」に関連付けました。")
+        except Exception as e:
+            print(f"❌ キャンペーン関連付けエラー: {e}")
+    else:
+        print(f"  ℹ️  リストは既にキャンペーンに関連付け済みです。")
+
+
+# --- 3b. 除外キーワード削除 ---
+
+def remove_negative_keywords(client, keywords: list[str], dry_run: bool = False, confirm: bool = False):
+    """キャンペーンレベルの除外キーワードを削除"""
+    campaign_rn, campaign_name, campaign_id = _get_active_campaign_id(client)
+    if not campaign_rn:
+        print("⚠️  有効なキャンペーンが見つかりません。")
+        return
+
+    service = client.get_service("GoogleAdsService")
+    campaign_criterion_service = client.get_service("CampaignCriterionService")
+
+    # 現在の除外KWを取得
+    query = f"""
+        SELECT
+            campaign_criterion.criterion_id,
+            campaign_criterion.keyword.text,
+            campaign_criterion.keyword.match_type,
+            campaign_criterion.resource_name
+        FROM campaign_criterion
+        WHERE campaign.resource_name = '{campaign_rn}'
+            AND campaign_criterion.negative = TRUE
+            AND campaign_criterion.type = 'KEYWORD'
+    """
+    existing = []
+    try:
+        response = service.search_stream(customer_id=CUSTOMER_ID, query=query)
+        for batch in response:
+            for row in batch.results:
+                existing.append({
+                    "text": row.campaign_criterion.keyword.text,
+                    "resource_name": row.campaign_criterion.resource_name,
+                })
+    except Exception as e:
+        print(f"❌ 除外KW取得エラー: {e}")
+        return
+
+    # 削除対象を特定（部分一致）
+    to_remove = []
+    for kw in keywords:
+        for ex in existing:
+            if kw.lower() == ex["text"].lower():
+                to_remove.append(ex)
+                break
+        else:
+            print(f"  ⚠️  除外KWに見つかりません: {kw}")
+
+    if not to_remove:
+        print("⚠️  削除対象の除外キーワードが見つかりません。")
+        if existing:
+            print(f"現在の除外KW ({len(existing)}件):")
+            for ex in existing:
+                print(f"    - {ex['text']}")
+        return
+
+    desc = f"キャンペーン「{campaign_name}」から除外キーワードを削除:\n" + \
+           "\n".join(f"    - {r['text']}" for r in to_remove)
+    if not _confirm_action(desc, dry_run, confirm):
+        return
+
+    operations = []
+    for r in to_remove:
+        op = client.get_type("CampaignCriterionOperation")
+        op.remove = r["resource_name"]
+        operations.append(op)
+
+    try:
+        response = campaign_criterion_service.mutate_campaign_criteria(
+            customer_id=CUSTOMER_ID,
+            operations=operations,
+        )
+        print(f"✅ {len(response.results)}件の除外キーワードを削除しました。")
+        for result in response.results:
+            print(f"    {result.resource_name}")
+    except Exception as e:
+        print(f"❌ エラー: {e}")
+
+
+# --- 4. キーワード追加 ---
+
+def add_keywords(client, keyword_texts: list[str], match_type: str = "exact",
+                 dry_run: bool = False, confirm: bool = False):
+    """広告グループにキーワードを追加"""
+    adgroup_rn, adgroup_name, campaign_name = _get_active_adgroup_id(client)
+    if not adgroup_rn:
+        print("⚠️  有効な広告グループが見つかりません。")
+        return
+
+    match_map = {
+        "exact": "EXACT",
+        "phrase": "PHRASE",
+        "broad": "BROAD",
+    }
+    match_enum_str = match_map.get(match_type.lower(), "EXACT")
+    match_label = {"EXACT": "完全一致", "PHRASE": "フレーズ一致", "BROAD": "インテントマッチ"}.get(match_enum_str, match_enum_str)
+
+    desc = f"広告グループ「{adgroup_name}」（{campaign_name}）にキーワードを追加:\n" + \
+           "\n".join(f"    - [{match_label}] {kw}" for kw in keyword_texts)
+    if not _confirm_action(desc, dry_run, confirm):
+        return
+
+    adgroup_criterion_service = client.get_service("AdGroupCriterionService")
+    operations = []
+    for kw in keyword_texts:
+        op = client.get_type("AdGroupCriterionOperation")
+        criterion = op.create
+        criterion.ad_group = adgroup_rn
+        criterion.status = client.enums.AdGroupCriterionStatusEnum.ENABLED
+        criterion.keyword.text = kw
+        criterion.keyword.match_type = client.enums.KeywordMatchTypeEnum[match_enum_str]
+        operations.append(op)
+
+    try:
+        response = adgroup_criterion_service.mutate_ad_group_criteria(
+            customer_id=CUSTOMER_ID,
+            operations=operations,
+        )
+        print(f"✅ {len(response.results)}件のキーワードを追加しました。")
+        for result in response.results:
+            print(f"    {result.resource_name}")
+    except Exception as e:
+        print(f"❌ エラー: {e}")
+
+
+# --- 5. 入札戦略の設定 ---
+
+def set_bidding_strategy(client, strategy: str, max_cpc: int = None, target_cpa: int = None,
+                         dry_run: bool = False, confirm: bool = False):
+    """キャンペーンの入札戦略を変更"""
+    from google.api_core import protobuf_helpers
+
+    campaign_rn, campaign_name, campaign_id = _get_active_campaign_id(client)
+    if not campaign_rn:
+        print("⚠️  有効なキャンペーンが見つかりません。")
+        return
+
+    strategy_lower = strategy.lower()
+    desc_parts = [f"キャンペーン「{campaign_name}」の入札戦略を変更:"]
+    desc_parts.append(f"    戦略: {strategy}")
+    if max_cpc is not None:
+        desc_parts.append(f"    上限CPC: ¥{max_cpc}")
+    if target_cpa is not None:
+        desc_parts.append(f"    目標CPA: ¥{target_cpa}")
+
+    if not _confirm_action("\n".join(desc_parts), dry_run, confirm):
+        return
+
+    campaign_service = client.get_service("CampaignService")
+    op = client.get_type("CampaignOperation")
+    campaign = op.update
+    campaign.resource_name = campaign_rn
+
+    if strategy_lower == "maximize_conversions":
+        campaign.maximize_conversions.CopyFrom(
+            client.get_type("MaximizeConversions")()
+        )
+        if target_cpa is not None:
+            campaign.maximize_conversions.target_cpa_micros = target_cpa * 1_000_000
+    elif strategy_lower == "maximize_clicks":
+        campaign.maximize_clicks.CopyFrom(
+            client.get_type("MaximizeClicks")()
+        )
+        if max_cpc is not None:
+            campaign.maximize_clicks.cpc_bid_ceiling_micros = max_cpc * 1_000_000
+    elif strategy_lower == "target_cpa":
+        campaign.maximize_conversions.CopyFrom(
+            client.get_type("MaximizeConversions")()
+        )
+        if target_cpa is not None:
+            campaign.maximize_conversions.target_cpa_micros = target_cpa * 1_000_000
+        else:
+            print("⚠️  target_cpa戦略には --target-cpa が必要です。")
+            return
+    elif strategy_lower == "manual_cpc":
+        campaign.manual_cpc.CopyFrom(
+            client.get_type("ManualCpc")()
+        )
+    else:
+        print(f"⚠️  未対応の戦略: {strategy}")
+        print("  対応: maximize_conversions, maximize_clicks, target_cpa, manual_cpc")
+        return
+
+    client.copy_from(
+        op.update_mask,
+        protobuf_helpers.field_mask(None, campaign._pb),
+    )
+
+    try:
+        response = campaign_service.mutate_campaigns(
+            customer_id=CUSTOMER_ID,
+            operations=[op],
+        )
+        print(f"✅ 入札戦略を変更しました: {response.results[0].resource_name}")
+    except Exception as e:
+        print(f"❌ エラー: {e}")
+
+
+# --- 6. 広告スケジュール入札調整 ---
+
+def set_ad_schedule_bid_adjustments(client, schedule_json: str,
+                                     dry_run: bool = False, confirm: bool = False):
+    """曜日別入札調整を設定"""
+    campaign_rn, campaign_name, campaign_id = _get_active_campaign_id(client)
+    if not campaign_rn:
+        print("⚠️  有効なキャンペーンが見つかりません。")
+        return
+
+    try:
+        schedule = json.loads(schedule_json)
+    except json.JSONDecodeError as e:
+        print(f"⚠️  JSONパースエラー: {e}")
+        return
+
+    day_map = {
+        "MONDAY": "MONDAY", "TUESDAY": "TUESDAY", "WEDNESDAY": "WEDNESDAY",
+        "THURSDAY": "THURSDAY", "FRIDAY": "FRIDAY", "SATURDAY": "SATURDAY",
+        "SUNDAY": "SUNDAY",
+    }
+
+    desc = f"キャンペーン「{campaign_name}」の曜日別入札調整:\n" + \
+           "\n".join(f"    - {d}: {v:+d}%" for d, v in schedule.items())
+    if not _confirm_action(desc, dry_run, confirm):
+        return
+
+    # 既存スケジュールを削除
+    service = client.get_service("GoogleAdsService")
+    campaign_criterion_service = client.get_service("CampaignCriterionService")
+
+    query = f"""
+        SELECT campaign_criterion.resource_name, campaign_criterion.criterion_id
+        FROM campaign_criterion
+        WHERE campaign_criterion.campaign = '{campaign_rn}'
+            AND campaign_criterion.type = 'AD_SCHEDULE'
+    """
+    remove_ops = []
+    try:
+        response = service.search_stream(customer_id=CUSTOMER_ID, query=query)
+        for batch in response:
+            for row in batch.results:
+                op = client.get_type("CampaignCriterionOperation")
+                op.remove = row.campaign_criterion.resource_name
+                remove_ops.append(op)
+    except Exception:
+        pass
+
+    if remove_ops:
+        try:
+            campaign_criterion_service.mutate_campaign_criteria(
+                customer_id=CUSTOMER_ID,
+                operations=remove_ops,
+            )
+            print(f"  🗑️  既存スケジュール {len(remove_ops)}件を削除しました。")
+        except Exception as e:
+            print(f"  ⚠️ 既存スケジュール削除失敗: {e}")
+
+    # 新規スケジュール作成（曜日ごとに終日、入札調整付き）
+    create_ops = []
+    for day_str, adj_percent in schedule.items():
+        day_upper = day_str.upper()
+        if day_upper not in day_map:
+            print(f"  ⚠️ 不明な曜日: {day_str}")
+            continue
+
+        op = client.get_type("CampaignCriterionOperation")
+        criterion = op.create
+        criterion.campaign = campaign_rn
+        criterion.bid_modifier = 1.0 + (adj_percent / 100.0)
+        criterion.ad_schedule.day_of_week = client.enums.DayOfWeekEnum[day_upper]
+        criterion.ad_schedule.start_hour = 0
+        criterion.ad_schedule.start_minute = client.enums.MinuteOfHourEnum.ZERO
+        criterion.ad_schedule.end_hour = 24
+        criterion.ad_schedule.end_minute = client.enums.MinuteOfHourEnum.ZERO
+        create_ops.append(op)
+
+    if not create_ops:
+        print("⚠️  設定するスケジュールがありません。")
+        return
+
+    try:
+        response = campaign_criterion_service.mutate_campaign_criteria(
+            customer_id=CUSTOMER_ID,
+            operations=create_ops,
+        )
+        print(f"✅ {len(response.results)}件の曜日スケジュールを設定しました。")
+        for result in response.results:
+            print(f"    {result.resource_name}")
+    except Exception as e:
+        print(f"❌ エラー: {e}")
+
+
+def set_hour_bid_adjustments(client, hour_json: str,
+                              dry_run: bool = False, confirm: bool = False):
+    """時間帯別入札調整を設定（全曜日共通）"""
+    campaign_rn, campaign_name, campaign_id = _get_active_campaign_id(client)
+    if not campaign_rn:
+        print("⚠️  有効なキャンペーンが見つかりません。")
+        return
+
+    try:
+        hour_schedule = json.loads(hour_json)
+    except json.JSONDecodeError as e:
+        print(f"⚠️  JSONパースエラー: {e}")
+        return
+
+    desc = f"キャンペーン「{campaign_name}」の時間帯別入札調整:\n" + \
+           "\n".join(f"    - {h}時: {v:+d}%" for h, v in hour_schedule.items())
+    if not _confirm_action(desc, dry_run, confirm):
+        return
+
+    # 既存スケジュールを削除
+    service = client.get_service("GoogleAdsService")
+    campaign_criterion_service = client.get_service("CampaignCriterionService")
+
+    query = f"""
+        SELECT campaign_criterion.resource_name
+        FROM campaign_criterion
+        WHERE campaign_criterion.campaign = '{campaign_rn}'
+            AND campaign_criterion.type = 'AD_SCHEDULE'
+    """
+    remove_ops = []
+    try:
+        response = service.search_stream(customer_id=CUSTOMER_ID, query=query)
+        for batch in response:
+            for row in batch.results:
+                op = client.get_type("CampaignCriterionOperation")
+                op.remove = row.campaign_criterion.resource_name
+                remove_ops.append(op)
+    except Exception:
+        pass
+
+    if remove_ops:
+        try:
+            campaign_criterion_service.mutate_campaign_criteria(
+                customer_id=CUSTOMER_ID,
+                operations=remove_ops,
+            )
+            print(f"  🗑️  既存スケジュール {len(remove_ops)}件を削除しました。")
+        except Exception as e:
+            print(f"  ⚠️ 既存スケジュール削除失敗: {e}")
+
+    # 時間帯ごとに全曜日のスケジュールを作成
+    all_days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
+    create_ops = []
+
+    for hour_range, adj_percent in hour_schedule.items():
+        parts = hour_range.split("-")
+        if len(parts) != 2:
+            print(f"  ⚠️ 不正な時間帯フォーマット: {hour_range} (例: '3-6')")
+            continue
+        try:
+            start_hour = int(parts[0])
+            end_hour = int(parts[1])
+        except ValueError:
+            print(f"  ⚠️ 不正な時間帯: {hour_range}")
+            continue
+
+        for day in all_days:
+            op = client.get_type("CampaignCriterionOperation")
+            criterion = op.create
+            criterion.campaign = campaign_rn
+            criterion.bid_modifier = 1.0 + (adj_percent / 100.0)
+            criterion.ad_schedule.day_of_week = client.enums.DayOfWeekEnum[day]
+            criterion.ad_schedule.start_hour = start_hour
+            criterion.ad_schedule.start_minute = client.enums.MinuteOfHourEnum.ZERO
+            criterion.ad_schedule.end_hour = end_hour
+            criterion.ad_schedule.end_minute = client.enums.MinuteOfHourEnum.ZERO
+            create_ops.append(op)
+
+    if not create_ops:
+        print("⚠️  設定するスケジュールがありません。")
+        return
+
+    try:
+        response = campaign_criterion_service.mutate_campaign_criteria(
+            customer_id=CUSTOMER_ID,
+            operations=create_ops,
+        )
+        print(f"✅ {len(response.results)}件の時間帯スケジュールを設定しました。")
+    except Exception as e:
+        print(f"❌ エラー: {e}")
+
+
+# ============================================================
 # CSV フォールバック（既存機能）
 # ============================================================
 
@@ -1595,7 +2366,99 @@ def main():
     parser.add_argument("--days", type=int, help="過去N日間")
     parser.add_argument("--csv", action="store_true", help="CSV読み込みモード（API不使用）")
     parser.add_argument("--dir", type=str, default=str(REPORT_DIR), help="CSVディレクトリ")
+
+    # --- Mutation（書き込み）操作 ---
+    parser.add_argument("--list-conversions", action="store_true",
+                        help="コンバージョンアクション一覧を表示")
+    parser.add_argument("--set-secondary", nargs="+", metavar="NAME",
+                        help="指定コンバージョンをセカンダリに変更（部分一致）")
+    parser.add_argument("--add-negative", nargs="+", metavar="KEYWORD",
+                        help="除外キーワードを追加（キャンペーンレベル）")
+    parser.add_argument("--remove-negative", nargs="+", metavar="KEYWORD",
+                        help="除外キーワードを削除（キャンペーンレベル）")
+    parser.add_argument("--negative-list", type=str, metavar="LIST_NAME",
+                        help="共有除外キーワードリスト名（--add-negativeと併用）")
+    parser.add_argument("--add-keyword", nargs="+", metavar="KEYWORD",
+                        help="キーワードを広告グループに追加")
+    parser.add_argument("--match", type=str, default="exact",
+                        choices=["exact", "phrase", "broad"],
+                        help="キーワードのマッチタイプ（デフォルト: exact）")
+    parser.add_argument("--set-bidding", type=str, metavar="STRATEGY",
+                        help="入札戦略を変更 (maximize_conversions, maximize_clicks, target_cpa, manual_cpc)")
+    parser.add_argument("--max-cpc", type=int, metavar="YEN",
+                        help="上限CPC（円）-- set-biddingと併用")
+    parser.add_argument("--target-cpa", type=int, metavar="YEN",
+                        help="目標CPA（円）-- set-biddingと併用")
+    parser.add_argument("--set-schedule", type=str, metavar="JSON",
+                        help='曜日別入札調整 JSON (例: \'{"SUNDAY": -20, "THURSDAY": 15}\')')
+    parser.add_argument("--set-hour-bid", type=str, metavar="JSON",
+                        help='時間帯別入札調整 JSON (例: \'{"3-6": -30, "6-15": 20}\')')
+    parser.add_argument("--dry-run", action="store_true",
+                        help="変更を実行せず、内容のみ表示")
+    parser.add_argument("--confirm", action="store_true",
+                        help="確認プロンプトをスキップして実行")
+
     args = parser.parse_args()
+
+    # --- Mutation コマンドのディスパッチ ---
+    mutation_requested = any([
+        args.list_conversions,
+        args.set_secondary,
+        args.add_negative,
+        args.remove_negative,
+        args.add_keyword,
+        args.set_bidding,
+        args.set_schedule,
+        args.set_hour_bid,
+    ])
+
+    if mutation_requested:
+        try:
+            client = get_google_ads_client()
+        except Exception as e:
+            print(f"⚠️  APIクライアント初期化エラー: {e}")
+            return
+
+        if args.list_conversions:
+            list_conversion_actions(client)
+            return
+
+        if args.set_secondary:
+            set_conversions_secondary(client, args.set_secondary,
+                                      dry_run=args.dry_run, confirm=args.confirm)
+            return
+
+        if args.add_negative:
+            add_negative_keywords(client, args.add_negative,
+                                   negative_list_name=args.negative_list,
+                                   dry_run=args.dry_run, confirm=args.confirm)
+            return
+
+        if args.remove_negative:
+            remove_negative_keywords(client, args.remove_negative,
+                                      dry_run=args.dry_run, confirm=args.confirm)
+            return
+
+        if args.add_keyword:
+            add_keywords(client, args.add_keyword, match_type=args.match,
+                         dry_run=args.dry_run, confirm=args.confirm)
+            return
+
+        if args.set_bidding:
+            set_bidding_strategy(client, args.set_bidding,
+                                 max_cpc=args.max_cpc, target_cpa=args.target_cpa,
+                                 dry_run=args.dry_run, confirm=args.confirm)
+            return
+
+        if args.set_schedule:
+            set_ad_schedule_bid_adjustments(client, args.set_schedule,
+                                            dry_run=args.dry_run, confirm=args.confirm)
+            return
+
+        if args.set_hour_bid:
+            set_hour_bid_adjustments(client, args.set_hour_bid,
+                                     dry_run=args.dry_run, confirm=args.confirm)
+            return
 
     today = datetime.date.today()
 
@@ -1725,8 +2588,7 @@ def main():
         print("\n--- 送信メッセージ ---")
         print(msg)
         print("--- ここまで ---\n")
-        if not send_discord(msg):
-            send_line(msg)
+        send_discord(msg)
 
     print("✅ レポート生成完了\n")
 

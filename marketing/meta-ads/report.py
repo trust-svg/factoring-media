@@ -923,10 +923,9 @@ def main():
         html_path = export_html(rows, analysis, suggestions, since, until, out_dir)
         export_pdf(html_path, out_dir)
 
-    # 通知（Discord優先、フォールバックでLINE）
+    # 通知（Discordのみ）
     if args.notify:
-        if not send_discord_message(rows, since, until, suggestions=suggestions):
-            send_line_message(rows, since, until, suggestions=suggestions)
+        send_discord_message(rows, since, until, suggestions=suggestions)
 
     print("\n✅ レポート生成完了\n")
 
