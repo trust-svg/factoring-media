@@ -1,12 +1,16 @@
 """Chat API Router — /api/chat/* エンドポイント"""
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
+
+_sync_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ebay-sync")
 
 from database.models import get_db
 from chat import service
@@ -197,14 +201,24 @@ async def mark_unread(req: MarkReadRequest):
 
 # ── 同期 ─────────────────────────────────────────────────
 
-@router.post("/sync")
-async def sync_messages():
+def _run_sync(days: int = 7):
+    """バックグラウンドスレッドでsyncを実行（イベントループをブロックしない）"""
     db = get_db()
     try:
-        result = await service.sync_messages(db, days=7)
+        import asyncio as _asyncio
+        loop = _asyncio.new_event_loop()
+        result = loop.run_until_complete(service.sync_messages(db, days=days))
+        loop.close()
         return result
     finally:
         db.close()
+
+
+@router.post("/sync")
+async def sync_messages():
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(_sync_executor, _run_sync)
+    return result
 
 
 @router.get("/unread-count")

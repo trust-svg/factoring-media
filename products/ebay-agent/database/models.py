@@ -6,7 +6,7 @@ ebay-listing-optimizer の既存モデルを拡張し、
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import DateTime, Float, Integer, String, Text, create_engine
+from sqlalchemy import DateTime, Float, Integer, String, Text, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from config import DATABASE_URL
@@ -461,7 +461,23 @@ class AnalyticsReport(Base):
 
 # ── DB初期化 ──────────────────────────────────────────────
 
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False, "timeout": 30},
+)
+
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, _connection_record):
+    """WALモード + busy_timeout で読み書き並行化"""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA busy_timeout=15000")
+    cursor.close()
+
+
 SessionLocal = sessionmaker(bind=engine)
 
 

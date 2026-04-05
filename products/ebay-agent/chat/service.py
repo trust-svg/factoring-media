@@ -15,13 +15,13 @@ from chat.translation import translate_to_ja, translate_to_en
 
 logger = logging.getLogger(__name__)
 
-_client: anthropic.Anthropic | None = None
+_client: anthropic.AsyncAnthropic | None = None
 
 
-def _get_anthropic() -> anthropic.Anthropic:
+def _get_anthropic() -> anthropic.AsyncAnthropic:
     global _client
     if _client is None:
-        _client = anthropic.Anthropic()
+        _client = anthropic.AsyncAnthropic()
     return _client
 
 
@@ -530,7 +530,7 @@ MESSAGE:
 {msg.body}
 {context}"""
 
-            analysis_resp = _get_anthropic().messages.create(
+            analysis_resp = await _get_anthropic().messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=500,
                 system=ANALYSIS_SYSTEM_PROMPT,
@@ -541,7 +541,7 @@ MESSAGE:
             logger.warning(f"分析生成エラー: {e}")
 
         # 2. 返信ドラフト（バイヤーの言語で + JA + STRATEGY を一括生成）
-        resp = _get_anthropic().messages.create(
+        resp = await _get_anthropic().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=2000,
             system=REPLY_SYSTEM_PROMPT,
@@ -926,7 +926,7 @@ If the instruction is in Japanese, understand it but write the output in the dra
 Output ONLY the updated message body. Sign off as "Roki". No subject lines, no "---", no meta-commentary."""
 
     try:
-        resp = _get_anthropic().messages.create(
+        resp = await _get_anthropic().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
             system=REPLY_SYSTEM_PROMPT,

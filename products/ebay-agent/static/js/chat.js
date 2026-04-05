@@ -43,9 +43,11 @@ function cacheInvalidate(store, key) {
 
 // ── Init ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-    // 初回はキャッシュから即表示 → バックグラウンドでSync
+    // DBから即座に表示
     await loadConversations();
-    syncMessages(true); // 自動同期（バックグラウンド）
+    // 初回sync: ページ表示完了から30秒後に実行（UIをブロックしない）
+    setTimeout(() => syncMessages(true), 30000);
+    // 以降は5分毎
     setInterval(() => syncMessages(true), 5 * 60 * 1000);
 });
 

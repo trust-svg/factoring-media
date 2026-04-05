@@ -7,14 +7,14 @@ import anthropic
 
 logger = logging.getLogger(__name__)
 
-_client: anthropic.Anthropic | None = None
+_async_client: anthropic.AsyncAnthropic | None = None
 
 
-def _get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic()
-    return _client
+def _get_client() -> anthropic.AsyncAnthropic:
+    global _async_client
+    if _async_client is None:
+        _async_client = anthropic.AsyncAnthropic()
+    return _async_client
 
 
 TRANSLATE_SYSTEM = """You are a professional translator for eBay buyer-seller communication.
@@ -28,7 +28,7 @@ async def translate_to_ja(text: str) -> str:
     if not text.strip():
         return ""
     try:
-        resp = _get_client().messages.create(
+        resp = await _get_client().messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=2000,
             system=TRANSLATE_SYSTEM,
@@ -45,7 +45,7 @@ async def translate_to_en(text: str) -> str:
     if not text.strip():
         return ""
     try:
-        resp = _get_client().messages.create(
+        resp = await _get_client().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=2000,
             system=TRANSLATE_SYSTEM,
@@ -61,7 +61,7 @@ async def suggest_alternatives(text: str, lang: str = "en") -> list[str]:
     """表現の代替案を3つ提案"""
     try:
         prompt = f"Provide 3 alternative ways to say this in {'English' if lang == 'en' else 'Japanese'} for eBay communication. Return each on a new line, numbered 1-3. No explanations.\n\n{text}"
-        resp = _get_client().messages.create(
+        resp = await _get_client().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
             system="You are a professional eBay communication assistant.",

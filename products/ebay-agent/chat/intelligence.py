@@ -14,13 +14,13 @@ from database.models import BuyerMessage, SalesRecord
 
 logger = logging.getLogger(__name__)
 
-_client: anthropic.Anthropic | None = None
+_client: anthropic.AsyncAnthropic | None = None
 
 
-def _get_client() -> anthropic.Anthropic:
+def _get_client() -> anthropic.AsyncAnthropic:
     global _client
     if _client is None:
-        _client = anthropic.Anthropic()
+        _client = anthropic.AsyncAnthropic()
     return _client
 
 
@@ -40,7 +40,7 @@ async def analyze_sentiment(message_body: str) -> dict:
         return {"sentiment": "neutral", "urgency": "low", "note": ""}
 
     try:
-        resp = _get_client().messages.create(
+        resp = await _get_client().messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=200,
             system="Analyze eBay buyer message sentiment and urgency. Reply ONLY with JSON.",
@@ -87,7 +87,7 @@ async def get_smart_replies(message_body: str, context: str = "") -> List[str]:
         return []
 
     try:
-        resp = _get_client().messages.create(
+        resp = await _get_client().messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=500,
             system="""You are an eBay seller from Japan. Generate 3 short English reply options.
@@ -356,7 +356,7 @@ Buyer message:
 Follow all rules in your system prompt. Detect the buyer's language and reply in that language."""
 
     try:
-        resp = _get_client().messages.create(
+        resp = await _get_client().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=2000,
             system=ROKI_SYSTEM_PROMPT,
