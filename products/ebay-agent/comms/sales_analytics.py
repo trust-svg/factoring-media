@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from config import EBAY_FEE_RATE, PAYONEER_FEE_RATE
-from database.models import InventoryItem, get_db
+from database.models import InventoryItem, Listing, get_db
 from database import crud
 from ebay_core.client import get_recent_orders
 from ebay_core.exchange_rate import get_usd_to_jpy
@@ -191,6 +191,20 @@ def get_sales_analytics(days: int = 30) -> dict:
             sku_totals[r.sku]["profit"] += r.net_profit_usd
             sku_totals[r.sku]["count"] += 1
 
+        # SKU→画像URLマップ（Listingテーブルから一括取得）
+        import json as _json
+        skus = list(sku_totals.keys())
+        image_map: dict[str, str] = {}
+        if skus:
+            listings = db.query(Listing.sku, Listing.image_urls_json).filter(Listing.sku.in_(skus)).all()
+            for l in listings:
+                try:
+                    urls = _json.loads(l.image_urls_json) if l.image_urls_json else []
+                    if urls:
+                        image_map[l.sku] = urls[0]
+                except (ValueError, IndexError):
+                    pass
+
         top_products = sorted(
             [
                 {
@@ -199,6 +213,7 @@ def get_sales_analytics(days: int = 30) -> dict:
                     "revenue_usd": round(data["revenue"], 2),
                     "profit_usd": round(data["profit"], 2),
                     "sales_count": data["count"],
+                    "image_url": image_map.get(sku, ""),
                 }
                 for sku, data in sku_totals.items()
             ],

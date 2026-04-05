@@ -44,13 +44,13 @@
     --gray-900: #111827;
 
     /* Semantic */
-    --bg-primary:   #F0F2F5;
+    --bg-primary:   #E8EBF0;
     --bg-secondary: #FFFFFF;
     --bg-tertiary:  var(--gray-100);
-    --text-primary: #1C1C1E;
-    --text-secondary: #636366;
-    --text-muted:   #AEAEB2;
-    --border:       rgba(0,0,0,0.06);
+    --text-primary: #0D0D0F;
+    --text-secondary: #3C3C43;
+    --text-muted:   #8E8E93;
+    --border:       rgba(0,0,0,0.12);
 
     /* Status */
     --success-50:  #ECFDF5;
@@ -435,10 +435,10 @@ button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
 }
 
 .page-header h1 {
-    font-size: 28px;
+    font-size: 36px;
     color: var(--text-primary);
-    font-weight: 700;
-    letter-spacing: -0.03em;
+    font-weight: 800;
+    letter-spacing: -0.04em;
 }
 
 .page-header .status {
@@ -516,6 +516,16 @@ button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
 .stat-icon.yellow { background: var(--grad-orange); box-shadow: var(--shadow-glow-orange); }
 .stat-icon.purple { background: var(--grad-purple); box-shadow: var(--shadow-glow-purple); }
 
+/* Auto-color stat icons by position when no class is set */
+.stats-grid .stat-card:nth-child(1) .stat-icon { background: var(--grad-blue);   box-shadow: var(--shadow-glow-blue); }
+.stats-grid .stat-card:nth-child(2) .stat-icon { background: var(--grad-pink);   box-shadow: var(--shadow-glow-pink); }
+.stats-grid .stat-card:nth-child(3) .stat-icon { background: var(--grad-green);  box-shadow: var(--shadow-glow-green); }
+.stats-grid .stat-card:nth-child(4) .stat-icon { background: var(--grad-teal);   box-shadow: var(--shadow-glow-blue); }
+.stats-grid .stat-card:nth-child(5) .stat-icon { background: var(--grad-purple); box-shadow: var(--shadow-glow-purple); }
+.stats-grid .stat-card:nth-child(6) .stat-icon { background: var(--grad-orange); box-shadow: var(--shadow-glow-orange); }
+.stats-grid .stat-card:nth-child(7) .stat-icon { background: var(--grad-blue);   box-shadow: var(--shadow-glow-blue); }
+.stats-grid .stat-card:nth-child(8) .stat-icon { background: var(--grad-green);  box-shadow: var(--shadow-glow-green); }
+
 .stat-content { flex: 1; min-width: 0; }
 
 .stat-card .label {
@@ -583,7 +593,7 @@ button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
 }
 
 .section h2 {
-    font-size: 18px;
+    font-size: 22px;
     color: var(--text-primary);
     font-weight: 700;
     letter-spacing: -0.02em;

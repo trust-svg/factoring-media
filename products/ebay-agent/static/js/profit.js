@@ -2,6 +2,8 @@
 
 let trendChart = null, breakdownChart = null, dailyChartInstance = null;
 let summaryData = [];
+let txSortCol = 'sold_at', txSortDir = 'desc';
+let txRawRecords = [];
 
 // ApexCharts共通テーマ
 const chartFont = 'Inter, sans-serif';
@@ -252,6 +254,49 @@ function renderBreakdownChart(data) {
 }
 
 // ── 取引一覧 ──────────────────────────────────────────
+function sortTransactions(col) {
+    if (txSortCol === col) {
+        txSortDir = txSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        txSortCol = col;
+        txSortDir = 'desc';
+    }
+    renderTransactions(txRawRecords);
+    updateTxSortIcons();
+}
+
+function updateTxSortIcons() {
+    document.querySelectorAll('#txTable thead th[data-sort]').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        if (!icon) return;
+        if (th.dataset.sort === txSortCol) {
+            icon.textContent = txSortDir === 'asc' ? ' ▲' : ' ▼';
+            icon.style.opacity = '1';
+        } else {
+            icon.textContent = ' ⇅';
+            icon.style.opacity = '0.3';
+        }
+    });
+}
+
+function compareTx(a, b) {
+    let va, vb;
+    switch (txSortCol) {
+        case 'sold_at':       va = a.sold_at || ''; vb = b.sold_at || ''; break;
+        case 'title':         va = a.title || ''; vb = b.title || ''; break;
+        case 'sale_price':    va = a.sale_price_usd; vb = b.sale_price_usd; break;
+        case 'source_cost':   va = a.source_cost_jpy; vb = b.source_cost_jpy; break;
+        case 'net_profit':    va = a.net_profit_jpy; vb = b.net_profit_jpy; break;
+        case 'margin':        va = a.profit_margin_pct; vb = b.profit_margin_pct; break;
+        default:              va = a.sold_at || ''; vb = b.sold_at || '';
+    }
+    if (typeof va === 'string') {
+        const cmp = va.localeCompare(vb);
+        return txSortDir === 'asc' ? cmp : -cmp;
+    }
+    return txSortDir === 'asc' ? va - vb : vb - va;
+}
+
 async function loadTransactions(fromDate, toDate) {
     const month = document.getElementById('txMonth').value;
     const tbody = document.getElementById('txBody');
@@ -264,12 +309,24 @@ async function loadTransactions(fromDate, toDate) {
         const records = await resp.json();
         txCache = {};
         records.forEach(r => txCache[r.id] = r);
+        txRawRecords = records;
 
         if (!records.length) {
             tbody.innerHTML = '<tr><td colspan="14" class="empty-state">取引データなし</td></tr>';
             return;
         }
-        tbody.innerHTML = records.map(r => {
+        renderTransactions(records);
+        updateTxSortIcons();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="14" class="empty-state">読み込みエラー</td></tr>';
+        console.error(e);
+    }
+}
+
+function renderTransactions(records) {
+        const tbody = document.getElementById('txBody');
+        const sorted = [...records].sort(compareTx);
+        tbody.innerHTML = sorted.map(r => {
             const shipTotal = r.shipping_cost_jpy + r.intl_shipping_cost_jpy;
             const feesTotal = r.ebay_fees_usd + r.payoneer_fee_usd;
             const profitColor = r.net_profit_jpy >= 0 ? 'var(--success-500)' : 'var(--error-500)';
@@ -344,28 +401,24 @@ async function loadTransactions(fromDate, toDate) {
                 </tr>
                 ${detailHtml}`;
         }).join('');
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="14" class="empty-state">読み込みエラー</td></tr>';
-        console.error(e);
-    }
 }
 
 // ── 進捗バッジ (TailAdmin pill style) ──
 function buildProgressBadge(r) {
     const status = r.progress || '未注文';
     const styles = {
-        '未注文':       'background:var(--gray-100);color:var(--gray-600);',
-        '注文済':       'background:var(--brand-50);color:var(--brand-600);',
-        '発送済':       'background:var(--warning-50);color:var(--warning-600);',
-        '納品済':       'background:var(--success-50);color:var(--success-600);',
-        'キャンセル':     'background:var(--error-50);color:var(--error-600);',
-        '返品・返金':     'background:var(--error-50);color:var(--error-600);',
-        '返品・一部返金':  'background:var(--warning-50);color:var(--warning-700);',
-        '返品なし返金':   'background:var(--error-50);color:var(--error-700);',
-        '未着返金':      'background:var(--error-50);color:var(--error-700);',
+        '未注文':       'background:#6B7280;color:#fff;',
+        '注文済':       'background:#007AFF;color:#fff;',
+        '発送済':       'background:#FF9500;color:#fff;',
+        '納品済':       'background:#34C759;color:#fff;',
+        'キャンセル':     'background:#FF3B30;color:#fff;',
+        '返品・返金':     'background:#FF3B30;color:#fff;',
+        '返品・一部返金':  'background:#D97706;color:#fff;',
+        '返品なし返金':   'background:#DC2626;color:#fff;',
+        '未着返金':      'background:#B91C1C;color:#fff;',
     };
-    const s = styles[status] || 'background:var(--gray-100);color:var(--gray-600);';
-    return `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:500;${s}white-space:nowrap;">${esc(status)}</span>`;
+    const s = styles[status] || 'background:#6B7280;color:#fff;';
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;${s}white-space:nowrap;">${esc(status)}</span>`;
 }
 
 function buildMarketplaceBadge(r) {
@@ -796,10 +849,14 @@ async function loadDailyAnalytics(days) {
         const tp = data.top_products || [];
         const container = document.getElementById('topProducts');
         if (tp.length) {
-            let html = '<table class="data-table"><thead><tr><th>商品</th><th>売上</th><th>利益</th><th>数量</th></tr></thead><tbody>';
+            let html = '<table class="data-table"><thead><tr><th style="width:48px;"></th><th>商品</th><th>売上</th><th>利益</th><th>数量</th></tr></thead><tbody>';
             for (const p of tp.slice(0, 10)) {
+                const thumb = p.image_url
+                    ? `<img src="${esc(p.image_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;display:block;" onerror="this.style.display='none'">`
+                    : `<div style="width:40px;height:40px;border-radius:6px;background:var(--gray-100);"></div>`;
                 html += `<tr>
-                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${esc(p.title)}</td>
+                    <td style="padding:6px 8px;">${thumb}</td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${esc(p.title)}</td>
                     <td style="font-size:12px;">$${(p.revenue_usd || 0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
                     <td style="font-size:12px;color:${(p.profit_usd||0)>=0?'var(--success-500)':'var(--error-500)'};">$${(p.profit_usd || 0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
                     <td style="font-size:12px;">${p.sales_count}</td>
