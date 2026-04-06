@@ -11,6 +11,9 @@ let itemsList = [];
 let currentThread = [];
 let uploadedImageUrls = [];
 let lastMessageId = null;
+let currentBuyerSort = 'date';
+let _knownConvKeys = new Set(); // for new message detection
+let _audioCtx = null;
 
 // ── Cache ───────────────────────────────────────────
 const _cache = {
@@ -60,6 +63,19 @@ async function loadConversations() {
         });
         const resp = await fetch(`/api/chat/conversations?${params}`);
         const data = await resp.json();
+
+        // Detect new unread messages → play sound
+        const newKeys = new Set();
+        (data.conversations || []).forEach(c => {
+            if (c.unread_count > 0) newKeys.add(`${c.buyer}|${c.item_id}`);
+        });
+        if (_knownConvKeys.size > 0) {
+            for (const k of newKeys) {
+                if (!_knownConvKeys.has(k)) { playNewMessageSound(); break; }
+            }
+        }
+        _knownConvKeys = newKeys;
+
         conversations = data.conversations || [];
         itemsList = data.items || [];
         renderProductList();
@@ -137,6 +153,55 @@ function selectProduct(itemId) {
     }
 }
 
+// ── Buyer Sort ───────────────────────────────────────
+function setBuyerSort(val) {
+    currentBuyerSort = val;
+    const item = itemsList.find(i => i.item_id === currentItemId);
+    if (item) renderBuyerList(item.buyers || []);
+}
+
+function _sortBuyers(buyers) {
+    const arr = [...buyers];
+    if (currentBuyerSort === 'unread') {
+        arr.sort((a, b) => (b.unread_count || 0) - (a.unread_count || 0) || (b.last_date || '').localeCompare(a.last_date || ''));
+    } else if (currentBuyerSort === 'purchased') {
+        const hasPurchased = b => (b.status || []).includes('purchased') ? 0 : 1;
+        arr.sort((a, b) => hasPurchased(a) - hasPurchased(b) || (b.last_date || '').localeCompare(a.last_date || ''));
+    } else if (currentBuyerSort === 'trouble') {
+        const hasTrouble = b => (b.status || []).some(s => ['return','cancel','refund','dispute'].includes(s)) ? 0 : 1;
+        arr.sort((a, b) => hasTrouble(a) - hasTrouble(b) || (b.last_date || '').localeCompare(a.last_date || ''));
+    } else {
+        // date (default)
+        arr.sort((a, b) => (b.last_date || '').localeCompare(a.last_date || ''));
+    }
+    return arr;
+}
+
+// ── Sound Notification ───────────────────────────────
+function _getAudioCtx() {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return _audioCtx;
+}
+
+function playNewMessageSound() {
+    try {
+        const ctx = _getAudioCtx();
+        // Two-tone chime: 880Hz → 1046Hz
+        [[880, 0, 0.12], [1046, 0.13, 0.18]].forEach(([freq, start, end]) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, ctx.currentTime + start);
+            gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + end);
+            osc.start(ctx.currentTime + start);
+            osc.stop(ctx.currentTime + end);
+        });
+    } catch (e) { /* ignore if AudioContext not available */ }
+}
+
 // ── Buyer List (second column) ──────────────────────
 function renderBuyerList(buyers) {
     const container = document.getElementById('buyerList');
@@ -147,39 +212,53 @@ function renderBuyerList(buyers) {
         return;
     }
 
-    container.innerHTML = buyers.map((b, i) => {
+    const sorted = _sortBuyers(buyers);
+    container.innerHTML = sorted.map((b, i) => {
         const isActive = b.buyer === currentBuyer;
         const isUnread = b.unread_count > 0;
         const dateStr = b.last_date ? formatRelativeDate(b.last_date) : '';
 
-        // Status icons (all SVG, 18x18 for visibility)
-        // Color-coded circle icon badges
-        const statusIcons = {
-            message: { icon: '💬', title: 'Message' },
-            purchased: { icon: '✅', title: 'Purchased' },
-            repeat: { icon: '🔄', title: 'Repeat buyer' },
-            shipped: { icon: '📦', title: 'Shipped' },
-            delivered: { icon: '🏠', title: 'Delivered' },
-            offer: { icon: '💰', title: 'Offer' },
-            feedback: { icon: '⭐', title: 'Feedback' },
-            'return': { icon: '↩️', title: 'Return' },
-            cancel: { icon: '❌', title: 'Cancelled' },
-            refund: { icon: '💸', title: 'Refunded' },
-            dispute: { icon: '⚠️', title: 'Dispute' },
+        const ja = getLang() === 'ja';
+        // SVG icon paths (16x16 viewBox)
+        const _ico = {
+            check: '<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" transform="scale(0.67) translate(0,-1)"/>',
+            star2: '<path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" transform="scale(0.67) translate(0,-1)"/>',
+            truck: '<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25" transform="scale(0.67) translate(0,-1)"/>',
+            home:  '<path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" transform="scale(0.67) translate(0,-1)"/>',
+            tag:   '<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" transform="scale(0.67) translate(0,-1)"/>',
+            msg:   '<path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" transform="scale(0.67) translate(0,-1)"/>',
+            warn:  '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" transform="scale(0.67) translate(0,-1)"/>',
+            undo:  '<path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" transform="scale(0.67) translate(0,-1)"/>',
+            x:     '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" transform="scale(0.67) translate(0,-1)"/>',
         };
-        const icons = (b.status || []).map(s => {
-            const badge = statusIcons[s];
-            if (!badge) return '';
-            return `<span title="${badge.title}" style="font-size:14px;cursor:default;">${badge.icon}</span>`;
-        }).join(' ');
+        const _svg = (path, fill=false) => `<svg width="11" height="11" viewBox="0 0 16 16" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">${path}</svg>`;
+        const statusChips = {
+            purchased: { cls: 'chip-purchased',  icon: _svg(_ico.check),   label: ja ? '購入済' : 'Bought' },
+            repeat:    { cls: 'chip-repeat',     icon: _svg(_ico.star2),   label: ja ? 'リピーター' : 'Repeat' },
+            shipped:   { cls: 'chip-shipped',    icon: _svg(_ico.truck),   label: ja ? '発送済' : 'Shipped' },
+            delivered: { cls: 'chip-delivered',  icon: _svg(_ico.home),    label: ja ? '配達済' : 'Delivered' },
+            offer:     { cls: 'chip-offer',      icon: _svg(_ico.tag),     label: ja ? 'オファー' : 'Offer' },
+            feedback:  { cls: 'chip-feedback',   icon: _svg(_ico.star2),   label: ja ? 'FB済' : 'FB' },
+            message:   { cls: 'chip-message',    icon: _svg(_ico.msg),     label: ja ? '問い合わせ' : 'Inquiry' },
+            'return':  { cls: 'chip-return',     icon: _svg(_ico.undo),    label: ja ? '返品' : 'Return' },
+            cancel:    { cls: 'chip-cancel',     icon: _svg(_ico.x),       label: ja ? 'キャンセル' : 'Cancel' },
+            refund:    { cls: 'chip-refund',     icon: _svg(_ico.warn),    label: ja ? '返金' : 'Refund' },
+            dispute:   { cls: 'chip-dispute',    icon: _svg(_ico.warn),    label: ja ? 'ディスプート' : 'Dispute' },
+        };
+        const chips = (b.status || []).map(s => {
+            const c = statusChips[s];
+            if (!c) return '';
+            return `<span class="buyer-chip ${c.cls}">${c.icon}${c.label}</span>`;
+        }).join('');
 
         return `<div class="buyer-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" onclick="openThread('${escapeHtml(b.buyer)}', '${escapeHtml(b.item_id || currentItemId)}')" style="animation-delay:${i*30}ms">
             <div class="buyer-top-row">
                 <span class="buyer-name">${escapeHtml(b.buyer)}</span>
                 ${isUnread ? '<span class="unread-dot"></span>' : ''}
             </div>
+            ${chips ? `<div class="buyer-chips">${chips}</div>` : ''}
             <div class="buyer-status-row">
-                <span class="buyer-icons">${icons}</span>
+                <span></span>
                 <span class="conv-date">${dateStr}</span>
             </div>
         </div>`;
@@ -271,12 +350,12 @@ async function openThread(buyer, itemId) {
             .filter(m => m.direction === 'inbound' && !m.is_read)
             .map(m => m.id);
         if (unreadIds.length) {
-            await fetch('/api/chat/mark-read', {
+            // Fire & forget — don't block UI waiting for eBay API
+            fetch('/api/chat/mark-read', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({message_ids: unreadIds}),
-            });
-            loadConversations();
+            }).then(() => loadConversations()).catch(() => {});
         }
 
         // Update buyer info panel (calls loadBuyerScore, loadBuyerFullHistory etc internally)
@@ -293,7 +372,7 @@ async function openThread(buyer, itemId) {
         document.getElementById('convList')?.classList.add('hidden');
         document.getElementById('threadView')?.classList.add('active');
 
-        // Translate untranslated messages in background
+        // 翻訳バックグラウンド処理（既に表示済みのメッセージを差し込み更新）
         const untranslatedIds = currentThread
             .filter(m => !m.body_translated && m.body && m.direction !== 'system')
             .map(m => m.id);
@@ -304,13 +383,29 @@ async function openThread(buyer, itemId) {
                 body: JSON.stringify({message_ids: untranslatedIds}),
             }).then(r => r.json()).then(d => {
                 if (d.translated > 0) {
-                    // Re-fetch thread to get translations
-                    const params = new URLSearchParams({ item_id: currentItemId });
-                    fetch(`/api/chat/conversations/${encodeURIComponent(currentBuyer)}?${params}`)
+                    // Re-fetchして翻訳テキストのみ差し込み（フル再レンダリングしない）
+                    const p = new URLSearchParams({ item_id: currentItemId });
+                    fetch(`/api/chat/conversations/${encodeURIComponent(currentBuyer)}?${p}`)
                         .then(r => r.json()).then(data => {
-                            currentThread = data.messages || [];
+                            const msgs = data.messages || [];
+                            msgs.forEach(msg => {
+                                if (!msg.body_translated) return;
+                                const bubble = document.querySelector(`.msg-bubble[data-msg-id="${msg.id}"]`);
+                                if (!bubble) return;
+                                const existing = bubble.querySelector('.msg-translation');
+                                const html = escapeHtml(msg.body_translated).replace(/\n/g, '<br>');
+                                if (existing) {
+                                    existing.classList.remove('msg-translating');
+                                    existing.innerHTML = html;
+                                } else {
+                                    const div = document.createElement('div');
+                                    div.className = 'msg-translation';
+                                    div.innerHTML = html;
+                                    bubble.querySelector('.msg-content')?.insertAdjacentElement('afterend', div);
+                                }
+                            });
+                            currentThread = msgs;
                             cacheSet(_cache.threads, `${currentBuyer}|${currentItemId}`, currentThread);
-                            renderThread();
                         });
                 }
             }).catch(() => {});
@@ -361,6 +456,8 @@ function renderThread() {
         let translationHtml = '';
         if (msg.body_translated && !isSystem) {
             translationHtml = `<div class="msg-translation">${escapeHtml(msg.body_translated).replace(/\n/g, '<br>')}</div>`;
+        } else if (!isSystem && dir === 'inbound' && msg.body) {
+            translationHtml = `<div class="msg-translation msg-translating">翻訳中...</div>`;
         }
 
         let attachmentHtml = '';
@@ -370,8 +467,36 @@ function renderThread() {
             }</div>`;
         }
 
-        // System messages (eBay notifications) — compact style
+        // System messages (eBay notifications) — rich cards or compact style
         if (isSystem) {
+            const sSubj = (msg.subject || '').toLowerCase();
+            const sBody = (msg.body || '').toLowerCase();
+            // Sold notification
+            if (sSubj.includes('sold') || sSubj.includes('order confirm') || sSubj.includes('congratulation')
+                || sBody.includes('congratulations') || sBody.includes('you sold') || sBody.includes('item sold')) {
+                return `
+                <div class="msg-bubble system" data-msg-id="${msg.id}">
+                    ${_renderSoldCard(msg)}
+                    <div class="msg-time">${timeStr}</div>
+                </div>`;
+            }
+            // Cancel request
+            if (sSubj.includes('cancel') || sBody.includes('cancellation request') || sBody.includes('cancel request')) {
+                return `
+                <div class="msg-bubble system" data-msg-id="${msg.id}">
+                    ${_renderCancelCard(msg)}
+                    <div class="msg-time">${timeStr}</div>
+                </div>`;
+            }
+            // Return request (sometimes sent as system)
+            if (sSubj.includes('return') || sBody.includes('return request')) {
+                return `
+                <div class="msg-bubble system" data-msg-id="${msg.id}">
+                    ${_renderReturnCard(msg)}
+                    <div class="msg-time">${timeStr}</div>
+                </div>`;
+            }
+            // Default compact system message
             return `
             <div class="msg-bubble system">
                 <div class="msg-system-content">
@@ -382,8 +507,22 @@ function renderThread() {
             </div>`;
         }
 
+        // Offer / Return / Cancel inline action card (inbound messages)
+        let actionCardHtml = '';
+        if (dir === 'inbound') {
+            const subj = (msg.subject || '').toLowerCase();
+            const body = (msg.body || '').toLowerCase();
+            if (subj.includes('offer') || body.includes('best offer') || body.includes('made an offer')) {
+                actionCardHtml = _renderOfferCard(msg);
+            } else if (subj.includes('return') || body.includes('return request') || body.includes('wants to return')) {
+                actionCardHtml = _renderReturnCard(msg);
+            } else if (subj.includes('cancel') || body.includes('cancellation')) {
+                actionCardHtml = _renderCancelCard(msg);
+            }
+        }
+
         return `
-            <div class="msg-bubble ${dir}">
+            <div class="msg-bubble ${dir}" data-msg-id="${msg.id}">
                 <div class="msg-sender">
                     ${escapeHtml(senderLabel)}
                     ${sentimentHtml}
@@ -391,12 +530,343 @@ function renderThread() {
                 <div class="msg-content">${escapeHtml(msg.body).replace(/\n/g, '<br>')}</div>
                 ${translationHtml}
                 ${attachmentHtml}
+                ${actionCardHtml}
                 <div class="msg-time">${timeStr} ${responseTimeHtml}</div>
             </div>`;
     }).join('');
 
     // Scroll to bottom
     container.scrollTop = container.scrollHeight;
+}
+
+// ── Offer / Return / Sold / Cancel Action Cards ──────────────────────
+// Parse offer details from eBay message body (no API call needed for display)
+function _parseOfferFromBody(body) {
+    if (!body) return {};
+    // Offer price: "offer of $100.00" / "offered $100" / "made an offer for $100"
+    const offerMatch = body.match(/(?:offer(?:ed)?|bid)(?:\s+of)?\s+\$?([\d,]+\.?\d*)/i)
+        || body.match(/\$([\d,]+\.\d{2})/);
+    // List price: "listed at $399.99" / "your price: $399.99" / "listing price of $399"
+    const listMatch = body.match(/(?:listed?\s+(?:at|price)|your\s+(?:listing\s+)?price|item\s+price)[:\s]+\$?([\d,]+\.?\d*)/i)
+        || body.match(/\$?([\d,]+\.?\d*)\s+(?:and|vs)/i);
+    // Quantity: "quantity: 2" / "qty 2" / "for 2 item"
+    const qtyMatch = body.match(/(?:quantity|qty)[:\s]+(\d+)/i)
+        || body.match(/for\s+(\d+)\s+item/i);
+    return {
+        offerPrice: offerMatch ? parseFloat(offerMatch[1].replace(/,/g, '')) : null,
+        listPrice:  listMatch  ? parseFloat(listMatch[1].replace(/,/g, ''))  : null,
+        quantity:   qtyMatch   ? parseInt(qtyMatch[1])                        : 1,
+    };
+}
+
+function _renderOfferCard(msg) {
+    const ja = getLang() === 'ja';
+    const msgId = msg.id;
+    const itemId = currentItemId;
+    const item = itemsList.find(i => i.item_id === itemId);
+    const thumb = item?.thumbnail || '';
+    const thumbHtml = thumb
+        ? `<img src="${escapeHtml(thumb)}" class="action-card-thumb" onerror="this.style.display='none'">`
+        : '';
+
+    // Parse price info from message body — show instantly, no API call needed
+    const parsed = _parseOfferFromBody(msg.body || '');
+    let priceHtml = '';
+    if (parsed.offerPrice) {
+        const listPart = parsed.listPrice
+            ? ` <span class="action-price-list"> / ${ja ? '販売価格' : 'List'} $${parsed.listPrice.toFixed(2)}</span>`
+            : '';
+        priceHtml = `<div class="action-card-row">
+            <span class="action-price-main">${ja ? 'オファー' : 'Offer'} $${parsed.offerPrice.toFixed(2)}</span>${listPart}
+            <span class="action-price-qty">${ja ? '数量' : 'Qty'}: ${parsed.quantity}</span>
+        </div>`;
+    }
+
+    // Silently load offer_id in background (needed for button actions only)
+    setTimeout(() => _prefetchOfferId(itemId, msgId), 300);
+
+    return `
+    <div class="action-card action-card-offer" id="offerCard-${msgId}">
+        <div class="action-card-title action-card-title-offer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/></svg>
+            ${ja ? 'オファー' : 'Offer'}
+        </div>
+        <div class="action-card-inner">
+            ${thumbHtml}
+            <div class="action-card-content">
+                <div class="action-card-subtitle">${ja ? 'オファーが届きました！' : 'You received an offer!'}</div>
+                ${priceHtml}
+                <div class="offer-action-selector" id="offerSelector-${msgId}">
+                    <button class="offer-sel-btn" data-action="Counter"
+                        onclick="selectOfferAction('${escapeHtml(itemId)}','${msgId}','Counter')">${ja ? 'カウンター' : 'Counteroffer'}</button>
+                    <button class="offer-sel-btn" data-action="Accept"
+                        onclick="selectOfferAction('${escapeHtml(itemId)}','${msgId}','Accept')">${ja ? '承認' : 'Accept'}</button>
+                    <button class="offer-sel-btn" data-action="Decline"
+                        onclick="selectOfferAction('${escapeHtml(itemId)}','${msgId}','Decline')">${ja ? '拒否' : 'Decline'}</button>
+                </div>
+                <div id="counterInput-${msgId}" style="display:none;margin-top:8px;">
+                    <input type="number" step="0.01" min="0"
+                        placeholder="${ja ? '金額 (USD)' : 'Price (USD)'}"
+                        id="counterPrice-${msgId}"
+                        style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:130px;">
+                </div>
+                <div id="offerConfirm-${msgId}" style="display:none;margin-top:8px;">
+                    <button class="offer-confirm-btn" id="offerConfirmBtn-${msgId}"
+                        onclick="submitOfferAction('${escapeHtml(itemId)}','${msgId}')">
+                        ${ja ? '送信' : 'Send'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function _renderReturnCard(msg) {
+    const ja = getLang() === 'ja';
+    const msgId = msg.id;
+    const item = itemsList.find(i => i.item_id === currentItemId);
+    const thumb = item?.thumbnail || '';
+    const thumbHtml = thumb
+        ? `<img src="${escapeHtml(thumb)}" class="action-card-thumb" onerror="this.style.display='none'">`
+        : '';
+
+    // Extract Return ID from message body (e.g. "Return ID: 5316310449" or "#5316310449")
+    const bodyText = msg.body || msg.subject || '';
+    const returnIdMatch = bodyText.match(/(?:return[^\d]*id[:\s#]*|#)(\d{7,})/i)
+        || bodyText.match(/(\d{10,})/);
+    const returnId = returnIdMatch ? returnIdMatch[1] : '';
+    const returnIdHtml = returnId
+        ? `<a href="https://www.ebay.com/returns/v2/cases/${returnId}" target="_blank" class="action-id-link">${returnId}</a>`
+        : '';
+
+    // Auto-load return details
+    setTimeout(() => loadReturnsForCard(msgId), 200);
+
+    return `
+    <div class="action-card action-card-return" id="returnCard-${msgId}">
+        <div class="action-card-title action-card-title-return">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/></svg>
+            ${ja ? 'リターンリクエスト' : 'Return Request'}
+        </div>
+        <div class="action-card-inner">
+            ${thumbHtml}
+            <div class="action-card-content">
+                ${returnId ? `<div class="action-card-info">Return ID: ${returnIdHtml}</div>` : ''}
+                <div id="returnList-${msgId}" class="action-card-info">${ja ? '読み込み中...' : 'Loading...'}</div>
+                <div class="action-card-btns">
+                    <button onclick="respondReturnFromCard('${msgId}','accept')" class="action-btn action-btn-accept">${ja ? '承認' : 'Accept'}</button>
+                    <button onclick="respondReturnFromCard('${msgId}','decline')" class="action-btn action-btn-decline">${ja ? '拒否' : 'Decline'}</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function _renderSoldCard(msg) {
+    const ja = getLang() === 'ja';
+    const body = msg.body || '';
+    const item = itemsList.find(i => i.item_id === currentItemId);
+    const thumb = item?.thumbnail || '';
+    const thumbHtml = thumb
+        ? `<img src="${escapeHtml(thumb)}" class="action-card-thumb" onerror="this.style.display='none'">`
+        : '';
+
+    // Try to extract order details from eBay message body
+    const orderMatch  = body.match(/order\s*(?:no\.?|number|id|#)[:\s]*([0-9\-]{8,})/i);
+    const priceMatch  = body.match(/(?:total|price|amount)[:\s]*([A-Z]{0,3}\$?\s*[\d,]+\.?\d*)/i)
+        || body.match(/([\d,]+\.\d{2})\s*(CAD|USD|JPY|GBP|EUR|AUD)/i);
+    const skuMatch    = body.match(/(?:sku|custom label)[:\s]*([A-Z0-9\-_]+)/i);
+    const shipByMatch = body.match(/(?:ship\s*by|dispatch\s*by)[:\s]*([^\n<]+)/i);
+
+    const orderId  = orderMatch  ? orderMatch[1].trim()  : '';
+    const price    = priceMatch  ? priceMatch[0].trim()  : '';
+    const sku      = skuMatch    ? skuMatch[1].trim()    : '';
+    const shipBy   = shipByMatch ? shipByMatch[1].trim() : '';
+
+    let detailHtml = `<div class="action-card-subtitle">${ja ? '商品が売れました！' : 'Item sold!'}</div>`;
+    if (price)   detailHtml += `<div class="action-card-row"><span class="action-sold-price">${escapeHtml(price)}</span></div>`;
+    if (orderId) detailHtml += `<div class="action-meta">Order no: ${escapeHtml(orderId)}</div>`;
+    if (sku)     detailHtml += `<div class="action-meta">SKU: ${escapeHtml(sku)}</div>`;
+    if (shipBy)  detailHtml += `<div class="action-meta">${ja ? '発送期限' : 'Ship by'}: ${escapeHtml(shipBy)}</div>`;
+
+    return `
+    <div class="action-card action-card-sold">
+        <div class="action-card-title action-card-title-sold">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"/></svg>
+            ${ja ? 'Sold' : 'Sold'}
+        </div>
+        <div class="action-card-inner">
+            ${thumbHtml}
+            <div class="action-card-content">${detailHtml}</div>
+        </div>
+    </div>`;
+}
+
+function _renderCancelCard(msg) {
+    const ja = getLang() === 'ja';
+    const body = msg.body || '';
+    const item = itemsList.find(i => i.item_id === currentItemId);
+    const thumb = item?.thumbnail || '';
+    const thumbHtml = thumb
+        ? `<img src="${escapeHtml(thumb)}" class="action-card-thumb" onerror="this.style.display='none'">`
+        : '';
+
+    // Extract Cancel ID and reason
+    const cancelIdMatch = body.match(/cancel(?:lation)?\s*(?:id|#)[:\s]*(\d{7,})/i)
+        || body.match(/(\d{10,})/);
+    const reasonMatch   = body.match(/reason[:\s]+([^\n<.]+)/i)
+        || body.match(/because[:\s]+([^\n<.]+)/i);
+
+    const cancelId = cancelIdMatch ? cancelIdMatch[1] : '';
+    const reason   = reasonMatch   ? reasonMatch[1].trim() : '';
+
+    const cancelIdHtml = cancelId
+        ? `<a href="https://www.ebay.com/cancel/${cancelId}" target="_blank" class="action-id-link">${cancelId}</a>`
+        : '';
+
+    return `
+    <div class="action-card action-card-cancel">
+        <div class="action-card-title action-card-title-cancel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            ${ja ? 'キャンセルリクエスト' : 'Cancellation Request'}
+        </div>
+        <div class="action-card-inner">
+            ${thumbHtml}
+            <div class="action-card-content">
+                ${cancelId ? `<div class="action-card-info">Cancel ID: ${cancelIdHtml}</div>` : ''}
+                ${reason   ? `<div class="action-card-info" style="color:var(--text-primary);">${escapeHtml(reason)}</div>` : ''}
+                ${!cancelId && !reason ? `<div class="action-card-info">${escapeHtml((msg.body || '').substring(0, 100))}</div>` : ''}
+            </div>
+        </div>
+    </div>`;
+}
+
+let _offerCardData = {}; // msgId → offers[]
+let _returnCardData = {}; // msgId → returns[]
+
+// Silently prefetch offer_id in background (for button actions) — no UI update
+async function _prefetchOfferId(itemId, msgId) {
+    if (_offerCardData[msgId]) return; // already cached
+    try {
+        const resp = await fetch(`/api/chat/offers/${encodeURIComponent(itemId)}`);
+        const data = await resp.json();
+        _offerCardData[msgId] = data.offers || [];
+    } catch(e) { /* silent */ }
+}
+
+function _selectedOfferId(msgId) {
+    return _offerCardData[msgId]?.[0]?.offer_id || '';
+}
+
+// Track selected action per offer card
+const _offerSelectedAction = {}; // msgId → 'Counter'|'Accept'|'Decline'
+
+function selectOfferAction(itemId, msgId, action) {
+    _offerSelectedAction[msgId] = action;
+    // Toggle button styles
+    const selector = document.getElementById(`offerSelector-${msgId}`);
+    selector?.querySelectorAll('.offer-sel-btn').forEach(btn => {
+        const isActive = btn.dataset.action === action;
+        btn.classList.toggle('offer-sel-btn--active', isActive);
+        btn.classList.toggle('offer-sel-btn--counter', isActive && action === 'Counter');
+        btn.classList.toggle('offer-sel-btn--accept',  isActive && action === 'Accept');
+        btn.classList.toggle('offer-sel-btn--decline',  isActive && action === 'Decline');
+    });
+    // Show/hide price input
+    document.getElementById(`counterInput-${msgId}`).style.display =
+        action === 'Counter' ? 'block' : 'none';
+    // Show confirm button with appropriate label
+    const confirmWrap = document.getElementById(`offerConfirm-${msgId}`);
+    const confirmBtn  = document.getElementById(`offerConfirmBtn-${msgId}`);
+    const ja = getLang() === 'ja';
+    confirmWrap.style.display = 'block';
+    if (action === 'Counter') {
+        confirmBtn.textContent = ja ? 'カウンター送信' : 'Send Counteroffer';
+        confirmBtn.className = 'offer-confirm-btn offer-confirm-btn--counter';
+    } else if (action === 'Accept') {
+        confirmBtn.textContent = ja ? '承認する' : 'Accept Offer';
+        confirmBtn.className = 'offer-confirm-btn offer-confirm-btn--accept';
+    } else {
+        confirmBtn.textContent = ja ? '拒否する' : 'Decline Offer';
+        confirmBtn.className = 'offer-confirm-btn offer-confirm-btn--decline';
+    }
+}
+
+async function submitOfferAction(itemId, msgId) {
+    const action = _offerSelectedAction[msgId];
+    if (!action) return;
+    if (!_selectedOfferId(msgId)) await _prefetchOfferId(itemId, msgId);
+    const offerId = _selectedOfferId(msgId);
+    if (!offerId) { alert(getLang() === 'ja' ? 'アクティブなオファーが見つかりません' : 'No active offer found'); return; }
+
+    const payload = { offer_id: offerId, action };
+    if (action === 'Counter') {
+        const price = parseFloat(document.getElementById(`counterPrice-${msgId}`)?.value || '0');
+        if (!price || price <= 0) {
+            alert(getLang() === 'ja' ? '金額を入力してください' : 'Enter a valid price');
+            return;
+        }
+        payload.counter_price = price;
+    }
+
+    const btn = document.getElementById(`offerConfirmBtn-${msgId}`);
+    if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+    const resp = await fetch(`/api/chat/offers/${encodeURIComponent(itemId)}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    const card = document.getElementById(`offerCard-${msgId}`);
+    if (data.success) {
+        const ja = getLang() === 'ja';
+        const msgs = {
+            Accept:  ja ? 'オファーを承認しました ✓' : 'Offer accepted ✓',
+            Decline: ja ? 'オファーを拒否しました ✓' : 'Offer declined ✓',
+            Counter: ja ? `カウンター $${payload.counter_price?.toFixed(2)} を送信しました ✓`
+                        : `Counter $${payload.counter_price?.toFixed(2)} sent ✓`,
+        };
+        card.innerHTML = `<div class="action-card-done">${msgs[action]}</div>`;
+    } else {
+        alert('Error: ' + (data.error || 'Unknown'));
+        if (btn) { btn.disabled = false; btn.textContent = action; }
+    }
+}
+
+async function loadReturnsForCard(msgId) {
+    const el = document.getElementById(`returnList-${msgId}`);
+    if (!el) return;
+    el.textContent = '読み込み中...';
+    try {
+        const resp = await fetch(`/api/chat/buyer/${encodeURIComponent(currentBuyer)}/troubles`);
+        const data = await resp.json();
+        const returns = data.returns || [];
+        _returnCardData[msgId] = returns;
+        if (!returns.length) { el.textContent = getLang() === 'ja' ? 'アクティブなリターンなし' : 'No active returns'; return; }
+        el.innerHTML = returns.map((r, i) =>
+            `<label style="cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                <input type="radio" name="return-${msgId}" value="${escapeHtml(r.return_id||String(i))}" ${i===0?'checked':''}>
+                <span>${r.icon} ${getLang()==='ja' ? r.status_ja : r.status}</span>
+                ${r.is_urgent ? '<span style="color:var(--error-600);font-size:11px;font-weight:700;">要対応</span>' : ''}
+            </label>`
+        ).join('');
+    } catch(e) { el.textContent = 'Error: ' + e.message; }
+}
+
+async function respondReturnFromCard(msgId, action) {
+    const radio = document.querySelector(`input[name="return-${msgId}"]:checked`);
+    const returnId = radio?.value || _returnCardData[msgId]?.[0]?.return_id || '';
+    if (!returnId) { alert(getLang() === 'ja' ? 'リターン詳細をロードしてください' : 'Load return details first'); return; }
+    if (!confirm(`${action === 'accept' ? 'Accept' : 'Decline'} return?`)) return;
+    const resp = await fetch(`/api/chat/return/${encodeURIComponent(returnId)}/${action}`, {method: 'POST'});
+    const data = await resp.json();
+    const card = document.getElementById(`returnCard-${msgId}`);
+    if (data.success) {
+        card.innerHTML = `<div class="action-card-done">${getLang()==='ja' ? `リターン${action==='accept'?'承認':'拒否'}完了` : `Return ${action}ed`} ✓</div>`;
+    } else {
+        alert('Error: ' + (data.error || 'Unknown'));
+    }
 }
 
 function showCompose() {
@@ -1013,9 +1483,9 @@ async function loadBuyerFullHistory(buyer) {
 
             const dateStr = o.sold_at ? new Date(o.sold_at).toLocaleDateString('ja-JP', {month:'short', day:'numeric'}) : '';
 
-            // Try to get thumbnail from itemsList
+            // Use thumbnail from server (buyer_history API includes it from Listing DB)
             const histItem = itemsList.find(it => it.item_id === o.item_id);
-            const histThumb = histItem?.thumbnail || '';
+            const histThumb = o.thumbnail || histItem?.thumbnail || '';
             const histThumbHtml = histThumb
                 ? `<img src="${escapeHtml(histThumb)}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--gray-100);" loading="lazy">`
                 : `<div style="width:36px;height:36px;border-radius:6px;background:var(--gray-100);flex-shrink:0;"></div>`;

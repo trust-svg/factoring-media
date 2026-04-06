@@ -7,7 +7,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, UploadFile
 from pydantic import BaseModel
 
 _sync_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ebay-sync")
@@ -15,6 +15,7 @@ _sync_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ebay-sync
 from database.models import get_db
 from chat import service
 from chat.translation import translate_to_ja, translate_to_en, suggest_alternatives
+from ebay_core.client import mark_messages_read, get_best_offers, respond_to_best_offer, accept_return_request, decline_return_request
 
 logger = logging.getLogger(__name__)
 
@@ -173,28 +174,54 @@ async def get_alternatives(req: AlternativesRequest):
 # ── 既読管理 ─────────────────────────────────────────────
 
 @router.post("/mark-read")
-async def mark_read(req: MarkReadRequest):
+async def mark_read(req: MarkReadRequest, background_tasks: BackgroundTasks):
+    """既読にする — DBは即更新、eBay API呼び出しはバックグラウンド"""
     db = get_db()
     try:
-        return service.mark_read(db, message_ids=req.message_ids)
+        messages = db.query(BuyerMessage).filter(BuyerMessage.id.in_(req.message_ids)).all()
+        ebay_ids = [m.ebay_message_id for m in messages if m.ebay_message_id and not m.ebay_message_id.startswith("out_")]
+        for msg in messages:
+            msg.is_read = 1
+        db.commit()
+        if ebay_ids:
+            background_tasks.add_task(mark_messages_read, ebay_ids, True)
+        return {"success": True, "count": len(messages)}
     finally:
         db.close()
 
 
 @router.post("/mark-all-read")
-async def mark_all_read():
+async def mark_all_read(background_tasks: BackgroundTasks):
+    """全既読 — DBは即更新、eBay API呼び出しはバックグラウンド"""
     db = get_db()
     try:
-        return service.mark_all_read(db)
+        unread = db.query(BuyerMessage).filter(
+            BuyerMessage.is_read == 0,
+            BuyerMessage.direction == "inbound",
+        ).all()
+        ebay_ids = [m.ebay_message_id for m in unread if m.ebay_message_id]
+        for msg in unread:
+            msg.is_read = 1
+        db.commit()
+        if ebay_ids:
+            background_tasks.add_task(mark_messages_read, ebay_ids[:25], True)
+        return {"success": True, "count": len(unread)}
     finally:
         db.close()
 
 
 @router.post("/mark-unread")
-async def mark_unread(req: MarkReadRequest):
+async def mark_unread(req: MarkReadRequest, background_tasks: BackgroundTasks):
     db = get_db()
     try:
-        return service.mark_unread(db, message_ids=req.message_ids)
+        messages = db.query(BuyerMessage).filter(BuyerMessage.id.in_(req.message_ids)).all()
+        ebay_ids = [m.ebay_message_id for m in messages if m.ebay_message_id and not m.ebay_message_id.startswith("out_")]
+        for msg in messages:
+            msg.is_read = 0
+        db.commit()
+        if ebay_ids:
+            background_tasks.add_task(mark_messages_read, ebay_ids, False)
+        return {"success": True, "count": len(messages)}
     finally:
         db.close()
 
@@ -677,6 +704,54 @@ async def edit_listing_from_chat(item_id: str, req: ListingEditRequest):
         return _edit(db, item_id, updates)
     finally:
         db.close()
+
+
+# ── オファー対応 ──────────────────────────────────────────
+
+class OfferRespondRequest(BaseModel):
+    offer_id: str
+    action: str  # Accept | Decline | Counter
+    counter_price: float = 0.0
+    counter_message: str = ""
+
+
+@router.get("/offers/{item_id}")
+async def list_offers(item_id: str, db: Session = Depends(get_db)):
+    """item_idのアクティブなオファー一覧を取得する。list_priceをDB from Listingから付与。"""
+    offers = get_best_offers(item_id)
+    from database.models import Listing
+    listing = db.query(Listing).filter(Listing.listing_id == item_id).first()
+    list_price = float(listing.price_usd) if listing and listing.price_usd else None
+    for offer in offers:
+        offer["list_price"] = list_price
+    return {"offers": offers, "item_id": item_id}
+
+
+@router.post("/offers/{item_id}/respond")
+async def respond_offer(item_id: str, req: OfferRespondRequest):
+    """オファーにAccept/Decline/Counterで応答する。"""
+    result = respond_to_best_offer(
+        item_id=item_id,
+        offer_id=req.offer_id,
+        action=req.action,
+        counter_price=req.counter_price,
+        counter_message=req.counter_message,
+    )
+    return result
+
+
+# ── リターン対応 ──────────────────────────────────────────
+
+@router.post("/return/{return_id}/accept")
+async def accept_return(return_id: str):
+    """リターンリクエストを承認する。"""
+    return accept_return_request(return_id)
+
+
+@router.post("/return/{return_id}/decline")
+async def decline_return(return_id: str):
+    """リターンリクエストを拒否する。"""
+    return decline_return_request(return_id)
 
 
 # モデルインポート
