@@ -15,6 +15,52 @@ let currentBuyerSort = 'date';
 let _knownConvKeys = new Set(); // for new message detection
 let _audioCtx = null;
 
+// ── Seller Avatar ────────────────────────────────────
+const AVATAR_KEY = 'chat_seller_avatar';
+function getSellerAvatar() { return localStorage.getItem(AVATAR_KEY) || ''; }
+function setSellerAvatar(dataUrl) {
+    localStorage.setItem(AVATAR_KEY, dataUrl);
+    _updateAvatarPreviews(dataUrl);
+}
+function _updateAvatarPreviews(dataUrl) {
+    // Header preview button
+    const preview = document.getElementById('sellerAvatarPreview');
+    if (preview) {
+        preview.innerHTML = dataUrl
+            ? `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+            : 'H';
+    }
+}
+function onAvatarFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        setSellerAvatar(ev.target.result);
+        renderThread(); // re-render to update all bubbles
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // reset so same file can be re-selected
+}
+// Avatar for buyer — colored circle with initial
+const _buyerColors = ['#0B7FDE','#059669','#D97706','#DC2626','#7C3AED','#0891B2','#BE185D'];
+function _buyerColor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xFFFF;
+    return _buyerColors[h % _buyerColors.length];
+}
+function _buyerAvatarHtml(name) {
+    const initial = (name || '?')[0].toUpperCase();
+    const color = _buyerColor(name || '');
+    return `<div class="msg-avatar-buyer" style="background:${color};">${initial}</div>`;
+}
+function _sellerAvatarHtml() {
+    const dataUrl = getSellerAvatar();
+    return dataUrl
+        ? `<div class="msg-avatar-seller"><img src="${dataUrl}" alt="me"></div>`
+        : `<div class="msg-avatar-seller">H</div>`;
+}
+
 // ── Cache ───────────────────────────────────────────
 const _cache = {
     threads: {},        // key: "buyer|item_id" → {data, ts}
@@ -46,6 +92,9 @@ function cacheInvalidate(store, key) {
 
 // ── Init ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+    // Restore seller avatar from localStorage
+    const savedAvatar = getSellerAvatar();
+    if (savedAvatar) _updateAvatarPreviews(savedAvatar);
     // DBから即座に表示
     await loadConversations();
     // 初回sync: ページ表示完了から30秒後に実行（UIをブロックしない）
@@ -521,17 +570,24 @@ function renderThread() {
             }
         }
 
+        const avatarHtml = dir === 'inbound'
+            ? _buyerAvatarHtml(msg.sender)
+            : _sellerAvatarHtml();
+
         return `
             <div class="msg-bubble ${dir}" data-msg-id="${msg.id}">
-                <div class="msg-sender">
-                    ${escapeHtml(senderLabel)}
-                    ${sentimentHtml}
+                ${avatarHtml}
+                <div class="msg-body">
+                    <div class="msg-sender">
+                        ${escapeHtml(senderLabel)}
+                        ${sentimentHtml}
+                    </div>
+                    <div class="msg-content">${escapeHtml(msg.body).replace(/\n/g, '<br>')}</div>
+                    ${translationHtml}
+                    ${attachmentHtml}
+                    ${actionCardHtml}
+                    <div class="msg-time">${timeStr} ${responseTimeHtml}</div>
                 </div>
-                <div class="msg-content">${escapeHtml(msg.body).replace(/\n/g, '<br>')}</div>
-                ${translationHtml}
-                ${attachmentHtml}
-                ${actionCardHtml}
-                <div class="msg-time">${timeStr} ${responseTimeHtml}</div>
             </div>`;
     }).join('');
 

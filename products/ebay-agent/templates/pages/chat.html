@@ -5,7 +5,7 @@
 {% block page_title %}<span data-en="Buyer Messages" data-ja="バイヤーメッセージ">Buyer Messages</span>{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/chat.css?v=20260322b">
+<link rel="stylesheet" href="/static/css/chat.css?v=20260407e">
 {% endblock %}
 
 {% block content %}
@@ -41,8 +41,14 @@
 
     <!-- Col 2: Buyer List -->
     <div class="buyer-col" id="buyerCol">
-        <div class="buyer-col-header">
-            <h4 data-en="Buyers" data-ja="バイヤー">Buyers</h4>
+        <div class="buyer-col-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 8px;">
+            <h4 style="margin:0;" data-en="Buyers" data-ja="バイヤー">Buyers</h4>
+            <select id="buyerSortSelect" onchange="setBuyerSort(this.value)" style="font-size:11px;border:1px solid var(--border);border-radius:6px;padding:2px 6px;background:var(--bg-primary);color:var(--text-secondary);cursor:pointer;">
+                <option value="date">新着順</option>
+                <option value="unread">未読優先</option>
+                <option value="purchased">購入済み</option>
+                <option value="trouble">トラブル</option>
+            </select>
         </div>
         <div class="buyer-list" id="buyerList">
             <div class="thread-empty" style="padding:30px;">
@@ -64,6 +70,11 @@
                 </div>
             </div>
             <div class="thread-header-actions">
+                <!-- Seller avatar (click to upload) -->
+                <button class="seller-avatar-btn" id="sellerAvatarBtn" onclick="document.getElementById('avatarFileInput').click()" aria-label="Set my avatar" title="アイコンを変更">
+                    <div class="seller-avatar-preview" id="sellerAvatarPreview">H</div>
+                </button>
+                <input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="onAvatarFileChange(event)">
                 <button onclick="toggleReadStatus()" id="readToggleBtn" aria-label="Toggle read status">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 9v.906a2.25 2.25 0 0 1-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 0 0 1.183 1.981l6.478 3.488m8.839 2.51-4.66-2.51m0 0-1.023-.55a2.25 2.25 0 0 0-2.134 0l-1.022.55m0 0-4.661 2.51m16.5 1.615a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V8.844a2.25 2.25 0 0 1 1.183-1.981l7.5-4.039a2.25 2.25 0 0 1 2.134 0l7.5 4.039a2.25 2.25 0 0 1 1.183 1.98V19.5Z"/></svg>
                 </button>
@@ -158,5 +169,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/chat.js?v=20260322b"></script>
+<script src="/static/js/chat.js?v=20260407d"></script>
 {% endblock %}
