@@ -16,6 +16,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            git config --global --add safe.directory /root/factoring-media
             cd /root/factoring-media
             git pull origin main
             docker compose build
