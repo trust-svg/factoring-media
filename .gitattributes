@@ -1,0 +1,5 @@
+# git-crypt: .envファイルを自動暗号化
+.env filter=git-crypt diff=git-crypt
+**/.env filter=git-crypt diff=git-crypt
+.env.* filter=git-crypt diff=git-crypt
+**/.env.* filter=git-crypt diff=git-crypt
