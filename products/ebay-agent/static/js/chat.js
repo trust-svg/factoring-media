@@ -520,6 +520,14 @@ function renderThread() {
         if (isSystem) {
             const sSubj = (msg.subject || '').toLowerCase();
             const sBody = (msg.body || '').toLowerCase();
+            // Offer notification (sender=eBay, e.g. "📩 You have a new offer: $300.00 for ...")
+            if (sSubj.includes('offer') || sBody.includes('you have a new offer') || sBody.includes('best offer')) {
+                return `
+                <div class="msg-bubble system" data-msg-id="${msg.id}">
+                    ${_renderOfferCard(msg)}
+                    <div class="msg-time">${timeStr}</div>
+                </div>`;
+            }
             // Sold notification
             if (sSubj.includes('sold') || sSubj.includes('order confirm') || sSubj.includes('congratulation')
                 || sBody.includes('congratulations') || sBody.includes('you sold') || sBody.includes('item sold')) {
@@ -599,19 +607,23 @@ function renderThread() {
 // Parse offer details from eBay message body (no API call needed for display)
 function _parseOfferFromBody(body) {
     if (!body) return {};
-    // Offer price: "offer of $100.00" / "offered $100" / "made an offer for $100"
-    const offerMatch = body.match(/(?:offer(?:ed)?|bid)(?:\s+of)?\s+\$?([\d,]+\.?\d*)/i)
+    // Also check subject line (passed as body sometimes) for "$300.00" pattern
+    // eBay format: "Offer: $300.00" / "offer of $100" / "offered $100"
+    const offerMatch = body.match(/offer[:\s]+\$?([\d,]+\.?\d*)/i)
+        || body.match(/(?:offer(?:ed)?|bid)(?:\s+of)?\s+\$?([\d,]+\.?\d*)/i)
         || body.match(/\$([\d,]+\.\d{2})/);
-    // List price: "listed at $399.99" / "your price: $399.99" / "listing price of $399"
-    const listMatch = body.match(/(?:listed?\s+(?:at|price)|your\s+(?:listing\s+)?price|item\s+price)[:\s]+\$?([\d,]+\.?\d*)/i)
-        || body.match(/\$?([\d,]+\.?\d*)\s+(?:and|vs)/i);
-    // Quantity: "quantity: 2" / "qty 2" / "for 2 item"
+    // Subject line: "You have a new offer: $300.00 for ..."
+    const subjPriceMatch = body.match(/new offer[:\s]+\$?([\d,]+\.?\d*)/i);
+    // List price: "similar items sell for $440" / "listed at $399"
+    const listMatch = body.match(/(?:similar items?\s+sell\s+for|listed?\s+at|your\s+price)[:\s]+\$?([\d,]+\.?\d*)/i);
+    // Quantity
     const qtyMatch = body.match(/(?:quantity|qty)[:\s]+(\d+)/i)
         || body.match(/for\s+(\d+)\s+item/i);
+    const rawPrice = subjPriceMatch ? subjPriceMatch[1] : (offerMatch ? offerMatch[1] : null);
     return {
-        offerPrice: offerMatch ? parseFloat(offerMatch[1].replace(/,/g, '')) : null,
-        listPrice:  listMatch  ? parseFloat(listMatch[1].replace(/,/g, ''))  : null,
-        quantity:   qtyMatch   ? parseInt(qtyMatch[1])                        : 1,
+        offerPrice: rawPrice   ? parseFloat(rawPrice.replace(/,/g, ''))       : null,
+        listPrice:  listMatch  ? parseFloat(listMatch[1].replace(/,/g, ''))   : null,
+        quantity:   qtyMatch   ? parseInt(qtyMatch[1])                         : 1,
     };
 }
 
