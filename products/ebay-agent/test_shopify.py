@@ -90,6 +90,32 @@ async def test_delete_product_calls_delete_endpoint():
     assert "123456" in call_args[0][1]
 
 
+import hashlib
+import hmac
+import base64
+
+
+def _make_shopify_signature(body: bytes, secret: str) -> str:
+    digest = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
+    return base64.b64encode(digest).decode()
+
+
+def test_verify_shopify_webhook_valid():
+    """正しい署名はTrueを返すこと"""
+    from main import verify_shopify_webhook
+    body = b'{"test": "data"}'
+    secret = "test_secret_123"
+    sig = _make_shopify_signature(body, secret)
+    assert verify_shopify_webhook(body, sig, secret) is True
+
+
+def test_verify_shopify_webhook_invalid():
+    """不正な署名はFalseを返すこと"""
+    from main import verify_shopify_webhook
+    body = b'{"test": "data"}'
+    assert verify_shopify_webhook(body, "invalid_sig", "test_secret_123") is False
+
+
 from shopify.sync import get_shopify_price, get_discount_rate
 
 

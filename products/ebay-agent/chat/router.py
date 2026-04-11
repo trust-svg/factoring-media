@@ -7,8 +7,9 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 _sync_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ebay-sync")
 

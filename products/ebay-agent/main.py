@@ -5,6 +5,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -20,7 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from config import APP_HOST, APP_PORT, DEAL_WATCHER_DB, EBAY_FEE_RATE, PAYONEER_FEE_RATE, PRICE_CHECK_INTERVAL_HOURS, STATIC_DIR, TEMPLATES_DIR
+from config import APP_HOST, APP_PORT, DEAL_WATCHER_DB, EBAY_FEE_RATE, PAYONEER_FEE_RATE, PRICE_CHECK_INTERVAL_HOURS, SHOPIFY_WEBHOOK_SECRET, STATIC_DIR, TEMPLATES_DIR
 from database.models import get_db, init_db, InventoryItem, Listing
 from database import crud
 from agents.orchestrator import run_agent
@@ -3695,6 +3698,56 @@ async def source_search(request: Request):
         "search_query": query,
         "sources": sources,
     })
+
+
+# ── Shopify Webhook ───────────────────────────────────────
+
+def verify_shopify_webhook(body: bytes, signature: str, secret: str) -> bool:
+    """Shopify webhookのHMAC-SHA256署名を検証する"""
+    digest = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
+    computed = base64.b64encode(digest).decode()
+    return hmac.compare_digest(computed, signature)
+
+
+@app.post("/shopify/webhook/order-created")
+async def shopify_order_created(request: Request):
+    """Shopifyで注文が発生したとき — 対応するeBay在庫とShopify商品を閉じる"""
+    body = await request.body()
+    signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
+
+    if not verify_shopify_webhook(body, signature, SHOPIFY_WEBHOOK_SECRET):
+        raise HTTPException(status_code=401, detail="Invalid Shopify webhook signature")
+
+    payload = json.loads(body)
+    line_items = payload.get("line_items", [])
+
+    db = get_db()
+    try:
+        for item in line_items:
+            sku = item.get("sku", "")
+            if not sku:
+                continue
+            listing = db.query(Listing).filter_by(sku=sku).first()
+            if not listing:
+                continue
+            # eBay在庫を0に
+            listing.quantity = 0
+            # Shopify商品も削除
+            if listing.shopify_product_id:
+                from shopify.client import ShopifyClient
+                client = ShopifyClient()
+                try:
+                    await client.delete_product(listing.shopify_product_id)
+                except Exception:
+                    logger.warning(f"Failed to delete Shopify product for {sku}")
+                listing.shopify_product_id = None
+                listing.shopify_variant_id = None
+            db.commit()
+            logger.info(f"Webhook: closed eBay+Shopify for sold SKU {sku}")
+    finally:
+        db.close()
+
+    return {"status": "ok"}
 
 
 # ── ヘルスチェック ────────────────────────────────────────
