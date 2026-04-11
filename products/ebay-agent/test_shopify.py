@@ -88,3 +88,54 @@ async def test_delete_product_calls_delete_endpoint():
     call_args = mock_http.request.call_args
     assert call_args[0][0] == "DELETE"
     assert "123456" in call_args[0][1]
+
+
+from shopify.sync import get_shopify_price, get_discount_rate
+
+
+def test_get_shopify_price_basic():
+    assert get_shopify_price(100.0, 0.05) == 95.0
+
+
+def test_get_shopify_price_rounding():
+    # 端数は2桁で丸める
+    assert get_shopify_price(33.33, 0.05) == 31.66
+
+
+def test_get_shopify_price_zero_discount():
+    assert get_shopify_price(99.99, 0.0) == 99.99
+
+
+def test_get_discount_rate_default(tmp_path):
+    """DBにレコードがない場合はconfig.pyのデフォルト値を返すこと"""
+    import os
+    from sqlalchemy import create_engine as _ce
+    from database.models import Base, _migrate_shopify_columns, ShopifyConfig
+    from sqlalchemy.orm import Session
+    url = f"sqlite:///{tmp_path}/sync_test1.db"
+    engine = _ce(url)
+    Base.metadata.create_all(engine)
+    _migrate_shopify_columns(engine)
+    with Session(engine) as db:
+        from shopify.sync import get_discount_rate
+        os.environ["SHOPIFY_DISCOUNT_RATE"] = "0.05"
+        rate = get_discount_rate(db)
+        assert rate == 0.05
+
+
+def test_get_discount_rate_from_db(tmp_path):
+    """DBにレコードがある場合はDB値を優先すること"""
+    from datetime import datetime
+    from sqlalchemy import create_engine as _ce
+    from database.models import Base, _migrate_shopify_columns, ShopifyConfig
+    from sqlalchemy.orm import Session
+    url = f"sqlite:///{tmp_path}/sync_test2.db"
+    engine = _ce(url)
+    Base.metadata.create_all(engine)
+    _migrate_shopify_columns(engine)
+    with Session(engine) as db:
+        db.add(ShopifyConfig(key="discount_rate", value="0.03", updated_at=datetime.utcnow()))
+        db.commit()
+        from shopify.sync import get_discount_rate
+        rate = get_discount_rate(db)
+        assert rate == 0.03
