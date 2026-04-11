@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Investment Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg:         #060912;
+            --surface:    #0d1220;
+            --card:       #111827;
+            --border:     #1e2d40;
+            --accent:     #00d4ff;
+            --accent-dim: rgba(0, 212, 255, 0.10);
+            --text:       #e2e8f0;
+            --muted:      #64748b;
+            --gain:       #10b981;
+            --loss:       #f43f5e;
+            --buy:        #3b82f6;
+            --sell:       #f97316;
+            --hold:       #475569;
+            --mono:       'JetBrains Mono', monospace;
+            --display:    'Rajdhani', sans-serif;
+            --body:       'Inter', sans-serif;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--body);
+            min-height: 100vh;
+            background-image:
+                radial-gradient(ellipse 60% 40% at 15% 0%,   rgba(0,212,255,0.055) 0%, transparent 55%),
+                radial-gradient(ellipse 50% 35% at 85% 100%, rgba(99,102,241,0.045) 0%, transparent 55%);
+        }
+
+        /* ─── HEADER ─────────────────────────────────────────── */
+        .header {
+            position: sticky; top: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 32px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(6,9,18,0.85);
+            backdrop-filter: blur(14px);
+        }
+
+        .header-left { display: flex; align-items: center; gap: 14px; }
+
+        .logo-dot {
+            width: 9px; height: 9px;
+            background: var(--accent); border-radius: 50%;
+            box-shadow: 0 0 14px var(--accent);
+            animation: pulse-glow 2.2s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%,100% { opacity:1; box-shadow: 0 0 14px var(--accent); }
+            50%      { opacity:.45; box-shadow: 0 0 4px var(--accent); }
+        }
+
+        .title {
+            font-family: var(--display);
+            font-size: 20px; font-weight: 700;
+            letter-spacing: 2.5px; text-transform: uppercase;
+        }
+        .title em { color: var(--accent); font-style: normal; }
+
+        /* market badges */
+        .market-badges { display: flex; gap: 8px; }
+
+        .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border-radius: 4px;
+            font-family: var(--mono); font-size: 11px; font-weight: 600;
+            letter-spacing: 1px; text-transform: uppercase;
+            border: 1px solid; transition: all .3s;
+        }
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .badge.open  { background: rgba(16,185,129,.10); border-color: rgba(16,185,129,.40); color: var(--gain); }
+        .badge.open .badge-dot { background: var(--gain); box-shadow: 0 0 6px var(--gain); animation: pulse-glow 1.5s ease-in-out infinite; }
+        .badge.closed { background: rgba(71,85,105,.10); border-color: rgba(71,85,105,.30); color: var(--muted); }
+        .badge.closed .badge-dot { background: var(--muted); }
+
+        /* header buttons */
+        .header-right { display: flex; align-items: center; gap: 10px; }
+
+        .btn {
+            padding: 7px 14px; border-radius: 4px; cursor: pointer;
+            font-family: var(--mono); font-size: 11px; font-weight: 600;
+            letter-spacing: 1px; text-transform: uppercase;
+            border: 1px solid; transition: all .2s;
+        }
+        .btn-jp  { background: rgba(59,130,246,.10); border-color: rgba(59,130,246,.35); color: var(--buy); }
+        .btn-jp:hover  { background: rgba(59,130,246,.20); box-shadow: 0 0 10px rgba(59,130,246,.25); }
+        .btn-us  { background: rgba(249,115,22,.10); border-color: rgba(249,115,22,.35); color: var(--sell); }
+        .btn-us:hover  { background: rgba(249,115,22,.20); box-shadow: 0 0 10px rgba(249,115,22,.25); }
+        .btn-reset { background: rgba(244,63,94,.08); border-color: rgba(244,63,94,.25); color: var(--loss); }
+        .btn-reset:hover { background: rgba(244,63,94,.18); }
+
+        .ts {
+            font-family: var(--mono); font-size: 11px; color: var(--muted);
+            min-width: 70px; text-align: right;
+        }
+
+        /* ─── MAIN ────────────────────────────────────────────── */
+        .main { padding: 24px 32px; max-width: 1680px; margin: 0 auto; }
+
+        /* ─── METRIC CARDS ────────────────────────────────────── */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px; margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px; padding: 18px 22px;
+            position: relative; overflow: hidden;
+        }
+        .metric-card::before {
+            content: ''; position: absolute; inset: 0 0 auto;
+            height: 2px; background: var(--accent); opacity: .45;
+        }
+        .metric-card:hover { border-color: rgba(0,212,255,.25); }
+
+        .metric-label {
+            font-size: 10px; font-weight: 600;
+            letter-spacing: 1.8px; text-transform: uppercase;
+            color: var(--muted); margin-bottom: 7px;
+        }
+        .metric-value {
+            font-family: var(--mono); font-size: 26px; font-weight: 600;
+            line-height: 1; color: var(--text);
+            transition: color .3s;
+        }
+        .metric-value.pos { color: var(--gain); }
+        .metric-value.neg { color: var(--loss); }
+        .metric-sub {
+            font-family: var(--mono); font-size: 11px;
+            color: var(--muted); margin-top: 7px;
+        }
+
+        /* ─── MIDDLE: CHART + POSITIONS ───────────────────────── */
+        .mid-row {
+            display: grid;
+            grid-template-columns: 1fr 370px;
+            gap: 14px; margin-bottom: 20px;
+        }
+
+        /* ─── PANEL ───────────────────────────────────────────── */
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px; overflow: hidden;
+        }
+        .panel-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 13px 18px; border-bottom: 1px solid var(--border);
+        }
+        .panel-title {
+            font-family: var(--display);
+            font-size: 12px; font-weight: 600;
+            letter-spacing: 2.2px; text-transform: uppercase; color: var(--muted);
+        }
+        .panel-meta { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+        /* chart */
+        .chart-wrap { padding: 18px; }
+        .chart-canvas-wrap { position: relative; height: 270px; }
+
+        /* positions */
+        .pos-list {
+            padding: 12px; display: flex; flex-direction: column; gap: 8px;
+            max-height: 330px; overflow-y: auto;
+        }
+        .pos-list::-webkit-scrollbar { width: 3px; }
+        .pos-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        .pos-item {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 6px; padding: 11px 14px;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: border-color .2s;
+        }
+        .pos-item:hover { border-color: rgba(0,212,255,.22); }
+
+        .pos-ticker {
+            font-family: var(--mono); font-size: 13px; font-weight: 600;
+        }
+        .pos-mkt {
+            display: inline-block; margin-left: 6px;
+            font-family: var(--mono); font-size: 9px; font-weight: 700;
+            letter-spacing: 1px; padding: 2px 6px; border-radius: 3px;
+            background: var(--accent-dim); color: var(--accent);
+        }
+        .pos-shares { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; }
+        .pos-right { text-align: right; }
+        .pos-pnl { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+        .pos-val  { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+        .gain { color: var(--gain); }
+        .loss { color: var(--loss); }
+        .neut { color: var(--muted); }
+
+        .empty {
+            text-align: center; padding: 36px 16px;
+            color: var(--muted); font-size: 12px;
+        }
+
+        /* ─── TRADE LOG ───────────────────────────────────────── */
+        .trades-scroll { max-height: 310px; overflow-y: auto; }
+        .trades-scroll::-webkit-scrollbar { width: 3px; }
+        .trades-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            padding: 11px 16px; text-align: left;
+            font-size: 10px; font-weight: 600;
+            letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted);
+            border-bottom: 1px solid var(--border);
+        }
+        td { padding: 9px 16px; font-size: 12px; border-bottom: 1px solid rgba(30,45,64,.45); vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(0,212,255,.018); }
+
+        .act-badge {
+            display: inline-flex; align-items: center;
+            padding: 3px 8px; border-radius: 3px;
+            font-family: var(--mono); font-size: 10px; font-weight: 700;
+            letter-spacing: 1.2px;
+        }
+        .act-badge.BUY  { background: rgba(59,130,246,.15); color: var(--buy); }
+        .act-badge.SELL { background: rgba(249,115,22,.15); color: var(--sell); }
+        .act-badge.HOLD { background: rgba(71,85,105,.15); color: #94a3b8; }
+
+        .mono-td { font-family: var(--mono); }
+        .reason-td { font-size: 11px; color: var(--muted); max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* flash on update */
+        @keyframes flash {
+            0%   { background: rgba(0,212,255,.12); }
+            100% { background: transparent; }
+        }
+        .flash { animation: flash .5s ease-out; }
+
+        /* responsive */
+        @media(max-width:1200px) { .mid-row { grid-template-columns: 1fr; } }
+        @media(max-width:900px)  {
+            .metrics-row { grid-template-columns: 1fr 1fr; }
+            .main { padding: 16px; }
+            .header { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════ HEADER ═══════════ -->
+<header class="header">
+    <div class="header-left">
+        <div class="logo-dot"></div>
+        <div class="title">AI <em>Investment</em> Simulator</div>
+    </div>
+
+    <div class="market-badges">
+        <div class="badge closed" id="bdg-jp"><div class="badge-dot"></div>JP 閉場</div>
+        <div class="badge closed" id="bdg-us"><div class="badge-dot"></div>US 閉場</div>
+    </div>
+
+    <div class="header-right">
+        <span class="ts" id="ts">--:--:--</span>
+        <button class="btn btn-jp"    onclick="manualTrade('JP')">▶ JP 手動</button>
+        <button class="btn btn-us"    onclick="manualTrade('US')">▶ US 手動</button>
+        <button class="btn btn-reset" onclick="resetSim()">⟳ リセット</button>
+    </div>
+</header>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<main class="main">
+
+    <!-- Metrics -->
+    <div class="metrics-row">
+        <div class="metric-card">
+            <div class="metric-label">Total Assets</div>
+            <div class="metric-value" id="m-total">$—</div>
+            <div class="metric-sub"  id="m-cash">JP $— / US $—</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">P&amp;L Amount</div>
+            <div class="metric-value" id="m-pnl">$—</div>
+            <div class="metric-sub">Initial: $10,000.00</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">P&amp;L Rate</div>
+            <div class="metric-value" id="m-pct">—%</div>
+            <div class="metric-sub"  id="m-posval">Positions: $—</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">USD / JPY</div>
+            <div class="metric-value" id="m-fx">¥—</div>
+            <div class="metric-sub"  id="m-mkt">市場データ取得中</div>
+        </div>
+    </div>
+
+    <!-- Chart + Positions -->
+    <div class="mid-row">
+        <div class="panel">
+            <div class="panel-head">
+                <span class="panel-title">Portfolio Value</span>
+                <span class="panel-meta" id="chart-pts">0 points</span>
+            </div>
+            <div class="chart-wrap">
+                <div class="chart-canvas-wrap">
+                    <canvas id="chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <span class="panel-title">Positions</span>
+                <span class="panel-meta" id="pos-ct">0 holdings</span>
+            </div>
+            <div class="pos-list" id="pos-list">
+                <div class="empty">ポジションなし</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trade Log -->
+    <div class="panel">
+        <div class="panel-head">
+            <span class="panel-title">Trade Log</span>
+            <span class="panel-meta" id="trade-ct">0 trades</span>
+        </div>
+        <div class="trades-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th><th>Ticker</th><th>Shares</th>
+                        <th>Price</th><th>P&amp;L</th><th>Reason</th><th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="trade-body">
+                    <tr><td colspan="7" class="empty">取引履歴なし</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</main>
+
+<script>
+const API = 'http://localhost:8000';
+let chart = null;
+
+/* ── chart init ── */
+function initChart() {
+    const ctx = document.getElementById('chart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Portfolio ($)',
+                data: [],
+                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(0,212,255,0.045)',
+                borderWidth: 1.8,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                pointHoverBackgroundColor: '#00d4ff',
+                tension: 0.35,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#111827',
+                    borderColor: '#1e2d40', borderWidth: 1,
+                    titleColor: '#64748b',
+                    bodyColor: '#e2e8f0',
+                    bodyFont: { family: 'JetBrains Mono', size: 12 },
+                    callbacks: { label: c => `$${c.raw.toFixed(2)}` }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(30,45,64,.5)', drawBorder: false },
+                    ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 8, maxRotation: 0 }
+                },
+                y: {
+                    grid: { color: 'rgba(30,45,64,.5)', drawBorder: false },
+                    ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 11 }, callback: v => `$${v.toLocaleString()}` }
+                }
+            },
+            interaction: { intersect: false, mode: 'index' },
+            animation: { duration: 350 }
+        }
+    });
+}
+
+/* ── formatters ── */
+const f$ = v  => '$' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fS = v  => (v >= 0 ? '+' : '−') + f$(Math.abs(v));
+const fP = v  => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+const fT = ts => { const d = new Date(ts); return d.toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'}); };
+const fD = ts => { const d = new Date(ts); return (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getDate().toString().padStart(2,'0') + ' ' + fT(ts); };
+
+function flash(el) {
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+}
+
+/* ── portfolio ── */
+async function fetchPortfolio() {
+    const d = await fetch(`${API}/api/portfolio`).then(r => r.json());
+
+    const te = document.getElementById('m-total');
+    te.textContent = f$(d.total_value); flash(te);
+
+    const pe = document.getElementById('m-pnl');
+    pe.textContent = fS(d.pnl);
+    pe.className = 'metric-value ' + (d.pnl >= 0 ? 'pos' : 'neg');
+
+    const re = document.getElementById('m-pct');
+    re.textContent = fP(d.pnl_pct);
+    re.className = 'metric-value ' + (d.pnl_pct >= 0 ? 'pos' : 'neg');
+
+    document.getElementById('m-fx').textContent = '¥' + d.usdjpy.toFixed(2);
+    document.getElementById('m-cash').textContent = `JP ${f$(d.cash_jp)} / US ${f$(d.cash_us)}`;
+    document.getElementById('m-posval').textContent = `Positions: ${f$(d.position_value)}`;
+    document.getElementById('m-mkt').textContent =
+        `JP: ${d.jp_market_open ? '▲ 開場' : '— 閉場'} / US: ${d.us_market_open ? '▲ 開場' : '— 閉場'}`;
+
+    const upd = (id, open, label) => {
+        const el = document.getElementById(id);
+        el.className = `badge ${open ? 'open' : 'closed'}`;
+        el.innerHTML = `<div class="badge-dot"></div>${label} ${open ? '開場' : '閉場'}`;
+    };
+    upd('bdg-jp', d.jp_market_open, 'JP');
+    upd('bdg-us', d.us_market_open, 'US');
+}
+
+/* ── positions ── */
+async function fetchPositions() {
+    const data = await fetch(`${API}/api/positions`).then(r => r.json());
+    document.getElementById('pos-ct').textContent = `${data.length} holdings`;
+    const list = document.getElementById('pos-list');
+    if (!data.length) { list.innerHTML = '<div class="empty">ポジションなし</div>'; return; }
+    list.innerHTML = data.map(p => {
+        const cls = p.pnl_pct >= 0 ? 'gain' : 'loss';
+        return `
+        <div class="pos-item">
+            <div>
+                <span class="pos-ticker">${p.ticker}</span><span class="pos-mkt">${p.market}</span>
+                <div class="pos-shares">${p.shares}株 @ ${f$(p.avg_cost)}</div>
+            </div>
+            <div class="pos-right">
+                <div class="pos-pnl ${cls}">${fP(p.pnl_pct)}</div>
+                <div class="pos-val">${f$(p.current_value)}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/* ── trades ── */
+async function fetchTrades() {
+    const data = await fetch(`${API}/api/trades`).then(r => r.json());
+    document.getElementById('trade-ct').textContent = `${data.length} trades`;
+    const tb = document.getElementById('trade-body');
+    if (!data.length) {
+        tb.innerHTML = '<tr><td colspan="7" class="empty">取引履歴なし</td></tr>';
+        return;
+    }
+    tb.innerHTML = data.map(t => {
+        const pnlHtml = t.pnl != null
+            ? `<span class="mono-td ${t.pnl >= 0 ? 'gain' : 'loss'}">${fS(t.pnl)}</span>`
+            : '<span class="neut">—</span>';
+        return `
+        <tr>
+            <td><span class="act-badge ${t.action}">${t.action}</span></td>
+            <td class="mono-td">${t.ticker || '—'}</td>
+            <td class="mono-td">${t.shares ?? '—'}</td>
+            <td class="mono-td">${t.price ? f$(t.price) : '—'}</td>
+            <td>${pnlHtml}</td>
+            <td class="reason-td" title="${t.reason || ''}">${t.reason || '—'}</td>
+            <td class="mono-td" style="font-size:10px">${fD(t.executed_at)}</td>
+        </tr>`;
+    }).join('');
+}
+
+/* ── chart data ── */
+async function fetchChart() {
+    const data = await fetch(`${API}/api/snapshots`).then(r => r.json());
+    document.getElementById('chart-pts').textContent = `${data.length} points`;
+    if (!data.length || !chart) return;
+    chart.data.labels = data.map(s => fT(s.recorded_at));
+    chart.data.datasets[0].data = data.map(s => s.total_value);
+    const first = data[0].total_value, last = data[data.length-1].total_value;
+    const up = last >= first;
+    chart.data.datasets[0].borderColor     = up ? '#10b981' : '#f43f5e';
+    chart.data.datasets[0].backgroundColor = up ? 'rgba(16,185,129,.045)' : 'rgba(244,63,94,.045)';
+    chart.update('none');
+}
+
+/* ── manual trade ── */
+async function manualTrade(market) {
+    try {
+        const r = await fetch(`${API}/api/trade/manual`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({market})
+        });
+        const d = await r.json();
+        console.log('trade result:', d);
+        await refresh();
+    } catch(e) { alert('エラー: ' + e.message); }
+}
+
+/* ── reset ── */
+async function resetSim() {
+    if (!confirm('シミュレーションをリセットしますか？\n全データ（ポジション・取引履歴）が削除されます。')) return;
+    try {
+        await fetch(`${API}/api/reset`, {method:'POST'});
+        if (chart) { chart.data.labels=[]; chart.data.datasets[0].data=[]; chart.update(); }
+        await refresh();
+    } catch(e) { alert('エラー: ' + e.message); }
+}
+
+/* ── full refresh ── */
+async function refresh() {
+    await Promise.allSettled([fetchPortfolio(), fetchPositions(), fetchTrades(), fetchChart()]);
+    document.getElementById('ts').textContent = new Date().toLocaleTimeString('ja-JP');
+}
+
+initChart();
+refresh();
+setInterval(refresh, 30000);
+</script>
+
+</body>
+</html>
