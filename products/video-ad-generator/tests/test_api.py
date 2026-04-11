@@ -2,7 +2,6 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from unittest.mock import patch, AsyncMock
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -10,16 +9,23 @@ from database import Base, Job, JobStatus
 
 @pytest.fixture(autouse=True)
 def use_test_db(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-    engine = create_engine(f"sqlite:///{db_path}")
+    from sqlalchemy.orm import sessionmaker
+    import database
+
+    engine = create_engine(f"sqlite:///{tmp_path}/test.db")
     Base.metadata.create_all(engine)
-    monkeypatch.setattr("database.DB_PATH", db_path)
-    monkeypatch.setattr("config.DB_PATH", db_path)
+    TestingSessionLocal = sessionmaker(bind=engine)
+
+    def override_get_session():
+        return TestingSessionLocal()
+
+    monkeypatch.setattr(database, "get_session", override_get_session)
 
 @pytest.fixture
 def client():
     from main import app
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 def test_get_stats_empty(client):
     r = client.get("/api/stats")
