@@ -33,3 +33,58 @@ def test_listing_has_shopify_columns(tmp_path):
     assert "shopify_product_id" in columns
     assert "shopify_variant_id" in columns
     assert "shopify_synced_at" in columns
+
+
+@pytest.mark.asyncio
+async def test_create_product_returns_product_and_variant_ids():
+    """create_product が (product_id, variant_id) のタプルを返すこと"""
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {
+        "product": {
+            "id": 123456,
+            "variants": [{"id": 789012, "sku": "TEST-001"}],
+        }
+    }
+    mock_resp.content = b"..."
+    mock_resp.raise_for_status = MagicMock()
+
+    with patch("shopify.client.httpx.AsyncClient") as MockClient:
+        MockClient.return_value.__aenter__ = AsyncMock(
+            return_value=MagicMock(request=AsyncMock(return_value=mock_resp))
+        )
+        MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        from shopify.client import ShopifyClient
+        client = ShopifyClient()
+        product_id, variant_id = await client.create_product(
+            sku="TEST-001",
+            title="Test Product",
+            description_html="<p>Test</p>",
+            price_usd=94.99,
+            image_urls=["https://example.com/img.jpg"],
+        )
+
+    assert product_id == "123456"
+    assert variant_id == "789012"
+
+
+@pytest.mark.asyncio
+async def test_delete_product_calls_delete_endpoint():
+    """delete_product がDELETEリクエストを送ること"""
+    mock_resp = MagicMock()
+    mock_resp.content = b""
+    mock_resp.raise_for_status = MagicMock()
+
+    with patch("shopify.client.httpx.AsyncClient") as MockClient:
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(return_value=mock_resp)
+        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+        MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        from shopify.client import ShopifyClient
+        client = ShopifyClient()
+        await client.delete_product("123456")
+
+    call_args = mock_http.request.call_args
+    assert call_args[0][0] == "DELETE"
+    assert "123456" in call_args[0][1]
