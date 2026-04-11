@@ -91,3 +91,9 @@ EBAY_FEE_RATE = 0.129  # eBay final value fee (12.9%)
 PAYONEER_FEE_RATE = 0.02  # Payoneer為替手数料 (2%)
 PRICE_CHECK_INTERVAL_HOURS = 6
 COMPETITOR_CACHE_TTL_HOURS = int(os.getenv("COMPETITOR_CACHE_TTL_HOURS", "24"))
+
+# ── Shopify ───────────────────────────────────────────────
+SHOPIFY_SHOP_DOMAIN = os.getenv("SHOPIFY_SHOP_DOMAIN", "")
+SHOPIFY_ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN", "")
+SHOPIFY_WEBHOOK_SECRET = os.getenv("SHOPIFY_WEBHOOK_SECRET", "")
+SHOPIFY_DISCOUNT_RATE = float(os.getenv("SHOPIFY_DISCOUNT_RATE", "0.05"))

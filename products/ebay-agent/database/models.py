@@ -36,6 +36,9 @@ class Listing(Base):
     offer_id: Mapped[str] = mapped_column(String(64), default="")
     seo_score: Mapped[int] = mapped_column(Integer, default=0)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    shopify_product_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    shopify_variant_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    shopify_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 # ── SEO最適化 ─────────────────────────────────────────────
@@ -313,6 +316,17 @@ class InventoryItem(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# ── Shopify連携 ───────────────────────────────────────────
+
+class ShopifyConfig(Base):
+    """Shopify設定（discount_rate等をDB管理）"""
+    __tablename__ = "shopify_config"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── バイヤーメッセージ ────────────────────────────────
 
 class BuyerMessage(Base):
@@ -481,9 +495,29 @@ def _set_sqlite_pragma(dbapi_connection, _connection_record):
 SessionLocal = sessionmaker(bind=engine)
 
 
+def _migrate_shopify_columns(engine_instance) -> None:
+    """既存のlistingsテーブルにShopifyカラムを追加（冪等）"""
+    from sqlalchemy import text
+    with engine_instance.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(listings)"))
+        existing = {row[1] for row in result.fetchall()}
+        stmts = []
+        if "shopify_product_id" not in existing:
+            stmts.append("ALTER TABLE listings ADD COLUMN shopify_product_id TEXT")
+        if "shopify_variant_id" not in existing:
+            stmts.append("ALTER TABLE listings ADD COLUMN shopify_variant_id TEXT")
+        if "shopify_synced_at" not in existing:
+            stmts.append("ALTER TABLE listings ADD COLUMN shopify_synced_at DATETIME")
+        for stmt in stmts:
+            conn.execute(text(stmt))
+        if stmts:
+            conn.commit()
+
+
 def init_db():
     """テーブル作成"""
     Base.metadata.create_all(engine)
+    _migrate_shopify_columns(engine)
 
 
 def get_db() -> Session:
