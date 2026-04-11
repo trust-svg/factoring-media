@@ -50,6 +50,9 @@ reports/*.html
 .claude/settings.local.json
 .mcp.json
 
+# Git worktrees
+.worktrees/
+
 # Separate git repos (managed independently)
 products/ai-uranai/
 products/ebay-inventory-tool/
