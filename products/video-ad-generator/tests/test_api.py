@@ -1,11 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from database import Base, Job, JobStatus
+from database import Base
 
 @pytest.fixture(autouse=True)
 def use_test_db(tmp_path, monkeypatch):
