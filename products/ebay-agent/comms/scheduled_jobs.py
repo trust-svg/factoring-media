@@ -98,20 +98,38 @@ def send_weekly_report():
 
 
 def auto_sync_sales():
-    """売上データ自動同期"""
+    """売上データ自動同期（eBay Fulfillment API → sales_records）"""
     logger.info("Running auto sales sync...")
     try:
-        from comms.sales_analytics import sync_ebay_sales
-        db = get_db()
-        try:
-            result = sync_ebay_sales(db, days=3)
-            logger.info(f"Auto sync: {result.get('synced', 0)} orders synced")
+        from comms.sales_analytics import sync_sales_data
+        result = sync_sales_data(days=3)
+        new_count = result.get("new_sales_recorded", 0)
+        fetched = result.get("orders_fetched", 0)
+        logger.info(f"Auto sync: {fetched} orders fetched, {new_count} new records")
 
-            # 新しい注文があればLINE通知
-            synced = result.get("synced", 0)
-            if synced > 0:
-                send_line_message(f"🔄 eBay売上同期完了: {synced}件の新規注文")
-        finally:
-            db.close()
+        if new_count > 0:
+            send_line_message(
+                f"🔄 eBay売上同期完了: {new_count}件の新規注文"
+                f" (取得: {fetched}件)"
+            )
     except Exception as e:
         logger.exception(f"Auto sales sync failed: {e}")
+
+
+def auto_sync_and_close_shopify() -> None:
+    """30分ごとに実行: 未同期出品のShopify同期 + 売れた商品のShopify削除"""
+    import asyncio
+    from shopify.sync import push_all_unsynced, close_shopify_for_sold_items
+
+    logger.info("Starting Shopify sync job...")
+    try:
+        result = asyncio.run(push_all_unsynced())
+        logger.info(f"Shopify push: success={result['success']}, failed={result['failed']}")
+    except Exception:
+        logger.exception("push_all_unsynced failed")
+
+    try:
+        closed = asyncio.run(close_shopify_for_sold_items())
+        logger.info(f"Shopify close: {closed} products closed")
+    except Exception:
+        logger.exception("close_shopify_for_sold_items failed")

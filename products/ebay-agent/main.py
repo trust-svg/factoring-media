@@ -60,7 +60,7 @@ def _start_scheduler():
         from apscheduler.triggers.cron import CronTrigger
         from apscheduler.triggers.interval import IntervalTrigger
         from pricing.monitor import run_price_monitor
-        from comms.scheduled_jobs import send_morning_digest, send_weekly_report, auto_sync_sales
+        from comms.scheduled_jobs import send_morning_digest, send_weekly_report, auto_sync_sales, auto_sync_and_close_shopify
         from comms.report_generator import run_weekly_report, run_monthly_report
 
         scheduler = BackgroundScheduler()
@@ -171,6 +171,15 @@ def _start_scheduler():
             IntervalTrigger(minutes=5),
             id="buyer_message_sync",
             name="バイヤーメッセージ同期",
+        )
+
+        # Shopify同期（30分間隔）: 未同期出品のpush + 売れた商品のclose
+        scheduler.add_job(
+            auto_sync_and_close_shopify,
+            "interval",
+            minutes=30,
+            id="shopify_sync",
+            name="Shopify在庫同期",
         )
 
         scheduler.start()
