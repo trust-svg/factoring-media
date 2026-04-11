@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Ad Generator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: #e0e0e0; }
+    header { background: #1a1a1a; padding: 16px 24px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 18px; font-weight: 600; }
+    .tabs { display: flex; gap: 4px; padding: 16px 24px 0; background: #1a1a1a; border-bottom: 1px solid #333; }
+    .tab { padding: 8px 20px; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 14px; color: #888; border: 1px solid transparent; border-bottom: none; }
+    .tab.active { background: #0f0f0f; color: #fff; border-color: #333; }
+    .content { padding: 24px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .stats-row { display: flex; gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px 20px; flex: 1; }
+    .stat-card .label { font-size: 12px; color: #888; margin-bottom: 4px; }
+    .stat-card .value { font-size: 24px; font-weight: 700; }
+    .btn { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #5153cc; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 16px; }
+    .image-card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+    .image-card img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; }
+    .image-card .card-footer { padding: 10px; display: flex; gap: 6px; }
+    .image-card .card-footer .btn { flex: 1; padding: 6px 8px; font-size: 12px; }
+    .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
+    .video-card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+    .video-card video { width: 100%; aspect-ratio: 9/16; object-fit: cover; }
+    .video-card .card-info { padding: 10px; font-size: 12px; color: #888; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; }
+    .form-group select, .form-group textarea { width: 100%; background: #1a1a1a; border: 1px solid #333; color: #e0e0e0; border-radius: 6px; padding: 8px 12px; font-size: 14px; }
+    .form-group textarea { height: 100px; resize: vertical; font-family: inherit; }
+    .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .empty-state { text-align: center; padding: 48px; color: #666; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .toggle { position: relative; width: 44px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background: #333; border-radius: 24px; transition: .2s; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+    input:checked + .slider { background: #6366f1; }
+    input:checked + .slider:before { transform: translateX(20px); }
+    #toast { position: fixed; bottom: 24px; right: 24px; background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 14px; display: none; z-index: 9999; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Video Ad Generator</h1>
+    <span id="header-stats" style="font-size:13px;color:#888;">読み込み中...</span>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">ダッシュボード</div>
+    <div class="tab" onclick="switchTab('pending')">承認待ち <span id="pending-count"></span></div>
+    <div class="tab" onclick="switchTab('generate')">都度生成</div>
+    <div class="tab" onclick="switchTab('videos')">完成動画</div>
+    <div class="tab" onclick="switchTab('settings')">設定</div>
+  </div>
+
+  <div class="content">
+    <!-- ダッシュボード -->
+    <div id="panel-dashboard" class="panel active">
+      <div class="stats-row">
+        <div class="stat-card"><div class="label">今月の完成動画</div><div class="value" id="stat-done">-</div></div>
+        <div class="stat-card"><div class="label">承認待ち</div><div class="value" id="stat-pending">-</div></div>
+        <div class="stat-card"><div class="label">合計コスト</div><div class="value" id="stat-cost">-</div></div>
+      </div>
+      <button class="btn btn-primary" onclick="startBatch(this)">バッチ生成（月10本）</button>
+    </div>
+
+    <!-- 承認待ち -->
+    <div id="panel-pending" class="panel">
+      <div class="section-title">承認待ち画像</div>
+      <div id="pending-grid" class="image-grid"><div class="empty-state">承認待ちの画像はありません</div></div>
+    </div>
+
+    <!-- 都度生成 -->
+    <div id="panel-generate" class="panel">
+      <div class="section-title">都度生成</div>
+      <div class="form-group">
+        <label>パターン</label>
+        <select id="gen-pattern">
+          <option value="A">A — ロマンティック系（雨の日・カフェ）</option>
+          <option value="B">B — 楽しさ系（公園・笑顔）</option>
+          <option value="C">C — 信頼感系（オフィス・落ち着き）</option>
+          <option value="D">D — ユーモア系（おしゃれカフェ・カジュアル）</option>
+          <option value="E">E — 真面目系（図書館・知性的）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>カスタムプロンプト（空欄でデフォルト使用）</label>
+        <textarea id="gen-prompt" placeholder="例: Portrait photo of a warm Japanese woman in her 40s..."></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="generateSingle(this)">画像生成</button>
+    </div>
+
+    <!-- 完成動画 -->
+    <div id="panel-videos" class="panel">
+      <div class="section-title">完成動画</div>
+      <div id="videos-grid" class="video-grid"><div class="empty-state">完成動画はまだありません</div></div>
+    </div>
+
+    <!-- 設定 -->
+    <div id="panel-settings" class="panel">
+      <div class="section-title">設定</div>
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:600;">AUTO_APPROVE</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">ONにすると画像承認なしで自動的に動画化します</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="auto-approve-toggle" onchange="toggleAutoApprove(this)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    let currentTab = 'dashboard';
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', ['dashboard','pending','generate','videos','settings'][i] === tab);
+      });
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + tab).classList.add('active');
+      currentTab = tab;
+      if (tab === 'pending') loadPending();
+      if (tab === 'videos') loadVideos();
+      if (tab === 'dashboard') loadStats();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    async function loadStats() {
+      const r = await fetch('/api/stats');
+      const d = await r.json();
+      document.getElementById('stat-done').textContent = d.done;
+      document.getElementById('stat-pending').textContent = d.pending_approval;
+      document.getElementById('stat-cost').textContent = '$' + d.total_cost_usd.toFixed(2);
+      document.getElementById('header-stats').textContent = `完成: ${d.done}本 / コスト: $${d.total_cost_usd.toFixed(2)}`;
+      const pc = document.getElementById('pending-count');
+      if (d.pending_approval > 0) pc.textContent = `(${d.pending_approval})`;
+    }
+
+    async function loadPending() {
+      const r = await fetch('/api/jobs?status=PENDING');
+      const jobs = await r.json();
+      const grid = document.getElementById('pending-grid');
+      if (!jobs.length) { grid.innerHTML = '<div class="empty-state">承認待ちの画像はありません</div>'; return; }
+      grid.innerHTML = jobs.map(j => `
+        <div class="image-card" id="job-card-${j.id}">
+          ${j.image_path ? `<img src="/output/pending/job_${j.id}.jpg" loading="lazy">` : '<div style="aspect-ratio:9/16;background:#222;display:flex;align-items:center;justify-content:center;color:#555">生成中...</div>'}
+          <div style="padding:8px;font-size:11px;color:#888">パターン${j.pattern}</div>
+          <div class="card-footer">
+            <button class="btn btn-success" onclick="approveJob(${j.id}, this)">承認</button>
+            <button class="btn btn-danger" onclick="rejectJob(${j.id}, this)">却下</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function loadVideos() {
+      const r = await fetch('/api/jobs?status=DONE');
+      const jobs = await r.json();
+      const grid = document.getElementById('videos-grid');
+      if (!jobs.length) { grid.innerHTML = '<div class="empty-state">完成動画はまだありません</div>'; return; }
+      grid.innerHTML = jobs.map(j => `
+        <div class="video-card">
+          <video src="/output/videos/job_${j.id}.mp4" controls playsinline></video>
+          <div class="card-info">
+            パターン${j.pattern} — $${(j.image_cost_usd + j.video_cost_usd).toFixed(2)}<br>
+            <a href="/output/videos/job_${j.id}.mp4" download style="color:#6366f1">ダウンロード</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function startBatch(btn) {
+      btn.disabled = true;
+      btn.textContent = '生成中...';
+      const r = await fetch('/api/generate/batch', { method: 'POST' });
+      const d = await r.json();
+      showToast(`バッチ生成開始: ${d.job_count}本`);
+      btn.disabled = false;
+      btn.textContent = 'バッチ生成（月10本）';
+    }
+
+    async function generateSingle(btn) {
+      const pattern = document.getElementById('gen-pattern').value;
+      const prompt = document.getElementById('gen-prompt').value.trim() || null;
+      btn.disabled = true;
+      btn.textContent = '生成中...';
+      const r = await fetch('/api/generate/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pattern, custom_prompt: prompt }),
+      });
+      const d = await r.json();
+      showToast(r.ok ? `生成開始 (Job #${d.job_id})` : `エラー: ${d.detail}`);
+      btn.disabled = false;
+      btn.textContent = '画像生成';
+    }
+
+    async function approveJob(jobId, btn) {
+      btn.disabled = true;
+      const r = await fetch(`/api/approve/${jobId}`, { method: 'POST' });
+      if (r.ok) {
+        document.getElementById(`job-card-${jobId}`)?.remove();
+        showToast(`Job #${jobId} を承認しました。動画生成中...`);
+        loadStats();
+      }
+    }
+
+    async function rejectJob(jobId, btn) {
+      btn.disabled = true;
+      const r = await fetch(`/api/reject/${jobId}`, { method: 'POST' });
+      if (r.ok) {
+        document.getElementById(`job-card-${jobId}`)?.remove();
+        showToast(`Job #${jobId} を却下しました`);
+        loadStats();
+      }
+    }
+
+    function toggleAutoApprove(checkbox) {
+      showToast(`AUTO_APPROVE: ${checkbox.checked ? 'ON' : 'OFF'}（サーバー再起動で反映）`);
+    }
+
+    // 初期ロード
+    loadStats();
+    setInterval(loadStats, 30000);
+  </script>
+</body>
+</html>
