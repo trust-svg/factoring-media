@@ -807,7 +807,81 @@ AGENT_TOOLS: list[dict] = [
             },
         },
     },
+    # ── カテゴリ自動拡張 ──
+    {
+        "name": "expand_categories",
+        "description": (
+            "AIが現在の出品カテゴリを分析し、利益が出そうな新カテゴリを自動提案する。"
+            "需要・利益率を分析し、上位カテゴリの仕入れ候補も自動検索する。"
+            "週1回の自動実行に加え、手動でも実行可能。"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "notify": {
+                    "type": "boolean",
+                    "description": "LINE通知を送るか",
+                    "default": True,
+                },
+                "auto_source": {
+                    "type": "boolean",
+                    "description": "上位カテゴリの仕入れ候補を自動検索するか",
+                    "default": True,
+                },
+                "top_n": {
+                    "type": "integer",
+                    "description": "仕入れ検索するカテゴリ数",
+                    "default": 3,
+                },
+            },
+        },
+    },
+    # ── Shopify連携 ──
+    {
+        "name": "sync_all_to_shopify",
+        "description": "未同期のeBay出品を一括でShopifyストアに同期する。新しく出品した後に実行すると自動的に商品が追加される。",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "set_shopify_discount",
+        "description": "Shopifyの割引率を変更する。例: 0.05 = 5%引き、0.03 = 3%引き。変更後すぐ有効。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "discount_rate": {
+                    "type": "number",
+                    "description": "割引率（0〜1の小数。例: 0.05 = 5%割引）",
+                },
+            },
+            "required": ["discount_rate"],
+        },
+    },
+    {
+        "name": "get_shopify_status",
+        "description": "Shopify同期状況を確認する。同期済み件数・未同期件数・現在の割引率を返す。",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "remove_from_shopify",
+        "description": "特定SKUをShopifyから削除する。eBay出品は残る。[破壊的操作]",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sku": {
+                    "type": "string",
+                    "description": "Shopifyから削除するSKU",
+                },
+            },
+            "required": ["sku"],
+        },
+    },
 ]
 
 # 破壊的ツール（人間確認必須）
-DESTRUCTIVE_TOOLS = {"update_listing", "apply_price_change", "publish_instagram_post", "publish_draft_listings"}
+DESTRUCTIVE_TOOLS = {"update_listing", "apply_price_change", "publish_instagram_post", "publish_draft_listings", "remove_from_shopify"}

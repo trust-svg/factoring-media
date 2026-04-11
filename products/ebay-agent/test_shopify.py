@@ -165,3 +165,14 @@ def test_get_discount_rate_from_db(tmp_path):
         from shopify.sync import get_discount_rate
         rate = get_discount_rate(db)
         assert rate == 0.03
+
+
+def test_shopify_tools_in_registry():
+    """新しい4ツールがAGENT_TOOLSに登録されていること"""
+    from tools.registry import AGENT_TOOLS, DESTRUCTIVE_TOOLS
+    names = {t["name"] for t in AGENT_TOOLS}
+    assert "sync_all_to_shopify" in names
+    assert "set_shopify_discount" in names
+    assert "get_shopify_status" in names
+    assert "remove_from_shopify" in names
+    assert "remove_from_shopify" in DESTRUCTIVE_TOOLS

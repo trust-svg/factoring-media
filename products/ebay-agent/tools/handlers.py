@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime
 from typing import Any
 
 from config import EBAY_FEE_RATE
-from database.models import get_db
+from database.models import get_db, ShopifyConfig
+from shopify.sync import get_discount_rate, get_shopify_price
 from database import crud
 from ebay_core.client import (
     get_active_listings,
@@ -99,8 +101,7 @@ async def _search_sources(params: dict) -> dict:
       2. 読む情報を絞る → 統一スキーマ（タイトル・価格・コンディション・画像URL）のみ
       3. 画像判別を入れる → ebay_image_url でAI画像比較（デフォルトON）
     """
-    import sys
-    import os
+    import importlib
     from sourcing.scorer import pick_best_candidates
     from sourcing.site_registry import get_enabled_sites, SITE_REGISTRY
 
@@ -110,13 +111,6 @@ async def _search_sources(params: dict) -> dict:
     ebay_image_url = params.get("ebay_image_url", "")
     top_n = params.get("top_n", 5)
     sites_filter = params.get("sites", [])  # 特定サイトのみ指定可能
-
-    # ebay-inventory-tool のスクレイパーをインポート
-    inv_tool_path = os.path.abspath(
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "ebay-inventory-tool")
-    )
-    if inv_tool_path not in sys.path:
-        sys.path.insert(0, inv_tool_path)
 
     # ── サイトレジストリから巡回先を決定 ──
     enabled_sites = get_enabled_sites()
@@ -133,12 +127,14 @@ async def _search_sources(params: dict) -> dict:
         display_name = site["display_name"]
         max_results = site["max_results"]
         scraper_class_path = site["scraper_class"]
+        # reliability を display_name でも引けるように両方登録
         site_reliability[site_id] = site["reliability"]
+        site_reliability[display_name] = site["reliability"]
 
         try:
-            # scraper_class_path: "scrapers.yahoo_auction.YahooAuctionScraper"
+            # scraper_class_path: "scrapers.offmall.OffmallScraper"
             module_path, class_name = scraper_class_path.rsplit(".", 1)
-            module = __import__(module_path, fromlist=[class_name])
+            module = importlib.import_module(module_path)
             scraper_cls = getattr(module, class_name)
             results = await scraper_cls().search(keyword, max_price, junk_ok, limit=max_results)
             all_results.extend(results)
@@ -148,8 +144,8 @@ async def _search_sources(params: dict) -> dict:
                 "results_count": len(results),
             })
             logger.info(f"  [{display_name}] {len(results)}件取得")
-        except ImportError:
-            errors.append(f"{display_name}: Playwright未インストール")
+        except ImportError as e:
+            errors.append(f"{display_name}: モジュール未実装 ({e})")
         except Exception as e:
             errors.append(f"{display_name}: {e}")
             logger.warning(f"{display_name}検索エラー: {e}")
@@ -1188,6 +1184,86 @@ async def _export_tax_report(params: dict) -> dict:
     }
 
 
+async def _expand_categories(params: dict) -> dict:
+    """カテゴリ自動拡張パイプラインを実行"""
+    from research.category_expansion import run_category_expansion_pipeline
+    return await run_category_expansion_pipeline(
+        notify=params.get("notify", True),
+        auto_source=params.get("auto_source", True),
+        top_n=params.get("top_n", 3),
+    )
+
+
+# ── Shopify連携 ──────────────────────────────────────────
+
+async def _sync_all_to_shopify(params: dict) -> dict:
+    from shopify.sync import push_all_unsynced
+    result = await push_all_unsynced()
+    return {
+        "message": f"Shopify同期完了: 成功 {result['success']}件、失敗 {result['failed']}件",
+        **result,
+    }
+
+
+async def _set_shopify_discount(params: dict) -> dict:
+    discount_rate = float(params["discount_rate"])
+    if not (0.0 <= discount_rate <= 1.0):
+        return {"error": "discount_rate は0〜1の範囲で指定してください"}
+    db = get_db()
+    try:
+        config = db.query(ShopifyConfig).filter_by(key="discount_rate").first()
+        if config:
+            config.value = str(discount_rate)
+            config.updated_at = datetime.utcnow()
+        else:
+            db.add(ShopifyConfig(key="discount_rate", value=str(discount_rate), updated_at=datetime.utcnow()))
+        db.commit()
+        return {"message": f"Shopify割引率を {discount_rate*100:.1f}% に変更しました", "discount_rate": discount_rate}
+    finally:
+        db.close()
+
+
+async def _get_shopify_status(params: dict) -> dict:
+    from database.models import Listing
+    db = get_db()
+    try:
+        synced = db.query(Listing).filter(Listing.shopify_product_id.isnot(None)).count()
+        unsynced = db.query(Listing).filter(
+            Listing.shopify_product_id.is_(None),
+            Listing.quantity > 0,
+        ).count()
+        discount_rate = get_discount_rate(db)
+        return {
+            "synced": synced,
+            "unsynced": unsynced,
+            "discount_rate": discount_rate,
+            "discount_pct": f"{discount_rate*100:.1f}%",
+        }
+    finally:
+        db.close()
+
+
+async def _remove_from_shopify(params: dict) -> dict:
+    sku = params["sku"]
+    from database.models import Listing
+    from shopify.client import ShopifyClient
+    db = get_db()
+    try:
+        listing = db.query(Listing).filter_by(sku=sku).first()
+        if not listing:
+            return {"error": f"SKU {sku} が見つかりません"}
+        if not listing.shopify_product_id:
+            return {"error": f"SKU {sku} はShopifyに同期されていません"}
+        client = ShopifyClient()
+        await client.delete_product(listing.shopify_product_id)
+        listing.shopify_product_id = None
+        listing.shopify_variant_id = None
+        db.commit()
+        return {"message": f"SKU {sku} をShopifyから削除しました"}
+    finally:
+        db.close()
+
+
 # ── ハンドラーマッピング ──────────────────────────────────
 
 HANDLERS = {
@@ -1235,4 +1311,11 @@ HANDLERS = {
     # 利益管理
     "profit_summary": _profit_summary,
     "export_tax_report": _export_tax_report,
+    # カテゴリ自動拡張
+    "expand_categories": _expand_categories,
+    # Shopify連携
+    "sync_all_to_shopify": _sync_all_to_shopify,
+    "set_shopify_discount": _set_shopify_discount,
+    "get_shopify_status": _get_shopify_status,
+    "remove_from_shopify": _remove_from_shopify,
 }
