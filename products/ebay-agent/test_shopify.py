@@ -176,3 +176,35 @@ def test_shopify_tools_in_registry():
     assert "get_shopify_status" in names
     assert "remove_from_shopify" in names
     assert "remove_from_shopify" in DESTRUCTIVE_TOOLS
+
+
+@pytest.mark.asyncio
+async def test_update_listing_syncs_shopify_price():
+    """update_listingでprice_usdを変更したとき、Shopify側の価格も更新されること"""
+    update_variant_calls = []
+
+    async def mock_update_variant(variant_id, price_usd):
+        update_variant_calls.append({"variant_id": variant_id, "price_usd": price_usd})
+
+    # DB lookupをmock: shopify_variant_idが設定されたListingを返す
+    mock_listing = MagicMock()
+    mock_listing.shopify_variant_id = "888"
+
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter_by.return_value.first.return_value = mock_listing
+    mock_db.close = MagicMock()
+
+    mock_client = MagicMock()
+    mock_client.update_variant_price = AsyncMock(side_effect=mock_update_variant)
+
+    with patch("tools.handlers.get_db", return_value=mock_db), \
+         patch("tools.handlers.ebay_update_listing", return_value={"success": True, "changes": []}), \
+         patch("shopify.client.ShopifyClient", return_value=mock_client), \
+         patch("tools.handlers.get_discount_rate", return_value=0.05):
+        from tools.handlers import _update_listing_handler
+        await _update_listing_handler({"sku": "TEST-SYNC-001", "price_usd": 120.0})
+
+    assert len(update_variant_calls) == 1
+    # Shopify価格 = 120.0 * (1 - 0.05) = 114.0
+    assert update_variant_calls[0]["price_usd"] == 114.0
+    assert update_variant_calls[0]["variant_id"] == "888"

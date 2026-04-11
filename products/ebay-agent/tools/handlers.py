@@ -498,6 +498,26 @@ async def _update_listing_handler(params: dict) -> dict:
 
     result = ebay_update_listing(sku, updates)
 
+    # Shopify価格を連動更新（price_usdが変更された場合のみ）
+    if result["success"] and "price_usd" in params:
+        new_price = params["price_usd"]
+        db_check = get_db()
+        try:
+            from database.models import Listing
+            listing_obj = db_check.query(Listing).filter_by(sku=sku).first()
+            if listing_obj and listing_obj.shopify_variant_id:
+                discount_rate = get_discount_rate(db_check)
+                shopify_price = get_shopify_price(new_price, discount_rate)
+                try:
+                    from shopify.client import ShopifyClient
+                    client = ShopifyClient()
+                    await client.update_variant_price(listing_obj.shopify_variant_id, shopify_price)
+                    logger.info(f"Synced Shopify price for {sku}: ${shopify_price:.2f}")
+                except Exception:
+                    logger.warning(f"Failed to sync Shopify price for {sku}")
+        finally:
+            db_check.close()
+
     # 変更履歴を記録
     if result["success"]:
         db = get_db()
