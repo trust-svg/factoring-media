@@ -889,3 +889,88 @@ def get_overview_pace(db: Session) -> dict:
             "revenue_diff_pct": rev_diff_pct,
         },
     }
+
+
+def get_out_of_stock_items(db: Session, limit: int = 10) -> list[dict]:
+    """在庫切れ出品リスト（最終売価・切れてから何日か付き）"""
+    from datetime import date
+
+    today = date.today()
+    oos_listings = (
+        db.query(Listing)
+        .filter(Listing.quantity == 0)
+        .order_by(Listing.title)
+        .limit(limit)
+        .all()
+    )
+
+    result = []
+    for listing in oos_listings:
+        last_sale = (
+            db.query(SalesRecord)
+            .filter(SalesRecord.sku == listing.sku)
+            .order_by(SalesRecord.sold_at.desc())
+            .first()
+        )
+        last_sale_price_jpy = last_sale.received_jpy if last_sale else 0
+        last_sold_at = last_sale.sold_at.date() if last_sale else None
+        days_out_of_stock = (today - last_sold_at).days if last_sold_at else None
+
+        result.append({
+            "sku":                 listing.sku,
+            "title":               listing.title,
+            "price_usd":           listing.price_usd,
+            "last_sale_price_jpy": last_sale_price_jpy,
+            "days_out_of_stock":   days_out_of_stock,
+        })
+    return result
+
+
+def get_category_profit(db: Session, year: int, month: int) -> list[dict]:
+    """カテゴリ別利益内訳（モーダル用）"""
+    from datetime import datetime
+    from calendar import monthrange
+
+    month_start = datetime(year, month, 1)
+    _, last_day = monthrange(year, month)
+    month_end = datetime(year, month, last_day, 23, 59, 59)
+
+    records = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.sold_at >= month_start,
+            SalesRecord.sold_at <= month_end,
+        )
+        .all()
+    )
+
+    if not records:
+        return []
+
+    skus = list({r.sku for r in records})
+    listings = db.query(Listing).filter(Listing.sku.in_(skus)).all()
+    sku_to_category = {l.sku: (l.category_name or "その他") for l in listings}
+
+    cat_data: dict[str, dict] = {}
+    for rec in records:
+        cat = sku_to_category.get(rec.sku, "その他")
+        if cat not in cat_data:
+            cat_data[cat] = {"revenue": 0, "profit": 0}
+        rev = rec.received_jpy if rec.received_jpy > 0 else int(rec.sale_price_usd * rec.exchange_rate)
+        cat_data[cat]["revenue"] += rev
+        cat_data[cat]["profit"]  += rec.net_profit_jpy
+
+    total_profit = sum(v["profit"] for v in cat_data.values())
+
+    result = []
+    for cat, data in sorted(cat_data.items(), key=lambda x: -x[1]["profit"]):
+        margin = round(data["profit"] / data["revenue"] * 100, 1) if data["revenue"] > 0 else 0.0
+        pct    = round(data["profit"] / total_profit * 100, 1) if total_profit > 0 else 0.0
+        result.append({
+            "category":     cat,
+            "revenue":      data["revenue"],
+            "profit":       data["profit"],
+            "margin":       margin,
+            "pct_of_total": pct,
+        })
+    return result

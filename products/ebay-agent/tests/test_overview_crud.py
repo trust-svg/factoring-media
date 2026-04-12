@@ -14,6 +14,8 @@ from database.crud import (
     get_monthly_calendar,
     get_overview_alerts,
     get_overview_pace,
+    get_out_of_stock_items,
+    get_category_profit,
 )
 
 
@@ -136,3 +138,71 @@ def test_get_overview_pace_listing_counts(db):
     result = get_overview_pace(db)
     assert result["listing_count"] == 3
     assert result["out_of_stock_count"] == 2
+
+
+def test_get_out_of_stock_items_empty(db):
+    result = get_out_of_stock_items(db)
+    assert result == []
+
+
+def test_get_out_of_stock_items_returns_oos_only(db):
+    from datetime import datetime
+    db.add(Listing(sku="A", title="In Stock Item", quantity=3, price_usd=10.0))
+    db.add(Listing(sku="B", title="OOS Item 1", quantity=0, price_usd=20.0))
+    db.add(Listing(sku="C", title="OOS Item 2", quantity=0, price_usd=30.0))
+    db.add(SalesRecord(
+        order_id="ord-B", sku="B", title="OOS Item 1",
+        sold_at=datetime(2026, 4, 9),
+        received_jpy=3000, net_profit_jpy=600, profit_margin_pct=20.0,
+        exchange_rate=150.0, sale_price_usd=20.0,
+    ))
+    db.commit()
+
+    result = get_out_of_stock_items(db)
+    assert len(result) == 2
+    skus = [r["sku"] for r in result]
+    assert "B" in skus
+    assert "C" in skus
+    assert "A" not in skus
+
+    item_b = next(r for r in result if r["sku"] == "B")
+    assert item_b["last_sale_price_jpy"] == 3000
+    assert "days_out_of_stock" in item_b
+
+
+def test_get_category_profit_empty(db):
+    result = get_category_profit(db, 2026, 4)
+    assert result == []
+
+
+def test_get_category_profit_groups_by_category(db):
+    from datetime import datetime
+    db.add(Listing(sku="X1", title="Camera", category_name="カメラ", quantity=5))
+    db.add(Listing(sku="X2", title="Figure", category_name="フィギュア", quantity=5))
+    db.add(SalesRecord(
+        order_id="o1", sku="X1", title="Camera",
+        sold_at=datetime(2026, 4, 1),
+        received_jpy=20000, net_profit_jpy=8000, profit_margin_pct=40.0,
+        exchange_rate=150.0, sale_price_usd=133.33,
+    ))
+    db.add(SalesRecord(
+        order_id="o2", sku="X1", title="Camera",
+        sold_at=datetime(2026, 4, 5),
+        received_jpy=20000, net_profit_jpy=8000, profit_margin_pct=40.0,
+        exchange_rate=150.0, sale_price_usd=133.33,
+    ))
+    db.add(SalesRecord(
+        order_id="o3", sku="X2", title="Figure",
+        sold_at=datetime(2026, 4, 3),
+        received_jpy=10000, net_profit_jpy=2000, profit_margin_pct=20.0,
+        exchange_rate=150.0, sale_price_usd=66.67,
+    ))
+    db.commit()
+
+    result = get_category_profit(db, 2026, 4)
+    assert len(result) >= 1
+    cats = {r["category"] for r in result}
+    assert "カメラ" in cats or "フィギュア" in cats
+
+    total_profit = sum(r["profit"] for r in result)
+    assert total_profit == 18000
