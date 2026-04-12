@@ -112,3 +112,27 @@ def test_get_overview_pace_no_data(db):
     assert result["today_revenue"] == 0
     assert result["today_orders"] == 0
     assert result["prev_month_same_day_revenue"] == 0
+
+
+def test_get_overview_pace_includes_kpi_fields(db):
+    """拡張フィールドが含まれることを確認"""
+    result = get_overview_pace(db)
+    assert "month_revenue" in result
+    assert "profit_margin_actual" in result
+    assert "profit_margin_prev" in result
+    assert "listing_count" in result
+    assert "out_of_stock_count" in result
+    assert "month_order_count" in result
+    assert "prev_month_order_count" in result
+
+
+def test_get_overview_pace_listing_counts(db):
+    """出品数・在庫切れ件数が正しく返る"""
+    db.add(Listing(sku="L1", quantity=5))
+    db.add(Listing(sku="L2", quantity=0))
+    db.add(Listing(sku="L3", quantity=0))
+    db.commit()
+
+    result = get_overview_pace(db)
+    assert result["listing_count"] == 3
+    assert result["out_of_stock_count"] == 2

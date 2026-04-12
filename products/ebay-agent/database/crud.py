@@ -803,7 +803,7 @@ def get_overview_alerts(db: Session) -> dict:
 
 
 def get_overview_pace(db: Session) -> dict:
-    """今日の売上・前月同日比"""
+    """今日の売上・前月同日比・全KPI比較データ"""
     from calendar import monthrange
     from datetime import datetime, date, timedelta
 
@@ -818,6 +818,7 @@ def get_overview_pace(db: Session) -> dict:
             return int(r.sale_price_usd * r.exchange_rate)
         return 0
 
+    # ── 今日 ──
     today_records = db.query(SalesRecord).filter(
         SalesRecord.sold_at >= today_start,
         SalesRecord.sold_at <= today_end,
@@ -825,18 +826,25 @@ def get_overview_pace(db: Session) -> dict:
     today_revenue = sum(_rev(r) for r in today_records)
     today_orders  = len(today_records)
 
-    # 当月累計（今日を除く）
+    # ── 当月累計（今日を含む）──
     month_start = datetime(today.year, today.month, 1)
-    yesterday_end = today_start - timedelta(seconds=1)
-    prior_records = db.query(SalesRecord).filter(
+    month_records = db.query(SalesRecord).filter(
         SalesRecord.sold_at >= month_start,
-        SalesRecord.sold_at <= yesterday_end,
+        SalesRecord.sold_at <= today_end,
     ).all()
-    prior_revenue  = sum(_rev(r) for r in prior_records)
-    elapsed_before = today.day - 1  # 今日より前の日数
+    month_revenue = sum(_rev(r) for r in month_records)
+    month_order_count = len(month_records)
+
+    # 当月利益率（加重平均）
+    total_profit = sum(r.net_profit_jpy for r in month_records)
+    profit_margin_actual = round(total_profit / month_revenue * 100, 1) if month_revenue > 0 else 0.0
+
+    # ── 日次平均（今日を除く前の日数）──
+    elapsed_before = today.day - 1
+    prior_revenue  = month_revenue - today_revenue
     daily_avg = int(prior_revenue / elapsed_before) if elapsed_before > 0 else 0
 
-    # 前月同日時点の累計
+    # ── 前月同日時点 ──
     if today.month == 1:
         pm_year, pm_month = today.year - 1, 12
     else:
@@ -844,21 +852,38 @@ def get_overview_pace(db: Session) -> dict:
 
     _, pm_last = monthrange(pm_year, pm_month)
     pm_day = min(today.day, pm_last)
+    pm_end = datetime(pm_year, pm_month, pm_day, 23, 59, 59)
     pm_records = db.query(SalesRecord).filter(
         SalesRecord.sold_at >= datetime(pm_year, pm_month, 1),
-        SalesRecord.sold_at <= datetime(pm_year, pm_month, pm_day, 23, 59, 59),
+        SalesRecord.sold_at <= pm_end,
     ).all()
     pm_revenue = sum(_rev(r) for r in pm_records)
+    prev_month_order_count = len(pm_records)
 
-    current_total = prior_revenue + today_revenue
-    rev_diff     = current_total - pm_revenue
+    pm_total_rev = pm_revenue
+    pm_total_profit = sum(r.net_profit_jpy for r in pm_records)
+    profit_margin_prev = round(pm_total_profit / pm_total_rev * 100, 1) if pm_total_rev > 0 else 0.0
+
+    # 前月同日比
+    rev_diff     = month_revenue - pm_revenue
     rev_diff_pct = round(rev_diff / pm_revenue * 100, 1) if pm_revenue > 0 else 0.0
 
+    # ── 出品数・在庫切れ ──
+    listing_count      = db.query(Listing).count()
+    out_of_stock_count = db.query(Listing).filter(Listing.quantity == 0).count()
+
     return {
-        "today_revenue": today_revenue,
-        "today_orders":  today_orders,
-        "daily_avg":     daily_avg,
+        "today_revenue":   today_revenue,
+        "today_orders":    today_orders,
+        "daily_avg":       daily_avg,
+        "month_revenue":   month_revenue,
+        "month_order_count": month_order_count,
+        "prev_month_order_count": prev_month_order_count,
         "prev_month_same_day_revenue": pm_revenue,
+        "profit_margin_actual": profit_margin_actual,
+        "profit_margin_prev":   profit_margin_prev,
+        "listing_count":       listing_count,
+        "out_of_stock_count":  out_of_stock_count,
         "prev_month_comparison": {
             "revenue_diff":     rev_diff,
             "revenue_diff_pct": rev_diff_pct,
