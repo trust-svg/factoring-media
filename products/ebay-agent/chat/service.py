@@ -28,53 +28,50 @@ def _get_anthropic() -> anthropic.AsyncAnthropic:
 # ── メッセージ同期 ───────────────────────────────────────
 
 async def sync_messages(db: Session, days: int = 30) -> dict:
-    """eBay APIからメッセージを取得してDBに同期する。"""
-    # 既にDBにデータがある場合は差分のみ取得される（ebay_message_id重複チェック）
-    existing_count = db.query(BuyerMessage).count()
+    """eBay APIからメッセージを取得してDBに同期する。
+
+    重要: eBay API呼び出し前にDBセッションを閉じることで
+    長時間のDBロック保持を防ぐ。
+    """
+    from database.models import SessionLocal as _SessionLocal
+    # ① DBセッションを使い捨て（eBay API呼び出し前に完結）
+    with _SessionLocal() as check_db:
+        existing_count = check_db.query(BuyerMessage).count()
+        existing_ids = set(
+            r[0] for r in check_db.query(BuyerMessage.ebay_message_id).all()
+        )
+
     # 初回（DBが空）は90日分、以降は30日分で差分取得
     fetch_days = 90 if existing_count == 0 else days
+
+    # ② eBay APIを呼ぶ（DBセッション不使用）
     raw_messages = get_buyer_messages(days=fetch_days, limit=200)
+
     new_count = 0
     updated_count = 0
+    new_msgs = []
+    update_ids = []  # (ebay_id, is_read, responded)
 
     for msg in raw_messages:
         ebay_id = msg["message_id"]
         if not ebay_id:
             continue
 
-        existing = db.query(BuyerMessage).filter(
-            BuyerMessage.ebay_message_id == ebay_id
-        ).first()
-
-        if existing:
-            # 既読/返信済みステータスの更新
-            changed = False
-            if msg["is_read"] and not existing.is_read:
-                existing.is_read = 1
-                changed = True
-            if msg["responded"] and not existing.responded:
-                existing.responded = 1
-                changed = True
-            if changed:
-                existing.synced_at = datetime.utcnow()
-                updated_count += 1
+        if ebay_id in existing_ids:
+            # 既読/返信済みステータスのみ追跡
+            if msg["is_read"] or msg["responded"]:
+                update_ids.append((ebay_id, msg["is_read"], msg["responded"]))
         else:
-            # 新規メッセージ → 翻訳はスレッド表示時にオンデマンド実行（Sync高速化）
+            # 新規メッセージ
             body = msg.get("body", "")
-            direction = msg.get("direction", "inbound")
-            translated = ""
-            sentiment_data = {"sentiment": "", "urgency": "", "note": ""}
-
             direction = msg.get("direction", "inbound")
             sender = msg.get("sender", "")
             recipient = msg.get("recipient", "me") if direction == "outbound" else "me"
             if direction == "outbound":
                 sender = "me"
 
-            # 添付画像
             attachment_urls = msg.get("attachment_urls", [])
-
-            new_msg = BuyerMessage(
+            new_msgs.append(BuyerMessage(
                 ebay_message_id=ebay_id,
                 item_id=msg.get("item_id", ""),
                 sender=sender,
@@ -82,21 +79,40 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
                 direction=direction,
                 subject=msg.get("subject", ""),
                 body=body,
-                body_translated=translated,
+                body_translated="",
                 is_read=1 if msg["is_read"] else 0,
                 responded=1 if msg["responded"] else 0,
                 has_attachment=1 if attachment_urls else 0,
                 attachment_urls_json=json.dumps(attachment_urls) if attachment_urls else "[]",
-                sentiment=sentiment_data.get("sentiment", ""),
-                urgency=sentiment_data.get("urgency", ""),
-                sentiment_note=sentiment_data.get("note", ""),
+                sentiment="",
+                urgency="",
+                sentiment_note="",
                 received_at=_parse_date(msg.get("received_date", "")),
                 synced_at=datetime.utcnow(),
-            )
-            db.add(new_msg)
+            ))
             new_count += 1
 
-    db.commit()
+    # ③ 最短DBセッションで書き込み（eBay API完了後）
+    if new_msgs or update_ids:
+        with _SessionLocal() as write_db:
+            for m in new_msgs:
+                write_db.add(m)
+            if update_ids:
+                for ebay_id, is_read, responded in update_ids:
+                    row = write_db.query(BuyerMessage).filter(
+                        BuyerMessage.ebay_message_id == ebay_id
+                    ).first()
+                    if row:
+                        changed = False
+                        if is_read and not row.is_read:
+                            row.is_read = 1; changed = True
+                        if responded and not row.responded:
+                            row.responded = 1; changed = True
+                        if changed:
+                            row.synced_at = datetime.utcnow()
+                            updated_count += 1
+            write_db.commit()
+
     logger.info(f"メッセージ同期完了: 新規{new_count}件, 更新{updated_count}件")
     return {"new": new_count, "updated": updated_count, "total_fetched": len(raw_messages)}
 
@@ -245,31 +261,48 @@ def get_conversations(
 
 
 async def translate_untranslated(db: Session, message_ids: list[int]):
-    """未翻訳メッセージをバッチ翻訳する（バックグラウンド用）。"""
+    """未翻訳メッセージを並列バッチ翻訳する（最大5件同時）。"""
+    import asyncio as _asyncio
     msgs = db.query(BuyerMessage).filter(
         BuyerMessage.id.in_(message_ids),
         (BuyerMessage.body_translated.is_(None)) | (BuyerMessage.body_translated == ""),
-    ).all()
-    for msg in msgs:
-        if not msg.body or msg.sender == "eBay":
-            continue
-        try:
-            translated = await translate_to_ja(msg.body)
-            msg.body_translated = translated
-        except Exception as e:
-            logger.warning(f"翻訳エラー msg={msg.id}: {e}")
-    if msgs:
-        db.commit()
+    ).filter(BuyerMessage.sender != "eBay").filter(BuyerMessage.body != "").all()
+
+    if not msgs:
+        return 0
+
+    # 最大5件を並列翻訳（APIレート制限考慮）
+    semaphore = _asyncio.Semaphore(5)
+
+    async def _translate_one(msg):
+        if not msg.body:
+            return
+        async with semaphore:
+            try:
+                translated = await translate_to_ja(msg.body)
+                msg.body_translated = translated
+            except Exception as e:
+                logger.warning(f"翻訳エラー msg={msg.id}: {e}")
+
+    await _asyncio.gather(*[_translate_one(m) for m in msgs])
+    db.commit()
     return len(msgs)
 
 
 def get_thread(db: Session, buyer: str, item_id: str = "") -> list[dict]:
-    """特定バイヤーとのスレッドを取得する。"""
-    query = db.query(BuyerMessage).filter(
-        ((BuyerMessage.sender == buyer) | (BuyerMessage.recipient == buyer))
-    )
+    """特定バイヤーとのスレッドを取得する。
+    eBayシステム通知（オファー/Sold/Cancel等）も同じitem_idで紐付けて含める。
+    """
+    buyer_filter = (BuyerMessage.sender == buyer) | (BuyerMessage.recipient == buyer)
+
     if item_id:
-        query = query.filter(BuyerMessage.item_id == item_id)
+        # バイヤーメッセージ + 同item_idのeBayシステム通知を両方含める
+        ebay_system_filter = (BuyerMessage.sender == "eBay") & (BuyerMessage.item_id == item_id)
+        query = db.query(BuyerMessage).filter(
+            (buyer_filter | ebay_system_filter) & (BuyerMessage.item_id == item_id)
+        )
+    else:
+        query = db.query(BuyerMessage).filter(buyer_filter)
 
     messages = query.order_by(BuyerMessage.received_at.asc()).all()
 
@@ -768,11 +801,7 @@ def get_unread_count(db: Session) -> int:
     ).scalar() or 0
 
 
-_buyer_status_cache = {}  # session-level cache
-
 def _get_buyer_status(db: Session, buyer_username: str) -> list:
-    if buyer_username in _buyer_status_cache:
-        return _buyer_status_cache[buyer_username]
     """バイヤーのステータスアイコン用リストを返す。
 
     注意: SalesRecordのbuyer_nameは実名、BuyerMessageのsenderはeBay ID。
@@ -789,10 +818,12 @@ def _get_buyer_status(db: Session, buyer_username: str) -> list:
     ]
 
     # SalesRecordを検索: buyer_name直接 OR item_id経由
+    # （eBay IDと実名が異なるため item_id フォールバックが必要）
     orders = db.query(SalesRecord).filter(
         SalesRecord.buyer_name == buyer_username
     ).all()
     if not orders and buyer_item_ids:
+        # item_idが一致するSalesRecordを検索（購入済み判定のみに使用）
         orders = db.query(SalesRecord).filter(
             SalesRecord.item_id.in_(buyer_item_ids)
         ).all()
@@ -842,7 +873,6 @@ def _get_buyer_status(db: Session, buyer_username: str) -> list:
         if has_thread:
             statuses.append("message")
 
-    _buyer_status_cache[buyer_username] = statuses
     return statuses
 
 
