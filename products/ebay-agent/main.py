@@ -23,7 +23,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from config import APP_HOST, APP_PORT, DEAL_WATCHER_DB, EBAY_FEE_RATE, PAYONEER_FEE_RATE, PRICE_CHECK_INTERVAL_HOURS, SHOPIFY_WEBHOOK_SECRET, STATIC_DIR, TEMPLATES_DIR
+from config import (
+    APP_HOST, APP_PORT, DEAL_WATCHER_DB, EBAY_FEE_RATE, PAYONEER_FEE_RATE,
+    PRICE_CHECK_INTERVAL_HOURS, SHOPIFY_WEBHOOK_SECRET, STATIC_DIR, TEMPLATES_DIR,
+    MONTHLY_REVENUE_TARGET_JPY, MONTHLY_MARGIN_TARGET_PCT, MONTHLY_PROFIT_TARGET_JPY,
+)
 from database.models import get_db, init_db, InventoryItem, Listing
 from database import crud
 from agents.orchestrator import run_agent
@@ -3764,6 +3768,54 @@ async def shopify_order_created(request: Request):
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "ebay-agent-hub"}
+
+
+# ── Overview ダッシュボード API ──────────────────────────
+
+@app.get("/api/overview/achievement")
+async def overview_achievement():
+    """当月の達成状況（目標 vs 実績・ペース予測）"""
+    from database.crud import get_monthly_achievement
+    db = get_db()
+    try:
+        today = datetime.now()
+        return JSONResponse(get_monthly_achievement(db, today.year, today.month))
+    finally:
+        db.close()
+
+
+@app.get("/api/overview/calendar")
+async def overview_calendar():
+    """当月の日別売上データ（カレンダーヒートマップ用）"""
+    from database.crud import get_monthly_calendar
+    db = get_db()
+    try:
+        today = datetime.now()
+        return JSONResponse(get_monthly_calendar(db, today.year, today.month))
+    finally:
+        db.close()
+
+
+@app.get("/api/overview/alerts")
+async def overview_alerts():
+    """要対応件数サマリー（在庫切れ・未読・価格アラート）"""
+    from database.crud import get_overview_alerts
+    db = get_db()
+    try:
+        return JSONResponse(get_overview_alerts(db))
+    finally:
+        db.close()
+
+
+@app.get("/api/overview/pace")
+async def overview_pace():
+    """今日の売上・前月同日比・日次平均"""
+    from database.crud import get_overview_pace
+    db = get_db()
+    try:
+        return JSONResponse(get_overview_pace(db))
+    finally:
+        db.close()
 
 
 # ── エントリーポイント ────────────────────────────────────
