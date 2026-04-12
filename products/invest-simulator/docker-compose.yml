@@ -1,0 +1,12 @@
+services:
+  invest-simulator:
+    build: .
+    container_name: invest-simulator
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DB_PATH=/app/data/simulator.db
+    ports:
+      - "8010:8000"
+    volumes:
+      - ./data:/app/data
