@@ -1,10 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Overview — eBay Agent Hub{% endblock %}
-{% block breadcrumb %}Overview{% endblock %}
-{% block page_title %}<span data-en="Overview" data-ja="概要">Overview</span>{% endblock %}
+{% block title %}ダッシュボード — eBay Agent Hub{% endblock %}
+{% block breadcrumb %}ダッシュボード{% endblock %}
+{% block page_title %}<span data-en="Dashboard" data-ja="ダッシュボード">ダッシュボード</span>{% endblock %}
 
-{% block head %}
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.0/dist/apexcharts.min.js"></script>
+{% block topbar_extra %}
+<div class="fx-chip" id="fxChip" title="USD/JPY レート">
+  <span class="fx-label">USD/JPY</span>
+  <span class="fx-val" id="fxRate">—</span>
+  <span class="fx-diff" id="fxDiff"></span>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -12,12 +16,12 @@
 <!-- ① Alert Strip -->
 <div id="alertStrip" class="alert-strip" style="display:none"></div>
 
-<!-- ② Achievement Board -->
-<div class="achievement-board">
+<!-- ② Achievement Board (4 cols) -->
+<div class="achievement-board-4">
 
-  <!-- Revenue Card -->
-  <div class="achievement-card">
-    <div class="ach-label" data-en="Monthly Revenue" data-ja="月間売上">Monthly Revenue</div>
+  <!-- Revenue -->
+  <div class="achievement-card" style="border-top:3px solid transparent;border-image:linear-gradient(90deg,#60A5FA,#1D4ED8) 1">
+    <div class="ach-label" data-en="Monthly Revenue" data-ja="月間売上">月間売上</div>
     <div class="ach-values">
       <span class="ach-actual" id="revActual">¥—</span>
       <span class="ach-target">/ ¥5,000,000</span>
@@ -31,9 +35,9 @@
     </div>
   </div>
 
-  <!-- Profit Margin Card -->
-  <div class="achievement-card">
-    <div class="ach-label" data-en="Profit Margin" data-ja="利益率">Profit Margin</div>
+  <!-- Margin -->
+  <div class="achievement-card" style="border-top:3px solid transparent;border-image:linear-gradient(90deg,#FCD34D,#F59E0B) 1">
+    <div class="ach-label" data-en="Profit Margin" data-ja="利益率">利益率</div>
     <div class="ach-values">
       <span class="ach-actual" id="marginActual">—%</span>
       <span class="ach-target">/ 20%</span>
@@ -47,9 +51,9 @@
     </div>
   </div>
 
-  <!-- Profit Card -->
-  <div class="achievement-card">
-    <div class="ach-label" data-en="Monthly Profit" data-ja="月間利益">Monthly Profit</div>
+  <!-- Profit -->
+  <div class="achievement-card" style="border-top:3px solid transparent;border-image:linear-gradient(90deg,#6EE7B7,#10B981) 1">
+    <div class="ach-label" data-en="Monthly Profit" data-ja="月間利益">月間利益</div>
     <div class="ach-values">
       <span class="ach-actual" id="profitActual">¥—</span>
       <span class="ach-target">/ ¥1,000,000</span>
@@ -59,42 +63,110 @@
     </div>
     <div class="ach-meta">
       <span class="ach-rate" id="profitRate">—%</span>
-      <span class="ach-pace" id="profitPace"></span>
+      <button class="donut-trigger-btn" onclick="openCatModal()">📊 カテゴリ分析 ↗</button>
+    </div>
+  </div>
+
+  <!-- Payoneer -->
+  <div class="payoneer-card">
+    <div class="payoneer-head">
+      <div class="py-label">Payoneer</div>
+      <div class="py-val" id="pyBalance">$—</div>
+      <div class="py-sub" id="pySub">今月入金 $—</div>
+    </div>
+    <div class="payoneer-body">
+      <div class="payoneer-row">
+        <span class="py-name">先月比</span>
+        <span class="py-amt green" id="pyDiff">+$—</span>
+      </div>
+      <div class="payoneer-row">
+        <span class="py-name">レート</span>
+        <span class="py-amt" id="pyRate">¥— / $</span>
+      </div>
     </div>
   </div>
 
 </div>
 
-<!-- ③ KPI Comparison + Calendar -->
-<div class="overview-main-grid">
+<!-- ③ Mid Row: Chart + KPI/freee + Calendar -->
+<div class="overview-mid-row">
 
-  <!-- KPI vs Last Month -->
+  <!-- Chart with tabs -->
   <div class="section">
-    <h2 data-en="vs Last Month (Same Day)" data-ja="前月同日比">vs Last Month (Same Day)</h2>
-    <div id="kpiTable" style="margin-top:12px">
-      <div class="empty-state">Loading...</div>
+    <div class="chart-tab-bar">
+      <button class="chart-tab-btn" id="tab-daily"   onclick="switchChart('daily')">日別</button>
+      <button class="chart-tab-btn active" id="tab-monthly" onclick="switchChart('monthly')">月別累計</button>
+    </div>
+
+    <!-- 日別 panel -->
+    <div class="chart-tab-panel" id="panel-daily">
+      <div class="day-bar-chart" id="dailyBarChart">
+        <div style="color:var(--gray-400);font-size:11px;grid-column:1/-1;text-align:center;padding:20px 0">Loading...</div>
+      </div>
+    </div>
+
+    <!-- 月別累計 panel -->
+    <div class="chart-tab-panel active" id="panel-monthly">
+      <div class="monthly-chart-legend">
+        <div class="mcl-item"><div class="mcl-line solid-blue"></div>今月</div>
+        <div class="mcl-item"><div class="mcl-line dash-gray"></div>先月</div>
+        <div class="mcl-item"><div class="mcl-line dash-orange"></div>目標</div>
+      </div>
+      <div class="monthly-chart-wrap">
+        <div class="monthly-y-labels" id="monthlyYLabels"></div>
+        <svg id="monthlyChartSvg" width="100%" height="120" style="flex:1"></svg>
+      </div>
+      <div class="monthly-x-labels" id="monthlyXLabels"></div>
     </div>
   </div>
 
-  <!-- Sales Calendar -->
+  <!-- KPI comparison + freee -->
   <div class="section">
-    <h2 id="calendarTitle">Sales Calendar</h2>
-    <div id="salesCalendar" style="margin-top:12px">
-      <div class="empty-state">Loading...</div>
+    <h2 style="font-size:12px;font-weight:700;margin-bottom:10px" data-ja="KPI 前月同日比">KPI 前月同日比</h2>
+    <table class="kpi-comparison-table" id="kpiCompTable">
+      <tr><td class="kct-name">—</td><td class="kct-val">—</td><td class="kct-bar-w"></td><td class="kct-diff">—</td></tr>
+    </table>
+    <hr class="freee-divider">
+    <div class="freee-section-label">📋 freee キャッシュフロー</div>
+    <div class="freee-cf-row"><span class="freee-cf-name">口座残高</span><span class="freee-cf-val" id="freeeBalance">—</span></div>
+    <div class="freee-cf-row"><span class="freee-cf-name">今月収入</span><span class="freee-cf-val positive" id="freeeIncome">—</span></div>
+    <div class="freee-cf-row"><span class="freee-cf-name">今月支出</span><span class="freee-cf-val negative" id="freeeExpense">—</span></div>
+    <div class="freee-cf-row"><span class="freee-cf-name">純CF</span><span class="freee-cf-val" id="freeeCF">—</span></div>
+  </div>
+
+  <!-- Calendar with tabs -->
+  <div class="section">
+    <div class="cal-tab-bar">
+      <button class="cal-tab-btn active" id="cal-tab-sale" onclick="switchCal('sale')">売上</button>
+      <button class="cal-tab-btn" id="cal-tab-pay"  onclick="switchCal('pay')">入金</button>
+    </div>
+    <div class="cal-tab-panel active" id="cal-panel-sale">
+      <div id="salesCalendar"><div class="empty-state">Loading...</div></div>
+    </div>
+    <div class="cal-tab-panel" id="cal-panel-pay">
+      <div id="payCalendar"><div class="empty-state">入金カレンダー</div></div>
     </div>
   </div>
 
 </div>
 
-<!-- ④ 30-Day Trend Chart -->
-<div class="section" style="margin-bottom:20px">
-  <h2 data-en="30-Day Revenue & Profit" data-ja="30日間の売上・利益">30-Day Revenue & Profit</h2>
-  <div class="chart-container" style="margin-top:12px">
-    <div id="revenueChart"></div>
+<!-- ④ Out-of-stock list -->
+<div class="oos-card">
+  <div class="oos-card-head">
+    <h3>⚠️ 在庫切れ商品</h3>
+    <a href="/listings">一覧で見る →</a>
   </div>
+  <table class="oos-list-table">
+    <thead>
+      <tr><th>商品名</th><th>最終売価</th><th>切れて</th><th></th></tr>
+    </thead>
+    <tbody id="oosTableBody">
+      <tr><td colspan="4" class="oos-empty-row">Loading...</td></tr>
+    </tbody>
+  </table>
 </div>
 
-<!-- ⑤ Existing KPI Cards (detail) -->
+<!-- ⑤ Stat cards (server-side rendered) -->
 <div class="stats-grid">
   <div class="stat-card">
     <div class="stat-icon blue">
@@ -103,7 +175,7 @@
       </svg>
     </div>
     <div class="stat-content">
-      <div class="label" data-en="Total Listings" data-ja="総出品数">Total Listings</div>
+      <div class="label" data-en="Total Listings" data-ja="総出品数">総出品数</div>
       <div class="value">{{ stats.total_listings }}</div>
     </div>
   </div>
@@ -114,7 +186,7 @@
       </svg>
     </div>
     <div class="stat-content">
-      <div class="label" data-en="In Stock" data-ja="在庫あり">In Stock</div>
+      <div class="label" data-en="In Stock" data-ja="在庫あり">在庫あり</div>
       <div class="value">{{ stats.in_stock }}</div>
     </div>
   </div>
@@ -125,7 +197,7 @@
       </svg>
     </div>
     <div class="stat-content">
-      <div class="label" data-en="Out of Stock" data-ja="在庫切れ">Out of Stock</div>
+      <div class="label" data-en="Out of Stock" data-ja="在庫切れ">在庫切れ</div>
       <div class="value">{{ stats.out_of_stock }}</div>
     </div>
   </div>
@@ -136,59 +208,36 @@
       </svg>
     </div>
     <div class="stat-content">
-      <div class="label" data-en="Source Candidates" data-ja="仕入れ候補">Source Candidates</div>
+      <div class="label" data-en="Source Candidates" data-ja="仕入れ候補">仕入れ候補</div>
       <div class="value">{{ stats.source_candidates }}</div>
     </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon purple">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-      </svg>
-    </div>
-    <div class="stat-content">
-      <div class="label" data-en="Pending Procurement" data-ja="調達中">Pending Procurement</div>
-      <div class="value">{{ stats.pending_procurements }}</div>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon green">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
-      </svg>
-    </div>
-    <div class="stat-content">
-      <div class="label" data-en="30d Revenue" data-ja="30日売上">30d Revenue</div>
-      <div class="value">${{ "%.0f"|format(stats.sales_30d.total_revenue_usd) }}</div>
-      <div class="sub">Profit: ${{ "%.0f"|format(stats.sales_30d.total_profit_usd) }} ({{ stats.sales_30d.total_sales }} sales)</div>
-    </div>
-  </div>
-  {% if stats.inventory and (stats.inventory.in_stock + stats.inventory.listed) > 0 %}
-  <div class="stat-card">
-    <div class="stat-icon blue">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-      </svg>
-    </div>
-    <div class="stat-content">
-      <div class="label" data-en="Physical Stock" data-ja="有在庫">Physical Stock</div>
-      <div class="value">{{ stats.inventory.in_stock + stats.inventory.listed }}</div>
-      <div class="sub">¥{{ "{:,}".format(stats.inventory.stock_value_jpy) }} · {{ stats.inventory.avg_days_in_stock }}d avg</div>
-    </div>
-  </div>
-  {% endif %}
 </div>
 
-<!-- ⑥ Recent Activity -->
-<div class="section">
-  <h2 data-en="Recent Activity" data-ja="最近のアクティビティ">Recent Activity</h2>
-  <div id="activityFeed" style="margin-top:12px">
-    <div class="empty-state">Loading...</div>
+<!-- ⑥ Category profit modal -->
+<div class="cat-modal-overlay" id="catModal" onclick="if(event.target===this)closeCatModal()">
+  <div class="cat-modal">
+    <div class="cat-modal-head">
+      <h3 id="catModalTitle">カテゴリ別利益 — 2026年4月</h3>
+      <button class="cat-modal-close" onclick="closeCatModal()">×</button>
+    </div>
+    <div class="cat-modal-body">
+      <div class="cat-modal-donut">
+        <svg id="catDonutSvg" width="120" height="120" viewBox="0 0 120 120"></svg>
+      </div>
+      <div class="cat-modal-table">
+        <table>
+          <thead>
+            <tr><th></th><th>カテゴリ</th><th>利益</th><th>構成比</th></tr>
+          </thead>
+          <tbody id="catModalTableBody">
+            <tr><td colspan="4" style="text-align:center;color:var(--gray-400);padding:20px">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="cat-modal-foot" id="catModalFoot"></div>
   </div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
-<script src="/static/js/overview.js"></script>
 {% endblock %}
