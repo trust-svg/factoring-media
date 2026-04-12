@@ -956,7 +956,7 @@ def get_category_profit(db: Session, year: int, month: int) -> list[dict]:
         cat = sku_to_category.get(rec.sku, "その他")
         if cat not in cat_data:
             cat_data[cat] = {"revenue": 0, "profit": 0}
-        rev = rec.received_jpy if rec.received_jpy > 0 else int(rec.sale_price_usd * rec.exchange_rate)
+        rev = rec.received_jpy if rec.received_jpy > 0 else (int(rec.sale_price_usd * rec.exchange_rate) if rec.exchange_rate > 0 else 0)
         cat_data[cat]["revenue"] += rev
         cat_data[cat]["profit"]  += rec.net_profit_jpy
 
