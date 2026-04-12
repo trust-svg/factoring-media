@@ -10,6 +10,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from database.models import (
+    BuyerMessage,
     ChangeHistory,
     InventoryItem,
     Listing,
@@ -648,4 +649,218 @@ def get_dashboard_stats(db: Session) -> dict:
         "total_procurement_cost_jpy": total_procurement_cost,
         "sales_30d": sales_30d,
         "inventory": inventory_stats,
+    }
+
+
+# ── Overview ダッシュボード用クエリ ───────────────────────
+
+def get_monthly_achievement(db: Session, year: int, month: int) -> dict:
+    """当月の売上・利益・利益率を集計し、目標との比較を返す"""
+    from calendar import monthrange
+    from datetime import datetime, date
+    from config import MONTHLY_REVENUE_TARGET_JPY, MONTHLY_MARGIN_TARGET_PCT, MONTHLY_PROFIT_TARGET_JPY
+
+    _, last_day = monthrange(year, month)
+    start = datetime(year, month, 1)
+    end = datetime(year, month, last_day, 23, 59, 59)
+
+    records = db.query(SalesRecord).filter(
+        SalesRecord.sold_at >= start,
+        SalesRecord.sold_at <= end,
+    ).all()
+
+    today = date.today()
+    # elapsed_days: 当月1日 = 1, 2日 = 2...（当月内の場合）
+    elapsed_days = today.day if (today.year == year and today.month == month) else last_day
+
+    # 売上JPY: received_jpy > 0 ならそれ、なければ sale_price_usd * exchange_rate
+    def _rev(r: SalesRecord) -> int:
+        if r.received_jpy > 0:
+            return r.received_jpy
+        if r.exchange_rate > 0:
+            return int(r.sale_price_usd * r.exchange_rate)
+        return 0
+
+    revenue_jpy = sum(_rev(r) for r in records)
+    profit_jpy  = sum(r.net_profit_jpy for r in records)
+    margin_pct  = round(profit_jpy / revenue_jpy * 100, 1) if revenue_jpy > 0 else 0.0
+
+    projected_revenue = int(revenue_jpy / elapsed_days * last_day) if elapsed_days > 0 else 0
+    projected_profit  = int(profit_jpy  / elapsed_days * last_day) if elapsed_days > 0 else 0
+
+    # 利益率の前月同日比
+    if month == 1:
+        pm_year, pm_month = year - 1, 12
+    else:
+        pm_year, pm_month = year, month - 1
+
+    _, pm_last = monthrange(pm_year, pm_month)
+    pm_day = min(elapsed_days, pm_last)
+    pm_records = db.query(SalesRecord).filter(
+        SalesRecord.sold_at >= datetime(pm_year, pm_month, 1),
+        SalesRecord.sold_at <= datetime(pm_year, pm_month, pm_day, 23, 59, 59),
+    ).all()
+    pm_rev = sum(_rev(r) for r in pm_records)
+    pm_profit = sum(r.net_profit_jpy for r in pm_records)
+    pm_margin = round(pm_profit / pm_rev * 100, 1) if pm_rev > 0 else 0.0
+
+    return {
+        "period": f"{year}-{month:02d}",
+        "elapsed_days": elapsed_days,
+        "total_days": last_day,
+        "revenue": {
+            "actual": revenue_jpy,
+            "target": MONTHLY_REVENUE_TARGET_JPY,
+            "rate": round(revenue_jpy / MONTHLY_REVENUE_TARGET_JPY * 100, 1) if MONTHLY_REVENUE_TARGET_JPY > 0 else 0.0,
+            "projected_eom": projected_revenue,
+        },
+        "profit_margin": {
+            "actual": margin_pct,
+            "target": MONTHLY_MARGIN_TARGET_PCT,
+            "prev_month_same_day": pm_margin,
+        },
+        "profit": {
+            "actual": profit_jpy,
+            "target": MONTHLY_PROFIT_TARGET_JPY,
+            "rate": round(profit_jpy / MONTHLY_PROFIT_TARGET_JPY * 100, 1) if MONTHLY_PROFIT_TARGET_JPY > 0 else 0.0,
+            "projected_eom": projected_profit,
+        },
+    }
+
+
+def get_monthly_calendar(db: Session, year: int, month: int) -> dict:
+    """月間の日別売上データ（カレンダー表示用）"""
+    from calendar import monthrange
+    from datetime import datetime
+
+    _, last_day = monthrange(year, month)
+    start = datetime(year, month, 1)
+    end = datetime(year, month, last_day, 23, 59, 59)
+
+    records = db.query(SalesRecord).filter(
+        SalesRecord.sold_at >= start,
+        SalesRecord.sold_at <= end,
+    ).all()
+
+    def _rev(r: SalesRecord) -> int:
+        if r.received_jpy > 0:
+            return r.received_jpy
+        if r.exchange_rate > 0:
+            return int(r.sale_price_usd * r.exchange_rate)
+        return 0
+
+    # 日付ごとに集計
+    daily: dict[str, dict] = {}
+    for r in records:
+        d = r.sold_at.strftime("%Y-%m-%d")
+        if d not in daily:
+            daily[d] = {"revenue": 0, "orders": 0, "profit": 0}
+        daily[d]["revenue"] += _rev(r)
+        daily[d]["orders"]  += 1
+        daily[d]["profit"]  += r.net_profit_jpy
+
+    days = []
+    for day in range(1, last_day + 1):
+        d = f"{year}-{month:02d}-{day:02d}"
+        entry = daily.get(d, {"revenue": 0, "orders": 0, "profit": 0})
+        days.append({"date": d, **entry})
+
+    return {"year": year, "month": month, "days": days}
+
+
+def get_overview_alerts(db: Session) -> dict:
+    """要対応件数（在庫切れ・未読メッセージ・価格アラート）"""
+    out_of_stock = db.query(Listing).filter(Listing.quantity == 0).count()
+    unread_messages = db.query(BuyerMessage).filter(
+        BuyerMessage.is_read == 0,
+        BuyerMessage.direction == "inbound",
+    ).count()
+
+    # 価格アラート: 最新の価格履歴で競合最安値が自社より10%以上安い出品
+    from sqlalchemy import text as sa_text
+    price_alerts = db.execute(sa_text("""
+        SELECT COUNT(*) FROM price_history ph
+        INNER JOIN (
+            SELECT sku, MAX(recorded_at) AS max_at FROM price_history GROUP BY sku
+        ) latest ON ph.sku = latest.sku AND ph.recorded_at = latest.max_at
+        INNER JOIN listings l ON ph.sku = l.sku
+        WHERE ph.lowest_competitor_price_usd > 0
+          AND ph.lowest_competitor_price_usd < l.price_usd * 0.9
+    """)).scalar() or 0
+
+    severity = "ok"
+    if out_of_stock >= 10 or unread_messages >= 5:
+        severity = "critical"
+    elif out_of_stock > 0 or unread_messages > 0 or price_alerts > 0:
+        severity = "warning"
+
+    return {
+        "out_of_stock": out_of_stock,
+        "unread_messages": unread_messages,
+        "price_alerts": int(price_alerts),
+        "severity": severity,
+    }
+
+
+def get_overview_pace(db: Session) -> dict:
+    """今日の売上・前月同日比"""
+    from calendar import monthrange
+    from datetime import datetime, date, timedelta
+
+    today = date.today()
+    today_start = datetime(today.year, today.month, today.day, 0, 0, 0)
+    today_end   = datetime(today.year, today.month, today.day, 23, 59, 59)
+
+    def _rev(r: SalesRecord) -> int:
+        if r.received_jpy > 0:
+            return r.received_jpy
+        if r.exchange_rate > 0:
+            return int(r.sale_price_usd * r.exchange_rate)
+        return 0
+
+    today_records = db.query(SalesRecord).filter(
+        SalesRecord.sold_at >= today_start,
+        SalesRecord.sold_at <= today_end,
+    ).all()
+    today_revenue = sum(_rev(r) for r in today_records)
+    today_orders  = len(today_records)
+
+    # 当月累計（今日を除く）
+    month_start = datetime(today.year, today.month, 1)
+    yesterday_end = today_start - timedelta(seconds=1)
+    prior_records = db.query(SalesRecord).filter(
+        SalesRecord.sold_at >= month_start,
+        SalesRecord.sold_at <= yesterday_end,
+    ).all()
+    prior_revenue  = sum(_rev(r) for r in prior_records)
+    elapsed_before = today.day - 1  # 今日より前の日数
+    daily_avg = int(prior_revenue / elapsed_before) if elapsed_before > 0 else 0
+
+    # 前月同日時点の累計
+    if today.month == 1:
+        pm_year, pm_month = today.year - 1, 12
+    else:
+        pm_year, pm_month = today.year, today.month - 1
+
+    _, pm_last = monthrange(pm_year, pm_month)
+    pm_day = min(today.day, pm_last)
+    pm_records = db.query(SalesRecord).filter(
+        SalesRecord.sold_at >= datetime(pm_year, pm_month, 1),
+        SalesRecord.sold_at <= datetime(pm_year, pm_month, pm_day, 23, 59, 59),
+    ).all()
+    pm_revenue = sum(_rev(r) for r in pm_records)
+
+    current_total = prior_revenue + today_revenue
+    rev_diff     = current_total - pm_revenue
+    rev_diff_pct = round(rev_diff / pm_revenue * 100, 1) if pm_revenue > 0 else 0.0
+
+    return {
+        "today_revenue": today_revenue,
+        "today_orders":  today_orders,
+        "daily_avg":     daily_avg,
+        "prev_month_same_day_revenue": pm_revenue,
+        "prev_month_comparison": {
+            "revenue_diff":     rev_diff,
+            "revenue_diff_pct": rev_diff_pct,
+        },
     }
