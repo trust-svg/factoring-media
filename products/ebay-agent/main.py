@@ -3818,6 +3818,41 @@ async def overview_pace():
         db.close()
 
 
+@app.get("/api/overview/out_of_stock")
+async def overview_out_of_stock():
+    """在庫切れ出品リスト（ダッシュボードOOSカード用）"""
+    from database.crud import get_out_of_stock_items
+    db = get_db()
+    try:
+        return JSONResponse(get_out_of_stock_items(db, limit=10))
+    finally:
+        db.close()
+
+
+@app.get("/api/overview/category_profit")
+async def overview_category_profit():
+    """カテゴリ別利益内訳（モーダル用）"""
+    from database.crud import get_category_profit
+    db = get_db()
+    try:
+        today = datetime.now()
+        return JSONResponse(get_category_profit(db, today.year, today.month))
+    finally:
+        db.close()
+
+
+@app.get("/api/fx/usdjpy")
+async def fx_usdjpy():
+    """USD/JPY レート（現在は静的値、後でリアルAPI連携予定）"""
+    return JSONResponse({
+        "rate": 152.40,
+        "change": 0.82,
+        "direction": "up",
+        "source": "static",
+        "updated_at": datetime.now().isoformat(),
+    })
+
+
 # ── エントリーポイント ────────────────────────────────────
 
 if __name__ == "__main__":
