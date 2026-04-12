@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).parent
 load_dotenv(BASE_DIR / ".env")
 
-NANOBANANA_API_KEY: str = os.environ["NANOBANANA_API_KEY"]
+GEMINI_API_KEY: str = os.environ["GEMINI_API_KEY"]
 ATLAS_CLOUD_API_KEY: str = os.environ["ATLAS_CLOUD_API_KEY"]
 TELEGRAM_BOT_TOKEN: str = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID: str = os.environ["TELEGRAM_CHAT_ID"]
@@ -32,5 +32,5 @@ DB_PATH = BASE_DIR / "video_ad.db"
 ATLAS_CLOUD_I2V_URL = "https://api.muapi.ai/api/v1/seedance-v2.0-i2v"
 ATLAS_CLOUD_STATUS_URL = "https://api.muapi.ai/api/v1/status/{request_id}"
 
-# NanoBanana PRO
-NANOBANANA_API_URL = "https://nanobananaapi.ai/api/generate"
+# NanoBanana PRO (Google Gemini 3 Pro Image)
+NANOBANANA_MODEL = "gemini-3-pro-image-preview"
