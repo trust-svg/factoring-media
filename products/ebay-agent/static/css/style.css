@@ -1610,3 +1610,358 @@ input:focus-visible {
     max-width: 90%;
     text-overflow: ellipsis;
 }
+
+/* ================================================================
+   Overview Dashboard — Redesign 2026-04 additions
+   ================================================================ */
+
+/* ── USD/JPY rate chip ─────────────────────────────────────── */
+.fx-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: default;
+    white-space: nowrap;
+}
+.fx-chip .fx-label { color: var(--gray-500); font-weight: 500; }
+.fx-chip .fx-val   { color: var(--gray-900); font-weight: 800; }
+.fx-chip .fx-diff  { font-size: 10px; font-weight: 700; }
+.fx-chip .fx-diff.up { color: var(--red); }
+.fx-chip .fx-diff.dn { color: var(--green); }
+
+/* ── Achievement board: 4-column override for overview page ── */
+.achievement-board-4 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 190px;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+@media (max-width: 900px) {
+    .achievement-board-4 { grid-template-columns: 1fr 1fr; }
+}
+
+/* Payoneer card */
+.payoneer-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.payoneer-head {
+    background: linear-gradient(135deg, #FF5F00, #FF8533);
+    padding: 12px 14px;
+    color: #fff;
+}
+.payoneer-head .py-label {
+    font-size: 9px;
+    opacity: .8;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+.payoneer-head .py-val  { font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.payoneer-head .py-sub  { font-size: 9px; opacity: .7; margin-top: 3px; }
+.payoneer-body          { padding: 10px 14px; }
+.payoneer-row           { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 5px; }
+.payoneer-row:last-child { margin-bottom: 0; }
+.payoneer-row .py-name  { color: var(--gray-500); }
+.payoneer-row .py-amt   { font-weight: 700; color: var(--gray-900); }
+.payoneer-row .py-amt.green { color: var(--green); }
+
+/* Donut modal trigger button */
+.donut-trigger-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--indigo);
+    font-weight: 700;
+    padding: 0;
+    transition: .15s;
+}
+.donut-trigger-btn:hover { color: #4338CA; }
+
+/* ── Overview mid-row grid ────────────────────────────────── */
+.overview-mid-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+@media (max-width: 1100px) {
+    .overview-mid-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Chart tab switcher ───────────────────────────────────── */
+.chart-tab-bar {
+    display: flex;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    overflow: hidden;
+    width: fit-content;
+    margin-bottom: 10px;
+}
+.chart-tab-btn {
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: #fff;
+    color: var(--gray-500);
+    transition: .15s;
+}
+.chart-tab-btn.active { background: var(--blue); color: #fff; }
+.chart-tab-panel      { display: none; }
+.chart-tab-panel.active { display: block; }
+
+/* Vertical bar chart (日別) */
+.day-bar-chart {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 4px;
+    align-items: end;
+    height: 80px;
+    margin-top: 4px;
+}
+.day-bar-col  { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.day-bar-num  { font-size: 7px; font-weight: 700; color: var(--gray-500); text-align: center; white-space: nowrap; }
+.day-bar-num.hi { color: #1D4ED8; }
+.day-bar      { width: 100%; border-radius: 3px 3px 0 0; }
+.day-bar.lo   { background: linear-gradient(0deg, #BFDBFE, #93C5FD); }
+.day-bar.md   { background: linear-gradient(0deg, #93C5FD, #3B82F6); }
+.day-bar.hi   { background: linear-gradient(0deg, #3B82F6, #1D4ED8); box-shadow: 0 2px 6px rgba(37,99,235,.25); }
+.day-bar-lbl  { font-size: 8px; color: var(--gray-400); font-weight: 600; }
+
+/* Monthly cumulative SVG chart */
+.monthly-chart-legend {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.mcl-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--gray-700); font-weight: 600; }
+.mcl-line  { width: 16px; height: 2px; border-radius: 1px; }
+.mcl-line.solid-blue { background: #2563EB; }
+.mcl-line.dash-gray  { background: repeating-linear-gradient(90deg,#94A3B8 0,#94A3B8 4px,transparent 4px,transparent 8px); }
+.mcl-line.dash-orange{ background: repeating-linear-gradient(90deg,#F97316 0,#F97316 4px,transparent 4px,transparent 8px); }
+.monthly-chart-wrap  { position: relative; display: flex; }
+.monthly-y-labels    { display: flex; flex-direction: column; justify-content: space-between; padding-bottom: 16px; padding-top: 2px; width: 36px; }
+.monthly-y-lbl       { font-size: 8px; color: var(--gray-400); text-align: right; }
+.monthly-x-labels    { display: flex; justify-content: space-between; padding-left: 36px; margin-top: 2px; }
+.monthly-x-lbl       { font-size: 8px; color: var(--gray-400); }
+
+/* ── KPI table with mini-bars ─────────────────────────────── */
+.kpi-comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.kpi-comparison-table tr {
+    border-bottom: 1px solid var(--gray-50);
+}
+.kpi-comparison-table tr:last-child { border-bottom: none; }
+.kpi-comparison-table td { padding: 5px 3px; font-size: 11px; }
+.kct-name  { color: var(--gray-500); font-weight: 500; width: 60px; }
+.kct-val   { font-weight: 700; color: var(--gray-900); text-align: right; padding-right: 4px; white-space: nowrap; }
+.kct-bar-w { width: 54px; }
+.kct-bar   { height: 4px; background: var(--gray-100); border-radius: 2px; overflow: hidden; }
+.kct-fill  { height: 100%; border-radius: 2px; }
+.kct-fill.blue { background: #3B82F6; }
+.kct-fill.red  { background: var(--red); }
+.kct-fill.orange { background: var(--orange); }
+.kct-diff  { font-size: 10px; font-weight: 700; text-align: right; white-space: nowrap; }
+.kct-diff.up   { color: var(--green); }
+.kct-diff.down { color: var(--red); }
+.kct-diff.neutral { color: var(--orange); }
+
+/* freee cashflow section within KPI card */
+.freee-divider { border: none; border-top: 1px dashed var(--gray-200); margin: 10px 0 8px; }
+.freee-section-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin-bottom: 7px;
+}
+.freee-cf-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 11px;
+    border-bottom: 1px solid var(--gray-50);
+}
+.freee-cf-row:last-child { border-bottom: none; }
+.freee-cf-name { color: var(--gray-500); }
+.freee-cf-val  { font-weight: 700; color: var(--gray-900); }
+.freee-cf-val.positive { color: var(--green); }
+.freee-cf-val.negative { color: var(--red); }
+
+/* ── Calendar tab switcher ────────────────────────────────── */
+.cal-tab-bar {
+    display: flex;
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    width: 100%;
+}
+.cal-tab-btn {
+    flex: 1;
+    padding: 3px 0;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: #fff;
+    color: var(--gray-500);
+    text-align: center;
+    transition: .15s;
+}
+.cal-tab-btn.active { background: var(--blue); color: #fff; }
+.cal-tab-panel      { display: none; }
+.cal-tab-panel.active { display: block; }
+
+/* ── Out-of-stock list card ───────────────────────────────── */
+.oos-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    margin-bottom: 16px;
+}
+.oos-card-head {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.oos-card-head h3 { font-size: 13px; font-weight: 700; color: var(--gray-900); }
+.oos-card-head a  { font-size: 11px; color: var(--blue); font-weight: 600; text-decoration: none; }
+.oos-list-table { width: 100%; border-collapse: collapse; }
+.oos-list-table th {
+    padding: 8px 14px;
+    text-align: left;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-100);
+}
+.oos-list-table td {
+    padding: 9px 14px;
+    font-size: 11px;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-50);
+    vertical-align: middle;
+}
+.oos-list-table tbody tr:last-child td { border-bottom: none; }
+.oos-list-table tbody tr:hover td     { background: var(--gray-50); }
+.oos-days-badge {
+    background: #FEE2E2;
+    color: #DC2626;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.oos-search-btn {
+    background: var(--blue-light);
+    color: var(--blue);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+.oos-search-btn:hover { background: #DBEAFE; }
+.oos-empty-row { padding: 20px; text-align: center; color: var(--gray-400); font-size: 12px; }
+
+/* ── Category profit modal ────────────────────────────────── */
+.cat-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+.cat-modal-overlay.open { display: flex; }
+.cat-modal {
+    background: #fff;
+    border-radius: 14px;
+    width: 520px;
+    max-width: 95vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    overflow: hidden;
+}
+.cat-modal-head {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.cat-modal-head h3 { font-size: 15px; font-weight: 800; color: var(--gray-900); }
+.cat-modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--gray-400);
+    cursor: pointer;
+    line-height: 1;
+}
+.cat-modal-close:hover { color: var(--gray-700); }
+.cat-modal-body {
+    padding: 20px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+.cat-modal-donut  { flex-shrink: 0; }
+.cat-modal-table  { flex: 1; overflow-x: auto; }
+.cat-modal-table table { width: 100%; border-collapse: collapse; }
+.cat-modal-table th {
+    padding: 7px 8px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--gray-100);
+}
+.cat-modal-table td {
+    padding: 8px 8px;
+    font-size: 12px;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-50);
+    vertical-align: middle;
+}
+.cat-modal-table tr:last-child td { border-bottom: none; }
+.cat-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.cat-pct-bar { display: flex; align-items: center; gap: 6px; }
+.cat-pct-track { flex: 1; height: 5px; background: var(--gray-100); border-radius: 3px; overflow: hidden; min-width: 50px; }
+.cat-pct-fill  { height: 100%; border-radius: 3px; }
+.cat-pct-num   { font-size: 10px; font-weight: 700; min-width: 32px; text-align: right; }
+.cat-modal-foot {
+    padding: 14px 20px;
+    border-top: 1px solid var(--gray-100);
+    font-size: 11px;
+    color: var(--gray-500);
+    background: var(--gray-50);
+}
