@@ -1475,10 +1475,10 @@ input:focus-visible {
 
 .ac-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
 .ac-label { font-size:9px; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:.07em; }
-.badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; }
-.badge.g { background:#DCFCE7; color:#15803D; }
-.badge.y { background:#FEF9C3; color:#A16207; }
-.badge.r { background:#FEE2E2; color:#DC2626; }
+.ac .badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; }
+.ac .badge.g { background:#DCFCE7; color:#15803D; }
+.ac .badge.y { background:#FEF9C3; color:#A16207; }
+.ac .badge.r { background:#FEE2E2; color:#DC2626; }
 
 .ac-vrow { display:flex; align-items:baseline; gap:6px; margin-bottom:3px; }
 .ac-v { font-size:20px; font-weight:800; color:#0F172A; letter-spacing:-.02em; }
@@ -1541,11 +1541,11 @@ input:focus-visible {
     display:flex; border:1px solid #E2E8F0;
     border-radius:8px; overflow:hidden; width:fit-content;
 }
-.tab-btn {
+.tab-bar .tab-btn {
     padding:4px 12px; font-size:10px; font-weight:600;
     cursor:pointer; border:none; background:#fff; color:#64748B; transition:.15s;
 }
-.tab-btn.on   { background:#2563EB; color:#fff; }
+.tab-bar .tab-btn.on   { background:#2563EB; color:#fff; }
 .tab-panel    { display:none; }
 .tab-panel.on { display:block; }
 
