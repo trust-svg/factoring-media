@@ -1,0 +1,325 @@
+<!-- KPIサマリー -->
+<div class="proc-kpi-row" id="procKpi">
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Total Purchases" data-ja="仕入件数">仕入件数</div>
+        <div class="proc-kpi-val" id="kpiCount">--</div>
+        <div class="proc-kpi-sub" id="kpiCountSub"></div>
+    </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Total Cost" data-ja="仕入総額">仕入総額</div>
+        <div class="proc-kpi-val" id="kpiCost">--</div>
+        <div class="proc-kpi-sub" id="kpiCostSub"></div>
+    </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Consumption Tax" data-ja="消費税合計">消費税合計</div>
+        <div class="proc-kpi-val" id="kpiTax">--</div>
+        <div class="proc-kpi-sub" id="kpiTaxSub"></div>
+    </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Sold / Unsold" data-ja="売済/未売">売済/未売</div>
+        <div class="proc-kpi-val" id="kpiSold">--</div>
+        <div class="proc-kpi-sub" id="kpiSoldSub"></div>
+    </div>
+</div>
+
+<!-- 登録フォーム + フィルタ -->
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Quick Entry" data-ja="簡易登録">Quick Entry</h2>
+        <button class="btn btn-sm" onclick="toggleAddForm()" data-en="+ Record Purchase" data-ja="+ 仕入れ登録">+ Record Purchase</button>
+    </div>
+
+    <div id="addForm" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-primary);border-radius:var(--radius-sm);border:1px solid var(--border);">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div class="form-group" style="margin:0;"><label data-en="Platform" data-ja="仕入先">Platform</label>
+                <select class="form-input" id="procPlatform" style="padding:6px 10px;">
+                    <option value="Amazon">Amazon</option><option value="メルカリ">メルカリ</option><option value="メルカリShops">メルカリShops</option>
+                    <option value="ラクマ">ラクマ</option><option value="ヤフオク">ヤフオク</option><option value="ヤフーショッピング">ヤフーショッピング</option>
+                    <option value="楽天">楽天</option><option value="ネットモール(OFFモール)">ネットモール(OFFモール)</option><option value="Yahooフリマ">Yahooフリマ</option>
+                    <option value="駿河屋">駿河屋</option><option value="GEO">GEO</option><option value="デジマート">デジマート</option>
+                    <option value="トレファク">トレファク</option><option value="まんだらけ">まんだらけ</option><option value="セカンドストリート">セカンドストリート</option>
+                    <option value="その他">その他</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;"><label data-en="Title" data-ja="商品名">Title</label><input class="form-input" id="procTitle" style="padding:6px 10px;" placeholder="商品名"></div>
+            <div class="form-group" style="margin:0;"><label data-en="SKU" data-ja="SKU">SKU</label><input class="form-input" id="procSku" style="padding:6px 10px;" placeholder="eBay SKU（任意）"></div>
+            <div class="form-group" style="margin:0;"><label data-en="Purchase Price" data-ja="仕入価格(税抜)">Purchase Price</label><input class="form-input" id="procPrice" type="number" style="padding:6px 10px;" placeholder="¥"></div>
+            <div class="form-group" style="margin:0;"><label data-en="Consumption Tax" data-ja="消費税">Consumption Tax</label><input class="form-input" id="procTax" type="number" style="padding:6px 10px;" placeholder="¥" value="0"></div>
+            <div class="form-group" style="margin:0;"><label data-en="Shipping (JPY)" data-ja="国内送料">Shipping</label><input class="form-input" id="procShipping" type="number" style="padding:6px 10px;" placeholder="¥" value="0"></div>
+            <div class="form-group" style="margin:0;"><label data-en="Other Cost" data-ja="その他経費">Other Cost</label><input class="form-input" id="procOther" type="number" style="padding:6px 10px;" placeholder="¥" value="0"></div>
+            <div class="form-group" style="margin:0;"><label data-en="Purchase Date" data-ja="購入日">Purchase Date</label><input class="form-input" id="procDate" type="date" style="padding:6px 10px;"></div>
+            <div class="form-group" style="margin:0;"><label data-en="URL" data-ja="仕入先URL">URL</label><input class="form-input" id="procUrl" style="padding:6px 10px;" placeholder="https://..."></div>
+        </div>
+        <div class="form-group" style="margin:8px 0 0;"><label data-en="Notes" data-ja="メモ">Notes</label><input class="form-input" id="procNotes" style="padding:6px 10px;" placeholder="メモ（任意）"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-sm" onclick="submitProcurement()" data-en="Save" data-ja="保存">Save</button>
+            <button class="btn btn-sm btn-outline" onclick="toggleAddForm()" data-en="Cancel" data-ja="キャンセル">Cancel</button>
+        </div>
+    </div>
+
+    <!-- フィルタタブ -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div class="filter-pills">
+            <button class="pill active" data-tab="all" onclick="filterProc('all')" data-en="All" data-ja="すべて">All</button>
+            <button class="pill" data-tab="purchased" onclick="filterProc('purchased')" data-en="Purchased" data-ja="購入済">Purchased</button>
+            <button class="pill" data-tab="shipped" onclick="filterProc('shipped')" data-en="In Transit" data-ja="輸送中">In Transit</button>
+            <button class="pill" data-tab="received" onclick="filterProc('received')" data-en="Received" data-ja="受取済">Received</button>
+            <button class="pill" data-tab="listed" onclick="filterProc('listed')" data-en="Listed" data-ja="出品済">Listed</button>
+            <button class="pill" data-tab="sold" onclick="filterProc('sold')" data-en="Sold" data-ja="売却済">Sold</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <input class="form-input" id="procSearch" placeholder="検索..." style="padding:6px 10px;font-size:12px;width:180px;" oninput="renderProc()">
+        </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="data-table" id="procTable">
+            <thead>
+                <tr>
+                    <th style="width:30px;"></th>
+                    <th class="sortable" data-sort="purchase_date" onclick="toggleSort('purchase_date')"><span data-en="Date" data-ja="日付">Date</span> <span class="sort-icon"></span></th>
+                    <th class="sortable" data-sort="platform" onclick="toggleSort('platform')"><span data-en="Platform" data-ja="仕入先">Platform</span> <span class="sort-icon"></span></th>
+                    <th data-en="Title" data-ja="商品名">Title</th>
+                    <th class="sortable" data-sort="purchase_price_jpy" onclick="toggleSort('purchase_price_jpy')"><span data-en="Cost" data-ja="原価">Cost</span> <span class="sort-icon"></span></th>
+                    <th class="sortable" data-sort="consumption_tax_jpy" onclick="toggleSort('consumption_tax_jpy')"><span data-en="Tax" data-ja="消費税">Tax</span> <span class="sort-icon"></span></th>
+                    <th class="sortable" data-sort="total_cost_jpy" onclick="toggleSort('total_cost_jpy')"><span data-en="Total" data-ja="合計">Total</span> <span class="sort-icon"></span></th>
+                    <th>SKU</th>
+                    <th class="sortable" data-sort="status" onclick="toggleSort('status')"><span data-en="Status" data-ja="状態">Status</span> <span class="sort-icon"></span></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="procBody">
+                <tr><td colspan="10" class="empty-state" data-en="Loading..." data-ja="読み込み中...">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- マージン計算 -->
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Margin Calculator" data-ja="マージン計算">Margin Calculator</h2>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;"><label data-en="Source (JPY)" data-ja="仕入原価">Source (JPY)</label><input class="form-input" id="calcSource" type="number" placeholder="10000" style="width:130px;padding:6px 10px;"></div>
+        <div class="form-group" style="margin:0;"><label data-en="Shipping (JPY)" data-ja="送料">Shipping (JPY)</label><input class="form-input" id="calcShip" type="number" value="2000" style="width:110px;padding:6px 10px;"></div>
+        <div class="form-group" style="margin:0;"><label data-en="Sale (USD)" data-ja="販売価格">Sale (USD)</label><input class="form-input" id="calcSale" type="number" step="0.01" placeholder="150.00" style="width:130px;padding:6px 10px;"></div>
+        <button class="btn btn-sm" onclick="calcMargin()" data-en="Calculate" data-ja="計算">Calculate</button>
+        <span id="calcResult" style="font-size:14px;font-weight:600;"></span>
+    </div>
+</div>
+
+<!-- 編集モーダル -->
+<div id="editProcModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:200;justify-content:center;align-items:center;">
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:24px;max-width:520px;width:90%;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+        <h3 style="margin-bottom:16px;" data-en="Edit Procurement" data-ja="仕入れ編集">Edit Procurement</h3>
+        <input type="hidden" id="editProcId">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label data-en="Platform" data-ja="仕入先">Platform</label>
+                <select id="editProcPlatform" class="form-input">
+                    <option value="Amazon">Amazon</option><option value="メルカリ">メルカリ</option><option value="メルカリShops">メルカリShops</option>
+                    <option value="ラクマ">ラクマ</option><option value="ヤフオク">ヤフオク</option><option value="ヤフーショッピング">ヤフーショッピング</option>
+                    <option value="楽天">楽天</option><option value="ネットモール(OFFモール)">ネットモール(OFFモール)</option><option value="Yahooフリマ">Yahooフリマ</option>
+                    <option value="駿河屋">駿河屋</option><option value="GEO">GEO</option><option value="デジマート">デジマート</option>
+                    <option value="トレファク">トレファク</option><option value="まんだらけ">まんだらけ</option><option value="セカンドストリート">セカンドストリート</option>
+                    <option value="その他">その他</option>
+                </select>
+            </div>
+            <div class="form-group"><label data-en="Status" data-ja="ステータス">Status</label>
+                <select id="editProcStatus" class="form-input">
+                    <option value="purchased">購入済</option><option value="shipped">輸送中</option><option value="received">受取済</option><option value="listed">出品済</option>
+                </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;"><label data-en="Title" data-ja="商品名">Title</label><input id="editProcTitle" class="form-input"></div>
+            <div class="form-group"><label>SKU</label><input id="editProcSku" class="form-input"></div>
+            <div class="form-group"><label data-en="Purchase Price" data-ja="仕入価格(税抜)">Purchase Price</label><input id="editProcPrice" class="form-input" type="number"></div>
+            <div class="form-group"><label data-en="Consumption Tax" data-ja="消費税">Consumption Tax</label><input id="editProcTax" class="form-input" type="number"></div>
+            <div class="form-group"><label data-en="Shipping" data-ja="送料">Shipping</label><input id="editProcShip" class="form-input" type="number"></div>
+            <div class="form-group"><label data-en="Other Cost" data-ja="その他">Other Cost</label><input id="editProcOther" class="form-input" type="number"></div>
+            <div class="form-group"><label data-en="Purchase Date" data-ja="購入日">Purchase Date</label><input id="editProcDate" class="form-input" type="date"></div>
+            <div class="form-group"><label data-en="Received Date" data-ja="受取日">Received Date</label><input id="editProcRecvDate" class="form-input" type="date"></div>
+            <div class="form-group" style="grid-column:1/-1;"><label>URL</label><input id="editProcUrl" class="form-input"></div>
+            <div class="form-group" style="grid-column:1/-1;"><label data-en="Notes" data-ja="メモ">Notes</label><input id="editProcNotes" class="form-input"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+            <button class="btn btn-sm" style="background:var(--accent-red);color:white;" onclick="deleteProcurement()" data-en="Delete" data-ja="削除">Delete</button>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-sm btn-outline" onclick="closeEditProc()" data-en="Cancel" data-ja="キャンセル">Cancel</button>
+                <button class="btn btn-sm" onclick="saveEditProc()" data-en="Save" data-ja="保存">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let procData = [];
+let currentFilter = 'all';
+let sortKey = '';
+let sortDir = 'desc';
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('procDate').value = new Date().toISOString().slice(0, 10);
+    loadProcurements();
+});
+
+async function loadProcurements() {
+    try {
+        procData = await apiFetch('/api/procurements');
+        updateKpi();
+        renderProc();
+    } catch (e) {
+        document.getElementById('procBody').innerHTML = '<tr><td colspan="10" class="empty-state">Error loading data</td></tr>';
+    }
+}
+
+function updateKpi() {
+    const total = procData.length;
+    const totalCost = procData.reduce((s, p) => s + (p.total_cost_jpy || 0), 0);
+    const totalTax = procData.reduce((s, p) => s + (p.consumption_tax_jpy || 0), 0);
+    const sold = procData.filter(p => p.sale).length;
+    const unsold = total - sold;
+    const pending = procData.filter(p => p.status === 'purchased' || p.status === 'shipped').length;
+
+    document.getElementById('kpiCount').textContent = total;
+    document.getElementById('kpiCountSub').textContent = `${pending} ${t('in transit', '輸送中')}`;
+    document.getElementById('kpiCost').textContent = formatJPY(totalCost);
+    document.getElementById('kpiCostSub').textContent = `${t('avg', '平均')} ${formatJPY(total ? Math.round(totalCost / total) : 0)}`;
+    document.getElementById('kpiTax').textContent = formatJPY(totalTax);
+    document.getElementById('kpiTaxSub').textContent = t('for tax refund', '輸出免税還付用');
+    document.getElementById('kpiSold').textContent = `${sold} / ${unsold}`;
+    document.getElementById('kpiSoldSub').textContent = `${total ? Math.round(sold / total * 100) : 0}% ${t('sell-through', '売却率')}`;
+}
+
+function renderProc() {
+    const search = (document.getElementById('procSearch').value || '').toLowerCase();
+    let filtered = procData;
+    if (currentFilter === 'sold') { filtered = filtered.filter(p => p.sale); }
+    else if (currentFilter !== 'all') { filtered = filtered.filter(p => p.status === currentFilter); }
+    if (search) { filtered = filtered.filter(p => (p.title||'').toLowerCase().includes(search)||(p.sku||'').toLowerCase().includes(search)||(p.platform||'').toLowerCase().includes(search)||(p.notes||'').toLowerCase().includes(search)); }
+    if (sortKey) {
+        filtered = [...filtered].sort((a, b) => {
+            let va, vb;
+            if (sortKey === 'purchase_date') { va = a.purchase_date || ''; vb = b.purchase_date || ''; }
+            else { va = a[sortKey] ?? ''; vb = b[sortKey] ?? ''; }
+            if (typeof va === 'string') { const cmp = va.localeCompare(vb); return sortDir === 'asc' ? cmp : -cmp; }
+            return sortDir === 'asc' ? va - vb : vb - va;
+        });
+    }
+    if (!filtered.length) { document.getElementById('procBody').innerHTML = `<tr><td colspan="10" class="empty-state">${t('No records', 'データなし')}</td></tr>`; return; }
+
+    const statusLabel = { purchased: '購入済', shipped: '輸送中', received: '受取済', listed: '出品済' };
+    const statusStyle = { purchased: 'background:var(--brand-50);color:var(--brand-600);', shipped: 'background:var(--warning-50);color:var(--warning-600);', received: 'background:var(--success-50);color:var(--success-600);', listed: 'background:rgba(122,90,248,0.08);color:var(--purple-500);' };
+
+    let html = '';
+    for (const p of filtered) {
+        const date = p.purchase_date ? p.purchase_date.slice(0, 10) : '-';
+        const badge = `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:500;${statusStyle[p.status]||'background:var(--gray-100);color:var(--gray-600);'}">${statusLabel[p.status]||p.status}</span>`;
+        html += `<tr onclick="toggleProcDetail(${p.id})" style="cursor:pointer;">
+            <td><span id="chevron-${p.id}" style="display:inline-block;transition:transform 0.2s;font-size:10px;color:var(--text-tertiary);">▶</span></td>
+            <td style="font-size:12px;white-space:nowrap;">${esc(date)}</td>
+            <td style="font-size:12px;">${esc(p.platform)}</td>
+            <td style="font-size:12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.title)}">${p.image_url?`<img src="${esc(p.image_url)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`:'<span style="display:inline-block;width:28px;height:28px;background:var(--gray-100);border-radius:4px;vertical-align:middle;margin-right:6px;"></span>'}${esc(p.title)}</td>
+            <td style="font-size:12px;text-align:right;">${formatJPY(p.purchase_price_jpy)}</td>
+            <td style="font-size:12px;text-align:right;color:var(--accent-purple,purple);">${p.consumption_tax_jpy?formatJPY(p.consumption_tax_jpy):'-'}</td>
+            <td style="font-size:12px;text-align:right;font-weight:600;">${formatJPY(p.total_cost_jpy)}</td>
+            <td style="font-family:monospace;font-size:11px;">${esc(p.sku||'-')}</td>
+            <td>${badge}</td>
+            <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openEditProc(${p.id})" style="padding:2px 8px;font-size:11px;">✏️</button></td>
+        </tr>`;
+        html += `<tr id="detail-${p.id}" style="display:none;">
+            <td colspan="10" style="padding:12px 16px;background:var(--bg-primary);border-top:none;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:12px;">
+                    <div>
+                        <div style="font-weight:600;margin-bottom:6px;color:var(--text-secondary);">${t('Cost Breakdown','費用内訳')}</div>
+                        <div>${t('Purchase','仕入価格')}: ${formatJPY(p.purchase_price_jpy)}</div>
+                        <div>${t('Tax','消費税')}: ${formatJPY(p.consumption_tax_jpy||0)}</div>
+                        <div>${t('Shipping','送料')}: ${formatJPY(p.shipping_cost_jpy||0)}</div>
+                        <div>${t('Other','その他')}: ${formatJPY(p.other_cost_jpy||0)}</div>
+                        <div style="font-weight:600;margin-top:4px;border-top:1px solid var(--border);padding-top:4px;">${t('Total','合計')}: ${formatJPY(p.total_cost_jpy)}</div>
+                    </div>
+                    <div>
+                        <div style="font-weight:600;margin-bottom:6px;color:var(--text-secondary);">${t('Details','詳細')}</div>
+                        <div>ID: #${p.id}</div>
+                        <div>${t('Purchased','購入日')}: ${p.purchase_date?p.purchase_date.slice(0,10):'-'}</div>
+                        <div>${t('Received','受取日')}: ${p.received_date?p.received_date.slice(0,10):'-'}</div>
+                        ${p.url?`<div style="margin-top:4px;"><a href="${esc(p.url)}" target="_blank" style="color:var(--accent-blue);">${t('Source link','仕入先リンク')} ↗</a></div>`:''}
+                        ${p.notes?`<div style="margin-top:4px;color:var(--text-secondary);">📝 ${esc(p.notes)}</div>`:''}
+                    </div>
+                    <div>
+                        <div style="font-weight:600;margin-bottom:6px;color:var(--text-secondary);">${t('Sale Info','売上情報')}</div>
+                        ${p.sale?`
+                            <div>${t('Sale Price','売上')}: <span style="color:var(--accent-green);">$${p.sale.sale_price_usd.toFixed(2)}</span></div>
+                            <div>${t('Profit','利益')}: <span style="color:${p.sale.net_profit_jpy>=0?'var(--accent-green)':'var(--accent-red)'};">${formatJPY(p.sale.net_profit_jpy)}</span></div>
+                            <div>${t('Sold','売却日')}: ${p.sale.sold_at?p.sale.sold_at.slice(0,10):'-'}</div>
+                            <div>${t('Buyer','バイヤー')}: ${esc(p.sale.buyer_name||'-')}</div>
+                        `:`<div style="color:var(--text-tertiary);">${t('Not yet sold','未売却')}</div>`}
+                        <div style="margin-top:8px;">
+                            <button class="btn btn-sm" onclick="event.stopPropagation();registerToStock(${p.id})" style="font-size:11px;padding:4px 10px;">📦 ${t('Register to Stock','→ 在庫登録')}</button>
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>`;
+    }
+    document.getElementById('procBody').innerHTML = html;
+}
+
+function toggleProcDetail(id) { const d=document.getElementById(`detail-${id}`),c=document.getElementById(`chevron-${id}`); if(d.style.display==='none'){d.style.display='';c.style.transform='rotate(90deg)';}else{d.style.display='none';c.style.transform='';} }
+function filterProc(tab) { currentFilter=tab; document.querySelectorAll('.filter-pills .pill').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); renderProc(); }
+function toggleAddForm() { const f=document.getElementById('addForm'); f.style.display=f.style.display==='none'?'block':'none'; }
+
+async function submitProcurement() {
+    const body = { platform:document.getElementById('procPlatform').value, title:document.getElementById('procTitle').value, sku:document.getElementById('procSku').value, purchase_price_jpy:parseInt(document.getElementById('procPrice').value)||0, consumption_tax_jpy:parseInt(document.getElementById('procTax').value)||0, shipping_cost_jpy:parseInt(document.getElementById('procShipping').value)||0, other_cost_jpy:parseInt(document.getElementById('procOther').value)||0, purchase_date:document.getElementById('procDate').value, url:document.getElementById('procUrl').value, notes:document.getElementById('procNotes').value };
+    if(!body.title||!body.purchase_price_jpy){alert(t('Title and price required','商品名と仕入価格は必須です'));return;}
+    await apiFetch('/api/procurements',{method:'POST',body:JSON.stringify(body)});
+    document.getElementById('addForm').style.display='none';
+    ['procTitle','procSku','procPrice','procTax','procShipping','procOther','procUrl','procNotes'].forEach(id=>{const el=document.getElementById(id);if(el.type==='number')el.value='0';else el.value='';});
+    document.getElementById('procDate').value=new Date().toISOString().slice(0,10);
+    loadProcurements();
+}
+
+function openEditProc(id) {
+    const p=procData.find(x=>x.id===id); if(!p)return;
+    document.getElementById('editProcId').value=id;
+    document.getElementById('editProcPlatform').value=p.platform;
+    document.getElementById('editProcStatus').value=p.status;
+    document.getElementById('editProcTitle').value=p.title;
+    document.getElementById('editProcSku').value=p.sku||'';
+    document.getElementById('editProcPrice').value=p.purchase_price_jpy||0;
+    document.getElementById('editProcTax').value=p.consumption_tax_jpy||0;
+    document.getElementById('editProcShip').value=p.shipping_cost_jpy||0;
+    document.getElementById('editProcOther').value=p.other_cost_jpy||0;
+    document.getElementById('editProcDate').value=p.purchase_date?p.purchase_date.slice(0,10):'';
+    document.getElementById('editProcRecvDate').value=p.received_date?p.received_date.slice(0,10):'';
+    document.getElementById('editProcUrl').value=p.url||'';
+    document.getElementById('editProcNotes').value=p.notes||'';
+    document.getElementById('editProcModal').style.display='flex';
+}
+function closeEditProc(){document.getElementById('editProcModal').style.display='none';}
+async function saveEditProc() {
+    const id=document.getElementById('editProcId').value;
+    const body={platform:document.getElementById('editProcPlatform').value,status:document.getElementById('editProcStatus').value,title:document.getElementById('editProcTitle').value,sku:document.getElementById('editProcSku').value,purchase_price_jpy:parseInt(document.getElementById('editProcPrice').value)||0,consumption_tax_jpy:parseInt(document.getElementById('editProcTax').value)||0,shipping_cost_jpy:parseInt(document.getElementById('editProcShip').value)||0,other_cost_jpy:parseInt(document.getElementById('editProcOther').value)||0,purchase_date:document.getElementById('editProcDate').value,received_date:document.getElementById('editProcRecvDate').value,url:document.getElementById('editProcUrl').value,notes:document.getElementById('editProcNotes').value};
+    await apiFetch(`/api/procurements/${id}`,{method:'PUT',body:JSON.stringify(body)});
+    closeEditProc(); loadProcurements();
+}
+async function deleteProcurement(){const id=document.getElementById('editProcId').value;if(!confirm(t('Delete this record?','この仕入れ記録を削除しますか？')))return;await apiFetch(`/api/procurements/${id}`,{method:'DELETE'});closeEditProc();loadProcurements();}
+
+async function calcMargin() {
+    const body={source_price_jpy:parseInt(document.getElementById('calcSource').value)||0,sale_price_usd:parseFloat(document.getElementById('calcSale').value)||0,shipping_cost_jpy:parseInt(document.getElementById('calcShip').value)||0};
+    const r=await apiFetch('/api/margin',{method:'POST',body:JSON.stringify(body)});
+    const color=r.profitable?'var(--accent-green)':'var(--accent-red)';
+    document.getElementById('calcResult').innerHTML=`${t('Profit','利益')}: <span style="color:${color}">${formatUSD(r.profit_usd)}</span> (${formatPct(r.margin_pct)} ${t('margin','マージン')})`;
+}
+
+async function registerToStock(procId) {
+    try{const r=await apiFetch(`/api/stock/from-procurement/${procId}`,{method:'POST'});if(r.status==='already_exists'){alert(t('Already registered in stock','この仕入れは既に在庫登録済みです'));}else{alert(t('Registered to stock!','在庫に登録しました！'));}}catch(e){alert(t('Registration failed','登録に失敗しました'));console.error(e);}
+}
+
+function toggleSort(key) {
+    if(sortKey===key){sortDir=sortDir==='asc'?'desc':'asc';}else{sortKey=key;sortDir='desc';}
+    document.querySelectorAll('#procTable th.sortable').forEach(th=>{const icon=th.querySelector('.sort-icon');if(!icon)return;if(th.dataset.sort===sortKey){icon.textContent=sortDir==='asc'?' ▲':' ▼';th.style.color='var(--brand-500)';}else{icon.textContent='';th.style.color='';}});
+    renderProc();
+}
+
+function esc(text){const div=document.createElement('div');div.textContent=text||'';return div.innerHTML;}
+</script>

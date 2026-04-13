@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}仕入れ管理 — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Procurement" data-ja="仕入れ管理">Procurement</span>{% endblock %}
+{% block breadcrumb %}Procurement{% endblock %}
+
+{% block head %}
+<style>
+    .tab-nav { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+    .tab-btn {
+        padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+        border: none; background: none; color: var(--text-secondary);
+        border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    th.sortable { cursor:pointer; user-select:none; }
+    th.sortable:hover { color:var(--brand-500); }
+    .sort-icon { font-size:10px; }
+
+    /* ── KPI cards (sourcing tab) ── */
+    .proc-kpi-row {
+        display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px;
+    }
+    .proc-kpi-card {
+        background: #fff; border-radius: 10px; padding: 18px 20px;
+        box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .proc-kpi-card:nth-child(1) { border-top: 3px solid #2563EB; }
+    .proc-kpi-card:nth-child(2) { border-top: 3px solid #F59E0B; }
+    .proc-kpi-card:nth-child(3) { border-top: 3px solid #7C3AED; }
+    .proc-kpi-card:nth-child(4) { border-top: 3px solid #10B981; }
+    .proc-kpi-label {
+        font-size: 11px; font-weight: 700; color: #475569;
+        text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px;
+    }
+    .proc-kpi-val {
+        font-size: 28px; font-weight: 800; color: #0F172A;
+        letter-spacing: -.03em; line-height: 1; margin-bottom: 5px;
+    }
+    .proc-kpi-sub { font-size: 12px; color: #64748B; font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tab-nav">
+    <button class="tab-btn active" onclick="switchProcTab('ledger')" id="tabLedger" data-en="Ledger" data-ja="仕入れ台帳">Ledger</button>
+    <button class="tab-btn" onclick="switchProcTab('records')" id="tabRecords" data-en="Quick Entry" data-ja="簡易登録">Quick Entry</button>
+</div>
+
+<!-- ========== Ledger Tab (from stock.html) ========== -->
+<div class="tab-panel active" id="panelLedger">
+{% include "pages/_ledger_content.html" %}
+</div>
+
+<!-- ========== Quick Entry Tab (from sourcing.html) ========== -->
+<div class="tab-panel" id="panelRecords">
+{% include "pages/_sourcing_content.html" %}
+</div>
+
+<script>
+function switchProcTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    if (tab === 'ledger') {
+        document.getElementById('tabLedger').classList.add('active');
+        document.getElementById('panelLedger').classList.add('active');
+    } else {
+        document.getElementById('tabRecords').classList.add('active');
+        document.getElementById('panelRecords').classList.add('active');
+    }
+    history.replaceState(null, '', tab === 'records' ? '/procurement?tab=records' : '/procurement');
+}
+if (new URLSearchParams(location.search).get('tab') === 'records') switchProcTab('records');
+</script>
+{% endblock %}
