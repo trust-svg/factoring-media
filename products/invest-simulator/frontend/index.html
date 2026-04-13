@@ -3,28 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Investment Simulator</title>
+    <title>AI 投資シミュレーター</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg:         #060912;
-            --surface:    #0d1220;
-            --card:       #111827;
-            --border:     #1e2d40;
-            --accent:     #00d4ff;
-            --accent-dim: rgba(0, 212, 255, 0.10);
-            --text:       #e2e8f0;
-            --muted:      #64748b;
-            --gain:       #10b981;
-            --loss:       #f43f5e;
-            --buy:        #3b82f6;
-            --sell:       #f97316;
-            --hold:       #475569;
+            --bg:         #F1F5F9;
+            --surface:    #FFFFFF;
+            --card:       #FFFFFF;
+            --border:     #E2E8F0;
+            --border-med: #CBD5E1;
+            --accent:     #2563EB;
+            --accent-dim: rgba(37,99,235,0.08);
+            --text:       #0F172A;
+            --sub:        #1E293B;
+            --muted:      #64748B;
+            --gain:       #059669;
+            --gain-bg:    rgba(5,150,105,0.08);
+            --loss:       #DC2626;
+            --loss-bg:    rgba(220,38,38,0.08);
+            --buy:        #2563EB;
+            --buy-bg:     rgba(37,99,235,0.08);
+            --sell:       #EA580C;
+            --sell-bg:    rgba(234,88,12,0.08);
+            --hold:       #64748B;
             --mono:       'JetBrains Mono', monospace;
-            --display:    'Rajdhani', sans-serif;
             --body:       'Inter', sans-serif;
+            --shadow-sm:  0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04);
+            --shadow-md:  0 4px 12px rgba(15,23,42,0.08), 0 2px 4px rgba(15,23,42,0.04);
         }
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -34,38 +41,35 @@
             color: var(--text);
             font-family: var(--body);
             min-height: 100vh;
-            background-image:
-                radial-gradient(ellipse 60% 40% at 15% 0%,   rgba(0,212,255,0.055) 0%, transparent 55%),
-                radial-gradient(ellipse 50% 35% at 85% 100%, rgba(99,102,241,0.045) 0%, transparent 55%);
+            -webkit-font-smoothing: antialiased;
         }
 
         /* ─── HEADER ─────────────────────────────────────────── */
         .header {
             position: sticky; top: 0; z-index: 100;
             display: flex; align-items: center; justify-content: space-between;
-            padding: 14px 32px;
+            padding: 0 32px; height: 60px;
             border-bottom: 1px solid var(--border);
-            background: rgba(6,9,18,0.85);
-            backdrop-filter: blur(14px);
+            background: var(--surface);
+            box-shadow: var(--shadow-sm);
         }
 
-        .header-left { display: flex; align-items: center; gap: 14px; }
+        .header-left { display: flex; align-items: center; gap: 12px; }
 
         .logo-dot {
-            width: 9px; height: 9px;
+            width: 10px; height: 10px;
             background: var(--accent); border-radius: 50%;
-            box-shadow: 0 0 14px var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
             animation: pulse-glow 2.2s ease-in-out infinite;
         }
         @keyframes pulse-glow {
-            0%,100% { opacity:1; box-shadow: 0 0 14px var(--accent); }
-            50%      { opacity:.45; box-shadow: 0 0 4px var(--accent); }
+            0%,100% { box-shadow: 0 0 0 3px var(--accent-dim); }
+            50%      { box-shadow: 0 0 0 5px rgba(37,99,235,0.04); }
         }
 
         .title {
-            font-family: var(--display);
-            font-size: 20px; font-weight: 700;
-            letter-spacing: 2.5px; text-transform: uppercase;
+            font-size: 17px; font-weight: 700;
+            letter-spacing: -0.3px; color: var(--text);
         }
         .title em { color: var(--accent); font-style: normal; }
 
@@ -74,186 +78,276 @@
 
         .badge {
             display: inline-flex; align-items: center; gap: 6px;
-            padding: 5px 12px; border-radius: 4px;
+            padding: 5px 12px; border-radius: 20px;
             font-family: var(--mono); font-size: 11px; font-weight: 600;
-            letter-spacing: 1px; text-transform: uppercase;
+            letter-spacing: 0.5px;
             border: 1px solid; transition: all .3s;
         }
-        .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
-        .badge.open  { background: rgba(16,185,129,.10); border-color: rgba(16,185,129,.40); color: var(--gain); }
-        .badge.open .badge-dot { background: var(--gain); box-shadow: 0 0 6px var(--gain); animation: pulse-glow 1.5s ease-in-out infinite; }
-        .badge.closed { background: rgba(71,85,105,.10); border-color: rgba(71,85,105,.30); color: var(--muted); }
+        .badge-dot { width: 7px; height: 7px; border-radius: 50%; }
+        .badge.open  { background: var(--gain-bg); border-color: rgba(5,150,105,.25); color: var(--gain); }
+        .badge.open .badge-dot { background: var(--gain); animation: pulse-dot 1.5s ease-in-out infinite; }
+        @keyframes pulse-dot {
+            0%,100% { opacity: 1; } 50% { opacity: .4; }
+        }
+        .badge.closed { background: #F8FAFC; border-color: var(--border); color: var(--muted); }
         .badge.closed .badge-dot { background: var(--muted); }
 
         /* header buttons */
-        .header-right { display: flex; align-items: center; gap: 10px; }
+        .header-right { display: flex; align-items: center; gap: 8px; }
 
         .btn {
-            padding: 7px 14px; border-radius: 4px; cursor: pointer;
-            font-family: var(--mono); font-size: 11px; font-weight: 600;
-            letter-spacing: 1px; text-transform: uppercase;
-            border: 1px solid; transition: all .2s;
+            padding: 8px 16px; border-radius: 8px; cursor: pointer;
+            font-family: var(--body); font-size: 13px; font-weight: 600;
+            border: 1px solid; transition: all .15s;
         }
-        .btn-jp  { background: rgba(59,130,246,.10); border-color: rgba(59,130,246,.35); color: var(--buy); }
-        .btn-jp:hover  { background: rgba(59,130,246,.20); box-shadow: 0 0 10px rgba(59,130,246,.25); }
-        .btn-us  { background: rgba(249,115,22,.10); border-color: rgba(249,115,22,.35); color: var(--sell); }
-        .btn-us:hover  { background: rgba(249,115,22,.20); box-shadow: 0 0 10px rgba(249,115,22,.25); }
-        .btn-reset { background: rgba(244,63,94,.08); border-color: rgba(244,63,94,.25); color: var(--loss); }
-        .btn-reset:hover { background: rgba(244,63,94,.18); }
+        .btn-jp  { background: var(--buy-bg); border-color: rgba(37,99,235,.25); color: var(--buy); }
+        .btn-jp:hover  { background: rgba(37,99,235,.14); border-color: rgba(37,99,235,.4); box-shadow: var(--shadow-sm); }
+        .btn-us  { background: var(--sell-bg); border-color: rgba(234,88,12,.25); color: var(--sell); }
+        .btn-us:hover  { background: rgba(234,88,12,.14); border-color: rgba(234,88,12,.4); box-shadow: var(--shadow-sm); }
+        .btn-reset { background: var(--loss-bg); border-color: rgba(220,38,38,.2); color: var(--loss); }
+        .btn-reset:hover { background: rgba(220,38,38,.14); border-color: rgba(220,38,38,.35); }
 
         .ts {
-            font-family: var(--mono); font-size: 11px; color: var(--muted);
+            font-family: var(--mono); font-size: 12px; color: var(--muted);
             min-width: 70px; text-align: right;
         }
 
         /* ─── MAIN ────────────────────────────────────────────── */
-        .main { padding: 24px 32px; max-width: 1680px; margin: 0 auto; }
+        .main { padding: 28px 32px; max-width: 1680px; margin: 0 auto; }
 
         /* ─── METRIC CARDS ────────────────────────────────────── */
         .metrics-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 14px; margin-bottom: 20px;
+            gap: 16px; margin-bottom: 20px;
         }
 
         .metric-card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 8px; padding: 18px 22px;
-            position: relative; overflow: hidden;
+            border-radius: 12px; padding: 22px 24px;
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow .2s, border-color .2s;
         }
-        .metric-card::before {
-            content: ''; position: absolute; inset: 0 0 auto;
-            height: 2px; background: var(--accent); opacity: .45;
-        }
-        .metric-card:hover { border-color: rgba(0,212,255,.25); }
+        .metric-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-med); }
 
         .metric-label {
-            font-size: 10px; font-weight: 600;
-            letter-spacing: 1.8px; text-transform: uppercase;
-            color: var(--muted); margin-bottom: 7px;
+            font-size: 12px; font-weight: 600;
+            letter-spacing: 0.4px; text-transform: uppercase;
+            color: var(--muted); margin-bottom: 10px;
         }
         .metric-value {
-            font-family: var(--mono); font-size: 26px; font-weight: 600;
+            font-family: var(--mono); font-size: 34px; font-weight: 600;
             line-height: 1; color: var(--text);
-            transition: color .3s;
+            transition: color .3s; letter-spacing: -1px;
         }
         .metric-value.pos { color: var(--gain); }
         .metric-value.neg { color: var(--loss); }
         .metric-sub {
-            font-family: var(--mono); font-size: 11px;
-            color: var(--muted); margin-top: 7px;
+            font-size: 12px; color: var(--muted); margin-top: 8px;
         }
 
         /* ─── MIDDLE: CHART + POSITIONS ───────────────────────── */
         .mid-row {
             display: grid;
-            grid-template-columns: 1fr 370px;
-            gap: 14px; margin-bottom: 20px;
+            grid-template-columns: 1fr 380px;
+            gap: 16px; margin-bottom: 20px;
         }
 
         /* ─── PANEL ───────────────────────────────────────────── */
         .panel {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 8px; overflow: hidden;
+            border-radius: 12px; overflow: hidden;
+            box-shadow: var(--shadow-sm);
         }
         .panel-head {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 13px 18px; border-bottom: 1px solid var(--border);
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
         }
         .panel-title {
-            font-family: var(--display);
-            font-size: 12px; font-weight: 600;
-            letter-spacing: 2.2px; text-transform: uppercase; color: var(--muted);
+            font-size: 14px; font-weight: 700;
+            letter-spacing: -0.1px; color: var(--text);
         }
-        .panel-meta { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+        .panel-meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
         /* chart */
-        .chart-wrap { padding: 18px; }
-        .chart-canvas-wrap { position: relative; height: 270px; }
+        .chart-wrap { padding: 20px; }
+        .chart-canvas-wrap { position: relative; height: 280px; }
 
         /* positions */
         .pos-list {
             padding: 12px; display: flex; flex-direction: column; gap: 8px;
-            max-height: 330px; overflow-y: auto;
+            max-height: 340px; overflow-y: auto;
         }
-        .pos-list::-webkit-scrollbar { width: 3px; }
-        .pos-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .pos-list::-webkit-scrollbar { width: 4px; }
+        .pos-list::-webkit-scrollbar-track { background: #F8FAFC; }
+        .pos-list::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 4px; }
 
         .pos-item {
-            background: var(--surface); border: 1px solid var(--border);
-            border-radius: 6px; padding: 11px 14px;
+            background: #F8FAFC; border: 1px solid var(--border);
+            border-radius: 8px; padding: 12px 14px;
             display: flex; justify-content: space-between; align-items: center;
-            transition: border-color .2s;
+            transition: border-color .15s, box-shadow .15s;
         }
-        .pos-item:hover { border-color: rgba(0,212,255,.22); }
+        .pos-item:hover { border-color: var(--border-med); box-shadow: var(--shadow-sm); }
 
         .pos-ticker {
-            font-family: var(--mono); font-size: 13px; font-weight: 600;
+            font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text);
         }
         .pos-mkt {
             display: inline-block; margin-left: 6px;
-            font-family: var(--mono); font-size: 9px; font-weight: 700;
-            letter-spacing: 1px; padding: 2px 6px; border-radius: 3px;
+            font-family: var(--mono); font-size: 10px; font-weight: 700;
+            letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px;
             background: var(--accent-dim); color: var(--accent);
         }
-        .pos-shares { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; }
+        .pos-shares { font-size: 12px; color: var(--muted); margin-top: 3px; }
         .pos-right { text-align: right; }
-        .pos-pnl { font-family: var(--mono); font-size: 13px; font-weight: 600; }
-        .pos-val  { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; }
+        .pos-pnl { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+        .pos-val  { font-size: 12px; color: var(--muted); margin-top: 3px; }
 
         .gain { color: var(--gain); }
         .loss { color: var(--loss); }
         .neut { color: var(--muted); }
 
         .empty {
-            text-align: center; padding: 36px 16px;
-            color: var(--muted); font-size: 12px;
+            text-align: center; padding: 40px 16px;
+            color: var(--muted); font-size: 13px;
         }
 
         /* ─── TRADE LOG ───────────────────────────────────────── */
-        .trades-scroll { max-height: 310px; overflow-y: auto; }
-        .trades-scroll::-webkit-scrollbar { width: 3px; }
-        .trades-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .trades-scroll { max-height: 320px; overflow-y: auto; }
+        .trades-scroll::-webkit-scrollbar { width: 4px; }
+        .trades-scroll::-webkit-scrollbar-track { background: #F8FAFC; }
+        .trades-scroll::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 4px; }
+        .pagination {
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            padding: 12px 20px; border-top: 1px solid var(--border);
+        }
+        .page-btn {
+            padding: 5px 14px; border: 1px solid var(--border-med); border-radius: 6px;
+            background: var(--surface); color: var(--sub); font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .page-btn:hover:not(:disabled) { background: var(--accent-dim); color: var(--accent); }
+        .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .page-info { font-size: 13px; color: var(--muted); min-width: 60px; text-align: center; }
 
         table { width: 100%; border-collapse: collapse; }
         th {
-            padding: 11px 16px; text-align: left;
-            font-size: 10px; font-weight: 600;
-            letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted);
+            padding: 12px 18px; text-align: left;
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted);
             border-bottom: 1px solid var(--border);
+            background: #FAFBFC;
         }
-        td { padding: 9px 16px; font-size: 12px; border-bottom: 1px solid rgba(30,45,64,.45); vertical-align: middle; }
+        td { padding: 11px 18px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--sub); }
         tr:last-child td { border-bottom: none; }
-        tr:hover td { background: rgba(0,212,255,.018); }
+        tr:hover td { background: #F8FAFC; }
 
         .act-badge {
             display: inline-flex; align-items: center;
-            padding: 3px 8px; border-radius: 3px;
-            font-family: var(--mono); font-size: 10px; font-weight: 700;
-            letter-spacing: 1.2px;
+            padding: 3px 10px; border-radius: 5px;
+            font-family: var(--mono); font-size: 11px; font-weight: 700;
+            letter-spacing: 0.5px;
         }
-        .act-badge.BUY  { background: rgba(59,130,246,.15); color: var(--buy); }
-        .act-badge.SELL { background: rgba(249,115,22,.15); color: var(--sell); }
-        .act-badge.HOLD { background: rgba(71,85,105,.15); color: #94a3b8; }
+        .act-badge.BUY  { background: var(--buy-bg); color: var(--buy); }
+        .act-badge.SELL { background: var(--sell-bg); color: var(--sell); }
+        .act-badge.HOLD { background: #F1F5F9; color: var(--hold); }
 
-        .mono-td { font-family: var(--mono); }
-        .reason-td { font-size: 11px; color: var(--muted); max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mono-td { font-family: var(--mono); color: var(--text); }
+        .reason-td { font-size: 12px; color: var(--muted); max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* ─── CYCLE LOG ───────────────────────────────────────── */
+        .cycle-log-panel { margin-top: 20px; }
+        .cycle-log-scroll { max-height: 440px; overflow-y: auto; padding: 14px; }
+        .cycle-log-scroll::-webkit-scrollbar { width: 4px; }
+        .cycle-log-scroll::-webkit-scrollbar-track { background: #F8FAFC; }
+        .cycle-log-scroll::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 4px; }
+        .cycle-entry {
+            border: 1px solid var(--border); border-radius: 8px;
+            margin-bottom: 10px; overflow: hidden;
+            background: var(--card);
+        }
+        .cycle-entry-head {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 16px;
+            background: #FAFBFC;
+            cursor: pointer; user-select: none;
+            transition: background .15s;
+        }
+        .cycle-entry-head:hover { background: #F1F5F9; }
+        .cycle-mkt {
+            font-family: var(--mono); font-size: 11px; font-weight: 700;
+            letter-spacing: 0.5px; padding: 3px 9px; border-radius: 5px;
+        }
+        .cycle-mkt.JP { background: var(--buy-bg); color: var(--buy); }
+        .cycle-mkt.US { background: var(--sell-bg); color: var(--sell); }
+        .cycle-ts { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+        .cycle-summary { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; }
+        .cycle-toggle { font-size: 12px; color: var(--muted); margin-left: auto; }
+        .cycle-body { display: none; padding: 16px; border-top: 1px solid var(--border); }
+        .cycle-body.open { display: block; }
+        .cycle-section-title {
+            font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+            text-transform: uppercase; color: var(--muted); margin-bottom: 8px; margin-top: 16px;
+        }
+        .cycle-section-title:first-child { margin-top: 0; }
+        .cycle-input {
+            font-family: var(--mono); font-size: 12px; color: var(--sub);
+            background: #F8FAFC; border: 1px solid var(--border); border-radius: 6px;
+            padding: 12px 14px; white-space: pre-wrap; line-height: 1.7;
+        }
+        .cycle-decision {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 10px 0; border-bottom: 1px solid var(--border);
+        }
+        .cycle-decision:last-child { border-bottom: none; }
+        .cycle-decision-reason { font-size: 13px; color: var(--sub); line-height: 1.6; }
 
         /* flash on update */
         @keyframes flash {
-            0%   { background: rgba(0,212,255,.12); }
+            0%   { background: rgba(37,99,235,.08); }
             100% { background: transparent; }
         }
         .flash { animation: flash .5s ease-out; }
+
+        /* ─── STATUS BAR ──────────────────────────────────────── */
+        .status-bar {
+            display: flex; align-items: center; gap: 0;
+            padding: 0 32px; height: 42px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-wrap: wrap;
+        }
+        .status-item {
+            display: flex; align-items: center; gap: 7px;
+            padding: 0 20px 0 0; margin-right: 20px;
+            border-right: 1px solid var(--border); height: 100%;
+            font-family: var(--mono); font-size: 12px;
+        }
+        .status-item:last-child { border-right: none; }
+        .status-lbl { color: var(--muted); font-size: 11px; letter-spacing: 0.3px; text-transform: uppercase; }
+        .status-val { color: var(--text); font-weight: 600; }
+        .status-val.running { color: var(--gain); }
+        .status-val.stopped { color: var(--loss); }
+        .sched-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--muted); flex-shrink: 0;
+        }
+        .sched-dot.running {
+            background: var(--gain);
+            box-shadow: 0 0 0 3px var(--gain-bg);
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
 
         /* responsive */
         @media(max-width:1200px) { .mid-row { grid-template-columns: 1fr; } }
         @media(max-width:900px)  {
             .metrics-row { grid-template-columns: 1fr 1fr; }
             .main { padding: 16px; }
-            .header { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+            .header { padding: 0 16px; flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 10px; gap: 10px; }
+            .status-bar { padding: 8px 16px; height: auto; gap: 8px; }
         }
     </style>
 </head>
@@ -263,7 +357,7 @@
 <header class="header">
     <div class="header-left">
         <div class="logo-dot"></div>
-        <div class="title">AI <em>Investment</em> Simulator</div>
+        <div class="title">AI <em>投資</em> シミュレーター</div>
     </div>
 
     <div class="market-badges">
@@ -273,11 +367,40 @@
 
     <div class="header-right">
         <span class="ts" id="ts">--:--:--</span>
-        <button class="btn btn-jp"    onclick="manualTrade('JP')">▶ JP 手動</button>
-        <button class="btn btn-us"    onclick="manualTrade('US')">▶ US 手動</button>
+        <button class="btn btn-jp"    onclick="manualTrade('JP')">▶ JP 手動実行</button>
+        <button class="btn btn-us"    onclick="manualTrade('US')">▶ US 手動実行</button>
         <button class="btn btn-reset" onclick="resetSim()">⟳ リセット</button>
     </div>
 </header>
+
+<!-- ═══════════ STATUS BAR ═══════════ -->
+<div class="status-bar">
+    <div class="status-item">
+        <div class="sched-dot" id="sched-dot"></div>
+        <span class="status-lbl">スケジューラ</span>
+        <span class="status-val" id="sched-val">—</span>
+    </div>
+    <div class="status-item">
+        <span class="status-lbl">JP 次回</span>
+        <span class="status-val" id="next-jp">—</span>
+    </div>
+    <div class="status-item">
+        <span class="status-lbl">US 次回</span>
+        <span class="status-val" id="next-us">—</span>
+    </div>
+    <div class="status-item">
+        <span class="status-lbl">JP 最終</span>
+        <span class="status-val" id="last-jp">—</span>
+    </div>
+    <div class="status-item">
+        <span class="status-lbl">US 最終</span>
+        <span class="status-val" id="last-us">—</span>
+    </div>
+    <div class="status-item">
+        <span class="status-lbl">稼働時間</span>
+        <span class="status-val" id="uptime-val">—</span>
+    </div>
+</div>
 
 <!-- ═══════════ MAIN ═══════════ -->
 <main class="main">
@@ -285,24 +408,26 @@
     <!-- Metrics -->
     <div class="metrics-row">
         <div class="metric-card">
-            <div class="metric-label">Total Assets</div>
+            <div class="metric-label">総資産</div>
             <div class="metric-value" id="m-total">$—</div>
-            <div class="metric-sub"  id="m-cash">JP $— / US $—</div>
+            <div class="metric-sub" id="m-cash">JP $— / US $—</div>
+            <div class="metric-sub" id="m-total-jpy" style="margin-top:3px;color:var(--accent);font-weight:600">≈ ¥—</div>
         </div>
         <div class="metric-card">
-            <div class="metric-label">P&amp;L Amount</div>
+            <div class="metric-label">損益額</div>
             <div class="metric-value" id="m-pnl">$—</div>
-            <div class="metric-sub">Initial: $10,000.00</div>
+            <div class="metric-sub">初期資金: $10,000.00</div>
+            <div class="metric-sub" id="m-pnl-jpy" style="margin-top:3px;font-weight:600">≈ ¥—</div>
         </div>
         <div class="metric-card">
-            <div class="metric-label">P&amp;L Rate</div>
+            <div class="metric-label">損益率</div>
             <div class="metric-value" id="m-pct">—%</div>
-            <div class="metric-sub"  id="m-posval">Positions: $—</div>
+            <div class="metric-sub" id="m-posval">保有: $—</div>
         </div>
         <div class="metric-card">
-            <div class="metric-label">USD / JPY</div>
+            <div class="metric-label">為替 USD/JPY</div>
             <div class="metric-value" id="m-fx">¥—</div>
-            <div class="metric-sub"  id="m-mkt">市場データ取得中</div>
+            <div class="metric-sub" id="m-mkt">市場データ取得中</div>
         </div>
     </div>
 
@@ -310,8 +435,8 @@
     <div class="mid-row">
         <div class="panel">
             <div class="panel-head">
-                <span class="panel-title">Portfolio Value</span>
-                <span class="panel-meta" id="chart-pts">0 points</span>
+                <span class="panel-title">ポートフォリオ推移</span>
+                <span class="panel-meta" id="chart-pts">0 pt</span>
             </div>
             <div class="chart-wrap">
                 <div class="chart-canvas-wrap">
@@ -322,8 +447,8 @@
 
         <div class="panel">
             <div class="panel-head">
-                <span class="panel-title">Positions</span>
-                <span class="panel-meta" id="pos-ct">0 holdings</span>
+                <span class="panel-title">保有銘柄</span>
+                <span class="panel-meta" id="pos-ct">0 銘柄</span>
             </div>
             <div class="pos-list" id="pos-list">
                 <div class="empty">ポジションなし</div>
@@ -334,15 +459,15 @@
     <!-- Trade Log -->
     <div class="panel">
         <div class="panel-head">
-            <span class="panel-title">Trade Log</span>
-            <span class="panel-meta" id="trade-ct">0 trades</span>
+            <span class="panel-title">取引履歴</span>
+            <span class="panel-meta" id="trade-ct">0 件</span>
         </div>
         <div class="trades-scroll">
             <table>
                 <thead>
                     <tr>
-                        <th>Action</th><th>Ticker</th><th>Shares</th>
-                        <th>Price</th><th>P&amp;L</th><th>Reason</th><th>Time</th>
+                        <th>アクション</th><th>銘柄</th><th>株数</th>
+                        <th>価格</th><th>損益</th><th>理由</th><th>時刻</th>
                     </tr>
                 </thead>
                 <tbody id="trade-body">
@@ -350,13 +475,30 @@
                 </tbody>
             </table>
         </div>
+        <div class="pagination" id="trade-pagination">
+            <button class="page-btn" id="trade-prev" onclick="tradePage(-1)" disabled>&#8249; 前へ</button>
+            <span class="page-info" id="trade-page-info">1 / 1</span>
+            <button class="page-btn" id="trade-next" onclick="tradePage(1)" disabled>次へ &#8250;</button>
+        </div>
+    </div>
+
+    <!-- Cycle Analysis Log -->
+    <div class="panel cycle-log-panel">
+        <div class="panel-head">
+            <span class="panel-title">AI 分析ログ</span>
+            <span class="panel-meta" id="cycle-ct">0 件</span>
+        </div>
+        <div class="cycle-log-scroll" id="cycle-log-body">
+            <div class="empty">サイクルログなし（初回取引サイクル後に表示されます）</div>
+        </div>
     </div>
 
 </main>
 
 <script>
-const API = 'http://localhost:8000';
+const API = '';
 let chart = null;
+let _usdjpy = 150;
 
 /* ── chart init ── */
 function initChart() {
@@ -368,12 +510,12 @@ function initChart() {
             datasets: [{
                 label: 'Portfolio ($)',
                 data: [],
-                borderColor: '#00d4ff',
-                backgroundColor: 'rgba(0,212,255,0.045)',
-                borderWidth: 1.8,
+                borderColor: '#2563EB',
+                backgroundColor: 'rgba(37,99,235,0.06)',
+                borderWidth: 2,
                 pointRadius: 0,
-                pointHoverRadius: 4,
-                pointHoverBackgroundColor: '#00d4ff',
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: '#2563EB',
                 tension: 0.35,
                 fill: true,
             }]
@@ -383,22 +525,23 @@ function initChart() {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: '#111827',
-                    borderColor: '#1e2d40', borderWidth: 1,
-                    titleColor: '#64748b',
-                    bodyColor: '#e2e8f0',
+                    backgroundColor: '#FFFFFF',
+                    borderColor: '#E2E8F0', borderWidth: 1,
+                    titleColor: '#94A3B8',
+                    bodyColor: '#0F172A',
                     bodyFont: { family: 'JetBrains Mono', size: 12 },
+                    padding: 10,
                     callbacks: { label: c => `$${c.raw.toFixed(2)}` }
                 }
             },
             scales: {
                 x: {
-                    grid: { color: 'rgba(30,45,64,.5)', drawBorder: false },
-                    ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 8, maxRotation: 0 }
+                    grid: { color: 'rgba(226,232,240,.8)', drawBorder: false },
+                    ticks: { color: '#94A3B8', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 8, maxRotation: 0 }
                 },
                 y: {
-                    grid: { color: 'rgba(30,45,64,.5)', drawBorder: false },
-                    ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 11 }, callback: v => `$${v.toLocaleString()}` }
+                    grid: { color: 'rgba(226,232,240,.8)', drawBorder: false },
+                    ticks: { color: '#94A3B8', font: { family: 'JetBrains Mono', size: 11 }, callback: v => `$${v.toLocaleString()}` }
                 }
             },
             interaction: { intersect: false, mode: 'index' },
@@ -411,6 +554,8 @@ function initChart() {
 const f$ = v  => '$' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 const fS = v  => (v >= 0 ? '+' : '−') + f$(Math.abs(v));
 const fP = v  => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+const fY = v  => '¥' + Math.round(Math.abs(v)).toLocaleString('ja-JP');
+const fYS = v => (v >= 0 ? '+' : '−') + fY(v);
 const fT = ts => { const d = new Date(ts); return d.toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'}); };
 const fD = ts => { const d = new Date(ts); return (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getDate().toString().padStart(2,'0') + ' ' + fT(ts); };
 
@@ -423,6 +568,7 @@ function flash(el) {
 /* ── portfolio ── */
 async function fetchPortfolio() {
     const d = await fetch(`${API}/api/portfolio`).then(r => r.json());
+    _usdjpy = d.usdjpy || 150;
 
     const te = document.getElementById('m-total');
     te.textContent = f$(d.total_value); flash(te);
@@ -437,7 +583,11 @@ async function fetchPortfolio() {
 
     document.getElementById('m-fx').textContent = '¥' + d.usdjpy.toFixed(2);
     document.getElementById('m-cash').textContent = `JP ${f$(d.cash_jp)} / US ${f$(d.cash_us)}`;
-    document.getElementById('m-posval').textContent = `Positions: ${f$(d.position_value)}`;
+    document.getElementById('m-total-jpy').textContent = `≈ ${fY(d.total_value * _usdjpy)}`;
+    const pnlJpy = document.getElementById('m-pnl-jpy');
+    pnlJpy.textContent = `≈ ${fYS(d.pnl * _usdjpy)}`;
+    pnlJpy.style.color = d.pnl >= 0 ? 'var(--gain)' : 'var(--loss)';
+    document.getElementById('m-posval').textContent = `保有: ${f$(d.position_value)} / ${fY(d.position_value * _usdjpy)}`;
     document.getElementById('m-mkt').textContent =
         `JP: ${d.jp_market_open ? '▲ 開場' : '— 閉場'} / US: ${d.us_market_open ? '▲ 開場' : '— 閉場'}`;
 
@@ -453,11 +603,12 @@ async function fetchPortfolio() {
 /* ── positions ── */
 async function fetchPositions() {
     const data = await fetch(`${API}/api/positions`).then(r => r.json());
-    document.getElementById('pos-ct').textContent = `${data.length} holdings`;
+    document.getElementById('pos-ct').textContent = `${data.length} 銘柄`;
     const list = document.getElementById('pos-list');
-    if (!data.length) { list.innerHTML = '<div class="empty">ポジションなし</div>'; return; }
+    if (!data.length) { list.innerHTML = '<div class="empty">保有銘柄なし</div>'; return; }
     list.innerHTML = data.map(p => {
         const cls = p.pnl_pct >= 0 ? 'gain' : 'loss';
+        const jpy = fY(p.current_value * _usdjpy);
         return `
         <div class="pos-item">
             <div>
@@ -466,22 +617,30 @@ async function fetchPositions() {
             </div>
             <div class="pos-right">
                 <div class="pos-pnl ${cls}">${fP(p.pnl_pct)}</div>
-                <div class="pos-val">${f$(p.current_value)}</div>
+                <div class="pos-val">${f$(p.current_value)} <span style="color:var(--accent);font-size:11px">${jpy}</span></div>
             </div>
         </div>`;
     }).join('');
 }
 
-/* ── trades ── */
-async function fetchTrades() {
-    const data = await fetch(`${API}/api/trades`).then(r => r.json());
-    document.getElementById('trade-ct').textContent = `${data.length} trades`;
+/* ── trades (paginated) ── */
+let _tradePage = 1;
+const _tradeLimit = 20;
+
+async function fetchTrades(page) {
+    if (page !== undefined) _tradePage = page;
+    const res = await fetch(`${API}/api/trades?page=${_tradePage}&limit=${_tradeLimit}`).then(r => r.json());
+    const items = res.items || [];
+    document.getElementById('trade-ct').textContent = `${res.total} 件`;
+    document.getElementById('trade-page-info').textContent = `${res.page} / ${res.pages}`;
+    document.getElementById('trade-prev').disabled = res.page <= 1;
+    document.getElementById('trade-next').disabled = res.page >= res.pages;
     const tb = document.getElementById('trade-body');
-    if (!data.length) {
+    if (!items.length) {
         tb.innerHTML = '<tr><td colspan="7" class="empty">取引履歴なし</td></tr>';
         return;
     }
-    tb.innerHTML = data.map(t => {
+    tb.innerHTML = items.map(t => {
         const pnlHtml = t.pnl != null
             ? `<span class="mono-td ${t.pnl >= 0 ? 'gain' : 'loss'}">${fS(t.pnl)}</span>`
             : '<span class="neut">—</span>';
@@ -498,18 +657,126 @@ async function fetchTrades() {
     }).join('');
 }
 
+function tradePage(delta) {
+    fetchTrades(_tradePage + delta);
+}
+
 /* ── chart data ── */
 async function fetchChart() {
     const data = await fetch(`${API}/api/snapshots`).then(r => r.json());
-    document.getElementById('chart-pts').textContent = `${data.length} points`;
+    document.getElementById('chart-pts').textContent = `${data.length} pt`;
     if (!data.length || !chart) return;
     chart.data.labels = data.map(s => fT(s.recorded_at));
     chart.data.datasets[0].data = data.map(s => s.total_value);
     const first = data[0].total_value, last = data[data.length-1].total_value;
     const up = last >= first;
-    chart.data.datasets[0].borderColor     = up ? '#10b981' : '#f43f5e';
-    chart.data.datasets[0].backgroundColor = up ? 'rgba(16,185,129,.045)' : 'rgba(244,63,94,.045)';
+    chart.data.datasets[0].borderColor     = up ? '#059669' : '#DC2626';
+    chart.data.datasets[0].backgroundColor = up ? 'rgba(5,150,105,0.06)' : 'rgba(220,38,38,0.06)';
     chart.update('none');
+}
+
+/* ── cycle log ── */
+function actionColor(a) {
+    if (a === 'BUY')  return 'var(--buy)';
+    if (a === 'SELL') return 'var(--sell)';
+    return 'var(--hold)';
+}
+function actionBg(a) {
+    if (a === 'BUY')  return 'var(--buy-bg)';
+    if (a === 'SELL') return 'var(--sell-bg)';
+    return '#F1F5F9';
+}
+function toggleCycle(el) {
+    const body = el.nextElementSibling;
+    const tog  = el.querySelector('.cycle-toggle');
+    body.classList.toggle('open');
+    tog.textContent = body.classList.contains('open') ? '▲ 閉じる' : '▼ 展開';
+}
+async function fetchCycleLog() {
+    try {
+        const data = await fetch(`${API}/api/cycle_log`).then(r => r.json());
+        document.getElementById('cycle-ct').textContent = `${data.length} 件`;
+        const container = document.getElementById('cycle-log-body');
+        if (!data.length) {
+            container.innerHTML = '<div class="empty">サイクルログなし（初回取引サイクル後に表示されます）</div>';
+            return;
+        }
+        container.innerHTML = data.map((log, i) => {
+            const ts  = new Date(log.timestamp).toLocaleString('ja-JP');
+            const decisions = log.decisions || [];
+            const summary = decisions.length
+                ? decisions.map(d => d.action === 'HOLD' ? 'HOLD' : `${d.action} ${d.ticker}`).join(' / ')
+                : 'ツール未実行';
+            const decisionsHtml = decisions.length
+                ? decisions.map(d => `
+                    <div class="cycle-decision">
+                        <span class="act-badge ${d.action}" style="background:${actionBg(d.action)};color:${actionColor(d.action)};font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:5px;flex-shrink:0">${d.action}</span>
+                        <div>
+                            ${d.ticker ? `<div style="font-family:var(--mono);font-size:13px;font-weight:600;margin-bottom:3px;color:var(--text)">${d.ticker}${d.shares ? ` × ${d.shares}株` : ''} ${d.price ? `@ $${d.price.toFixed(2)}` : ''}</div>` : ''}
+                            <div class="cycle-decision-reason">${d.reason || ''}</div>
+                        </div>
+                    </div>`).join('')
+                : '<div style="font-size:13px;color:var(--muted)">ツールが呼び出されませんでした</div>';
+            return `
+                <div class="cycle-entry">
+                    <div class="cycle-entry-head" onclick="toggleCycle(this)">
+                        <span class="cycle-mkt ${log.market}">${log.market}</span>
+                        <span class="cycle-ts">${ts}</span>
+                        <span class="cycle-summary">${summary}</span>
+                        <span class="cycle-toggle">▼ 展開</span>
+                    </div>
+                    <div class="cycle-body${i === 0 ? ' open' : ''}">
+                        <div class="cycle-section-title">Claude への入力</div>
+                        <div class="cycle-input">${log.input.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                        <div class="cycle-section-title">判断結果</div>
+                        ${decisionsHtml}
+                    </div>
+                </div>`;
+        }).join('');
+        // 最新エントリのトグルを更新
+        const firstHead = container.querySelector('.cycle-entry-head');
+        if (firstHead) firstHead.querySelector('.cycle-toggle').textContent = '▲ 閉じる';
+    } catch(e) { /* silent */ }
+}
+
+/* ── status ── */
+function fmtNext(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+function fmtAgo(iso) {
+    if (!iso) return '—';
+    const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (diff < 60) return `${diff}秒前`;
+    if (diff < 3600) return `${Math.floor(diff/60)}分前`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}時間前`;
+    return `${Math.floor(diff/86400)}日前`;
+}
+function fmtUptime(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+async function fetchStatus() {
+    try {
+        const d = await fetch(`${API}/api/status`).then(r => r.json());
+        const dot = document.getElementById('sched-dot');
+        const val = document.getElementById('sched-val');
+        if (d.scheduler_running) {
+            dot.className = 'sched-dot running';
+            val.textContent = 'RUNNING'; val.className = 'status-val running';
+        } else {
+            dot.className = 'sched-dot';
+            val.textContent = 'STOPPED'; val.className = 'status-val stopped';
+        }
+        document.getElementById('next-jp').textContent = fmtNext(d.next_jp_run);
+        document.getElementById('next-us').textContent = fmtNext(d.next_us_run);
+        document.getElementById('last-jp').textContent = fmtAgo(d.last_jp_run);
+        document.getElementById('last-us').textContent = fmtAgo(d.last_us_run);
+        document.getElementById('uptime-val').textContent = fmtUptime(d.uptime_seconds);
+    } catch(e) { /* silent */ }
 }
 
 /* ── manual trade ── */
@@ -538,7 +805,7 @@ async function resetSim() {
 
 /* ── full refresh ── */
 async function refresh() {
-    await Promise.allSettled([fetchPortfolio(), fetchPositions(), fetchTrades(), fetchChart()]);
+    await Promise.allSettled([fetchPortfolio(), fetchPositions(), fetchTrades(), fetchChart(), fetchStatus(), fetchCycleLog()]);
     document.getElementById('ts').textContent = new Date().toLocaleTimeString('ja-JP');
 }
 

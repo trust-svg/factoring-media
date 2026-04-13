@@ -1,4 +1,5 @@
 import sqlite3
+import json
 import os
 from datetime import datetime
 from typing import Optional
@@ -46,6 +47,14 @@ def init_db(
         CREATE TABLE IF NOT EXISTS snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             total_value REAL NOT NULL,
+            recorded_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS cycle_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            market TEXT NOT NULL,
+            input_text TEXT NOT NULL,
+            decisions_json TEXT NOT NULL,
             recorded_at TEXT NOT NULL
         );
     """)
@@ -154,6 +163,27 @@ def get_trades(limit: int = 50) -> list:
     return [dict(r) for r in rows]
 
 
+def get_trades_paginated(limit: int = 20, offset: int = 0) -> dict:
+    conn = get_conn()
+    total = conn.execute("SELECT COUNT(*) FROM trades").fetchone()[0]
+    rows = conn.execute(
+        "SELECT * FROM trades ORDER BY executed_at DESC LIMIT ? OFFSET ?", (limit, offset)
+    ).fetchall()
+    conn.close()
+    return {"total": total, "items": [dict(r) for r in rows]}
+
+
+def get_trades_since(days: int = 7) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM trades WHERE executed_at >= datetime('now', ? || ' days') "
+        "ORDER BY executed_at DESC",
+        (f"-{days}",),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def record_snapshot(total_value: float) -> None:
     conn = get_conn()
     conn.execute(
@@ -173,6 +203,40 @@ def get_snapshots(limit: int = 100) -> list:
     return [dict(r) for r in rows]
 
 
+def record_cycle_log(log: dict) -> None:
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO cycle_logs (timestamp, market, input_text, decisions_json, recorded_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (
+            log["timestamp"],
+            log["market"],
+            log["input"],
+            json.dumps(log["decisions"], ensure_ascii=False),
+            datetime.now().isoformat(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_cycle_logs(limit: int = 30) -> list:
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM cycle_logs ORDER BY recorded_at DESC LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "timestamp": r["timestamp"],
+            "market": r["market"],
+            "input": r["input_text"],
+            "decisions": json.loads(r["decisions_json"]),
+        }
+        for r in rows
+    ]
+
+
 def reset_db(
     initial_capital: float = 10000.0,
     jp_alloc: float = 0.5,
@@ -184,6 +248,7 @@ def reset_db(
         DELETE FROM positions;
         DELETE FROM trades;
         DELETE FROM snapshots;
+        DELETE FROM cycle_logs;
     """)
     conn.execute(
         "INSERT INTO portfolio (id, cash_jp, cash_us, updated_at) VALUES (1, ?, ?, ?)",

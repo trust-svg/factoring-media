@@ -1,9 +1,11 @@
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
+import pytz
 
 import db
 import market as mkt
@@ -12,11 +14,12 @@ from scheduler import create_scheduler
 load_dotenv()
 
 _scheduler = None
+_start_time: datetime | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _scheduler
+    global _scheduler, _start_time
     db.init_db(
         initial_capital=float(os.getenv("INITIAL_CAPITAL", 10000)),
         jp_alloc=float(os.getenv("JP_ALLOCATION", 0.5)),
@@ -24,6 +27,7 @@ async def lifespan(app: FastAPI):
     )
     _scheduler = create_scheduler(int(os.getenv("CHECK_INTERVAL_MINUTES", 15)))
     _scheduler.start()
+    _start_time = datetime.now(timezone.utc)
     yield
     if _scheduler and _scheduler.running:
         _scheduler.shutdown()
@@ -75,8 +79,16 @@ def get_positions():
 
 
 @app.get("/api/trades")
-def get_trades():
-    return db.get_trades(50)
+def get_trades(page: int = 1, limit: int = 20):
+    offset = (page - 1) * limit
+    data = db.get_trades_paginated(limit=limit, offset=offset)
+    return {
+        "items": data["items"],
+        "total": data["total"],
+        "page": page,
+        "limit": limit,
+        "pages": max(1, (data["total"] + limit - 1) // limit),
+    }
 
 
 @app.get("/api/snapshots")
@@ -84,8 +96,44 @@ def get_snapshots():
     return list(reversed(db.get_snapshots(100)))
 
 
+@app.get("/api/status")
+def get_status():
+    jst = pytz.timezone("Asia/Tokyo")
+    scheduler_running = _scheduler is not None and _scheduler.running
+
+    next_jp = next_us = None
+    if scheduler_running:
+        jp_job = _scheduler.get_job("jp_cycle")
+        us_job = _scheduler.get_job("us_cycle")
+        if jp_job and jp_job.next_run_time:
+            next_jp = jp_job.next_run_time.astimezone(jst).isoformat()
+        if us_job and us_job.next_run_time:
+            next_us = us_job.next_run_time.astimezone(jst).isoformat()
+
+    trades = db.get_trades(200)
+    last_jp = next((t["executed_at"] for t in trades if t["market"] == "JP"), None)
+    last_us = next((t["executed_at"] for t in trades if t["market"] == "US"), None)
+
+    uptime = int((datetime.now(timezone.utc) - _start_time).total_seconds()) if _start_time else 0
+
+    return {
+        "scheduler_running": scheduler_running,
+        "next_jp_run": next_jp,
+        "next_us_run": next_us,
+        "last_jp_run": last_jp,
+        "last_us_run": last_us,
+        "uptime_seconds": uptime,
+        "interval_minutes": int(os.getenv("CHECK_INTERVAL_MINUTES", 15)),
+    }
+
+
 class ManualTradeRequest(BaseModel):
     market: str  # "JP" or "US"
+
+
+@app.get("/api/cycle_log")
+def get_cycle_log():
+    return db.get_cycle_logs(30)
 
 
 @app.post("/api/trade/manual")
