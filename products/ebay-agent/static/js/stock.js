@@ -193,9 +193,9 @@ function platBadge(name) {
 function renderCell(colId, i) {
     switch (colId) {
         case 'stock_no':
-            return `<td style="font-size:14px;white-space:nowrap;">
+            return `<td style="font-size:12px;white-space:nowrap;">
                 <input type="text" value="${esc(i.stock_number || '')}" placeholder="-"
-                    style="width:70px;padding:2px 4px;font-size:14px;border:1px solid transparent;border-radius:4px;background:transparent;text-align:center;"
+                    style="width:70px;padding:2px 4px;font-size:12px;border:1px solid transparent;border-radius:4px;background:transparent;text-align:center;"
                     onfocus="this.style.borderColor='var(--brand-500)';this.style.background='white'"
                     onblur="this.style.borderColor='transparent';this.style.background='transparent';saveStockNumber(${i.id},this.value)"
                     onkeydown="if(event.key==='Enter'){this.blur()}"
@@ -210,7 +210,7 @@ function renderCell(colId, i) {
             const titleContent = i.purchase_url
                 ? `<a href="${esc(i.purchase_url)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--brand-500)'" onmouseout="this.style.color='inherit'">${titleText}</a>`
                 : titleText;
-            return `<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;" title="${esc(i.title)}">${thumb}${titleContent}</td>`;
+            return `<td style="max-width:220px;font-size:12px;display:table-cell;overflow:hidden;" title="${esc(i.title)}"><div style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;">${thumb}${titleContent}</div></td>`;
         }
         case 'cost': {
             const totalCost = i.purchase_price_jpy + i.consumption_tax_jpy + (i.shipping_cost_jpy || 0);
@@ -219,10 +219,10 @@ function renderCell(colId, i) {
             if (i.consumption_tax_jpy) details.push(`税¥${i.consumption_tax_jpy.toLocaleString()}`);
             if (i.shipping_cost_jpy) details.push(`送¥${i.shipping_cost_jpy.toLocaleString()}`);
             const detailNote = details.length > 1 ? `<br><span style="font-size:10px;color:var(--text-muted);">${details.join(' + ')}</span>` : '';
-            return `<td style="font-size:15px;">¥${totalCost.toLocaleString()}${detailNote}</td>`;
+            return `<td style="font-size:12px;">¥${totalCost.toLocaleString()}${detailNote}</td>`;
         }
         case 'date':
-            return `<td style="font-size:15px;">${i.purchase_date || '-'}</td>`;
+            return `<td style="font-size:12px;white-space:nowrap;">${i.purchase_date || '-'}</td>`;
         case 'source': {
             const badge = i.purchase_source ? platBadge(i.purchase_source) : '<span style="color:#CBD5E1;font-size:11px;">-</span>';
             const link = i.purchase_url
@@ -243,15 +243,13 @@ function renderCell(colId, i) {
             if (i.sale) {
                 const profit = i.sale.net_profit_jpy || 0;
                 const profitColor = profit >= 0 ? 'var(--success-500)' : 'var(--error-500)';
-                return `<td style="font-size:14px;">
-                    <a href="/sales" onclick="localStorage.setItem('highlight_sale','${i.sale.id}');" style="color:var(--accent-blue);text-decoration:none;">
-                        $${(i.sale.sale_price_usd || 0).toFixed(0)} ↗
-                    </a>
-                    <br><span style="font-size:10px;color:${profitColor};font-weight:600;">¥${profit.toLocaleString()}</span>
-                    <br><span style="font-size:10px;color:var(--text-muted);">${i.sold_at || ''}</span>
+                return `<td style="font-size:12px;white-space:nowrap;">
+                    ${i.sold_at || '-'}
+                    <br><a href="/sales" onclick="localStorage.setItem('highlight_sale','${i.sale.id}');" style="color:var(--accent-blue);font-size:10px;text-decoration:none;">$${(i.sale.sale_price_usd || 0).toFixed(0)} ↗</a>
+                    <span style="font-size:10px;color:${profitColor};font-weight:600;margin-left:4px;">¥${profit.toLocaleString()}</span>
                 </td>`;
             }
-            return `<td style="font-size:15px;">${i.sold_at || '-'}</td>`;
+            return `<td style="font-size:12px;white-space:nowrap;">${i.sold_at || '-'}</td>`;
         }
         case 'ebay': {
             if (i.ebay_item_id) {
