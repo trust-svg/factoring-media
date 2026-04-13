@@ -270,21 +270,21 @@ function renderProc() {
 
 function platBadge(name) {
     const m = {
-        'メルカリ':                {bg:'#FFF1F2', color:'#E11D48'},   // ローズ（鮮やか）
+        'メルカリ':                {bg:'#FFF1F2', color:'#E11D48'},   // ローズ
         'メルカリShops':           {bg:'#FFF1F2', color:'#E11D48'},
-        '楽天':                    {bg:'#FEF2F2', color:'#991B1B'},   // レッド（落ち着いた深め）
+        '楽天':                    {bg:'#F0FDFA', color:'#0F766E'},   // ティール（赤系から完全移動）
         'Amazon':                  {bg:'#FFF7ED', color:'#C2410C'},   // オレンジ
         'ヤフオク':                {bg:'#FEFCE8', color:'#A16207'},   // イエロー
-        'ヤフーショッピング':       {bg:'#FFFBEB', color:'#B45309'},   // アンバー
-        'Yahooフリマ':             {bg:'#F0F9FF', color:'#0369A1'},   // スカイブルー（ヤフオクと別色）
+        'ヤフーショッピング':       {bg:'#F7FEE7', color:'#3F6212'},   // ライム（黄系から完全移動）
+        'Yahooフリマ':             {bg:'#F0F9FF', color:'#0369A1'},   // スカイブルー
         'ラクマ':                  {bg:'#F5F3FF', color:'#7C3AED'},   // バイオレット
         'まんだらけ':              {bg:'#FDF4FF', color:'#A21CAF'},   // フューシャ
         '駿河屋':                  {bg:'#EFF6FF', color:'#1D4ED8'},   // ブルー
         'デジマート':              {bg:'#EEF2FF', color:'#4338CA'},   // インディゴ
-        'GEO':                     {bg:'#F7FEE7', color:'#4D7C0F'},   // ライム
-        'セカンドストリート':       {bg:'#ECFDF5', color:'#065F46'},   // エメラルド
-        'ネットモール(OFFモール)':  {bg:'#F0FDFA', color:'#115E59'},   // ティール
-        'トレファク':              {bg:'#ECFEFF', color:'#0E7490'},   // シアン
+        'GEO':                     {bg:'#ECFDF5', color:'#059669'},   // エメラルド
+        'セカンドストリート':       {bg:'#ECFEFF', color:'#0891B2'},   // シアン
+        'ネットモール(OFFモール)':  {bg:'#FFFBEB', color:'#B45309'},   // アンバー
+        'トレファク':              {bg:'#FFF8F5', color:'#9A3412'},   // テラコッタ
     };
     const s = m[name] || {bg:'#F1F5F9', color:'#475569'};
     return `<span class="plat-badge" style="background:${s.bg};color:${s.color}">${esc(name)}</span>`;
