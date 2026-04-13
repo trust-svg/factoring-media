@@ -20,12 +20,13 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /opt/apps/claude-workspace
+            git remote set-url origin https://github.com/trust-svg/factoring-media.git
             git fetch origin master
             git reset --hard origin/master
             echo "=== git log ==="
             git log --oneline -3
-            echo "=== overview.html check ==="
-            grep -c "ac blue\|top-row\|achievement-card" products/ebay-agent/templates/pages/overview.html || true
+            echo "=== new HTML check ==="
+            grep -c "top-row\|ac blue" products/ebay-agent/templates/pages/overview.html || echo "NOT FOUND"
             cd products/ebay-agent
             docker compose down
             docker compose build --no-cache
