@@ -201,16 +201,16 @@ function renderCell(colId, i) {
                     onkeydown="if(event.key==='Enter'){this.blur()}"
                 ></td>`;
         case 'sku':
-            return `<td style="font-size:14px;color:var(--text-secondary);white-space:nowrap;">${esc(i.sku || '-')}</td>`;
+            return `<td style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">${esc(i.sku || '-')}</td>`;
         case 'title': {
             const thumb = i.image_url
-                ? `<img src="${esc(i.image_url)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
-                : '';
-            const titleText = esc((i.title || '').slice(0, 40));
+                ? `<img src="${esc(i.image_url)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">`
+                : `<span style="display:inline-block;width:28px;height:28px;flex-shrink:0;"></span>`;
+            const titleText = esc((i.title || '').slice(0, 60));
             const titleContent = i.purchase_url
                 ? `<a href="${esc(i.purchase_url)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--brand-500)'" onmouseout="this.style.color='inherit'">${titleText}</a>`
                 : titleText;
-            return `<td style="max-width:220px;font-size:12px;display:table-cell;overflow:hidden;" title="${esc(i.title)}"><div style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;">${thumb}${titleContent}</div></td>`;
+            return `<td style="max-width:240px;font-size:12px;" title="${esc(i.title)}"><div style="display:flex;align-items:flex-start;gap:6px;"><div style="flex-shrink:0;padding-top:1px;">${thumb}</div><div style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;min-width:0;">${titleContent}</div></div></td>`;
         }
         case 'cost': {
             const totalCost = i.purchase_price_jpy + i.consumption_tax_jpy + (i.shipping_cost_jpy || 0);
@@ -219,7 +219,7 @@ function renderCell(colId, i) {
             if (i.consumption_tax_jpy) details.push(`税¥${i.consumption_tax_jpy.toLocaleString()}`);
             if (i.shipping_cost_jpy) details.push(`送¥${i.shipping_cost_jpy.toLocaleString()}`);
             const detailNote = details.length > 1 ? `<br><span style="font-size:10px;color:var(--text-muted);">${details.join(' + ')}</span>` : '';
-            return `<td style="font-size:12px;">¥${totalCost.toLocaleString()}${detailNote}</td>`;
+            return `<td style="font-size:13px;">¥${totalCost.toLocaleString()}${detailNote}</td>`;
         }
         case 'date':
             return `<td style="font-size:12px;white-space:nowrap;">${i.purchase_date || '-'}</td>`;
@@ -255,11 +255,11 @@ function renderCell(colId, i) {
             if (i.ebay_item_id) {
                 const usd = i.ebay_price_usd || 0;
                 const jpy = Math.round(usd * _usdJpyRate);
-                const ebayLink = `<a href="https://www.ebay.com/itm/${i.ebay_item_id}" target="_blank" style="color:var(--accent-blue);font-size:14px;">$${usd} ↗</a>`;
+                const ebayLink = `<a href="https://www.ebay.com/itm/${i.ebay_item_id}" target="_blank" style="color:var(--accent-blue);font-size:12px;">$${usd} ↗</a>`;
                 const jpyNote = jpy ? `<br><span style="font-size:10px;color:var(--text-muted);">≈¥${jpy.toLocaleString()}</span>` : '';
-                return `<td style="font-size:14px;">${ebayLink}${jpyNote}</td>`;
+                return `<td style="font-size:12px;">${ebayLink}${jpyNote}</td>`;
             }
-            return `<td style="font-size:14px;"><span style="color:var(--text-muted);">-</span></td>`;
+            return `<td style="font-size:12px;"><span style="color:var(--text-muted);">-</span></td>`;
         }
         case 'ss': {
             const ssIcon = i.screenshot_path
