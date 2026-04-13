@@ -270,23 +270,23 @@ function renderProc() {
 
 function platBadge(name) {
     const m = {
-        'メルカリ':                {bg:'#FFF1F2', color:'#E11D48'},   // ローズ
-        'メルカリShops':           {bg:'#FFF1F2', color:'#E11D48'},
-        '楽天':                    {bg:'#F0FDFA', color:'#0F766E'},   // ティール（赤系から完全移動）
-        'Amazon':                  {bg:'#FFF7ED', color:'#C2410C'},   // オレンジ
-        'ヤフオク':                {bg:'#FEFCE8', color:'#A16207'},   // イエロー
-        'ヤフーショッピング':       {bg:'#F7FEE7', color:'#3F6212'},   // ライム（黄系から完全移動）
-        'Yahooフリマ':             {bg:'#F0F9FF', color:'#0369A1'},   // スカイブルー
-        'ラクマ':                  {bg:'#F5F3FF', color:'#7C3AED'},   // バイオレット
-        'まんだらけ':              {bg:'#FDF4FF', color:'#A21CAF'},   // フューシャ
-        '駿河屋':                  {bg:'#EFF6FF', color:'#1D4ED8'},   // ブルー
-        'デジマート':              {bg:'#EEF2FF', color:'#4338CA'},   // インディゴ
-        'GEO':                     {bg:'#ECFDF5', color:'#059669'},   // エメラルド
-        'セカンドストリート':       {bg:'#ECFEFF', color:'#0891B2'},   // シアン
-        'ネットモール(OFFモール)':  {bg:'#FFFBEB', color:'#B45309'},   // アンバー
-        'トレファク':              {bg:'#FFF8F5', color:'#9A3412'},   // テラコッタ
+        'メルカリ':                {bg:'#FFE4E6', color:'#BE123C'},   // ローズ
+        'メルカリShops':           {bg:'#FFE4E6', color:'#BE123C'},
+        '楽天':                    {bg:'#CCFBF1', color:'#0F766E'},   // ティール
+        'Amazon':                  {bg:'#FFEDD5', color:'#9A3412'},   // オレンジ
+        'ヤフオク':                {bg:'#FEF9C3', color:'#854D0E'},   // イエロー
+        'ヤフーショッピング':       {bg:'#DCFCE7', color:'#166534'},   // ライム
+        'Yahooフリマ':             {bg:'#E0F2FE', color:'#075985'},   // スカイ
+        'ラクマ':                  {bg:'#EDE9FE', color:'#5B21B6'},   // バイオレット
+        'まんだらけ':              {bg:'#FAE8FF', color:'#86198F'},   // フューシャ
+        '駿河屋':                  {bg:'#DBEAFE', color:'#1E40AF'},   // ブルー
+        'デジマート':              {bg:'#E0E7FF', color:'#3730A3'},   // インディゴ
+        'GEO':                     {bg:'#D1FAE5', color:'#065F46'},   // エメラルド
+        'セカンドストリート':       {bg:'#CFFAFE', color:'#155E75'},   // シアン
+        'ネットモール(OFFモール)':  {bg:'#FEF3C7', color:'#92400E'},   // アンバー
+        'トレファク':              {bg:'#FCE7F3', color:'#9D174D'},   // ピンク
     };
-    const s = m[name] || {bg:'#F1F5F9', color:'#475569'};
+    const s = m[name] || {bg:'#E2E8F0', color:'#334155'};
     return `<span class="plat-badge" style="background:${s.bg};color:${s.color}">${esc(name)}</span>`;
 }
 function toggleProcDetail(id) {
