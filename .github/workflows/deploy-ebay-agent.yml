@@ -19,7 +19,8 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /opt/apps/ebay-agent
+            cd /opt/apps/claude-workspace
             git pull
-            docker compose restart ebay-agent
+            cd products/ebay-agent
+            docker compose up -d --build
             echo "Deploy done: ${{ github.event.inputs.message }}"
