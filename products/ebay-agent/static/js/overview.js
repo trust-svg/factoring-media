@@ -99,6 +99,14 @@ function renderAchievement(data) {
         revPaceEl.className = `ach-pace ${cls}`;
     }
 
+    const revBadge = document.getElementById('revBadge');
+    if (revBadge) {
+        revBadge.textContent = `${Math.round(rev.rate)}% 達成`;
+        revBadge.className = `badge ${rev.rate >= 100 ? 'g' : rev.rate >= 80 ? 'y' : 'r'}`;
+    }
+    const revRemainEl = document.getElementById('revRemain');
+    if (revRemainEl) revRemainEl.textContent = `残 ${fmtM(Math.max(rev.target - rev.actual, 0))}`;
+
     /* Margin */
     const marginRatePct = margin.target > 0 ? margin.actual / margin.target * 100 : 0;
     const marginColor   = marginRatePct >= 100 ? 'var(--green)' : marginRatePct >= 80 ? 'var(--orange)' : 'var(--red)';
@@ -114,19 +122,40 @@ function renderAchievement(data) {
         marginPaceEl.className = `ach-pace ${cls}`;
     }
 
+    const marginBadge = document.getElementById('marginBadge');
+    if (marginBadge) {
+        marginBadge.textContent = `${Math.round(marginRatePct)}% 達成`;
+        marginBadge.className = `badge ${marginRatePct >= 100 ? 'g' : marginRatePct >= 80 ? 'y' : 'r'}`;
+    }
+
     /* Profit */
     const profitColor = profit.rate >= 100 ? 'var(--green)' : 'var(--indigo)';
     setText('profitActual', fmt(profit.actual));
     setBar('profitBar', profit.rate, profitColor);
     setText('profitRate', pct(profit.rate));
+
+    const profitBadge = document.getElementById('profitBadge');
+    if (profitBadge) {
+        profitBadge.textContent = `${Math.round(profit.rate)}% 達成`;
+        profitBadge.className = `badge ${profit.rate >= 100 ? 'g' : profit.rate >= 80 ? 'y' : 'r'}`;
+    }
+    const profitPaceEl = document.getElementById('profitPace');
+    if (profitPaceEl) {
+        const icon = profit.projected_eom >= profit.target ? '✅' : '📉';
+        profitPaceEl.textContent = `予測: ${fmtM(profit.projected_eom)} ${icon}`;
+    }
 }
 
 /* ── Payoneer card (static placeholder) ─────────────────── */
 function renderPayoneerStatic() {
     setText('pyBalance', '$2,840');
-    setText('pySub',     '今月入金 $1,240');
-    setText('pyDiff',    '+$580');
-    setText('pyRate',    '¥152 / $');
+    setText('pySub',     '≈ ¥432,899 (152.4円)');
+    setText('pyIncome',  '+$1,240');
+    const lastDate = document.getElementById('pyLastDate');
+    if (lastDate) lastDate.textContent = '前回 4/9';
+    setText('pyLastAmt', '+$580');
+    setText('pyPending', '$340');
+    setText('pyNext',    '4/16頃');
 }
 
 /* ── KPI Comparison Table ────────────────────────────────── */
@@ -144,15 +173,15 @@ async function loadKpiComparison() {
 
 function kpiRow(name, value, fillPct, fillClass, diff, diffClass) {
     return `<tr>
-        <td class="kct-name">${escapeHtml(name)}</td>
-        <td class="kct-val">${escapeHtml(value)}</td>
-        <td class="kct-bar-w"><div class="kct-bar"><div class="kct-fill ${fillClass}" style="width:${Math.min(fillPct,100)}%"></div></div></td>
-        <td class="kct-diff ${diffClass}">${escapeHtml(diff)}</td>
+        <td class="kn">${escapeHtml(name)}</td>
+        <td class="kv">${escapeHtml(value)}</td>
+        <td class="mb-w"><div class="mini-bar"><div class="mini-fill ${fillClass}" style="width:${Math.min(fillPct,100)}%"></div></div></td>
+        <td class="kd ${diffClass}">${escapeHtml(diff)}</td>
     </tr>`;
 }
 
 function renderKpiComparison(pace, ach) {
-    const tbl = document.getElementById('kpiCompTable');
+    const tbl = document.getElementById('kpiTable');
     if (!tbl) return;
 
     const rev          = ach.revenue;
@@ -169,18 +198,19 @@ function renderKpiComparison(pace, ach) {
         : 0;
 
     const revSign  = revDiff >= 0 ? '+' : '';
-    const revCls   = revDiff >= 0 ? 'up' : 'down';
+    const revCls   = revDiff >= 0 ? 'up' : 'dn';
     const margSign = marginDiff >= 0 ? '+' : '';
-    const margCls  = marginDiff >= 0 ? 'up' : 'down';
+    const margCls  = marginDiff >= 0 ? 'up' : 'dn';
     const ordSign  = orderDiffPct >= 0 ? '+' : '';
-    const ordCls   = orderDiffPct >= 0 ? 'up' : 'down';
+    const ordCls   = orderDiffPct >= 0 ? 'up' : 'dn';
 
     tbl.innerHTML =
-        kpiRow('売上',    fmt(rev.actual),              rev.rate,                              'blue',   `${revSign}${revDiffPct}%`,          revCls)  +
-        kpiRow('利益率',  `${margin.actual.toFixed(1)}%`, margin.target > 0 ? margin.actual / margin.target * 100 : 0, 'blue', `${margSign}${marginDiff.toFixed(1)}pp`, margCls) +
-        kpiRow('出品数',  `${listingCount}件`,            Math.min(listingCount / 200 * 100, 100), 'blue',   '—',                             'neutral') +
-        kpiRow('在庫切れ',`${oosCount}件`,                Math.min(oosCount / 20 * 100, 100),    'red',    '—',                             'neutral') +
-        kpiRow('注文数',  `${orderCount}件`,              Math.min(orderCount / 100 * 100, 100), 'blue',   `${ordSign}${orderDiffPct}%`,       ordCls);
+        kpiRow('売上',    fmt(rev.actual),              rev.rate,                              'mf-b',   `${revSign}${revDiffPct}%`,          revCls)  +
+        kpiRow('利益率',  `${margin.actual.toFixed(1)}%`, margin.target > 0 ? margin.actual / margin.target * 100 : 0, 'mf-b', `${margSign}${marginDiff.toFixed(1)}pp`, margCls) +
+        kpiRow('出品数',  `${listingCount}件`,            Math.min(listingCount / 200 * 100, 100), 'mf-b',   '—',                             'or') +
+        kpiRow('在庫切れ',`${oosCount}件`,                Math.min(oosCount / 20 * 100, 100),    'mf-r',    '—',                             'or') +
+        kpiRow('注文数',  `${orderCount}件`,              Math.min(orderCount / 100 * 100, 100), 'mf-b',   `${ordSign}${orderDiffPct}%`,       ordCls) +
+        kpiRow('Payoneer','$2,840',                      70,                                    'mf-o',   '+$580',                             'or');
 }
 
 /* ── freee Cashflow (static placeholder) ─────────────────── */
@@ -191,16 +221,25 @@ function renderFreeeStatic() {
     const cfEl = document.getElementById('freeeCF');
     if (cfEl) {
         cfEl.textContent = '+¥550,000';
-        cfEl.className = 'freee-cf-val positive';
+        cfEl.className = 'freee-val g';
     }
 }
 
 /* ── Chart tab switching ─────────────────────────────────── */
 function switchChart(mode) {
     ['daily','monthly'].forEach(m => {
-        document.getElementById(`tab-${m}`).classList.toggle('active', m === mode);
-        document.getElementById(`panel-${m}`).classList.toggle('active', m === mode);
+        document.getElementById(`tab-${m}`).classList.toggle('on', m === mode);
+        document.getElementById(`panel-${m}`).classList.toggle('on', m === mode);
     });
+}
+
+/* ── Calendar tab switching ─────────────────────────────── */
+function switchCal(mode) {
+    const s = mode === 'sale';
+    document.getElementById('salesCalendar').style.display = s ? '' : 'none';
+    document.getElementById('payCalendar').style.display   = s ? 'none' : '';
+    document.getElementById('cal-tab-sale').classList.toggle('on', s);
+    document.getElementById('cal-tab-pay').classList.toggle('on', !s);
 }
 
 /* ── Daily Bar Chart ─────────────────────────────────────── */
@@ -210,6 +249,13 @@ function renderDailyChart(calData) {
 
     const today    = new Date().toISOString().slice(0, 10);
     const pastDays = calData.days.filter(d => d.date <= today).slice(-12);
+
+    const subLabel = document.getElementById('dailySubLabel');
+    if (subLabel && pastDays.length > 0) {
+        const m = new Date().getMonth() + 1;
+        subLabel.textContent = `日別売上（${m}月1日〜${pastDays.length}日）`;
+    }
+
     if (pastDays.length === 0) {
         el.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--gray-400);padding:20px">データなし</div>`;
         return;
@@ -223,10 +269,10 @@ function renderDailyChart(calData) {
         const numCls = ratio > 0.7 ? 'hi' : '';
         const dayNum = d.date.slice(8).replace(/^0/, '');
         const label  = d.revenue > 0 ? `¥${d.revenue.toLocaleString()}` : '—';
-        return `<div class="day-bar-col">
-            <div class="day-bar-num ${numCls}">${label}</div>
-            <div class="day-bar ${cls}" style="height:${height}px"></div>
-            <div class="day-bar-lbl">${dayNum}</div>
+        return `<div class="vbar-col">
+            <div class="vbar-num ${numCls}">${label}</div>
+            <div class="vbar ${cls}" style="height:${height}px"></div>
+            <div class="vbar-day">${dayNum}</div>
         </div>`;
     }).join('');
 }
@@ -303,6 +349,36 @@ function renderMonthlyCumulativeChart(calData, achData) {
               stroke-width="1.5" stroke-dasharray="5,4" opacity=".7"/>
         <path d="${makePath(thisMonthPoints, activeUntil)}" fill="none" stroke="#2563EB" stroke-width="2"/>
     `;
+
+    const todayActual  = thisMonthPoints[activeUntil] || 0;
+    const todayTarget  = targetPoints[activeUntil] || 0;
+    const todayPrevMth = prevMonthPoints[activeUntil] || 0;
+
+    const paceEl  = document.getElementById('csPace');
+    const tgtEl   = document.getElementById('csTarget');
+    const eomEl   = document.getElementById('csEom');
+    const eomSub  = document.getElementById('csEomSub');
+
+    if (paceEl) {
+        const diff = todayActual - todayPrevMth;
+        const sign = diff >= 0 ? '+' : '-';
+        const pct2 = todayPrevMth > 0 ? Math.abs(Math.round(diff / todayPrevMth * 100)) : 0;
+        paceEl.textContent = `${sign}${fmtM(Math.abs(diff))} ↑${pct2}%`;
+    }
+    if (tgtEl) {
+        const gap = todayActual - todayTarget;
+        const sign = gap >= 0 ? '+' : '-';
+        const pct2 = todayTarget > 0 ? Math.abs(Math.round(gap / todayTarget * 100)) : 0;
+        tgtEl.textContent = `${sign}${fmtM(Math.abs(gap))} ${gap >= 0 ? '↑' : '↓'}${pct2}%`;
+    }
+    if (eomEl) {
+        const projEom = achData.revenue.projected_eom || 0;
+        eomEl.textContent = fmtM(projEom);
+        if (eomSub) {
+            eomSub.textContent = projEom >= achData.revenue.target ? '目標達成 ✅' : '目標未達 📉';
+            eomSub.style.color = projEom >= achData.revenue.target ? '#10B981' : '#EF4444';
+        }
+    }
 }
 
 /* ── Sales Calendar ──────────────────────────────────────── */
@@ -322,19 +398,13 @@ async function loadCalendar() {
     }
 }
 
-function switchCal(mode) {
-    ['sale','pay'].forEach(m => {
-        document.getElementById(`cal-tab-${m}`).classList.toggle('active', m === mode);
-        document.getElementById(`cal-panel-${m}`).classList.toggle('active', m === mode);
-    });
-}
-
 function buildCalGrid(year, month, days, cellFn) {
     const firstDow = new Date(year, month - 1, 1).getDay();
     const headJa   = ['日','月','火','水','木','金','土'];
-    let html = '<div class="cal-grid">';
-    headJa.forEach(h => { html += `<div class="cal-header">${h}</div>`; });
-    for (let i = 0; i < firstDow; i++) html += '<div class="cal-day empty"></div>';
+    let html = '<div class="cal-head">';
+    headJa.forEach(h => { html += `<div class="cal-dl">${h}</div>`; });
+    html += '</div><div class="cal">';
+    for (let i = 0; i < firstDow; i++) html += '<div class="cc em"></div>';
     days.forEach(d => { html += cellFn(d); });
     html += '</div>';
     return html;
@@ -346,23 +416,34 @@ function renderSalesCal(data) {
     const maxRev = Math.max(...days.map(d => d.revenue), 1);
     const el = document.getElementById('salesCalendar');
     if (!el) return;
+
+    // Set calendar month label
+    const monthLabel = document.getElementById('calMonthLabel');
+    if (monthLabel) monthLabel.textContent = `${year}年${month}月`;
+
     el.innerHTML = buildCalGrid(year, month, days, d => {
         const isToday  = d.date === today;
         const isFuture = d.date > today;
         const hasSales = d.revenue > 0;
-        const intensity = hasSales ? Math.max(0.15, d.revenue / maxRev) : 0;
-        const dayNum    = parseInt(d.date.slice(8));
-        const tooltip   = hasSales ? `${d.date}: ${fmt(d.revenue)} / ${d.orders}件` : d.date;
-        let cls = 'cal-day';
-        if (isToday)  cls += ' is-today';
-        if (isFuture) cls += ' is-future';
-        if (hasSales) cls += ' has-sales';
-        const style = hasSales ? ` style="--intensity:${intensity}"` : '';
-        const dot   = hasSales ? '<span class="cal-dot">●</span>' : (isFuture ? '' : '<span class="cal-dot empty-dot">○</span>');
-        const todayRev = (isToday && hasSales) ? `<span class="cal-today-rev">${fmt(d.revenue)}</span>` : '';
-        return `<div class="${cls}"${style} title="${escapeHtml(tooltip)}">
-            <span class="cal-day-num">${dayNum}</span>${dot}${todayRev}</div>`;
+        const ratio    = hasSales ? d.revenue / maxRev : 0;
+        const dayNum   = parseInt(d.date.slice(8));
+        let cls = isToday  ? 'cc td' :
+                  isFuture ? 'cc ft' :
+                  !hasSales ? 'cc' :
+                  ratio > 0.7  ? 'cc sale-s3' :
+                  ratio > 0.35 ? 'cc sale-s2' : 'cc sale-s1';
+        const title = hasSales ? `${fmt(d.revenue)} / ${d.orders}件` : '';
+        return `<div class="${cls}" title="${title}">${dayNum}</div>`;
     });
+
+    // Today note
+    const todayData = days.find(d => d.date === today);
+    const noteEl = document.getElementById('calNote');
+    const noteText = document.getElementById('calNoteText');
+    if (noteEl && todayData && todayData.revenue > 0) {
+        noteText.textContent = `今日: ${fmt(todayData.revenue)} · ${todayData.orders}件`;
+        noteEl.style.display = 'flex';
+    }
 }
 
 function renderPayCal(data) {
@@ -375,15 +456,14 @@ function renderPayCal(data) {
         const isToday  = d.date === today;
         const isFuture = d.date > today;
         const hasPay   = d.revenue > 0;
-        const intensity = hasPay ? Math.max(0.15, d.revenue / maxRev) : 0;
-        const dayNum    = parseInt(d.date.slice(8));
-        let cls = 'cal-day';
-        if (isToday)  cls += ' is-today';
-        if (isFuture) cls += ' is-future';
-        if (hasPay)   cls += ' has-sales';
-        const style = hasPay ? ` style="--intensity:${intensity}"` : '';
-        const dot   = hasPay ? '<span class="cal-dot">●</span>' : (isFuture ? '' : '<span class="cal-dot empty-dot">○</span>');
-        return `<div class="${cls}"${style}><span class="cal-day-num">${dayNum}</span>${dot}</div>`;
+        const ratio    = hasPay ? d.revenue / maxRev : 0;
+        const dayNum   = parseInt(d.date.slice(8));
+        let cls = isToday  ? 'cc td-p' :
+                  isFuture ? 'cc ft' :
+                  !hasPay  ? 'cc' :
+                  ratio > 0.7  ? 'cc pay-s3' :
+                  ratio > 0.35 ? 'cc pay-s2' : 'cc pay-s1';
+        return `<div class="${cls}">${dayNum}</div>`;
     });
 }
 
@@ -403,6 +483,10 @@ function renderOOS(items) {
     if (!tb) return;
     if (!items.length) {
         tb.innerHTML = '<tr><td colspan="4" class="oos-empty-row">在庫切れ商品はありません ✅</td></tr>';
+        const countEl = document.getElementById('oosCount');
+        if (countEl) countEl.textContent = '';
+        const moreEl = document.getElementById('oosMore');
+        if (moreEl) moreEl.textContent = '';
         return;
     }
     tb.innerHTML = items.map(item => {
@@ -413,16 +497,20 @@ function renderOOS(items) {
         return `<tr>
             <td>${escapeHtml(title)}</td>
             <td>${price}</td>
-            <td><span class="oos-days-badge">${days}</span></td>
-            <td><a class="oos-search-btn" href="/sourcing?q=${query}" target="_blank">仕入れ検索</a></td>
+            <td><span class="oos-days">${days}</span></td>
+            <td><a class="oos-btn" href="/sourcing?q=${query}" target="_blank">仕入れ検索</a></td>
         </tr>`;
     }).join('');
+    const countEl = document.getElementById('oosCount');
+    if (countEl) countEl.textContent = items.length > 0 ? `— ${items.length}件` : '';
+    const moreEl = document.getElementById('oosMore');
+    if (moreEl) moreEl.textContent = '';
 }
 
 /* ── Category Profit Modal ───────────────────────────────── */
 let _catData = null;
 
-async function openCatModal() {
+async function openModal() {
     document.getElementById('catModal').classList.add('open');
     if (_catData) { renderCatModal(_catData); return; }
     try {
@@ -435,7 +523,7 @@ async function openCatModal() {
     }
 }
 
-function closeCatModal() {
+function closeModal() {
     document.getElementById('catModal').classList.remove('open');
 }
 
@@ -453,13 +541,13 @@ function renderCatModal(items) {
     tb.innerHTML = items.map((item, i) => {
         const color = CAT_COLORS[i % CAT_COLORS.length];
         return `<tr>
-            <td><span class="cat-dot" style="background:${color}"></span></td>
+            <td><span class="modal-cat-dot" style="background:${color}"></span></td>
             <td>${escapeHtml(item.category)}</td>
             <td style="font-weight:700">${fmt(item.profit)}</td>
             <td>
-                <div class="cat-pct-bar">
-                    <div class="cat-pct-track"><div class="cat-pct-fill" style="width:${item.pct_of_total}%;background:${color}"></div></div>
-                    <span class="cat-pct-num" style="color:${color}">${item.pct_of_total}%</span>
+                <div class="modal-bar">
+                    <div class="modal-bar-track"><div class="modal-bar-fill" style="width:${item.pct_of_total}%;background:${color}"></div></div>
+                    <span class="modal-bar-pct" style="color:${color}">${item.pct_of_total}%</span>
                 </div>
             </td>
         </tr>`;
@@ -490,8 +578,59 @@ function renderCatModal(items) {
     }
 }
 
+/* ── Sales table ─────────────────────────────────────────── */
+async function loadSalesTable() {
+    try {
+        const data = await apiFetch('/api/overview/recent_sales');
+        renderSalesTable(data);
+    } catch (e) {
+        const tb = document.getElementById('salesTableBody');
+        if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94A3B8;padding:20px">読み込みエラー</td></tr>';
+    }
+}
+
+function renderSalesTable(data) {
+    const tb = document.getElementById('salesTableBody');
+    const meta = document.getElementById('salesMeta');
+    if (!tb) return;
+    if (!data.records || !data.records.length) {
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94A3B8;padding:20px">売上データなし</td></tr>';
+        return;
+    }
+    if (meta) meta.textContent = `${data.total_count}件 / 今月`;
+
+    tb.innerHTML = data.records.map(r => {
+        const m  = r.profit_margin;
+        const cls = m >= 30 ? 'hi' : m >= 15 ? 'md' : 'lo';
+        const barW = Math.min(m, 100);
+        const stMap = { '発送済': 'ship', '納品済': 'sold', '未注文': 'pend', '注文済': 'pend' };
+        const stCls = stMap[r.status] || 'pend';
+        const title = r.title.length > 40 ? r.title.slice(0, 40) + '…' : r.title;
+        return `<tr>
+            <td>${escapeHtml(title)}</td>
+            <td>${fmt(r.sale_price_jpy)}</td>
+            <td><strong>${fmt(r.profit_jpy)}</strong></td>
+            <td>
+                <div class="ib">
+                    <div class="ibt"><div class="ibf ${cls}" style="width:${barW}%"></div></div>
+                    <span class="ibv ${cls}">${m.toFixed(1)}%</span>
+                </div>
+            </td>
+            <td><span class="st ${stCls}">${escapeHtml(r.status)}</span></td>
+            <td>${escapeHtml(r.sold_at)}</td>
+        </tr>`;
+    }).join('');
+}
+
 /* ── Entry Point ─────────────────────────────────────────── */
 async function initOverview() {
+    // Today tag
+    const todayEl = document.getElementById('todayTag');
+    if (todayEl) {
+        const now = new Date();
+        todayEl.textContent = `本日 ${now.getMonth()+1}/${now.getDate()}`;
+    }
+
     renderPayoneerStatic();
     renderFreeeStatic();
 
@@ -502,6 +641,7 @@ async function initOverview() {
         loadAlerts(),
         loadKpiComparison(),
         loadOOS(),
+        loadSalesTable(),
     ]);
 
     if (calData && achData) {
