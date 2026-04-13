@@ -974,3 +974,52 @@ def get_category_profit(db: Session, year: int, month: int) -> list[dict]:
             "pct_of_total": pct,
         })
     return result
+
+
+def get_recent_sales(db, year: int, month: int, limit: int = 15):
+    """直近の売上明細（ダッシュボード売上明細テーブル用）"""
+    from database.models import SalesRecord
+    from sqlalchemy import extract
+
+    records = (
+        db.query(SalesRecord)
+        .filter(
+            extract('year',  SalesRecord.sold_at) == year,
+            extract('month', SalesRecord.sold_at) == month,
+        )
+        .order_by(SalesRecord.sold_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    total_count = (
+        db.query(SalesRecord)
+        .filter(
+            extract('year',  SalesRecord.sold_at) == year,
+            extract('month', SalesRecord.sold_at) == month,
+        )
+        .count()
+    )
+
+    result = []
+    for r in records:
+        rate = r.exchange_rate if r.exchange_rate and r.exchange_rate > 0 else 152.0
+        sale_price_jpy = round(r.sale_price_usd * rate) if r.sale_price_usd else 0
+        status_map = {
+            '発送済': '発送済',
+            '納品済': '決済済',
+            '未注文': '未発送',
+            '注文済': '未発送',
+            '':       '未発送',
+        }
+        status = status_map.get(r.progress, r.progress or '未発送')
+        result.append({
+            "title":          r.title or '—',
+            "sale_price_jpy": sale_price_jpy,
+            "profit_jpy":     r.net_profit_jpy or 0,
+            "profit_margin":  round(r.profit_margin_pct or 0, 1),
+            "status":         status,
+            "sold_at":        r.sold_at.strftime("%-m/%-d") if r.sold_at else '—',
+        })
+
+    return {"records": result, "total_count": total_count}

@@ -3853,6 +3853,18 @@ async def fx_usdjpy():
     })
 
 
+@app.get("/api/overview/recent_sales")
+async def overview_recent_sales():
+    """最近の売上明細（ダッシュボード売上テーブル用）"""
+    from database.crud import get_recent_sales
+    db = get_db()
+    try:
+        today = datetime.now()
+        return JSONResponse(get_recent_sales(db, today.year, today.month, limit=15))
+    finally:
+        db.close()
+
+
 # ── エントリーポイント ────────────────────────────────────
 
 if __name__ == "__main__":
