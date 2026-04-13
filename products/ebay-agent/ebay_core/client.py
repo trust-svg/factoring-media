@@ -1508,6 +1508,126 @@ def respond_to_cancellation(cancel_id: str, accept: bool) -> dict:
         return {"success": False, "error": error}
 
 
+def get_best_offers(item_id: str) -> list[dict]:
+    """Trading API (GetBestOffers) でアクティブなオファーを取得する。"""
+    token = get_access_token()
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetBestOffersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+    <ItemID>{item_id}</ItemID>
+    <BestOfferStatus>All</BestOfferStatus>
+</GetBestOffersRequest>"""
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "GetBestOffers",
+        "Content-Type": "text/xml",
+    }
+    resp = requests.post(f"{EBAY_API_BASE}/ws/api.dll", headers=headers, data=xml_body.encode("utf-8"), timeout=30)
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    offers = []
+    try:
+        root = ET.fromstring(resp.text)
+        for offer in root.findall(".//e:BestOffer", ns):
+            offer_id = offer.findtext("e:BestOfferID", "", ns)
+            status = offer.findtext("e:Status", "", ns)
+            price = offer.findtext(".//e:BestOfferPrice/e:Value", "0", ns)
+            currency = offer.findtext(".//e:BestOfferPrice/e:CurrencyID", "USD", ns)
+            quantity = offer.findtext("e:Quantity", "1", ns)
+            buyer_id = offer.findtext(".//e:Buyer/e:UserID", "", ns)
+            expiry = offer.findtext("e:ExpirationTime", "", ns)
+            offers.append({
+                "offer_id": offer_id,
+                "status": status,
+                "price": float(price),
+                "currency": currency,
+                "quantity": int(quantity),
+                "buyer": buyer_id,
+                "expires": expiry,
+            })
+    except Exception as e:
+        logger.warning(f"GetBestOffers parse error: {e}")
+    return offers
+
+
+def respond_to_best_offer(
+    item_id: str,
+    offer_id: str,
+    action: str,  # "Accept" | "Decline" | "Counter"
+    counter_price: float = 0.0,
+    counter_message: str = "",
+) -> dict:
+    """Trading API (RespondToBestOffer) でオファーに応答する。"""
+    token = get_access_token()
+
+    counter_xml = ""
+    if action == "Counter" and counter_price > 0:
+        counter_xml = f"""
+    <RetractOffer>false</RetractOffer>
+    <CounterOfferPrice>
+        <Value>{counter_price:.2f}</Value>
+        <CurrencyID>USD</CurrencyID>
+    </CounterOfferPrice>"""
+    msg_xml = f"<SellerResponse>{_xml_escape(counter_message)}</SellerResponse>" if counter_message else ""
+
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<RespondToBestOfferRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+    <ItemID>{item_id}</ItemID>
+    <BestOfferID>{offer_id}</BestOfferID>
+    <Action>{action}</Action>
+    {msg_xml}
+    {counter_xml}
+</RespondToBestOfferRequest>"""
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "RespondToBestOffer",
+        "Content-Type": "text/xml",
+    }
+    resp = requests.post(f"{EBAY_API_BASE}/ws/api.dll", headers=headers, data=xml_body.encode("utf-8"), timeout=30)
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    try:
+        root = ET.fromstring(resp.text)
+        ack = root.findtext("e:Ack", "", ns)
+        if ack in ("Success", "Warning"):
+            logger.info(f"RespondToBestOffer成功: item={item_id} offer={offer_id} action={action}")
+            return {"success": True, "action": action}
+        errors = root.findall(".//e:Errors/e:ShortMessage", ns)
+        error_msg = errors[0].text if errors else "Unknown error"
+        logger.error(f"RespondToBestOffer失敗: {error_msg}")
+        return {"success": False, "error": error_msg}
+    except Exception as e:
+        logger.error(f"RespondToBestOffer parse error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def accept_return_request(return_id: str) -> dict:
+    """Post-Order API でリターンリクエストを承認する。"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/post-order/v2/return/{return_id}/decide"
+    payload = {"decision": "SELLER_APPROVE"}
+    resp = requests.post(url, headers=headers, json=payload, timeout=15)
+    if resp.status_code in (200, 204):
+        logger.info(f"リターン承認: {return_id}")
+        return {"success": True}
+    logger.error(f"リターン承認失敗: {resp.status_code} {resp.text[:200]}")
+    return {"success": False, "error": resp.text[:200]}
+
+
+def decline_return_request(return_id: str, reason: str = "NOT_RESPONSIBLE") -> dict:
+    """Post-Order API でリターンリクエストを拒否する。"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/post-order/v2/return/{return_id}/decide"
+    payload = {"decision": "SELLER_REJECT", "reason": reason}
+    resp = requests.post(url, headers=headers, json=payload, timeout=15)
+    if resp.status_code in (200, 204):
+        logger.info(f"リターン拒否: {return_id}")
+        return {"success": True}
+    logger.error(f"リターン拒否失敗: {resp.status_code} {resp.text[:200]}")
+    return {"success": False, "error": resp.text[:200]}
+
+
 def _xml_escape(text: str) -> str:
     """XML特殊文字をエスケープ"""
     return (
