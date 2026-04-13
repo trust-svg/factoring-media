@@ -70,8 +70,12 @@ async def diagnose_photo(
         }],
     )
 
-    result = json.loads(response.content[0].text)
-    return float(result["score"]), list(result["points"]), float(result["potential_score"])
+    try:
+        result = json.loads(response.content[0].text)
+        return float(result["score"]), list(result["points"]), float(result["potential_score"])
+    except (json.JSONDecodeError, KeyError, IndexError, ValueError) as e:
+        logger.error(f"Claude APIレスポンスのパース失敗: {e}\nresponse: {response.content}")
+        raise ValueError("診断結果の解析に失敗しました。もう一度お試しください。") from e
 
 
 def format_diagnosis_result(
