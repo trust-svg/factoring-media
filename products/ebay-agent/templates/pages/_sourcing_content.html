@@ -73,23 +73,23 @@
     </div>
 
     <div style="overflow-x:auto;">
-        <table class="data-table" id="procTable">
+        <table class="proc-table" id="procTable">
             <thead>
                 <tr>
-                    <th style="width:30px;"></th>
-                    <th class="sortable" data-sort="purchase_date" onclick="toggleSort('purchase_date')"><span data-en="Date" data-ja="日付">Date</span> <span class="sort-icon"></span></th>
-                    <th class="sortable" data-sort="platform" onclick="toggleSort('platform')"><span data-en="Platform" data-ja="仕入先">Platform</span> <span class="sort-icon"></span></th>
-                    <th data-en="Title" data-ja="商品名">Title</th>
-                    <th class="sortable" data-sort="purchase_price_jpy" onclick="toggleSort('purchase_price_jpy')"><span data-en="Cost" data-ja="原価">Cost</span> <span class="sort-icon"></span></th>
-                    <th class="sortable" data-sort="consumption_tax_jpy" onclick="toggleSort('consumption_tax_jpy')"><span data-en="Tax" data-ja="消費税">Tax</span> <span class="sort-icon"></span></th>
-                    <th class="sortable" data-sort="total_cost_jpy" onclick="toggleSort('total_cost_jpy')"><span data-en="Total" data-ja="合計">Total</span> <span class="sort-icon"></span></th>
+                    <th style="width:20px;"></th>
+                    <th class="sortable" data-sort="purchase_date" onclick="toggleSort('purchase_date')"><span data-en="Date" data-ja="日付">日付</span><span class="sort-icon"></span></th>
+                    <th class="sortable" data-sort="platform" onclick="toggleSort('platform')"><span data-en="Platform" data-ja="仕入先">仕入先</span><span class="sort-icon"></span></th>
+                    <th data-en="Title" data-ja="商品名">商品名</th>
+                    <th class="sortable num" data-sort="purchase_price_jpy" onclick="toggleSort('purchase_price_jpy')"><span data-en="Cost" data-ja="原価">原価</span><span class="sort-icon"></span></th>
+                    <th class="sortable num" data-sort="consumption_tax_jpy" onclick="toggleSort('consumption_tax_jpy')"><span data-en="Tax" data-ja="消費税">消費税</span><span class="sort-icon"></span></th>
+                    <th class="sortable num" data-sort="total_cost_jpy" onclick="toggleSort('total_cost_jpy')"><span data-en="Total" data-ja="合計">合計</span><span class="sort-icon"></span></th>
                     <th>SKU</th>
-                    <th class="sortable" data-sort="status" onclick="toggleSort('status')"><span data-en="Status" data-ja="状態">Status</span> <span class="sort-icon"></span></th>
+                    <th class="sortable" data-sort="status" onclick="toggleSort('status')"><span data-en="Status" data-ja="状態">状態</span><span class="sort-icon"></span></th>
                     <th></th>
                 </tr>
             </thead>
             <tbody id="procBody">
-                <tr><td colspan="10" class="empty-state" data-en="Loading..." data-ja="読み込み中...">Loading...</td></tr>
+                <tr><td colspan="10" style="text-align:center;padding:24px;color:#94A3B8;font-size:13px;">読み込み中...</td></tr>
             </tbody>
         </table>
     </div>
@@ -207,24 +207,28 @@ function renderProc() {
     }
     if (!filtered.length) { document.getElementById('procBody').innerHTML = `<tr><td colspan="10" class="empty-state">${t('No records', 'データなし')}</td></tr>`; return; }
 
-    const statusLabel = { purchased: '購入済', shipped: '輸送中', received: '受取済', listed: '出品済' };
-    const statusStyle = { purchased: 'background:var(--brand-50);color:var(--brand-600);', shipped: 'background:var(--warning-50);color:var(--warning-600);', received: 'background:var(--success-50);color:var(--success-600);', listed: 'background:rgba(122,90,248,0.08);color:var(--purple-500);' };
+    const statusCls = { purchased:'ps-purchased', shipped:'ps-shipped', received:'ps-received', listed:'ps-listed' };
+    const statusLabel = { purchased:'購入済', shipped:'輸送中', received:'受取済', listed:'出品済' };
 
     let html = '';
     for (const p of filtered) {
         const date = p.purchase_date ? p.purchase_date.slice(0, 10) : '-';
-        const badge = `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:500;${statusStyle[p.status]||'background:var(--gray-100);color:var(--gray-600);'}">${statusLabel[p.status]||p.status}</span>`;
-        html += `<tr onclick="toggleProcDetail(${p.id})" style="cursor:pointer;">
-            <td><span id="chevron-${p.id}" style="display:inline-block;transition:transform 0.2s;font-size:10px;color:var(--text-tertiary);">▶</span></td>
-            <td style="font-size:12px;white-space:nowrap;">${esc(date)}</td>
-            <td style="font-size:12px;">${esc(p.platform)}</td>
-            <td style="font-size:12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.title)}">${p.image_url?`<img src="${esc(p.image_url)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`:'<span style="display:inline-block;width:28px;height:28px;background:var(--gray-100);border-radius:4px;vertical-align:middle;margin-right:6px;"></span>'}${esc(p.title)}</td>
-            <td style="font-size:12px;text-align:right;">${formatJPY(p.purchase_price_jpy)}</td>
-            <td style="font-size:12px;text-align:right;color:var(--accent-purple,purple);">${p.consumption_tax_jpy?formatJPY(p.consumption_tax_jpy):'-'}</td>
-            <td style="font-size:12px;text-align:right;font-weight:600;">${formatJPY(p.total_cost_jpy)}</td>
-            <td style="font-family:monospace;font-size:11px;">${esc(p.sku||'-')}</td>
+        const stCls = statusCls[p.status] || 'ps-other';
+        const badge = `<span class="proc-status ${stCls}">${statusLabel[p.status]||p.status}</span>`;
+        const imgHtml = p.image_url
+            ? `<img src="${esc(p.image_url)}" class="proc-thumb" onerror="this.style.display='none'">`
+            : `<span class="proc-thumb-ph"></span>`;
+        html += `<tr onclick="toggleProcDetail(${p.id})" class="proc-row">
+            <td class="proc-td-expand"><span id="chevron-${p.id}" class="proc-chevron">▶</span></td>
+            <td class="proc-td-date">${esc(date)}</td>
+            <td class="proc-td-platform">${platBadge(p.platform)}</td>
+            <td class="proc-td-title" title="${esc(p.title)}">${imgHtml}${esc(p.title)}</td>
+            <td class="proc-td-num">${formatJPY(p.purchase_price_jpy)}</td>
+            <td class="proc-td-num proc-td-tax">${p.consumption_tax_jpy?formatJPY(p.consumption_tax_jpy):'-'}</td>
+            <td class="proc-td-num proc-td-bold">${formatJPY(p.total_cost_jpy)}</td>
+            <td class="proc-td-sku">${esc(p.sku||'-')}</td>
             <td>${badge}</td>
-            <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openEditProc(${p.id})" style="padding:2px 8px;font-size:11px;">✏️</button></td>
+            <td><button class="proc-edit-btn" onclick="event.stopPropagation();openEditProc(${p.id})">✏</button></td>
         </tr>`;
         html += `<tr id="detail-${p.id}" style="display:none;">
             <td colspan="10" style="padding:12px 16px;background:var(--bg-primary);border-top:none;">
@@ -264,7 +268,32 @@ function renderProc() {
     document.getElementById('procBody').innerHTML = html;
 }
 
-function toggleProcDetail(id) { const d=document.getElementById(`detail-${id}`),c=document.getElementById(`chevron-${id}`); if(d.style.display==='none'){d.style.display='';c.style.transform='rotate(90deg)';}else{d.style.display='none';c.style.transform='';} }
+function platBadge(name) {
+    const m = {
+        'Amazon':                 {bg:'#FFF7ED',color:'#C2410C'},
+        'メルカリ':                {bg:'#FFF1F2',color:'#E11D48'},
+        'メルカリShops':           {bg:'#FFF1F2',color:'#E11D48'},
+        'ラクマ':                  {bg:'#F5F3FF',color:'#7C3AED'},
+        'ヤフオク':                {bg:'#FFFBEB',color:'#B45309'},
+        'ヤフーショッピング':       {bg:'#FFFBEB',color:'#B45309'},
+        'Yahooフリマ':             {bg:'#FFFBEB',color:'#B45309'},
+        '楽天':                    {bg:'#FFF1F2',color:'#BE123C'},
+        'ネットモール(OFFモール)':  {bg:'#F0FDF4',color:'#15803D'},
+        '駿河屋':                  {bg:'#EFF6FF',color:'#1D4ED8'},
+        'GEO':                     {bg:'#F0FDF4',color:'#15803D'},
+        'デジマート':              {bg:'#EFF6FF',color:'#1D4ED8'},
+        'トレファク':              {bg:'#F0FDFA',color:'#0F766E'},
+        'まんだらけ':              {bg:'#FDF4FF',color:'#9333EA'},
+        'セカンドストリート':       {bg:'#ECFDF5',color:'#059669'},
+    };
+    const s = m[name] || {bg:'#F8FAFC',color:'#64748B'};
+    return `<span class="plat-badge" style="background:${s.bg};color:${s.color}">${esc(name)}</span>`;
+}
+function toggleProcDetail(id) {
+    const d=document.getElementById(`detail-${id}`),c=document.getElementById(`chevron-${id}`);
+    if(d.style.display==='none'){d.style.display='';c.style.transform='rotate(90deg)';}
+    else{d.style.display='none';c.style.transform='';}
+}
 function filterProc(tab) { currentFilter=tab; document.querySelectorAll('.filter-pills .pill').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); renderProc(); }
 function toggleAddForm() { const f=document.getElementById('addForm'); f.style.display=f.style.display==='none'?'block':'none'; }
 

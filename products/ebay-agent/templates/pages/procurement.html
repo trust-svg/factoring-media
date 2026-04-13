@@ -19,6 +19,50 @@
     th.sortable:hover { color:var(--brand-500); }
     .sort-icon { font-size:10px; }
 
+    /* ── Procurement table ── */
+    .proc-table { width: 100%; border-collapse: collapse; }
+    .proc-table th {
+        padding: 8px 12px; text-align: left;
+        font-size: 11px; font-weight: 700; color: #94A3B8;
+        text-transform: uppercase; letter-spacing: .04em;
+        background: #FAFAFA; border-bottom: 1px solid #F1F5F9;
+        white-space: nowrap;
+    }
+    .proc-table th.num { text-align: right; }
+    .proc-row td {
+        padding: 9px 12px; font-size: 12px; color: #374151;
+        border-bottom: 1px solid #F8FAFC; vertical-align: middle;
+    }
+    .proc-row:hover td { background: #F8FAFC; cursor: pointer; }
+    .proc-row:last-child td { border-bottom: none; }
+    .proc-td-expand { width: 20px; padding: 9px 4px 9px 12px !important; }
+    .proc-chevron { display: inline-block; transition: transform .2s; font-size: 9px; color: #CBD5E1; }
+    .proc-td-date { white-space: nowrap; color: #64748B; }
+    .proc-td-title { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .proc-thumb { width: 26px; height: 26px; object-fit: cover; border-radius: 4px; vertical-align: middle; margin-right: 6px; }
+    .proc-thumb-ph { display: inline-block; width: 26px; height: 26px; background: #F1F5F9; border-radius: 4px; vertical-align: middle; margin-right: 6px; }
+    .proc-td-num { text-align: right; font-variant-numeric: tabular-nums; }
+    .proc-td-tax { color: #7C3AED; }
+    .proc-td-bold { font-weight: 700; }
+    .proc-td-sku { font-family: monospace; font-size: 11px; color: #94A3B8; }
+    .proc-edit-btn { background: none; border: 1px solid #E2E8F0; border-radius: 5px; padding: 2px 8px; font-size: 12px; cursor: pointer; color: #64748B; }
+    .proc-edit-btn:hover { border-color: #93C5FD; color: #2563EB; }
+
+    /* ── Platform badge ── */
+    .plat-badge {
+        display: inline-block; padding: 2px 8px;
+        border-radius: 9999px; font-size: 11px; font-weight: 600;
+        white-space: nowrap;
+    }
+
+    /* ── Status badges ── */
+    .proc-status { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .ps-purchased { background:#EFF6FF; color:#2563EB; }
+    .ps-shipped   { background:#FFFBEB; color:#B45309; }
+    .ps-received  { background:#ECFDF5; color:#059669; }
+    .ps-listed    { background:#F3F0FF; color:#7C3AED; }
+    .ps-other     { background:#F8FAFC; color:#64748B; }
+
     /* ── KPI cards (sourcing tab) ── */
     .proc-kpi-row {
         display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px;
