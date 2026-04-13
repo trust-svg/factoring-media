@@ -270,29 +270,21 @@ function renderProc() {
 
 function platBadge(name) {
     const m = {
-        // ── 赤・ピンク系 ──
-        'メルカリ':                {bg:'#FFF1F2', color:'#E11D48'},        // ローズ
+        'メルカリ':                {bg:'#FFF1F2', color:'#E11D48'},   // ローズ（鮮やか）
         'メルカリShops':           {bg:'#FFF1F2', color:'#E11D48'},
-        '楽天':                    {bg:'#B91C1C', color:'#FFFFFF'},        // ソリッド赤（背景塗り）
-        // ── オレンジ ──
-        'Amazon':                  {bg:'#FFF7ED', color:'#C2410C'},        // オレンジ
-        // ── イエロー ──
-        'ヤフオク':                {bg:'#FEFCE8', color:'#A16207'},        // イエロー
-        'ヤフーショッピング':       {bg:'#FEFCE8', color:'#A16207'},
-        'Yahooフリマ':             {bg:'#FEFCE8', color:'#A16207'},
-        // ── パープル・バイオレット ──
-        'ラクマ':                  {bg:'#F5F3FF', color:'#7C3AED'},        // バイオレット
-        'まんだらけ':              {bg:'#701A75', color:'#FFFFFF'},        // ソリッドフューシャ
-        // ── ブルー系 ──
-        '駿河屋':                  {bg:'#EFF6FF', color:'#1D4ED8'},        // ブルー
-        'デジマート':              {bg:'#EEF2FF', color:'#4338CA'},        // インディゴ（青紫）
-        // ── グリーン系（色相を分散）──
-        'GEO':                     {bg:'#F7FEE7', color:'#4D7C0F'},        // ライムグリーン
-        'セカンドストリート':       {bg:'#ECFDF5', color:'#065F46'},        // エメラルド
-        'ネットモール(OFFモール)':  {bg:'#14B8A6', color:'#FFFFFF'},        // ソリッドティール
-        // ── シアン ──
-        'トレファク':              {bg:'#ECFEFF', color:'#0E7490'},        // シアン
-        // ── その他 ──
+        '楽天':                    {bg:'#FEF2F2', color:'#991B1B'},   // レッド（落ち着いた深め）
+        'Amazon':                  {bg:'#FFF7ED', color:'#C2410C'},   // オレンジ
+        'ヤフオク':                {bg:'#FEFCE8', color:'#A16207'},   // イエロー
+        'ヤフーショッピング':       {bg:'#FFFBEB', color:'#B45309'},   // アンバー
+        'Yahooフリマ':             {bg:'#F0F9FF', color:'#0369A1'},   // スカイブルー（ヤフオクと別色）
+        'ラクマ':                  {bg:'#F5F3FF', color:'#7C3AED'},   // バイオレット
+        'まんだらけ':              {bg:'#FDF4FF', color:'#A21CAF'},   // フューシャ
+        '駿河屋':                  {bg:'#EFF6FF', color:'#1D4ED8'},   // ブルー
+        'デジマート':              {bg:'#EEF2FF', color:'#4338CA'},   // インディゴ
+        'GEO':                     {bg:'#F7FEE7', color:'#4D7C0F'},   // ライム
+        'セカンドストリート':       {bg:'#ECFDF5', color:'#065F46'},   // エメラルド
+        'ネットモール(OFFモール)':  {bg:'#F0FDFA', color:'#115E59'},   // ティール
+        'トレファク':              {bg:'#ECFEFF', color:'#0E7490'},   // シアン
     };
     const s = m[name] || {bg:'#F1F5F9', color:'#475569'};
     return `<span class="plat-badge" style="background:${s.bg};color:${s.color}">${esc(name)}</span>`;
