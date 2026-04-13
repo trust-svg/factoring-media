@@ -590,7 +590,7 @@ function renderThread() {
                         ${escapeHtml(senderLabel)}
                         ${sentimentHtml}
                     </div>
-                    <div class="msg-content">${escapeHtml(msg.body).replace(/\n/g, '<br>')}</div>
+                    <div class="msg-content">${escapeHtml(msg.body).replace(/\r\n/g, '<br>').replace(/\r/g, '<br>').replace(/\n/g, '<br>')}</div>
                     ${translationHtml}
                     ${attachmentHtml}
                     ${actionCardHtml}
@@ -1410,6 +1410,23 @@ async function loadItemDetails(itemId) {
             <div><span style="color:var(--text-muted);">${ja ? '数量' : 'Qty'}</span><br><strong>${data.quantity ?? '-'}</strong></div>
             <div><span style="color:var(--text-muted);">Item ID</span><br><strong style="font-family:monospace;font-size:10px;">${itemId}</strong></div>
         `;
+
+        // Thumbnail: insert into right panel if it wasn't available when the panel was first rendered
+        if (data.thumbnail) {
+            const itemCard = document.getElementById('itemInfoCard');
+            if (itemCard) {
+                let img = itemCard.querySelector('img');
+                if (img) {
+                    img.src = data.thumbnail;
+                } else {
+                    img = document.createElement('img');
+                    img.src = data.thumbnail;
+                    img.style.cssText = 'width:100%;aspect-ratio:1;object-fit:contain;border-radius:8px;margin-bottom:10px;background:var(--gray-100);';
+                    img.loading = 'lazy';
+                    itemCard.insertBefore(img, itemCard.firstChild);
+                }
+            }
+        }
     } catch (e) {
         // Listing not found in local DB - OK
     }

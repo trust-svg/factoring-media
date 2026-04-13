@@ -131,8 +131,8 @@
     min-width: 0;
 }
 .product-title {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     color: var(--text-primary);
     line-height: 1.4;
     overflow: hidden;
