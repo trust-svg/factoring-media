@@ -20,7 +20,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /opt/apps/claude-workspace
-            git pull
+            git fetch origin master
+            git reset --hard origin/master
             cd products/ebay-agent
             docker compose up -d --build
             echo "Deploy done: ${{ github.event.inputs.message }}"
