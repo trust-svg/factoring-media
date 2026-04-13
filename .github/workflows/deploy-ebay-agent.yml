@@ -22,6 +22,14 @@ jobs:
             cd /opt/apps/claude-workspace
             git fetch origin master
             git reset --hard origin/master
+            echo "=== git log ==="
+            git log --oneline -3
+            echo "=== overview.html check ==="
+            grep -c "ac blue\|top-row\|achievement-card" products/ebay-agent/templates/pages/overview.html || true
             cd products/ebay-agent
-            docker compose up -d --build
+            docker compose down
+            docker compose build --no-cache
+            docker compose up -d
+            echo "=== container status ==="
+            docker compose ps
             echo "Deploy done: ${{ github.event.inputs.message }}"
