@@ -1,72 +1,34 @@
 <!-- KPIカード -->
-<div class="stats-grid" id="kpiCards">
-    <div class="stat-card">
-        <div class="stat-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-            </svg>
-        </div>
-        <div class="stat-content">
-            <div class="label" data-en="Total Items" data-ja="総登録数">Total Items</div>
-            <div class="value" id="kpiTotal">--</div>
-            <div class="sub" id="kpiTotalSub"></div>
-        </div>
+<div class="proc-kpi-row cols-3" id="kpiCards">
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Total Items" data-ja="総登録数">総登録数</div>
+        <div class="proc-kpi-val" id="kpiTotal">--</div>
+        <div class="proc-kpi-sub" id="kpiTotalSub">&nbsp;</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
-            </svg>
-        </div>
-        <div class="stat-content">
-            <div class="label" data-en="Total Cost" data-ja="仕入総額">Total Cost</div>
-            <div class="value" id="kpiValue">--</div>
-            <div class="sub" data-en="Purchase + Tax + Ship" data-ja="仕入+税+送料">Purchase + Tax + Ship</div>
-        </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Total Cost" data-ja="仕入総額">仕入総額</div>
+        <div class="proc-kpi-val" id="kpiValue">--</div>
+        <div class="proc-kpi-sub" data-en="Purchase + Tax + Ship" data-ja="仕入+税+送料">仕入+税+送料</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
-        </div>
-        <div class="stat-content">
-            <div class="label" data-en="Ordered" data-ja="注文済み">Ordered</div>
-            <div class="value" id="kpiOrdered">--</div>
-        </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Ordered" data-ja="注文済み">注文済み</div>
+        <div class="proc-kpi-val" id="kpiOrdered">--</div>
+        <div class="proc-kpi-sub">&nbsp;</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
-        </div>
-        <div class="stat-content">
-            <div class="label" data-en="In Stock" data-ja="入荷済み">In Stock</div>
-            <div class="value" id="kpiReceived">--</div>
-        </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="In Stock" data-ja="入荷済み">入荷済み</div>
+        <div class="proc-kpi-val" id="kpiReceived">--</div>
+        <div class="proc-kpi-sub">&nbsp;</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
-            </svg>
-        </div>
-        <div class="stat-content">
-            <div class="label" data-en="Listed" data-ja="出品中">Listed</div>
-            <div class="value" id="kpiListed">--</div>
-        </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Listed" data-ja="出品中">出品中</div>
+        <div class="proc-kpi-val" id="kpiListed">--</div>
+        <div class="proc-kpi-sub">&nbsp;</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-            </svg>
-        </div>
-        <div class="stat-content">
-            <div class="label" data-en="Sold" data-ja="販売済み">Sold</div>
-            <div class="value" id="kpiSold">--</div>
-        </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label" data-en="Sold" data-ja="販売済み">販売済み</div>
+        <div class="proc-kpi-val" id="kpiSold">--</div>
+        <div class="proc-kpi-sub">&nbsp;</div>
     </div>
 </div>
 
@@ -114,7 +76,7 @@
     </div>
 
     <div style="overflow-x:auto;">
-        <table class="data-table" id="stockTable">
+        <table class="proc-table" id="stockTable">
             <thead>
                 <tr><!-- JS が renderTableHeader() で動的生成 --></tr>
             </thead>

@@ -1,5 +1,53 @@
 /* stock.js — 仕入れ台帳ページ */
 
+// ── ソート状態 ──────────────────────────────────────────
+let stockSortCol = 'date', stockSortDir = 'desc';
+let stockRawItems = [];
+
+function sortStock(col) {
+    if (stockSortCol === col) {
+        stockSortDir = stockSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        stockSortCol = col;
+        stockSortDir = 'desc';
+    }
+    renderStockRows(stockRawItems);
+    updateStockSortIcons();
+}
+
+function updateStockSortIcons() {
+    document.querySelectorAll('#stockTable thead th[data-sort]').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        if (!icon) return;
+        if (th.dataset.sort === stockSortCol) {
+            icon.textContent = stockSortDir === 'asc' ? ' ▲' : ' ▼';
+            icon.style.opacity = '1';
+        } else {
+            icon.textContent = ' ⇅';
+            icon.style.opacity = '0.3';
+        }
+    });
+}
+
+function compareStock(a, b) {
+    let va, vb;
+    switch (stockSortCol) {
+        case 'date':      va = a.purchase_date || ''; vb = b.purchase_date || ''; break;
+        case 'title':     va = a.title || ''; vb = b.title || ''; break;
+        case 'cost':      va = (a.purchase_price_jpy || 0) + (a.consumption_tax_jpy || 0) + (a.shipping_cost_jpy || 0);
+                          vb = (b.purchase_price_jpy || 0) + (b.consumption_tax_jpy || 0) + (b.shipping_cost_jpy || 0); break;
+        case 'source':    va = a.purchase_source || ''; vb = b.purchase_source || ''; break;
+        case 'status':    va = a.status || ''; vb = b.status || ''; break;
+        case 'sold_at':   va = (a.sale_info && a.sale_info.sold_at) || ''; vb = (b.sale_info && b.sale_info.sold_at) || ''; break;
+        default:          va = a.purchase_date || ''; vb = b.purchase_date || '';
+    }
+    if (typeof va === 'string') {
+        const cmp = va.localeCompare(vb);
+        return stockSortDir === 'asc' ? cmp : -cmp;
+    }
+    return stockSortDir === 'asc' ? va - vb : vb - va;
+}
+
 // ── 為替レート ──────────────────────────────────────────
 let _usdJpyRate = 149; // デフォルト
 
@@ -59,11 +107,19 @@ function getColDef(id) {
 function renderTableHeader() {
     const thead = document.querySelector('#stockTable thead tr');
     const order = getColumnOrder();
+    const sortableCols = new Set(['title', 'cost', 'date', 'source', 'status', 'sold_at']);
     let html = '<th style="width:32px;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)" style="cursor:pointer;"></th>';
     for (const colId of order) {
         const col = getColDef(colId);
         if (!col) continue;
-        html += `<th draggable="true" data-col="${colId}" style="cursor:grab;user-select:none;" data-en="${col.label}" data-ja="${col.labelJa}">${col.label}</th>`;
+        if (sortableCols.has(colId)) {
+            const isActive = stockSortCol === colId;
+            const icon = isActive ? (stockSortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
+            const opacity = isActive ? '1' : '0.3';
+            html += `<th draggable="true" data-col="${colId}" data-sort="${colId}" onclick="sortStock('${colId}')" style="cursor:pointer;user-select:none;" data-en="${col.label}" data-ja="${col.labelJa}">${col.label}<span class="sort-icon" style="font-size:10px;opacity:${opacity};">${icon}</span></th>`;
+        } else {
+            html += `<th draggable="true" data-col="${colId}" style="cursor:grab;user-select:none;" data-en="${col.label}" data-ja="${col.labelJa}">${col.label}</th>`;
+        }
     }
     html += '<th></th>'; // Actions column
     thead.innerHTML = html;
@@ -110,19 +166,42 @@ function initHeaderDragDrop() {
     });
 }
 
+// ── プラットフォームバッジ ────────────────────────────────
+function platBadge(name) {
+    const m = {
+        'メルカリ':                {bg:'#FFE4E6', color:'#BE123C'},
+        'メルカリShops':           {bg:'#FFE4E6', color:'#BE123C'},
+        '楽天':                    {bg:'#CCFBF1', color:'#0F766E'},
+        'Amazon':                  {bg:'#FFEDD5', color:'#9A3412'},
+        'ヤフオク':                {bg:'#FEF9C3', color:'#854D0E'},
+        'ヤフーショッピング':       {bg:'#DCFCE7', color:'#166534'},
+        'Yahooフリマ':             {bg:'#E0F2FE', color:'#075985'},
+        'ラクマ':                  {bg:'#EDE9FE', color:'#5B21B6'},
+        'まんだらけ':              {bg:'#FAE8FF', color:'#86198F'},
+        '駿河屋':                  {bg:'#DBEAFE', color:'#1E40AF'},
+        'デジマート':              {bg:'#E0E7FF', color:'#3730A3'},
+        'GEO':                     {bg:'#D1FAE5', color:'#065F46'},
+        'セカンドストリート':       {bg:'#CFFAFE', color:'#155E75'},
+        'ネットモール(OFFモール)':  {bg:'#FEF3C7', color:'#92400E'},
+        'トレファク':              {bg:'#FCE7F3', color:'#9D174D'},
+    };
+    const s = m[name] || {bg:'#E2E8F0', color:'#334155'};
+    return `<span class="plat-badge" style="background:${s.bg};color:${s.color}">${esc(name)}</span>`;
+}
+
 // ── セル描画 ────────────────────────────────────────────
 function renderCell(colId, i) {
     switch (colId) {
         case 'stock_no':
-            return `<td style="font-size:11px;white-space:nowrap;">
+            return `<td style="font-size:14px;white-space:nowrap;">
                 <input type="text" value="${esc(i.stock_number || '')}" placeholder="-"
-                    style="width:70px;padding:2px 4px;font-size:11px;border:1px solid transparent;border-radius:4px;background:transparent;text-align:center;"
+                    style="width:70px;padding:2px 4px;font-size:14px;border:1px solid transparent;border-radius:4px;background:transparent;text-align:center;"
                     onfocus="this.style.borderColor='var(--brand-500)';this.style.background='white'"
                     onblur="this.style.borderColor='transparent';this.style.background='transparent';saveStockNumber(${i.id},this.value)"
                     onkeydown="if(event.key==='Enter'){this.blur()}"
                 ></td>`;
         case 'sku':
-            return `<td style="font-size:11px;color:var(--text-secondary);white-space:nowrap;">${esc(i.sku || '-')}</td>`;
+            return `<td style="font-size:14px;color:var(--text-secondary);white-space:nowrap;">${esc(i.sku || '-')}</td>`;
         case 'title': {
             const thumb = i.image_url
                 ? `<img src="${esc(i.image_url)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
@@ -131,7 +210,7 @@ function renderCell(colId, i) {
             const titleContent = i.purchase_url
                 ? `<a href="${esc(i.purchase_url)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--brand-500)'" onmouseout="this.style.color='inherit'">${titleText}</a>`
                 : titleText;
-            return `<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${esc(i.title)}">${thumb}${titleContent}</td>`;
+            return `<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;" title="${esc(i.title)}">${thumb}${titleContent}</td>`;
         }
         case 'cost': {
             const totalCost = i.purchase_price_jpy + i.consumption_tax_jpy + (i.shipping_cost_jpy || 0);
@@ -140,30 +219,31 @@ function renderCell(colId, i) {
             if (i.consumption_tax_jpy) details.push(`税¥${i.consumption_tax_jpy.toLocaleString()}`);
             if (i.shipping_cost_jpy) details.push(`送¥${i.shipping_cost_jpy.toLocaleString()}`);
             const detailNote = details.length > 1 ? `<br><span style="font-size:10px;color:var(--text-muted);">${details.join(' + ')}</span>` : '';
-            return `<td style="font-size:12px;">¥${totalCost.toLocaleString()}${detailNote}</td>`;
+            return `<td style="font-size:15px;">¥${totalCost.toLocaleString()}${detailNote}</td>`;
         }
         case 'date':
-            return `<td style="font-size:12px;">${i.purchase_date || '-'}</td>`;
+            return `<td style="font-size:15px;">${i.purchase_date || '-'}</td>`;
         case 'source': {
-            const sourceLink = i.purchase_url
-                ? `<a href="${esc(i.purchase_url)}" target="_blank" style="color:var(--text-secondary);font-size:11px;text-decoration:none;">${esc(i.purchase_source || '?')} ↗</a>`
-                : esc(i.purchase_source || '-');
+            const badge = i.purchase_source ? platBadge(i.purchase_source) : '<span style="color:#CBD5E1;font-size:11px;">-</span>';
+            const link = i.purchase_url
+                ? `<a href="${esc(i.purchase_url)}" target="_blank" style="color:var(--text-muted);font-size:10px;text-decoration:none;vertical-align:middle;margin-left:3px;">↗</a>`
+                : '';
             const sellerInfo = i.seller_id
                 ? (i.seller_url
                     ? `<br><a href="${esc(i.seller_url)}" target="_blank" style="color:var(--text-muted);font-size:10px;text-decoration:none;">${esc(i.seller_id)} ↗</a>`
                     : `<br><span style="font-size:10px;color:var(--text-muted);">${esc(i.seller_id)}</span>`)
                 : '';
-            return `<td style="font-size:12px;">${sourceLink}${sellerInfo}</td>`;
+            return `<td>${badge}${link}${sellerInfo}</td>`;
         }
         case 'condition':
-            return `<td style="font-size:12px;">${esc(i.condition || '-')}</td>`;
+            return `<td style="font-size:15px;">${esc(i.condition || '-')}</td>`;
         case 'status':
-            return `<td style="font-size:11px;">${buildStatusBadge(i.status)}</td>`;
+            return `<td style="font-size:14px;">${buildStatusBadge(i.status)}</td>`;
         case 'sold_at': {
             if (i.sale) {
                 const profit = i.sale.net_profit_jpy || 0;
                 const profitColor = profit >= 0 ? 'var(--success-500)' : 'var(--error-500)';
-                return `<td style="font-size:11px;">
+                return `<td style="font-size:14px;">
                     <a href="/sales" onclick="localStorage.setItem('highlight_sale','${i.sale.id}');" style="color:var(--accent-blue);text-decoration:none;">
                         $${(i.sale.sale_price_usd || 0).toFixed(0)} ↗
                     </a>
@@ -171,23 +251,23 @@ function renderCell(colId, i) {
                     <br><span style="font-size:10px;color:var(--text-muted);">${i.sold_at || ''}</span>
                 </td>`;
             }
-            return `<td style="font-size:12px;">${i.sold_at || '-'}</td>`;
+            return `<td style="font-size:15px;">${i.sold_at || '-'}</td>`;
         }
         case 'ebay': {
             if (i.ebay_item_id) {
                 const usd = i.ebay_price_usd || 0;
                 const jpy = Math.round(usd * _usdJpyRate);
-                const ebayLink = `<a href="https://www.ebay.com/itm/${i.ebay_item_id}" target="_blank" style="color:var(--accent-blue);font-size:11px;">$${usd} ↗</a>`;
+                const ebayLink = `<a href="https://www.ebay.com/itm/${i.ebay_item_id}" target="_blank" style="color:var(--accent-blue);font-size:14px;">$${usd} ↗</a>`;
                 const jpyNote = jpy ? `<br><span style="font-size:10px;color:var(--text-muted);">≈¥${jpy.toLocaleString()}</span>` : '';
-                return `<td style="font-size:11px;">${ebayLink}${jpyNote}</td>`;
+                return `<td style="font-size:14px;">${ebayLink}${jpyNote}</td>`;
             }
-            return `<td style="font-size:11px;"><span style="color:var(--text-muted);">-</span></td>`;
+            return `<td style="font-size:14px;"><span style="color:var(--text-muted);">-</span></td>`;
         }
         case 'ss': {
             const ssIcon = i.screenshot_path
                 ? `<button class="btn btn-sm btn-outline" onclick="viewScreenshot(${i.id}, '${esc(i.title)}')" style="padding:1px 5px;font-size:10px;">📸</button>`
                 : '<span style="color:var(--text-muted);font-size:10px;">-</span>';
-            return `<td style="font-size:11px;">${ssIcon}</td>`;
+            return `<td style="font-size:14px;">${ssIcon}</td>`;
         }
         default:
             return '<td>-</td>';
@@ -233,26 +313,34 @@ async function loadItems() {
         if (dateTo) url += `&date_to=${dateTo}`;
         const resp = await fetch(url);
         const items = await resp.json();
+        stockRawItems = items;
         if (!items.length) {
             tbody.innerHTML = `<tr><td colspan="${colCount}" class="empty-state">データなし</td></tr>`;
             return;
         }
-        tbody.innerHTML = items.map(i => {
-            let cells = `<td><input type="checkbox" class="row-check" data-id="${i.id}" onchange="updateBulkBar()" style="cursor:pointer;"></td>`;
-            for (const colId of colOrder) {
-                cells += renderCell(colId, i);
-            }
-            cells += `<td style="white-space:nowrap;">
-                <button class="btn btn-sm btn-outline" onclick="openEditModal(${i.id})" style="padding:2px 8px;font-size:11px;">Edit</button>
-                <button class="btn btn-sm btn-outline" onclick="deleteItem(${i.id})" style="padding:2px 6px;font-size:11px;color:var(--accent-red);border-color:var(--accent-red);">Del</button>
-            </td>`;
-            return `<tr>${cells}</tr>`;
-        }).join('');
+        renderStockRows(items);
         updateBulkBar();
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="${colCount}" class="empty-state">読み込みエラー</td></tr>`;
         console.error(e);
     }
+}
+
+function renderStockRows(items) {
+    const tbody = document.getElementById('stockBody');
+    const colOrder = getColumnOrder();
+    const sorted = [...items].sort(compareStock);
+    tbody.innerHTML = sorted.map(i => {
+        let cells = `<td><input type="checkbox" class="row-check" data-id="${i.id}" onchange="updateBulkBar()" style="cursor:pointer;"></td>`;
+        for (const colId of colOrder) {
+            cells += renderCell(colId, i);
+        }
+        cells += `<td style="white-space:nowrap;">
+            <button class="proc-edit-btn" onclick="openEditModal(${i.id})">編集</button>
+            <button class="proc-edit-btn" onclick="deleteItem(${i.id})" style="color:#EF4444;border-color:#FECACA;">削除</button>
+        </td>`;
+        return `<tr class="proc-row">${cells}</tr>`;
+    }).join('');
 }
 
 // ── ステータスバッジ ────────────────────────────────────
@@ -341,7 +429,7 @@ function setScreenshotPreview(file) {
     reader.onload = (e) => {
         preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:150px;border-radius:4px;">`;
         preview.style.display = 'block';
-        prompt.innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ ${file.name} (${(file.size/1024).toFixed(0)}KB)</span>`;
+        prompt.innerHTML = `<span style="font-size:14px;color:var(--accent-green);">✓ ${file.name} (${(file.size/1024).toFixed(0)}KB)</span>`;
     };
     reader.readAsDataURL(file);
 }
@@ -384,7 +472,7 @@ function openAddModal() {
     document.getElementById('fStatus').value = 'ordered';
     document.getElementById('fQty').value = '1';
     document.getElementById('screenshotPreview').style.display = 'none';
-    document.getElementById('screenshotPrompt').innerHTML = '<span style="font-size:24px;">📸</span><br><span style="font-size:12px;color:var(--text-muted);">スクリーンショットをドロップ、またはクリックして選択</span>';
+    document.getElementById('screenshotPrompt').innerHTML = '<span style="font-size:24px;">📸</span><br><span style="font-size:15px;color:var(--text-muted);">スクリーンショットをドロップ、またはクリックして選択</span>';
     pendingScreenshot = null;
     document.getElementById('urlDetectStatus').textContent = '';
     document.getElementById('stockModal').style.display = 'flex';
@@ -430,10 +518,10 @@ async function openEditModal(id) {
     if (i.screenshot_path) {
         preview.innerHTML = `<img src="/api/stock/screenshot/${id}?t=${Date.now()}" style="max-width:100%;max-height:150px;border-radius:4px;">`;
         preview.style.display = 'block';
-        prompt.innerHTML = '<span style="font-size:11px;color:var(--accent-green);">✓ スクリーンショット保存済み（新しい画像をドロップで上書き）</span>';
+        prompt.innerHTML = '<span style="font-size:14px;color:var(--accent-green);">✓ スクリーンショット保存済み（新しい画像をドロップで上書き）</span>';
     } else {
         preview.style.display = 'none';
-        prompt.innerHTML = '<span style="font-size:24px;">📸</span><br><span style="font-size:12px;color:var(--text-muted);">スクリーンショットをドロップ、またはクリックして選択</span>';
+        prompt.innerHTML = '<span style="font-size:24px;">📸</span><br><span style="font-size:15px;color:var(--text-muted);">スクリーンショットをドロップ、またはクリックして選択</span>';
     }
 
     document.getElementById('stockModal').style.display = 'flex';
