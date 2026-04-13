@@ -492,8 +492,9 @@ function renderOOS(items) {
     tb.innerHTML = items.map(item => {
         const days  = item.days_out_of_stock != null ? `${item.days_out_of_stock}日` : '—';
         const price = item.last_sale_price_jpy > 0 ? fmt(item.last_sale_price_jpy) : `$${item.price_usd}`;
-        const query = encodeURIComponent(item.title.slice(0, 40));
-        const title = item.title.length > 45 ? item.title.slice(0, 45) + '…' : item.title;
+        const t2 = item.title || '';
+        const query = encodeURIComponent(t2.slice(0, 40));
+        const title = t2.length > 45 ? t2.slice(0, 45) + '…' : t2;
         return `<tr>
             <td>${escapeHtml(title)}</td>
             <td>${price}</td>
@@ -605,7 +606,8 @@ function renderSalesTable(data) {
         const barW = Math.min(m, 100);
         const stMap = { '発送済': 'ship', '納品済': 'sold', '未注文': 'pend', '注文済': 'pend' };
         const stCls = stMap[r.status] || 'pend';
-        const title = r.title.length > 40 ? r.title.slice(0, 40) + '…' : r.title;
+        const t = r.title || '';
+        const title = t.length > 40 ? t.slice(0, 40) + '…' : t;
         return `<tr>
             <td>${escapeHtml(title)}</td>
             <td>${fmt(r.sale_price_jpy)}</td>
