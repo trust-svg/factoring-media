@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSummary(1);
     loadTransactions();
     loadExpenses();
-    loadDailyAnalytics(30);
+    loadDailyAnalytics(60);
 
     // 自動同期ラベル初期化
     updateAutoSyncLabel();
@@ -182,12 +182,28 @@ function renderProfitMonthlyChart(trend, summary) {
     const now   = new Date();
     const yr = now.getFullYear(), mo = now.getMonth() + 1;
     const dim   = new Date(yr, mo, 0).getDate();
-    const rate  = (summary[0] || {}).avg_exchange_rate || 155;
 
+    // 実際の為替レートをsummaryから計算
+    const s0 = summary[0] || {};
+    const rate = (s0.revenue_usd > 0) ? s0.revenue_jpy / s0.revenue_usd : 155;
+
+    // 今月の実日次データ
+    const currPfx = `${yr}-${String(mo).padStart(2,'0')}`;
     const days = Array.from({length: dim}, (_, i) => {
-        const d = `${yr}-${String(mo).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+        const d = `${currPfx}-${String(i+1).padStart(2,'0')}`;
         const t = trend.find(x => x.date === d);
         return { date: d, rev: t ? Math.round(t.revenue_usd * rate) : 0 };
+    });
+
+    // 先月の実日次データ
+    const prevMo  = mo === 1 ? 12 : mo - 1;
+    const prevYr  = mo === 1 ? yr - 1 : yr;
+    const prevDim = new Date(prevYr, prevMo, 0).getDate();
+    const prevPfx = `${prevYr}-${String(prevMo).padStart(2,'0')}`;
+    const prevDays = Array.from({length: prevDim}, (_, i) => {
+        const d = `${prevPfx}-${String(i+1).padStart(2,'0')}`;
+        const t = trend.find(x => x.date === d);
+        return t ? Math.round(t.revenue_usd * rate) : 0;
     });
 
     const TARGET = 5_000_000;
@@ -196,8 +212,14 @@ function renderProfitMonthlyChart(trend, summary) {
     const tgtPoints  = days.map((_, i) => Math.round(TARGET / dim * (i + 1)));
     const tidx   = days.findIndex(d => d.date > today);
     const active = tidx === -1 ? dim - 1 : Math.max(tidx - 1, 0);
-    const pmEst  = Math.round(thisPoints[active] / Math.max(active + 1, 1) * dim * 0.88);
-    const pmPoints = days.map((_, i) => Math.round(pmEst / dim * (i + 1)));
+
+    // 先月累計を今月のx軸にスケール
+    let cumPrev = 0;
+    const pmCumul = prevDays.map(v => { cumPrev += v; return cumPrev; });
+    const pmPoints = days.map((_, i) => {
+        const prevIdx = Math.min(Math.round(i * prevDim / dim), prevDim - 1);
+        return pmCumul[prevIdx] || 0;
+    });
 
     const svgW = svgEl.clientWidth || 280;
     const svgH = 120, padB = 16, chartH = svgH - padB;
