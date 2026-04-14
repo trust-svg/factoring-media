@@ -514,6 +514,88 @@
     .gallery__item:hover::after { opacity: 1; }
 
     /* ============================================================
+       Mote Reasons (50代モテる理由)
+    ============================================================ */
+    .mote__header { text-align: center; margin-bottom: 64px; }
+    .mote__grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 28px;
+    }
+    .mote__card {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      background: var(--clr-bg);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-lg);
+      padding: 36px 32px;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .mote__card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .mote__num {
+      font-family: var(--font-display);
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--clr-border);
+      line-height: 1;
+      flex-shrink: 0;
+      width: 52px;
+    }
+    .mote__body {}
+    .mote__title {
+      font-family: var(--font-serif-jp);
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--clr-accent);
+    }
+    .mote__desc { font-size: 0.95rem; color: var(--clr-text-light); line-height: 1.85; }
+    .mote__voice {
+      margin-top: 64px;
+      background: var(--clr-bg-tint);
+      border-radius: var(--radius-lg);
+      padding: 48px 40px;
+      text-align: center;
+    }
+    .mote__voice-label {
+      font-family: var(--font-display);
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: var(--clr-accent);
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 28px;
+    }
+    .mote__voice-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .mote__voice-item {
+      background: var(--clr-bg);
+      border-radius: var(--radius-md);
+      padding: 24px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .mote__voice-item p {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--clr-text);
+      margin-bottom: 12px;
+    }
+    .mote__voice-item span {
+      font-size: 0.8rem;
+      color: var(--clr-text-light);
+    }
+    @media (max-width: 768px) {
+      .mote__grid { grid-template-columns: 1fr; }
+      .mote__voice-grid { grid-template-columns: 1fr; }
+      .mote__voice { padding: 32px 20px; }
+    }
+
+    /* ============================================================
        Safety
     ============================================================ */
     .safety__header { text-align: center; margin-bottom: 60px; }
@@ -658,7 +740,67 @@
     </div>
   </section>
 
-  <!-- ③ 比較 -->
+  <!-- ③ 50代男性がモテる理由 -->
+  <section class="section section--tint">
+    <div class="container">
+      <div class="mote__header fade-up">
+        <span class="section-label">なぜ今、50代がモテるのか</span>
+        <h2 class="section-title">「落ち着いた大人の男性」が<br>求められている時代です</h2>
+        <div class="rose-line"></div>
+      </div>
+
+      <div class="mote__grid">
+        <div class="mote__card fade-up delay-1">
+          <div class="mote__num">01</div>
+          <div class="mote__body">
+            <div class="mote__title">精神的な余裕と包容力</div>
+            <p class="mote__desc">若い男性には出せない「落ち着き」と「余裕」。感情的にならず、相手の話をしっかり聞いてくれる。女性が本当に求めているのは、この安心感です。</p>
+          </div>
+        </div>
+        <div class="mote__card fade-up delay-2">
+          <div class="mote__num">02</div>
+          <div class="mote__body">
+            <div class="mote__title">経済的な安定感</div>
+            <p class="mote__desc">デートや食事で気を遣わせない余裕。「割り勘でいいよ」と言いながら、さりげなく払える大人の振る舞い。これだけで女性の評価は大きく変わります。</p>
+          </div>
+        </div>
+        <div class="mote__card fade-up delay-1">
+          <div class="mote__num">03</div>
+          <div class="mote__body">
+            <div class="mote__title">豊かな人生経験と会話力</div>
+            <p class="mote__desc">旅行、仕事、趣味…さまざまな経験から生まれる話題の幅広さ。「この人といると退屈しない」と思わせる会話力は、50代の特権です。</p>
+          </div>
+        </div>
+        <div class="mote__card fade-up delay-2">
+          <div class="mote__num">04</div>
+          <div class="mote__body">
+            <div class="mote__title">若作りしない「等身大」の魅力</div>
+            <p class="mote__desc">背伸びしない、飾らない、ありのままでいられる自信。それ自体が魅力になる年代です。自分らしさをそのまま出せる50代だからこそ、本当の出会いがある。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mote__voice fade-up">
+        <span class="mote__voice-label">会員女性のリアルな声</span>
+        <div class="mote__voice-grid">
+          <div class="mote__voice-item">
+            <p>「同世代の男性より、50代の方が話していて楽しい。人生経験が全然違う。」</p>
+            <span>— 38歳・会社員</span>
+          </div>
+          <div class="mote__voice-item">
+            <p>「感情的にならないし、ちゃんと話を聞いてくれる。若い男性にはない安心感がある。」</p>
+            <span>— 34歳・看護師</span>
+          </div>
+          <div class="mote__voice-item">
+            <p>「ありのままでいてくれるのがいい。無理に若く見せようとしないところが逆に素敵。」</p>
+            <span>— 41歳・フリーランス</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ 比較 -->
   <section class="section section--gray">
     <div class="container">
       <div class="compare__header fade-up">
