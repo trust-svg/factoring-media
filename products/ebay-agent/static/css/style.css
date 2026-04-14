@@ -861,6 +861,7 @@ button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 24px;
+    align-items: start;
 }
 
 .chart-container {
@@ -1597,9 +1598,9 @@ input:focus-visible {
 .kt { width:100%; border-collapse:collapse; }
 .kt tr { border-bottom:1px solid #F8FAFC; }
 .kt tr:last-child { border-bottom:none; }
-.kt td { padding:5px 3px; font-size:13px; }
-.kn  { color:#64748B; font-weight:500; width:60px; }
-.kv  { font-weight:700; color:#0F172A; text-align:right; padding-right:4px; white-space:nowrap; }
+.kt td { padding:7px 4px; }
+.kn  { font-size:11px; color:#94A3B8; font-weight:600; width:60px; }
+.kv  { font-size:19px; font-weight:800; color:#0F172A; text-align:right; padding-right:4px; white-space:nowrap; letter-spacing:-.02em; }
 .mb-w { width:54px; }
 .mini-bar  { height:4px; background:#F1F5F9; border-radius:2px; overflow:hidden; }
 .mini-fill { height:100%; border-radius:2px; }
