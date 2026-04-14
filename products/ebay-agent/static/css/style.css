@@ -1494,7 +1494,7 @@ input:focus-visible {
 .pf.amber { background: linear-gradient(90deg,#FCD34D,#F59E0B); }
 .pf.green { background: linear-gradient(90deg,#6EE7B7,#10B981); }
 
-.ac-foot { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#94A3B8; }
+.ac-foot { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#94A3B8; }
 .ac-foot .proj  { color:#10B981; font-weight:700; }
 .ac-foot .warn  { color:#F59E0B; font-weight:700; }
 
@@ -1513,7 +1513,7 @@ input:focus-visible {
 .pay-v    { font-size:21px; font-weight:800; letter-spacing:-.02em; }
 .pay-sub  { font-size:11px; opacity:.7; margin-top:3px; }
 .pay-body { padding:10px 14px; }
-.pay-row  { display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px; }
+.pay-row  { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
 .pay-row:last-child { margin-bottom:0; }
 .pay-name { color:#64748B; }
 .pay-val  { font-weight:700; color:#0F172A; }
@@ -1535,7 +1535,7 @@ input:focus-visible {
     box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
 .card-h {
-    font-size:13px; font-weight:700; color:#374151;
+    font-size:14px; font-weight:700; color:#1e293b;
     margin-bottom:10px;
     display:flex; align-items:center; justify-content:space-between;
 }
@@ -1626,7 +1626,7 @@ input:focus-visible {
 }
 .freee-row:last-child { border-bottom:none; }
 /* ②フォント階層: smaller label, heavier value */
-.freee-name { font-size:11px; color:#64748B; }
+.freee-name { font-size:12px; color:#64748B; }
 .freee-val  { font-size:13px; font-weight:800; color:#0F172A; }
 .freee-val.g { color:#10B981; }
 .freee-val.r { color:#EF4444; }
@@ -1688,7 +1688,7 @@ input:focus-visible {
     border-bottom:1px solid #F1F5F9; background:#FAFAFA;
 }
 .oos-table td {
-    padding:7px 8px; font-size:13px; color:#374151;
+    padding:7px 8px; font-size:13px; color:#1e293b;
     border-bottom:1px solid #F8FAFC; vertical-align:middle;
 }
 .oos-table tbody tr:last-child td { border-bottom:none; }
@@ -1713,7 +1713,7 @@ table.dt th {
     background:#FAFAFA; border-bottom:1px solid #F1F5F9;
 }
 table.dt td {
-    padding:9px 14px; font-size:13px; color:#374151;
+    padding:10px 14px; font-size:14px; color:#1e293b;
     border-bottom:1px solid #F8FAFC; vertical-align:middle;
 }
 table.dt tbody tr:hover td { background:#F8FAFC; }
