@@ -8,15 +8,16 @@ let txRawRecords = [];
 // ApexCharts共通テーマ
 const chartFont = 'Inter, sans-serif';
 const chartColors = {
-    brand: '#007AFF',
-    brandLight: '#5AC8FA',
-    success: '#12B76A',
-    error: '#F04438',
-    warning: '#F79009',
-    purple: '#7A5AF8',
-    gray400: '#98A2B3',
-    gray500: '#667085',
-    gray200: '#E4E7EC',
+    brand:      '#2563EB',
+    brandLight: '#93C5FD',
+    success:    '#10B981',
+    error:      '#EF4444',
+    warning:    '#F59E0B',
+    purple:     '#7C3AED',
+    indigo:     '#6366F1',
+    gray400:    '#94A3B8',
+    gray500:    '#64748B',
+    gray200:    '#F1F5F9',
 };
 
 // ── 初期化 ────────────────────────────────────────────
@@ -156,26 +157,25 @@ function renderTrendChart(data) {
             xaxis: { lines: { show: false } },
             yaxis: { lines: { show: true } },
         },
-        stroke: { curve: 'straight', width: [0, 2] },
+        stroke: { curve: 'straight', width: [0, 2.5] },
         plotOptions: {
-            bar: { columnWidth: '39%', borderRadius: 5 },
+            bar: { columnWidth: '36%', borderRadius: 4 },
         },
         fill: {
-            type: ['solid', 'gradient'],
-            gradient: { shadeIntensity: 1, opacityFrom: 0.55, opacityTo: 0, stops: [0, 90, 100] },
+            type: ['solid', 'solid'],
         },
         dataLabels: { enabled: false },
         legend: {
             position: 'top',
             horizontalAlign: 'left',
             fontFamily: chartFont,
-            fontSize: '14px',
+            fontSize: '12px',
             labels: { colors: chartColors.gray500 },
             markers: { radius: 99 },
         },
         tooltip: {
             theme: 'light',
-            style: { fontFamily: chartFont },
+            style: { fontFamily: chartFont, fontSize: '12px' },
             y: { formatter: v => '$' + v.toLocaleString() },
         },
     };
@@ -214,7 +214,7 @@ function renderBreakdownChart(data) {
             height: 310,
             fontFamily: chartFont,
         },
-        colors: [chartColors.brand, chartColors.purple, chartColors.warning, chartColors.error, '#F79009', chartColors.gray500, chartColors.gray400],
+        colors: [chartColors.brand, chartColors.purple, chartColors.warning, chartColors.error, chartColors.indigo, chartColors.gray400, chartColors.gray500],
         series: values,
         labels: labels,
         legend: {
@@ -874,20 +874,20 @@ async function loadDailyAnalytics(days) {
                 stroke: { curve: 'straight', width: 2 },
                 fill: {
                     type: 'gradient',
-                    gradient: { shadeIntensity: 1, opacityFrom: 0.55, opacityTo: 0, stops: [0, 90, 100] },
+                    gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0, stops: [0, 95, 100] },
                 },
                 dataLabels: { enabled: false },
                 legend: {
                     position: 'top',
                     horizontalAlign: 'left',
                     fontFamily: chartFont,
-                    fontSize: '14px',
+                    fontSize: '12px',
                     labels: { colors: chartColors.gray500 },
                     markers: { radius: 99 },
                 },
                 tooltip: {
                     theme: 'light',
-                    style: { fontFamily: chartFont },
+                    style: { fontFamily: chartFont, fontSize: '12px' },
                     y: { formatter: v => '$' + v.toLocaleString() },
                 },
             };

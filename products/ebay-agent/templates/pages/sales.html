@@ -17,6 +17,10 @@
     .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
+    .tab-panel .section h2 {
+        font-size: 11px; font-weight: 700; color: #475569;
+        text-transform: uppercase; letter-spacing: .08em;
+    }
 
     /* ── proc-table ── */
     .proc-table { width: 100%; border-collapse: collapse; }
@@ -110,5 +114,5 @@ if (new URLSearchParams(location.search).get('tab') === 'analytics') switchSales
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/profit.js?v=20260414"></script>
+<script src="/static/js/profit.js?v=20260414b"></script>
 {% endblock %}
