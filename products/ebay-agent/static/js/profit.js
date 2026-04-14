@@ -27,7 +27,21 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTransactions();
     loadExpenses();
     loadDailyAnalytics(30);
+
+    // 自動同期ラベル初期化
+    updateAutoSyncLabel();
+
+    // 5分ごとに取引一覧を自動更新
+    setInterval(() => {
+        loadTransactions();
+        updateAutoSyncLabel();
+    }, 5 * 60 * 1000);
 });
+
+function updateAutoSyncLabel() {
+    const el = document.getElementById('autoSyncLabel');
+    if (el) el.textContent = `自動同期: ${new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})}`;
+}
 
 function populateMonthSelectors() {
     const now = new Date();
@@ -60,7 +74,7 @@ async function loadSummary(months) {
         const resp = await fetch(`/api/profit/summary?months=${months}`);
         summaryData = await resp.json();
         updateKPI(summaryData);
-        renderTrendChart(summaryData);
+        _profitSummaryData = summaryData;
         if (summaryData.length > 0) {
             loadBreakdown(summaryData[0].year_month);
         }
@@ -117,71 +131,123 @@ function updateKPI(data) {
     document.getElementById('kpiCostBreak').textContent = `仕入:\u00a5${latest.source_cost_jpy.toLocaleString()} / 送料:\u00a5${(latest.shipping_jpy + latest.intl_shipping_jpy).toLocaleString()}`;
 }
 
-// ── チャート (ApexCharts) ──────────────────────────────
-function renderTrendChart(data) {
-    const sorted = [...data].sort((a, b) => a.year_month.localeCompare(b.year_month));
-    const labels = sorted.map(d => d.year_month);
-    const revenue = sorted.map(d => d.revenue_usd);
-    const profit = sorted.map(d => d.net_profit_usd);
+// ── 売上トレンドチャート（ダッシュボード同スタイル）────────────────
+let _profitTrendData = null;
+let _profitSummaryData = [];
 
-    if (trendChart) trendChart.destroy();
+function switchProfitChart(mode) {
+    ['daily', 'monthly'].forEach(m => {
+        const panel = document.getElementById(`profit-panel-${m}`);
+        const btn   = document.getElementById(`profit-tab-${m}`);
+        if (panel) panel.style.display = m === mode ? '' : 'none';
+        if (btn)   btn.classList.toggle('on', m === mode);
+    });
+    if (mode === 'monthly' && _profitTrendData) {
+        renderProfitMonthlyChart(_profitTrendData, _profitSummaryData);
+    }
+}
 
-    const options = {
-        chart: {
-            type: 'bar',
-            height: 310,
-            fontFamily: chartFont,
-            toolbar: { show: false },
-            zoom: { enabled: false },
-        },
-        colors: [chartColors.brand, chartColors.success],
-        series: [
-            { name: '売上 ($)', data: revenue, type: 'bar' },
-            { name: '利益 ($)', data: profit, type: 'line' },
-        ],
-        xaxis: {
-            categories: labels,
-            axisBorder: { show: false },
-            axisTicks: { show: false },
-            labels: { style: { colors: chartColors.gray500, fontFamily: chartFont, fontSize: '12px' } },
-        },
-        yaxis: {
-            labels: {
-                style: { colors: chartColors.gray500, fontFamily: chartFont, fontSize: '12px' },
-                formatter: v => '$' + v.toLocaleString(),
-            },
-        },
-        grid: {
-            borderColor: chartColors.gray200,
-            strokeDashArray: 0,
-            xaxis: { lines: { show: false } },
-            yaxis: { lines: { show: true } },
-        },
-        stroke: { curve: 'straight', width: [0, 2.5] },
-        plotOptions: {
-            bar: { columnWidth: '36%', borderRadius: 4 },
-        },
-        fill: {
-            type: ['solid', 'solid'],
-        },
-        dataLabels: { enabled: false },
-        legend: {
-            position: 'top',
-            horizontalAlign: 'left',
-            fontFamily: chartFont,
-            fontSize: '12px',
-            labels: { colors: chartColors.gray500 },
-            markers: { radius: 99 },
-        },
-        tooltip: {
-            theme: 'light',
-            style: { fontFamily: chartFont, fontSize: '12px' },
-            y: { formatter: v => '$' + v.toLocaleString() },
-        },
-    };
+function renderProfitDailyChart(trend) {
+    const el = document.getElementById('profitDailyChart');
+    if (!el) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const days  = trend.filter(d => d.date <= today).slice(-14);
+    if (days.length === 0) {
+        el.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#94A3B8;padding:20px;font-size:12px">データなし</div>`;
+        return;
+    }
+    const maxRev = Math.max(...days.map(d => d.revenue_usd), 1);
+    el.innerHTML = days.map(d => {
+        const ratio = d.revenue_usd / maxRev;
+        const h     = Math.max(Math.round(ratio * 64), d.revenue_usd > 0 ? 4 : 1);
+        const cls   = ratio > 0.7 ? 'hi' : ratio > 0.35 ? 'md' : 'lo';
+        const label = d.revenue_usd > 0 ? `$${Math.round(d.revenue_usd)}` : '—';
+        return `<div class="vbar-col">
+            <div class="vbar-num ${ratio > 0.7 ? 'hi' : ''}">${label}</div>
+            <div class="vbar ${cls}" style="height:${h}px"></div>
+            <div class="vbar-day">${d.date.slice(8).replace(/^0/, '')}</div>
+        </div>`;
+    }).join('');
+    const sub = document.getElementById('profitDailySubLabel');
+    if (sub) sub.textContent = `日別売上（直近${days.length}日）`;
+}
 
-    trendChart = new ApexCharts(document.getElementById('trendChart'), options);
-    trendChart.render();
+function renderProfitMonthlyChart(trend, summary) {
+    const svgEl = document.getElementById('profitMonthlySvg');
+    const yEl   = document.getElementById('profitMonthlyYLabels');
+    const xEl   = document.getElementById('profitMonthlyXLabels');
+    if (!svgEl) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const now   = new Date();
+    const yr = now.getFullYear(), mo = now.getMonth() + 1;
+    const dim   = new Date(yr, mo, 0).getDate();
+    const rate  = (summary[0] || {}).avg_exchange_rate || 155;
+
+    const days = Array.from({length: dim}, (_, i) => {
+        const d = `${yr}-${String(mo).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+        const t = trend.find(x => x.date === d);
+        return { date: d, rev: t ? Math.round(t.revenue_usd * rate) : 0 };
+    });
+
+    const TARGET = 5_000_000;
+    let cum = 0;
+    const thisPoints = days.map(d => { if (d.date <= today) cum += d.rev; return cum; });
+    const tgtPoints  = days.map((_, i) => Math.round(TARGET / dim * (i + 1)));
+    const tidx   = days.findIndex(d => d.date > today);
+    const active = tidx === -1 ? dim - 1 : Math.max(tidx - 1, 0);
+    const pmEst  = Math.round(thisPoints[active] / Math.max(active + 1, 1) * dim * 0.88);
+    const pmPoints = days.map((_, i) => Math.round(pmEst / dim * (i + 1)));
+
+    const svgW = svgEl.clientWidth || 280;
+    const svgH = 120, padB = 16, chartH = svgH - padB;
+    const maxV = Math.max(...tgtPoints, ...thisPoints, 1);
+    const toX  = i => (i / Math.max(dim - 1, 1)) * svgW;
+    const toY  = v => chartH - (v / maxV * chartH);
+    const mkPath = (pts, n) => pts.slice(0, n + 1)
+        .map((v, i) => `${i===0?'M':'L'}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+
+    if (yEl) yEl.innerHTML = [1, .75, .5, .25, 0].map(f => {
+        const v = Math.round(maxV * f);
+        const s = v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v);
+        return `<div style="font-size:10px;color:#94A3B8;">${s}</div>`;
+    }).join('');
+    if (xEl) xEl.innerHTML = days
+        .filter((_, i) => i % 5 === 0 || i === dim - 1)
+        .map(d => `<div style="font-size:10px;color:#94A3B8;">${d.date.slice(8).replace(/^0/,'')}</div>`).join('');
+
+    svgEl.innerHTML = `
+        <defs><linearGradient id="pgr" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#2563EB" stop-opacity=".2"/>
+            <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path d="${mkPath(thisPoints,active)} L${toX(active).toFixed(1)},${chartH} L0,${chartH} Z" fill="url(#pgr)"/>
+        <path d="${mkPath(tgtPoints,dim-1)}" fill="none" stroke="#F97316" stroke-width="1.5" stroke-dasharray="5,4" opacity=".8"/>
+        <path d="${mkPath(pmPoints,dim-1)}" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="5,4" opacity=".7"/>
+        <path d="${mkPath(thisPoints,active)}" fill="none" stroke="#2563EB" stroke-width="2"/>`;
+
+    const fmtM = v => v >= 1e6 ? `¥${(v/1e6).toFixed(2)}M` : `¥${v.toLocaleString()}`;
+    const cur = thisPoints[active] || 0;
+
+    const pe = document.getElementById('profitCsPace');
+    if (pe) {
+        const d = cur - pmPoints[active];
+        const p = pmPoints[active] > 0 ? Math.abs(Math.round(d / pmPoints[active] * 100)) : 0;
+        pe.textContent = `${d>=0?'+':'-'}${fmtM(Math.abs(d))} (${p}%)`;
+    }
+    const te = document.getElementById('profitCsTarget');
+    if (te) {
+        const g = cur - tgtPoints[active];
+        const p = tgtPoints[active] > 0 ? Math.abs(Math.round(g / tgtPoints[active] * 100)) : 0;
+        te.textContent = `${g>=0?'+':'-'}${fmtM(Math.abs(g))} ${g>=0?'↑':'↓'}${p}%`;
+    }
+    const ee = document.getElementById('profitCsEom');
+    const es = document.getElementById('profitCsEomSub');
+    if (ee) {
+        const proj = cur > 0 && active >= 0 ? Math.round(cur / (active + 1) * dim) : 0;
+        ee.textContent = fmtM(proj);
+        if (es) { es.textContent = proj >= TARGET ? '目標達成 ✅' : '目標未達 📉'; es.style.color = proj >= TARGET ? '#10B981' : '#EF4444'; }
+    }
 }
 
 async function loadBreakdown(month) {
@@ -836,80 +902,24 @@ async function syncAllSales() {
 async function loadDailyAnalytics(days) {
     try {
         const data = await (await fetch(`/api/sales/analytics?days=${days}`)).json();
-
-        const trend = data.daily_trend || [];
-        if (dailyChartInstance) dailyChartInstance.destroy();
-        if (trend.length > 0) {
-            const options = {
-                chart: {
-                    type: 'area',
-                    height: 310,
-                    fontFamily: chartFont,
-                    toolbar: { show: false },
-                    zoom: { enabled: false },
-                },
-                colors: [chartColors.brand, chartColors.brandLight],
-                series: [
-                    { name: '売上 ($)', data: trend.map(d => d.revenue_usd) },
-                    { name: '利益 ($)', data: trend.map(d => d.profit_usd) },
-                ],
-                xaxis: {
-                    categories: trend.map(d => d.date.slice(5)),
-                    axisBorder: { show: false },
-                    axisTicks: { show: false },
-                    labels: { style: { colors: chartColors.gray500, fontFamily: chartFont, fontSize: '12px' } },
-                },
-                yaxis: {
-                    labels: {
-                        style: { colors: chartColors.gray500, fontFamily: chartFont, fontSize: '12px' },
-                        formatter: v => '$' + v.toLocaleString(),
-                    },
-                },
-                grid: {
-                    borderColor: chartColors.gray200,
-                    strokeDashArray: 0,
-                    xaxis: { lines: { show: false } },
-                    yaxis: { lines: { show: true } },
-                },
-                stroke: { curve: 'straight', width: 2 },
-                fill: {
-                    type: 'gradient',
-                    gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0, stops: [0, 95, 100] },
-                },
-                dataLabels: { enabled: false },
-                legend: {
-                    position: 'top',
-                    horizontalAlign: 'left',
-                    fontFamily: chartFont,
-                    fontSize: '12px',
-                    labels: { colors: chartColors.gray500 },
-                    markers: { radius: 99 },
-                },
-                tooltip: {
-                    theme: 'light',
-                    style: { fontFamily: chartFont, fontSize: '12px' },
-                    y: { formatter: v => '$' + v.toLocaleString() },
-                },
-            };
-            dailyChartInstance = new ApexCharts(document.getElementById('dailyChart'), options);
-            dailyChartInstance.render();
-        }
+        _profitTrendData = data.daily_trend || [];
+        renderProfitDailyChart(_profitTrendData);
 
         // Top Products
         const tp = data.top_products || [];
         const container = document.getElementById('topProducts');
         if (tp.length) {
-            let html = '<table class="data-table"><thead><tr><th style="width:48px;"></th><th>商品</th><th>売上</th><th>利益</th><th>数量</th></tr></thead><tbody>';
+            let html = '<table class="proc-table"><thead><tr><th style="width:44px;"></th><th>商品</th><th>売上</th><th>利益</th><th>数</th></tr></thead><tbody>';
             for (const p of tp.slice(0, 10)) {
                 const thumb = p.image_url
-                    ? `<img src="${esc(p.image_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;display:block;" onerror="this.style.display='none'">`
-                    : `<div style="width:40px;height:40px;border-radius:6px;background:var(--gray-100);"></div>`;
-                html += `<tr>
+                    ? `<img src="${esc(p.image_url)}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;display:block;" onerror="this.style.display='none'">`
+                    : `<div style="width:36px;height:36px;border-radius:5px;background:#F1F5F9;"></div>`;
+                html += `<tr class="proc-row">
                     <td style="padding:6px 8px;">${thumb}</td>
-                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;">${esc(p.title)}</td>
-                    <td style="font-size:15px;">$${(p.revenue_usd || 0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                    <td style="font-size:15px;color:${(p.profit_usd||0)>=0?'var(--success-500)':'var(--error-500)'};">$${(p.profit_usd || 0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                    <td style="font-size:15px;">${p.sales_count}</td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.title)}</td>
+                    <td>$${(p.revenue_usd||0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+                    <td style="color:${(p.profit_usd||0)>=0?'#10B981':'#EF4444'};">$${(p.profit_usd||0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+                    <td>${p.sales_count}</td>
                 </tr>`;
             }
             html += '</tbody></table>';

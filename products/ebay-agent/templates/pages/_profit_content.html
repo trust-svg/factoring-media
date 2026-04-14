@@ -62,13 +62,52 @@
 </div>
 
 <!-- チャート -->
-<div class="overview-grid">
-    <div class="section"><h2>月別推移</h2><div class="chart-container"><div id="trendChart"></div></div></div>
-    <div class="section"><h2>費用内訳</h2><div class="chart-container"><div id="breakdownChart"></div></div></div>
+<div class="section" style="margin-bottom:16px;">
+    <div class="card-h">
+        売上トレンド
+        <div class="tab-bar">
+            <button class="tab-btn on" id="profit-tab-daily" onclick="switchProfitChart('daily')">日別</button>
+            <button class="tab-btn" id="profit-tab-monthly" onclick="switchProfitChart('monthly')">月別累計</button>
+        </div>
+    </div>
+    <div id="profit-panel-daily">
+        <div style="font-size:10px;color:#94A3B8;margin-bottom:6px" id="profitDailySubLabel"></div>
+        <div class="vchart" id="profitDailyChart"><div style="grid-column:1/-1;text-align:center;color:#94A3B8;padding:20px;font-size:12px">読み込み中...</div></div>
+    </div>
+    <div id="profit-panel-monthly" style="display:none">
+        <div class="chart-legend">
+            <div class="leg-item"><div class="leg-line solid"></div>今月累計</div>
+            <div class="leg-item"><div class="leg-line dg"></div>目標ライン</div>
+            <div class="leg-item"><div class="leg-line do"></div>先月推定</div>
+            <div style="margin-left:auto;font-size:10px;color:#64748B">目標: ¥5,000,000</div>
+        </div>
+        <div class="chart-svg-wrap">
+            <div class="y-labels" id="profitMonthlyYLabels"></div>
+            <svg id="profitMonthlySvg" width="100%" height="100" style="flex:1;overflow:visible"></svg>
+        </div>
+        <div class="x-labels" id="profitMonthlyXLabels"></div>
+        <div class="chart-summary">
+            <div class="chart-summary-box csb-blue">
+                <div class="cs-label">今月ペース</div>
+                <div class="cs-val" id="profitCsPace">—</div>
+                <div class="cs-sub">前月同日比</div>
+            </div>
+            <div class="chart-summary-box csb-yellow">
+                <div class="cs-label">目標比</div>
+                <div class="cs-val" id="profitCsTarget">—</div>
+                <div class="cs-sub">目標ライン対比</div>
+            </div>
+            <div class="chart-summary-box csb-green">
+                <div class="cs-label">月末予測</div>
+                <div class="cs-val" id="profitCsEom">—</div>
+                <div class="cs-sub" id="profitCsEomSub">—</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="overview-grid">
-    <div class="section"><h2>日次売上・利益</h2><div class="chart-container"><div id="dailyChart"></div></div></div>
+    <div class="section"><h2>費用内訳</h2><div class="chart-container"><div id="breakdownChart"></div></div></div>
     <div class="section"><h2>トップ商品</h2><div id="topProducts"><div class="empty-state">データ読み込み中...</div></div></div>
 </div>
 
@@ -79,6 +118,7 @@
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <select id="txMonth" class="form-input" style="width:140px;padding:6px 10px;font-size:12px;" onchange="loadTransactions()"></select>
             <button class="btn btn-sm" id="quickSyncBtn" onclick="quickSyncSales()" style="font-size:11px;padding:4px 12px;">eBay同期</button>
+            <span id="autoSyncLabel" style="font-size:11px;color:#94A3B8;">自動同期: —</span>
             <span id="quickSyncResult" style="display:none;font-size:12px;"></span>
         </div>
     </div>
