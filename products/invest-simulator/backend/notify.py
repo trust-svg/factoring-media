@@ -26,22 +26,24 @@ def notify_trade(action: str, ticker: str, market: str, shares: int, price: floa
     """BUY / SELL 成立時の通知。"""
     market_label = "🇯🇵 日本株" if market == "JP" else "🇺🇸 米国株"
     if action == "BUY":
-        emoji = "🟢"
-        body = f"<b>{emoji} 買い注文成立</b> [{market_label}]\n"
+        body = f"<b>🟢 買い注文成立</b> [{market_label}]\n"
         body += f"銘柄: {ticker}\n"
         body += f"株数: {shares}株\n"
         body += f"約定価格: ${price:.2f}\n"
         body += f"理由: {reason}"
-    else:  # SELL
-        emoji = "🔴"
-        body = f"<b>{emoji} 売り注文成立</b> [{market_label}]\n"
-        body += f"銘柄: {ticker}\n"
-        body += f"株数: {shares}株\n"
-        body += f"約定価格: ${price:.2f}\n"
+    elif action == "SELL":
+        pnl_line = ""
         if pnl is not None:
             pnl_sign = "+" if pnl >= 0 else ""
-            body += f"損益: {pnl_sign}${pnl:.2f}\n"
+            pnl_line = f"損益: {pnl_sign}${pnl:.2f}\n"
+        body = f"<b>🔴 売り注文成立</b> [{market_label}]\n"
+        body += f"銘柄: {ticker}\n"
+        body += f"株数: {shares}株\n"
+        body += f"約定価格: ${price:.2f}\n"
+        body += pnl_line
         body += f"理由: {reason}"
+    else:
+        return
     send_telegram(body)
 
 

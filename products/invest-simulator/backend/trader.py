@@ -1,13 +1,9 @@
 import os
 from datetime import datetime
-from collections import deque
 import anthropic
 import db
 import market as mkt
 import notify
-
-# メモリ上の直近サイクルログ（最大30件）
-_cycle_logs: deque = deque(maxlen=30)
 
 TOOLS = [
     {
@@ -166,7 +162,6 @@ def run_trading_cycle(market: str) -> dict:
             log["decisions"].append({"action": "HOLD", "reason": reason})
 
     db.record_cycle_log(log)
-    _cycle_logs.appendleft(log)
     _record_snapshot()
 
     return result
