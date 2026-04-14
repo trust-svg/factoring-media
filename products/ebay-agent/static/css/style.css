@@ -1612,21 +1612,28 @@ input:focus-visible {
 .kd.or { color:#F97316; }
 
 /* freee divider + cashflow */
-.freee-divider { border:none; border-top:1px dashed #E2E8F0; margin:10px 0 8px; }
+.freee-divider { border:none; border-top:1px dashed #E2E8F0; margin:8px 0 6px; }
 .freee-lbl {
-    font-size:11px; font-weight:700; color:#94A3B8;
+    font-size:10px; font-weight:700; color:#94A3B8;
     text-transform:uppercase; letter-spacing:.07em;
-    margin-bottom:7px; display:flex; align-items:center; gap:5px;
+    margin-bottom:5px; display:flex; align-items:center; gap:5px;
 }
+/* ①情報密度: tighter rows */
 .freee-row {
     display:flex; justify-content:space-between; align-items:center;
-    padding:4px 0; font-size:13px; border-bottom:1px solid #F8FAFC;
+    padding:3px 0; border-bottom:1px solid #F1F5F9;
 }
 .freee-row:last-child { border-bottom:none; }
-.freee-name { color:#64748B; }
-.freee-val  { font-weight:700; color:#0F172A; }
+/* ②フォント階層: smaller label, heavier value */
+.freee-name { font-size:11px; color:#64748B; }
+.freee-val  { font-size:13px; font-weight:800; color:#0F172A; }
 .freee-val.g { color:#10B981; }
 .freee-val.r { color:#EF4444; }
+/* ③背景色とカード区別: subtle tinted box for cashflow rows */
+.freee-box {
+    background:#F0FDF4; border-radius:8px; padding:8px 10px;
+    border-left:3px solid #10B981;
+}
 
 /* ── Calendar card ───────────────────────────────────────── */
 .cal-tabs {

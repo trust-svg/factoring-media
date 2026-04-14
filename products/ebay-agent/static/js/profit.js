@@ -299,7 +299,7 @@ function renderBreakdownChart(data) {
     const options = {
         chart: {
             type: 'donut',
-            height: 310,
+            height: 200,
             fontFamily: chartFont,
         },
         colors: [chartColors.brand, chartColors.purple, chartColors.warning, chartColors.error, chartColors.indigo, chartColors.gray400, chartColors.gray500],
