@@ -298,11 +298,24 @@ function renderMonthlyCumulativeChart(calData, achData) {
     // 目標累計（日割り）
     const targetPoints = calData.days.map((_, i) => Math.round(target / totalDays * (i + 1)));
 
-    // 前月累計（現在値から線形推定）
-    const todayIdx   = calData.days.findIndex(d => d.date > today);
+    // 前月累計（実データ、なければ推定）
+    const todayIdx    = calData.days.findIndex(d => d.date > today);
     const activeUntil = todayIdx === -1 ? totalDays - 1 : Math.max(todayIdx - 1, 0);
-    const pmFinalEst = Math.round(thisMonthPoints[activeUntil] / Math.max(activeUntil + 1, 1) * totalDays * 0.88);
-    const prevMonthPoints = calData.days.map((_, i) => Math.round(pmFinalEst / totalDays * (i + 1)));
+    let prevMonthPoints;
+    if (_prevCalendarData && _prevCalendarData.days && _prevCalendarData.days.length > 0) {
+        const prevDays = _prevCalendarData.days;
+        const prevDim  = prevDays.length;
+        let cum = 0;
+        const prevCumul = prevDays.map(d => { cum += d.revenue; return cum; });
+        // 先月の日数を今月のx軸にスケール
+        prevMonthPoints = calData.days.map((_, i) => {
+            const idx = Math.min(Math.round(i * prevDim / totalDays), prevDim - 1);
+            return prevCumul[idx] || 0;
+        });
+    } else {
+        const pmFinalEst = Math.round(thisMonthPoints[activeUntil] / Math.max(activeUntil + 1, 1) * totalDays * 0.88);
+        prevMonthPoints = calData.days.map((_, i) => Math.round(pmFinalEst / totalDays * (i + 1)));
+    }
 
     const svgWidth  = svgEl.clientWidth || 280;
     const svgHeight = 120;
@@ -383,11 +396,16 @@ function renderMonthlyCumulativeChart(calData, achData) {
 
 /* ── Sales Calendar ──────────────────────────────────────── */
 let _calendarData = null;
+let _prevCalendarData = null;
 
 async function loadCalendar() {
     try {
-        const data = await apiFetch('/api/overview/calendar');
+        const [data, prevData] = await Promise.all([
+            apiFetch('/api/overview/calendar'),
+            apiFetch('/api/overview/calendar_prev').catch(() => null),
+        ]);
         _calendarData = data;
+        _prevCalendarData = prevData;
         renderSalesCal(data);
         renderPayCal(data);
         return data;

@@ -3796,6 +3796,20 @@ async def overview_calendar():
         db.close()
 
 
+@app.get("/api/overview/calendar_prev")
+async def overview_calendar_prev():
+    """前月の日別売上データ（月別累計チャート用）"""
+    from database.crud import get_monthly_calendar
+    from datetime import timedelta
+    db = get_db()
+    try:
+        first_of_month = datetime.now().replace(day=1)
+        prev = first_of_month - timedelta(days=1)
+        return JSONResponse(get_monthly_calendar(db, prev.year, prev.month))
+    finally:
+        db.close()
+
+
 @app.get("/api/overview/alerts")
 async def overview_alerts():
     """要対応件数サマリー（在庫切れ・未読・価格アラート）"""
