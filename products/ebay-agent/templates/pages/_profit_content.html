@@ -66,15 +66,15 @@
     <div class="card-h">
         売上トレンド
         <div class="tab-bar">
-            <button class="tab-btn on" id="profit-tab-daily" onclick="switchProfitChart('daily')">日別</button>
-            <button class="tab-btn" id="profit-tab-monthly" onclick="switchProfitChart('monthly')">月別累計</button>
+            <button class="tab-btn" id="profit-tab-daily" onclick="switchProfitChart('daily')">日別</button>
+            <button class="tab-btn on" id="profit-tab-monthly" onclick="switchProfitChart('monthly')">月別累計</button>
         </div>
     </div>
-    <div id="profit-panel-daily">
+    <div id="profit-panel-daily" style="display:none">
         <div style="font-size:10px;color:#94A3B8;margin-bottom:6px" id="profitDailySubLabel"></div>
         <div class="vchart" id="profitDailyChart"><div style="grid-column:1/-1;text-align:center;color:#94A3B8;padding:20px;font-size:12px">読み込み中...</div></div>
     </div>
-    <div id="profit-panel-monthly" style="display:none">
+    <div id="profit-panel-monthly">
         <div class="chart-legend">
             <div class="leg-item"><div class="leg-line solid"></div>今月累計</div>
             <div class="leg-item"><div class="leg-line do"></div>目標ライン</div>

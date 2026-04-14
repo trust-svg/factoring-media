@@ -926,6 +926,7 @@ async function loadDailyAnalytics(days) {
         const data = await (await fetch(`/api/sales/analytics?days=${days}`)).json();
         _profitTrendData = data.daily_trend || [];
         renderProfitDailyChart(_profitTrendData);
+        renderProfitMonthlyChart(_profitTrendData, _profitSummaryData);
 
         // Top Products
         const tp = data.top_products || [];
