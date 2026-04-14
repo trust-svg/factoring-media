@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>50代、まだ本番。大人のシークレットマッチング | Massive</title>
+  <meta name="description" content="「自分はまだ若い」そんな50代男性のための、プライバシー重視のシークレットマッチング。">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Noto+Serif+JP:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    /* ============================================================
+       Design Tokens
+    ============================================================ */
+    :root {
+      --clr-bg:           #FFFFFF;
+      --clr-bg-tint:      #FFF1F2;
+      --clr-text:         #1A0A0A;
+      --clr-text-light:   #6B4F52;
+      --clr-accent:       #F43F5E;
+      --clr-accent-dark:  #881337;
+      --clr-accent-light: #FFF1F2;
+      --clr-line:         #06C755;
+      --clr-line-hover:   #04A546;
+      --clr-gray:         #F5F5F5;
+      --clr-border:       #F0D0D5;
+
+      --font-display:  'Playfair Display', Georgia, serif;
+      --font-serif-jp: 'Noto Serif JP', 'Yu Mincho', serif;
+      --font-body:     'Noto Sans JP', 'Hiragino Sans', sans-serif;
+
+      --space-section: clamp(80px, 12vw, 160px);
+      --container-max: 1200px;
+      --radius-sm:   4px;
+      --radius-md:   12px;
+      --radius-lg:   24px;
+      --radius-full: 9999px;
+
+      --shadow-sm: 0 2px 8px rgba(244, 63, 94, 0.08);
+      --shadow-md: 0 8px 32px rgba(244, 63, 94, 0.12);
+      --shadow-lg: 0 16px 48px rgba(244, 63, 94, 0.16);
+    }
+
+    /* ============================================================
+       Reset & Base
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; overflow-x: hidden; }
+    body {
+      font-family: var(--font-body);
+      color: var(--clr-text);
+      background: var(--clr-bg);
+      line-height: 2.0;
+      font-size: 1.125rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    img { max-width: 100%; height: auto; display: block; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ============================================================
+       Layout Utilities
+    ============================================================ */
+    .container {
+      max-width: var(--container-max);
+      margin: 0 auto;
+      padding: 0 clamp(20px, 5vw, 60px);
+    }
+    .section { padding: var(--space-section) 0; }
+    .section--tint { background: var(--clr-bg-tint); }
+    .section--gray  { background: var(--clr-gray); }
+
+    /* ============================================================
+       Typography
+    ============================================================ */
+    .section-label {
+      font-family: var(--font-display);
+      font-size: clamp(11px, 1.5vw, 13px);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--clr-accent);
+      display: block;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-family: var(--font-serif-jp);
+      font-size: clamp(26px, 4vw, 44px);
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 24px;
+    }
+    .rose-line {
+      width: 0;
+      height: 2px;
+      background: var(--clr-accent);
+      margin: 0 auto 40px;
+      transition: width 1.5s ease;
+    }
+    .rose-line.animated { width: 80px; }
+
+    /* ============================================================
+       Buttons
+    ============================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 18px 40px;
+      border-radius: var(--radius-full);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: none;
+    }
+    .btn--line {
+      background: var(--clr-line);
+      color: #fff;
+      font-size: 1.125rem;
+      padding: 20px 48px;
+      box-shadow: 0 4px 20px rgba(6, 199, 85, 0.35);
+    }
+    .btn--line:hover {
+      background: var(--clr-line-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(6, 199, 85, 0.45);
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 4px 20px rgba(6, 199, 85, 0.35); }
+      50%       { box-shadow: 0 4px 40px rgba(6, 199, 85, 0.65); transform: scale(1.02); }
+    }
+    .btn--pulse { animation: pulse 1.5s ease-in-out infinite; }
+
+    /* ============================================================
+       Scroll Animations
+    ============================================================ */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+    .fade-up.delay-1 { transition-delay: 0.15s; }
+    .fade-up.delay-2 { transition-delay: 0.30s; }
+    .fade-up.delay-3 { transition-delay: 0.45s; }
+
+    /* ============================================================
+       Hero
+    ============================================================ */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 600px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .hero__bg {
+      position: absolute;
+      inset: 0;
+      background-image: url('img/hero.jpg');
+      background-size: cover;
+      background-position: center top;
+      animation: kenBurns 8s ease-out forwards;
+      z-index: 0;
+    }
+    @keyframes kenBurns {
+      from { transform: scale(1.0); }
+      to   { transform: scale(1.08); }
+    }
+    .hero__overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        160deg,
+        rgba(244, 63, 94, 0.22) 0%,
+        rgba(10, 5, 10, 0.52) 100%
+      );
+      z-index: 1;
+    }
+    .hero__content {
+      position: relative;
+      z-index: 2;
+      color: #fff;
+      padding: 0 20px;
+    }
+    .hero__label {
+      font-family: var(--font-display);
+      font-size: clamp(11px, 1.5vw, 13px);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.2s forwards;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .hero__title-en {
+      font-family: var(--font-display);
+      font-style: italic;
+      font-size: clamp(50px, 9vw, 108px);
+      line-height: 1.05;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.4s forwards;
+      display: block;
+    }
+    .hero__title-jp {
+      font-family: var(--font-serif-jp);
+      font-size: clamp(20px, 3vw, 38px);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.65s forwards;
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 36px;
+    }
+    .hero__line {
+      width: 0;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.5);
+      margin: 0 auto 36px;
+      animation: lineExpand 1.8s ease 0.9s forwards;
+    }
+    .hero__cta-wrap {
+      opacity: 0;
+      animation: fadeUp 1s ease 1.1s forwards;
+    }
+    .hero__note {
+      font-size: 0.8rem;
+      opacity: 0;
+      margin-top: 14px;
+      display: block;
+      animation: fadeUp 1s ease 1.3s forwards;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes lineExpand {
+      from { width: 0; }
+      to   { width: 100px; }
+    }
+
+    /* ============================================================
+       Empathy
+    ============================================================ */
+    .empathy__header { text-align: center; margin-bottom: 60px; }
+    .empathy__grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      margin-bottom: 56px;
+    }
+    .empathy__card {
+      background: var(--clr-bg);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-md);
+      padding: 40px 28px;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .empathy__card:hover { transform: translateY(-6px); box-shadow: var(--shadow-md); }
+    .empathy__icon { font-size: 2.4rem; color: var(--clr-accent); margin-bottom: 20px; }
+    .empathy__card p { font-size: 1rem; line-height: 1.8; }
+    .empathy__solution {
+      background: var(--clr-bg-tint);
+      border: 2px solid var(--clr-accent);
+      border-radius: var(--radius-md);
+      padding: 48px 40px;
+      text-align: center;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    .empathy__solution p {
+      font-family: var(--font-serif-jp);
+      font-size: clamp(16px, 2vw, 21px);
+      line-height: 2.0;
+    }
+    .empathy__solution strong { color: var(--clr-accent); }
+
+    /* ============================================================
+       Compare
+    ============================================================ */
+    .compare__header { text-align: center; margin-bottom: 60px; }
+    .compare__table {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .compare__col { padding: 40px 36px; }
+    .compare__col--old { background: var(--clr-gray); color: var(--clr-text-light); }
+    .compare__col--new { background: var(--clr-bg-tint); }
+    .compare__col-title {
+      font-family: var(--font-serif-jp);
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid;
+    }
+    .compare__col--old .compare__col-title { border-color: #ddd; color: #999; }
+    .compare__col--new .compare__col-title { border-color: var(--clr-accent); color: var(--clr-accent); }
+    .compare__item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      text-align: left;
+    }
+    .compare__item i { margin-top: 4px; flex-shrink: 0; }
+    .compare__col--old i { color: #bbb; }
+    .compare__col--new i { color: var(--clr-accent); }
+
+    /* ============================================================
+       Features (Split Layout)
+    ============================================================ */
+    .features__header { text-align: center; margin-bottom: 80px; }
+    .feature-split {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 80px;
+      align-items: center;
+      margin-bottom: 120px;
+    }
+    .feature-split:last-child { margin-bottom: 0; }
+    .feature-split--reverse { grid-template-columns: 2fr 3fr; }
+    .feature-split--reverse .feature-split__img { order: 2; }
+    .feature-split--reverse .feature-split__text { order: 1; }
+    .feature-split__img-wrap {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+    }
+    .feature-split__img-wrap img {
+      width: 100%;
+      aspect-ratio: 4/5;
+      object-fit: cover;
+      transition: transform 0.6s ease;
+      display: block;
+    }
+    .feature-split__img-wrap:hover img { transform: scale(1.04); }
+    .feature-split__deco {
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: var(--clr-accent);
+      opacity: 0.10;
+      bottom: -40px;
+      right: -40px;
+      pointer-events: none;
+    }
+    .feature-split__num {
+      font-family: var(--font-display);
+      font-size: clamp(64px, 8vw, 100px);
+      color: var(--clr-border);
+      line-height: 1;
+      margin-bottom: -20px;
+      font-weight: 700;
+      display: block;
+    }
+    .feature-split__title {
+      font-family: var(--font-serif-jp);
+      font-size: clamp(20px, 2.5vw, 32px);
+      font-weight: 700;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .feature-split__desc { color: var(--clr-text-light); font-size: 1rem; line-height: 2.0; }
+
+    /* ============================================================
+       Full-Width Banner
+    ============================================================ */
+    .banner-full {
+      position: relative;
+      height: 500px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .banner-full__bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+    }
+    @media (max-width: 768px) {
+      .banner-full__bg { background-attachment: scroll; }
+    }
+    .banner-full__overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 5, 10, 0.58);
+    }
+    .banner-full__content { position: relative; z-index: 2; color: #fff; padding: 0 20px; }
+    .banner-full__title {
+      font-family: var(--font-display);
+      font-style: italic;
+      font-size: clamp(30px, 5vw, 60px);
+      line-height: 1.3;
+      margin-bottom: 12px;
+    }
+    .banner-full__sub {
+      font-family: var(--font-serif-jp);
+      font-size: clamp(15px, 2vw, 21px);
+      opacity: 0.82;
+      letter-spacing: 0.08em;
+    }
+
+    /* ============================================================
+       Smartphone
+    ============================================================ */
+    .smartphone-split {
+      display: grid;
+      grid-template-columns: 2fr 3fr;
+      gap: 80px;
+      align-items: center;
+    }
+    .smartphone-split__img img {
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      aspect-ratio: 2/3;
+      object-fit: cover;
+    }
+
+    /* ============================================================
+       Steps
+    ============================================================ */
+    .steps__grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+      margin-top: 60px;
+    }
+    .step-card {
+      text-align: center;
+      padding: 48px 24px 40px;
+      background: var(--clr-bg);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+    .step-card__num {
+      font-family: var(--font-display);
+      font-size: 80px;
+      font-weight: 700;
+      color: var(--clr-border);
+      line-height: 1;
+      margin-bottom: -8px;
+      display: block;
+    }
+    .step-card__title { font-family: var(--font-serif-jp); font-size: 1.1rem; font-weight: 700; margin-bottom: 12px; }
+    .step-card__desc { font-size: 0.9rem; color: var(--clr-text-light); line-height: 1.8; }
+    .step-card::after {
+      content: '→';
+      position: absolute;
+      right: -26px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.6rem;
+      color: var(--clr-accent);
+      opacity: 0.45;
+    }
+    .step-card:last-child::after { display: none; }
+
+    /* ============================================================
+       Gallery
+    ============================================================ */
+    .gallery__header { text-align: center; margin-bottom: 60px; }
+    .gallery__grid { columns: 3; column-gap: 16px; }
+    .gallery__item {
+      break-inside: avoid;
+      margin-bottom: 16px;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      position: relative;
+    }
+    .gallery__item img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+    .gallery__item::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(244, 63, 94, 0.18);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      border-radius: var(--radius-md);
+    }
+    .gallery__item:hover img { transform: scale(1.05); }
+    .gallery__item:hover::after { opacity: 1; }
+
+    /* ============================================================
+       Safety
+    ============================================================ */
+    .safety__header { text-align: center; margin-bottom: 60px; }
+    .safety__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+    .safety__card {
+      padding: 40px 28px;
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-lg);
+      text-align: center;
+      background: var(--clr-bg);
+      transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+    .safety__card:hover { box-shadow: var(--shadow-md); transform: translateY(-4px); }
+    .safety__icon { font-size: 2.4rem; color: var(--clr-accent); margin-bottom: 20px; }
+    .safety__title { font-family: var(--font-serif-jp); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; }
+    .safety__desc { font-size: 0.9rem; color: var(--clr-text-light); line-height: 1.8; }
+
+    /* ============================================================
+       Final CTA
+    ============================================================ */
+    .final-cta { text-align: center; padding: var(--space-section) 0; background: var(--clr-bg-tint); }
+    .final-cta__title {
+      font-family: var(--font-serif-jp);
+      font-size: clamp(26px, 4vw, 48px);
+      font-weight: 700;
+      line-height: 1.5;
+      margin-bottom: 36px;
+    }
+    .final-cta__title em { color: var(--clr-accent); font-style: normal; }
+    .final-cta__note { font-size: 0.82rem; color: var(--clr-text-light); margin-top: 16px; }
+
+    /* ============================================================
+       Floating LINE Button
+    ============================================================ */
+    .float-line {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 999;
+      background: var(--clr-line);
+      color: #fff;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      box-shadow: 0 4px 20px rgba(6, 199, 85, 0.5);
+      transition: transform 0.3s ease, opacity 0.4s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .float-line.show { opacity: 1; pointer-events: auto; }
+    .float-line:hover { transform: scale(1.1); }
+
+    /* ============================================================
+       Responsive — 768px
+    ============================================================ */
+    @media (max-width: 768px) {
+      .empathy__grid { grid-template-columns: 1fr; gap: 20px; }
+      .compare__table { grid-template-columns: 1fr; }
+      .feature-split,
+      .feature-split--reverse { grid-template-columns: 1fr; gap: 40px; margin-bottom: 80px; }
+      .feature-split--reverse .feature-split__img { order: 0; }
+      .feature-split--reverse .feature-split__text { order: 0; }
+      .smartphone-split { grid-template-columns: 1fr; gap: 40px; }
+      .steps__grid { grid-template-columns: 1fr; gap: 48px; }
+      .step-card::after {
+        content: '↓';
+        right: auto; top: auto;
+        bottom: -36px; left: 50%;
+        transform: translateX(-50%);
+      }
+      .gallery__grid { columns: 2; }
+      .safety__grid { grid-template-columns: 1fr; }
+      .banner-full { height: 380px; }
+    }
+
+    /* ============================================================
+       Responsive — 480px
+    ============================================================ */
+    @media (max-width: 480px) {
+      .gallery__grid { columns: 1; }
+      .empathy__solution { padding: 32px 20px; }
+      .compare__col { padding: 28px 20px; }
+      .hero__title-en { font-size: 44px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ① Hero -->
+  <section class="hero">
+    <div class="hero__bg"></div>
+    <div class="hero__overlay"></div>
+    <div class="hero__content">
+      <span class="hero__label">Secret Matching for 50s</span>
+      <span class="hero__title-en">Still hunting.</span>
+      <span class="hero__title-jp">50代、まだ本番。</span>
+      <div class="hero__line"></div>
+      <div class="hero__cta-wrap">
+        <a href="#" class="btn btn--line">
+          <i class="fa-brands fa-line"></i>
+          今すぐLINEで無料お試し
+        </a>
+      </div>
+      <span class="hero__note">※完全匿名・誰にもバレずに始められます</span>
+    </div>
+  </section>
+
+  <!-- ② 課題提示 -->
+  <section class="section">
+    <div class="container">
+      <div class="empathy__header fade-up">
+        <span class="section-label">Secret Desire</span>
+        <h2 class="section-title">こんな本音、<br>隠していませんか？</h2>
+        <div class="rose-line"></div>
+      </div>
+      <div class="empathy__grid">
+        <div class="empathy__card fade-up delay-1">
+          <i class="fa-solid fa-champagne-glasses empathy__icon"></i>
+          <p>気軽に女性と出会いたいが<br>きっかけがなくて困っている</p>
+        </div>
+        <div class="empathy__card fade-up delay-2">
+          <i class="fa-solid fa-fire-flame-curved empathy__icon"></i>
+          <p>ハイスペックではないが<br>「男」として見られたい</p>
+        </div>
+        <div class="empathy__card fade-up delay-3">
+          <i class="fa-solid fa-ban empathy__icon"></i>
+          <p>真剣すぎる婚活は重い…<br>気楽な大人の関係がほしい</p>
+        </div>
+      </div>
+      <div class="empathy__solution fade-up">
+        <p>
+          <strong>「Massive」</strong>は、<br>
+          そんな<em>「飾らない50代以上の男性」</em>と<br>
+          女性をつなぐ、プライバシー重視の<br>
+          シークレットマッチングです。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ 比較 -->
+  <section class="section section--gray">
+    <div class="container">
+      <div class="compare__header fade-up">
+        <span class="section-label">Why Massive</span>
+        <h2 class="section-title">よくある出会い vs <span style="color:var(--clr-accent)">Massive</span></h2>
+        <div class="rose-line"></div>
+      </div>
+      <div class="compare__table fade-up">
+        <div class="compare__col compare__col--old">
+          <div class="compare__col-title">よくある出会い</div>
+          <div class="compare__item"><i class="fa-solid fa-xmark"></i><span>年齢でフィルタリングされる</span></div>
+          <div class="compare__item"><i class="fa-solid fa-xmark"></i><span>プロフィールの書き方がわからない</span></div>
+          <div class="compare__item"><i class="fa-solid fa-xmark"></i><span>実名・顔出しが必要で不安</span></div>
+          <div class="compare__item"><i class="fa-solid fa-xmark"></i><span>マッチングしても会話が続かない</span></div>
+          <div class="compare__item"><i class="fa-solid fa-xmark"></i><span>周囲にバレるリスクがある</span></div>
+        </div>
+        <div class="compare__col compare__col--new">
+          <div class="compare__col-title">Massive</div>
+          <div class="compare__item"><i class="fa-solid fa-check"></i><span>50代以上が「選ばれる」設計</span></div>
+          <div class="compare__item"><i class="fa-solid fa-check"></i><span>プロフィール作成をサポート</span></div>
+          <div class="compare__item"><i class="fa-solid fa-check"></i><span>完全匿名・シークレット利用</span></div>
+          <div class="compare__item"><i class="fa-solid fa-check"></i><span>AIが会話のきっかけを提案</span></div>
+          <div class="compare__item"><i class="fa-solid fa-check"></i><span>誰にも知られずに始められる</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ 特徴 -->
+  <section class="section">
+    <div class="container">
+      <div class="features__header fade-up">
+        <span class="section-label">Features</span>
+        <h2 class="section-title">Massiveが選ばれる<br>3つの理由</h2>
+        <div class="rose-line"></div>
+      </div>
+
+      <div class="feature-split fade-up">
+        <div class="feature-split__img">
+          <div class="feature-split__img-wrap">
+            <img src="img/feature1.jpg" alt="50代男性が選ばれる理由">
+            <div class="feature-split__deco"></div>
+          </div>
+        </div>
+        <div class="feature-split__text">
+          <span class="feature-split__num">01</span>
+          <h3 class="feature-split__title">「落ち着いた男性が好き」<br>そんな女性が急増中</h3>
+          <p class="feature-split__desc">「若い男性とは合わない」「歳を重ねた落ち着いた男性がいい」という女性が急増しています。背伸びする必要も、無理に若作りする必要もありません。ありのままの自分で出会える場所です。</p>
+        </div>
+      </div>
+
+      <div class="feature-split feature-split--reverse fade-up">
+        <div class="feature-split__img">
+          <div class="feature-split__img-wrap">
+            <img src="img/feature2.jpg" alt="完全匿名のシークレット利用">
+            <div class="feature-split__deco"></div>
+          </div>
+        </div>
+        <div class="feature-split__text">
+          <span class="feature-split__num">02</span>
+          <h3 class="feature-split__title">完全匿名・誰にも<br>バレない安心設計</h3>
+          <p class="feature-split__desc">実名登録不要。顔写真も任意です。プライバシーを守りながら、安心してメッセージを楽しめます。会社の同僚にも、家族にも、一切バレません。</p>
+        </div>
+      </div>
+
+      <div class="feature-split fade-up">
+        <div class="feature-split__img">
+          <div class="feature-split__img-wrap">
+            <img src="img/feature3.jpg" alt="スマホひとつで簡単登録">
+            <div class="feature-split__deco"></div>
+          </div>
+        </div>
+        <div class="feature-split__text">
+          <span class="feature-split__num">03</span>
+          <h3 class="feature-split__title">スマホひとつで<br>今夜から始められる</h3>
+          <p class="feature-split__desc">LINEさえあればすぐに始められます。面倒な本人確認や複雑な設定は一切なし。登録から3分で女性とメッセージできる状態になります。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ 夜デートバナー① -->
+  <div class="banner-full">
+    <div class="banner-full__bg" style="background-image: url('img/night-date1.jpg');"></div>
+    <div class="banner-full__overlay"></div>
+    <div class="banner-full__content fade-up">
+      <div class="banner-full__title">Tonight could change<br>everything.</div>
+      <p class="banner-full__sub">今夜、新しい出会いが始まる。</p>
+    </div>
+  </div>
+
+  <!-- ⑥ スマホ操作 -->
+  <section class="section">
+    <div class="container">
+      <div class="smartphone-split fade-up">
+        <div class="smartphone-split__img">
+          <img src="img/smartphone.jpg" alt="スマホ操作イメージ">
+        </div>
+        <div class="smartphone-split__text">
+          <span class="section-label">Easy to Start</span>
+          <h2 class="section-title">スマホひとつで、<br>今夜から新しい出会いを。</h2>
+          <p style="color:var(--clr-text-light);line-height:2.0;font-size:1rem;">難しい操作は一切不要。LINEさえあればすぐに始められます。登録から3分で女性とメッセージできる状態に。プロフィールの書き方はスタッフがサポートします。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑦ ステップ -->
+  <section class="section section--tint">
+    <div class="container">
+      <div class="fade-up" style="text-align:center;">
+        <span class="section-label">How to Start</span>
+        <h2 class="section-title">3ステップで始める</h2>
+        <div class="rose-line"></div>
+      </div>
+      <div class="steps__grid">
+        <div class="step-card fade-up delay-1">
+          <span class="step-card__num">01</span>
+          <div class="step-card__title">LINEで無料登録</div>
+          <p class="step-card__desc">下のボタンからLINEを追加するだけ。実名不要・完全無料。</p>
+        </div>
+        <div class="step-card fade-up delay-2">
+          <span class="step-card__num">02</span>
+          <div class="step-card__title">匿名プロフィール登録</div>
+          <p class="step-card__desc">ニックネームと簡単な情報を入力。顔写真は任意です。</p>
+        </div>
+        <div class="step-card fade-up delay-3">
+          <span class="step-card__num">03</span>
+          <div class="step-card__title">メッセージ開始</div>
+          <p class="step-card__desc">気になる女性にメッセージ。今夜から新しい出会いが始まります。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑧ フォトギャラリー -->
+  <section class="section">
+    <div class="container">
+      <div class="gallery__header fade-up">
+        <span class="section-label">Members</span>
+        <h2 class="section-title">Massiveに集まる女性たち</h2>
+        <div class="rose-line"></div>
+      </div>
+      <div class="gallery__grid fade-up">
+        <div class="gallery__item"><img src="img/gallery1.jpg" alt="会員女性" style="aspect-ratio:3/4;"></div>
+        <div class="gallery__item"><img src="img/gallery2.jpg" alt="会員女性" style="aspect-ratio:3/4;margin-top:40px;"></div>
+        <div class="gallery__item"><img src="img/gallery3.jpg" alt="会員女性" style="aspect-ratio:2/3;"></div>
+        <div class="gallery__item"><img src="img/gallery4.jpg" alt="会員女性" style="aspect-ratio:3/4;"></div>
+        <div class="gallery__item"><img src="img/gallery5.jpg" alt="会員女性" style="aspect-ratio:3/4;margin-top:24px;"></div>
+        <div class="gallery__item"><img src="img/gallery6.jpg" alt="会員女性" style="aspect-ratio:2/3;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑨ 安心・安全 -->
+  <section class="section section--gray">
+    <div class="container">
+      <div class="safety__header fade-up">
+        <span class="section-label">Trust & Safety</span>
+        <h2 class="section-title">安心して始められる<br>3つの保証</h2>
+        <div class="rose-line"></div>
+      </div>
+      <div class="safety__grid">
+        <div class="safety__card fade-up delay-1">
+          <i class="fa-solid fa-shield-halved safety__icon"></i>
+          <div class="safety__title">安心・安全の出会いを保証</div>
+          <p class="safety__desc">全会員を厳正に審査。業者・サクラ・悪質ユーザーを徹底ブロックします。</p>
+        </div>
+        <div class="safety__card fade-up delay-2">
+          <i class="fa-solid fa-user-secret safety__icon"></i>
+          <div class="safety__title">完全匿名・シークレット利用</div>
+          <p class="safety__desc">実名・顔写真は不要。ニックネームで完全匿名のまま利用できます。</p>
+        </div>
+        <div class="safety__card fade-up delay-3">
+          <i class="fa-solid fa-lock safety__icon"></i>
+          <div class="safety__title">プライバシー重視の安心設計</div>
+          <p class="safety__desc">個人情報は暗号化して厳重に管理。外部への情報漏えいは一切ありません。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑩ 夜デートバナー② -->
+  <div class="banner-full">
+    <div class="banner-full__bg" style="background-image: url('img/night-date2.jpg');"></div>
+    <div class="banner-full__overlay"></div>
+    <div class="banner-full__content fade-up">
+      <div class="banner-full__title">Your story starts<br>tonight.</div>
+      <p class="banner-full__sub">あなたの物語は、今夜から始まる。</p>
+    </div>
+  </div>
+
+  <!-- ⑪ Final CTA -->
+  <section class="final-cta">
+    <div class="container">
+      <div class="fade-up">
+        <h2 class="final-cta__title">
+          極上の出会いを、<br>
+          <em>今夜から。</em>
+        </h2>
+        <a href="#" class="btn btn--line btn--pulse">
+          <i class="fa-brands fa-line"></i>
+          LINEを追加して無料スタート
+        </a>
+        <p class="final-cta__note">※完全匿名・実名登録不要・今すぐ始められます</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Floating LINE Button -->
+  <a href="#" class="float-line" id="floatLine">
+    <i class="fa-brands fa-line"></i>
+  </a>
+
+  <script>
+    // Scroll animations
+    const fadeObserver = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) e.target.classList.add('visible');
+      });
+    }, { threshold: 0.12 });
+
+    document.querySelectorAll('.fade-up').forEach(el => fadeObserver.observe(el));
+
+    // Rose line
+    const roseObserver = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) e.target.classList.add('animated');
+      });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.rose-line').forEach(el => roseObserver.observe(el));
+
+    // Floating LINE button
+    const floatLine = document.getElementById('floatLine');
+    window.addEventListener('scroll', () => {
+      floatLine.classList.toggle('show', window.scrollY > 400);
+    }, { passive: true });
+  </script>
+</body>
+</html>
