@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}売上・利益 — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Sales & Profit" data-ja="売上・利益">Sales & Profit</span>{% endblock %}
+{% block breadcrumb %}Sales & Profit{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.0/dist/apexcharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    .tab-nav { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+    .tab-btn {
+        padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+        border: none; background: none; color: var(--text-secondary);
+        border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── proc-table ── */
+    .proc-table { width: 100%; border-collapse: collapse; }
+    .proc-table th {
+        padding: 8px 12px; text-align: left;
+        font-size: 11px; font-weight: 700; color: #94A3B8;
+        text-transform: uppercase; letter-spacing: .04em;
+        background: #FAFAFA; border-bottom: 1px solid #F1F5F9;
+        white-space: nowrap;
+    }
+    .proc-row td {
+        padding: 9px 12px; font-size: 12px; color: #374151;
+        border-bottom: 1px solid #F8FAFC; vertical-align: middle;
+    }
+    .proc-row:hover td { background: #F8FAFC; }
+    .proc-row:last-child td { border-bottom: none; }
+    .proc-edit-btn {
+        background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 5px;
+        padding: 3px 10px; font-size: 11px; font-weight: 600;
+        cursor: pointer; color: #475569; white-space: nowrap;
+        font-family: 'Inter', sans-serif;
+    }
+    .proc-edit-btn:hover { background: #EFF6FF; border-color: #93C5FD; color: #2563EB; }
+
+    /* ── Platform badge ── */
+    .plat-badge {
+        display: inline-block; padding: 2px 8px;
+        border-radius: 9999px; font-size: 11px; font-weight: 600;
+        white-space: nowrap;
+    }
+
+    /* ── KPI cards ── */
+    .proc-kpi-row {
+        display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px;
+    }
+    .proc-kpi-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .proc-kpi-card {
+        background: #fff; border-radius: 10px; padding: 18px 20px;
+        box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .proc-kpi-card:nth-child(1) { border-top: 3px solid #2563EB; }
+    .proc-kpi-card:nth-child(2) { border-top: 3px solid #F59E0B; }
+    .proc-kpi-card:nth-child(3) { border-top: 3px solid #7C3AED; }
+    .proc-kpi-card:nth-child(4) { border-top: 3px solid #10B981; }
+    .proc-kpi-card:nth-child(5) { border-top: 3px solid #EF4444; }
+    .proc-kpi-card:nth-child(6) { border-top: 3px solid #6366F1; }
+    .proc-kpi-label {
+        font-size: 11px; font-weight: 700; color: #475569;
+        text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px;
+    }
+    .proc-kpi-val {
+        font-size: 28px; font-weight: 800; color: #0F172A;
+        letter-spacing: -.03em; line-height: 1; margin-bottom: 5px;
+    }
+    .proc-kpi-sub { font-size: 12px; color: #64748B; font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tab-nav">
+    <button class="tab-btn active" onclick="switchSalesTab('profit')" id="tabProfit" data-en="Profit & Expenses" data-ja="利益・経費">Profit & Expenses</button>
+    <button class="tab-btn" onclick="switchSalesTab('analytics')" id="tabAnalytics" data-en="Sales Analytics" data-ja="売上分析">Sales Analytics</button>
+</div>
+
+<!-- ========== Profit Tab ========== -->
+<div class="tab-panel active" id="panelProfit">
+{% include "pages/_profit_content.html" %}
+</div>
+
+<!-- ========== Analytics Tab ========== -->
+<div class="tab-panel" id="panelAnalytics">
+{% include "pages/_analytics_content.html" %}
+</div>
+
+<script>
+function switchSalesTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    if (tab === 'profit') {
+        document.getElementById('tabProfit').classList.add('active');
+        document.getElementById('panelProfit').classList.add('active');
+    } else {
+        document.getElementById('tabAnalytics').classList.add('active');
+        document.getElementById('panelAnalytics').classList.add('active');
+        if (typeof loadAnalytics === 'function') loadAnalytics(30);
+    }
+    history.replaceState(null, '', tab === 'analytics' ? '/sales?tab=analytics' : '/sales');
+}
+if (new URLSearchParams(location.search).get('tab') === 'analytics') switchSalesTab('analytics');
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/profit.js?v=20260414"></script>
+{% endblock %}

@@ -1,0 +1,190 @@
+<!-- 期間セレクタ + エクスポート -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:8px;">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <div class="filter-pills">
+            <button class="pill active" onclick="loadSummary(1)" id="btn1m">1M</button>
+            <button class="pill" onclick="loadSummary(3)" id="btn3m">3M</button>
+            <button class="pill" onclick="loadSummary(6)" id="btn6m">6M</button>
+            <button class="pill" onclick="loadSummary(12)" id="btn12m">12M</button>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;font-size:12px;">
+            <input type="date" id="dateFrom" class="form-input" style="padding:4px 8px;font-size:11px;width:130px;">
+            <span style="color:var(--text-secondary);">~</span>
+            <input type="date" id="dateTo" class="form-input" style="padding:4px 8px;font-size:11px;width:130px;">
+            <button class="btn-outline btn-sm" onclick="loadByDateRange()" style="padding:4px 10px;">適用</button>
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <select id="exportYear" class="form-input" style="width:120px;padding:6px 10px;font-size:12px;"></select>
+        <div style="position:relative;display:inline-block;">
+            <button class="btn btn-sm" onclick="toggleExportMenu()" id="exportBtn">CSV出力</button>
+            <div id="exportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-xs);box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:10;min-width:200px;">
+                <a href="#" onclick="exportCSV('sales');return false;" style="display:block;padding:8px 14px;font-size:13px;color:var(--text-primary);text-decoration:none;">売上明細（税理士用）</a>
+                <a href="#" onclick="exportCSV('monthly');return false;" style="display:block;padding:8px 14px;font-size:13px;color:var(--text-primary);text-decoration:none;border-top:1px solid var(--border);">月次集計（確定申告用）</a>
+                <a href="#" onclick="exportCSV('procurement');return false;" style="display:block;padding:8px 14px;font-size:13px;color:var(--text-primary);text-decoration:none;border-top:1px solid var(--border);">仕入明細（消費税還付用）</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPIカード -->
+<div class="proc-kpi-row cols-3" id="kpiCards">
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label">月間売上</div>
+        <div class="proc-kpi-val" id="kpiRevenue">--</div>
+        <div class="proc-kpi-sub" id="kpiRevenueJpy"></div>
+    </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label">経費合計</div>
+        <div class="proc-kpi-val" id="kpiCosts">--</div>
+        <div class="proc-kpi-sub" id="kpiCostBreak"></div>
+    </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label">利益合計</div>
+        <div class="proc-kpi-val" id="kpiProfit">--</div>
+        <div class="proc-kpi-sub" id="kpiProfitJpy"></div>
+    </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label">還付込利益</div>
+        <div class="proc-kpi-val" id="kpiProfitRefund">--</div>
+        <div class="proc-kpi-sub" id="kpiProfitRefundSub"></div>
+    </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label">平均利益率</div>
+        <div class="proc-kpi-val" id="kpiMargin">--</div>
+        <div class="proc-kpi-sub" id="kpiSalesCount"></div>
+    </div>
+    <div class="proc-kpi-card">
+        <div class="proc-kpi-label">消費税還付</div>
+        <div class="proc-kpi-val" id="kpiTaxRefund">--</div>
+        <div class="proc-kpi-sub" id="kpiTaxRefundSub"></div>
+    </div>
+</div>
+
+<!-- チャート -->
+<div class="overview-grid">
+    <div class="section"><h2>月別推移</h2><div class="chart-container"><div id="trendChart"></div></div></div>
+    <div class="section"><h2>費用内訳</h2><div class="chart-container"><div id="breakdownChart"></div></div></div>
+</div>
+
+<div class="overview-grid">
+    <div class="section"><h2>日次売上・利益</h2><div class="chart-container"><div id="dailyChart"></div></div></div>
+    <div class="section"><h2>トップ商品</h2><div id="topProducts"><div class="empty-state">データ読み込み中...</div></div></div>
+</div>
+
+<!-- 取引一覧 -->
+<div class="section">
+    <div class="section-header">
+        <h2>取引一覧</h2>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="txMonth" class="form-input" style="width:140px;padding:6px 10px;font-size:12px;" onchange="loadTransactions()"></select>
+            <button class="btn btn-sm" id="quickSyncBtn" onclick="quickSyncSales()" style="font-size:11px;padding:4px 12px;">eBay同期</button>
+            <span id="quickSyncResult" style="display:none;font-size:12px;"></span>
+        </div>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="proc-table" id="txTable">
+            <thead><tr>
+                <th style="width:24px;"></th>
+                <th data-sort="sold_at" onclick="sortTransactions('sold_at')" style="cursor:pointer;user-select:none;">日付<span class="sort-icon" style="font-size:10px;"> ▼</span></th>
+                <th data-sort="title" onclick="sortTransactions('title')" style="cursor:pointer;user-select:none;">商品<span class="sort-icon" style="font-size:10px;opacity:0.3;"> ⇅</span></th>
+                <th>バイヤー</th>
+                <th data-sort="sale_price" onclick="sortTransactions('sale_price')" style="cursor:pointer;user-select:none;">売上<span class="sort-icon" style="font-size:10px;opacity:0.3;"> ⇅</span></th>
+                <th data-sort="source_cost" onclick="sortTransactions('source_cost')" style="cursor:pointer;user-select:none;">仕入<span class="sort-icon" style="font-size:10px;opacity:0.3;"> ⇅</span></th>
+                <th>送料</th><th>関税</th><th>手数料</th>
+                <th data-sort="net_profit" onclick="sortTransactions('net_profit')" style="cursor:pointer;user-select:none;">利益<span class="sort-icon" style="font-size:10px;opacity:0.3;"> ⇅</span></th>
+                <th>還付込</th>
+                <th data-sort="margin" onclick="sortTransactions('margin')" style="cursor:pointer;user-select:none;">率<span class="sort-icon" style="font-size:10px;opacity:0.3;"> ⇅</span></th>
+                <th>進捗</th><th></th>
+            </tr></thead>
+            <tbody id="txBody"><tr><td colspan="14" class="empty-state">読み込み中...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- CPaaS送料インポート -->
+<div class="section">
+    <div class="section-header"><h2>送料インポート</h2><button class="btn btn-sm" onclick="toggleShippingImport()">CPaaS CSV</button></div>
+    <div id="shippingImportForm" style="display:none;margin-bottom:16px;padding:14px;background:var(--bg-primary);border-radius:var(--radius-sm);border:1px solid var(--border);">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">CPaaS送料明細CSVをアップロード。追跡番号で突き合わせて国際送料を自動入力します。</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="file" id="shippingCsvFile" accept=".csv" class="form-input" style="padding:6px 10px;font-size:12px;flex:1;min-width:200px;">
+            <button class="btn btn-sm" onclick="uploadShippingCsv()" id="uploadShipBtn">CSVインポート</button>
+            <button class="btn btn-sm btn-outline" onclick="backfillTracking()" id="backfillBtn">eBayから追跡番号同期</button>
+            <button class="btn btn-sm btn-outline" onclick="syncAllSales()" id="syncAllBtn">全注文同期（全期間）</button>
+        </div>
+        <div id="shippingImportResult" style="display:none;margin-top:10px;padding:10px;border-radius:var(--radius-xs);font-size:12px;"></div>
+    </div>
+</div>
+
+<!-- 固定費 -->
+<div class="section">
+    <div class="section-header"><h2>固定費</h2><button class="btn btn-sm" onclick="showAddExpense()">+ 追加</button></div>
+    <div id="expenseForm" style="display:none;margin-bottom:16px;padding:14px;background:var(--bg-primary);border-radius:var(--radius-sm);border:1px solid var(--border);">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;">
+            <div class="form-group" style="margin:0;"><label>カテゴリ</label>
+                <select id="expCategory" class="form-input" style="padding:6px 10px;"><option value="store_subscription">ストア購読</option><option value="tools">ツール / ソフト</option><option value="packaging">梱包材</option><option value="storage">保管費</option><option value="insurance">保険</option><option value="other">その他</option></select>
+            </div>
+            <div class="form-group" style="margin:0;"><label>説明</label><input id="expDesc" class="form-input" style="padding:6px 10px;" placeholder="eBay Store Basic"></div>
+            <div class="form-group" style="margin:0;"><label>金額(円)</label><input id="expAmount" class="form-input" style="padding:6px 10px;" type="number" placeholder="3000"></div>
+            <div style="display:flex;gap:6px;"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;"><input type="checkbox" id="expRecurring"> <span>毎月</span></label><button class="btn btn-sm" onclick="saveExpense()">保存</button></div>
+        </div>
+    </div>
+    <table class="proc-table" id="expTable">
+        <thead><tr><th>カテゴリ</th><th>説明</th><th>金額</th><th>毎月</th><th></th></tr></thead>
+        <tbody id="expBody"><tr><td colspan="5" class="empty-state">固定費なし</td></tr></tbody>
+    </table>
+</div>
+
+<!-- 編集モーダル -->
+<div id="editModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:200;justify-content:center;align-items:center;">
+    <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:24px;max-width:560px;width:90%;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:90vh;overflow-y:auto;">
+        <h3 style="margin-bottom:16px;">取引を編集</h3>
+        <input type="hidden" id="editId">
+        <div id="editSaleInfo" style="margin-bottom:14px;padding:10px;background:var(--bg-primary);border-radius:var(--radius-xs);font-size:12px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label>国際送料(JPY)</label><input id="editIntlShip" class="form-input" type="number"></div>
+            <div class="form-group"><label>発送方法</label>
+                <select id="editShipMethod" class="form-input"><option value="">--</option><option value="EMS">EMS</option><option value="ePacket">ePacket</option><option value="SAL">SAL</option><option value="Airmail">Airmail</option><option value="FedEx">FedEx</option><option value="DHL">DHL</option><option value="Surface">Surface</option></select>
+            </div>
+            <div class="form-group"><label>仕入原価(JPY)</label><input id="editSourceCost" class="form-input" type="number"></div>
+            <div class="form-group"><label>消費税(JPY)</label><input id="editTax" class="form-input" type="number"></div>
+            <div class="form-group"><label>Payoneerレート</label><input id="editPayRate" class="form-input" type="number" step="0.01"></div>
+            <div class="form-group"><label>着金額(JPY)</label><input id="editReceived" class="form-input" type="number"></div>
+            <div class="form-group"><label>関税(JPY)</label><input id="editCustomsDuty" class="form-input" type="number"></div>
+            <div class="form-group"><label>その他経費(JPY)</label><input id="editOther" class="form-input" type="number"></div>
+            <div class="form-group"><label>メモ</label><input id="editNote" class="form-input"></div>
+            <div class="form-group"><label>進捗</label>
+                <select id="editProgress" class="form-input"><option value="">--</option><option value="未注文">未注文</option><option value="注文済">注文済</option><option value="発送済">発送済</option><option value="納品済">納品済</option><option value="キャンセル">キャンセル</option><option value="返品・返金">返品・返金</option><option value="返品・一部返金">返品・一部返金</option><option value="返品なし返金">返品なし返金</option><option value="未着返金">未着返金</option></select>
+            </div>
+        </div>
+        <div style="margin-top:14px;padding:12px;background:var(--bg-primary);border-radius:var(--radius-xs);border:1px solid var(--border);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-weight:600;font-size:13px;">仕入れ情報</span>
+                <span id="editProcStatus" style="font-size:11px;color:var(--text-secondary);"></span>
+            </div>
+            <input type="hidden" id="editProcId">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group" style="margin:0;"><label style="font-size:11px;">仕入先</label>
+                    <select id="editProcPlatform" class="form-input" style="padding:4px 8px;font-size:12px;">
+                        <option value="">--</option><option value="Amazon">Amazon</option><option value="メルカリ">メルカリ</option><option value="メルカリShops">メルカリShops</option>
+                        <option value="ラクマ">ラクマ</option><option value="ヤフオク">ヤフオク</option><option value="ヤフーショッピング">ヤフーショッピング</option>
+                        <option value="楽天">楽天</option><option value="ネットモール(OFFモール)">ネットモール(OFFモール)</option><option value="Yahooフリマ">Yahooフリマ</option>
+                        <option value="駿河屋">駿河屋</option><option value="GEO">GEO</option><option value="デジマート">デジマート</option>
+                        <option value="トレファク">トレファク</option><option value="まんだらけ">まんだらけ</option><option value="セカンドストリート">セカンドストリート</option>
+                        <option value="その他">その他</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;"><label style="font-size:11px;">仕入価格</label><input id="editProcPrice" class="form-input" type="number" style="padding:4px 8px;font-size:12px;" placeholder="¥"></div>
+                <div class="form-group" style="margin:0;"><label style="font-size:11px;">購入日</label><input id="editProcDate" class="form-input" type="date" style="padding:4px 8px;font-size:12px;"></div>
+                <div class="form-group" style="margin:0;"><label style="font-size:11px;">仕入先URL</label><input id="editProcUrl" class="form-input" style="padding:4px 8px;font-size:12px;" placeholder="https://..."></div>
+            </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+            <button class="btn btn-sm btn-outline" onclick="closeEditModal()">キャンセル</button>
+            <button class="btn btn-sm" onclick="saveEdit()">保存・再計算</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/profit.js?v=20260414"></script>

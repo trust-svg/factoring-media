@@ -323,6 +323,28 @@ async function loadTransactions(fromDate, toDate) {
     }
 }
 
+function platBadge(name) {
+    const m = {
+        'メルカリ':           {bg:'#FFE4E6', color:'#BE123C'},
+        'メルカリShops':      {bg:'#FFE4E6', color:'#BE123C'},
+        '楽天':               {bg:'#CCFBF1', color:'#0F766E'},
+        'Amazon':             {bg:'#FFEDD5', color:'#9A3412'},
+        'ヤフオク':           {bg:'#FEF9C3', color:'#854D0E'},
+        'ヤフーショッピング': {bg:'#DCFCE7', color:'#166534'},
+        'Yahooフリマ':        {bg:'#E0F2FE', color:'#075985'},
+        'ラクマ':             {bg:'#EDE9FE', color:'#5B21B6'},
+        'まんだらけ':         {bg:'#FAE8FF', color:'#86198F'},
+        '駿河屋':             {bg:'#DBEAFE', color:'#1E40AF'},
+        'デジマート':         {bg:'#E0E7FF', color:'#3730A3'},
+        'GEO':                {bg:'#D1FAE5', color:'#065F46'},
+        'セカンドストリート': {bg:'#CFFAFE', color:'#155E75'},
+        'ネットモール(OFFモール)': {bg:'#FEF3C7', color:'#92400E'},
+        'トレファク':         {bg:'#FCE7F3', color:'#9D174D'},
+    };
+    const s = m[name] || {bg:'#E2E8F0', color:'#334155'};
+    return `<span class="plat-badge" style="background:${s.bg};color:${s.color}">${esc(name)}</span>`;
+}
+
 function renderTransactions(records) {
         const tbody = document.getElementById('txBody');
         const sorted = [...records].sort(compareTx);
@@ -376,28 +398,28 @@ function renderTransactions(records) {
                                     <div>仕入先: ${proc.platform || '-'}</div>
                                     ${proc.url ? '<div><a href="' + esc(proc.url) + '" target="_blank" style="color:var(--brand-500);">仕入先リンク ↗</a></div>' : ''}
                                 ` : '<div style="color:var(--gray-400);">仕入れデータなし</div>'}
-                                ${r.inventory_item_id ? '<div style="margin-top:6px;"><a href="/procurement" onclick="localStorage.setItem(\'highlight_stock\',\'' + r.inventory_item_id + '\');" style="color:var(--brand-500);font-weight:600;font-size:12px;">📦 仕入れ台帳を表示 ↗</a></div>' : ''}
+                                ${r.inventory_item_id ? '<div style="margin-top:6px;"><a href="/procurement" onclick="localStorage.setItem(\'highlight_stock\',\'' + r.inventory_item_id + '\');" style="color:var(--brand-500);font-weight:600;font-size:13px;">📦 仕入れ台帳を表示 ↗</a></div>' : ''}
                             </div>
                         </div>
                     </td>
                 </tr>`;
 
             return `
-                <tr style="cursor:pointer;" onclick="toggleDetail(${r.id})">
-                    <td style="width:24px;text-align:center;font-size:10px;color:var(--gray-400);" id="chevron-${r.id}">\u25B6</td>
+                <tr class="proc-row" style="cursor:pointer;" onclick="toggleDetail(${r.id})">
+                    <td style="width:24px;text-align:center;font-size:11px;color:var(--gray-400);" id="chevron-${r.id}">\u25B6</td>
                     <td style="white-space:nowrap;font-size:12px;">${r.sold_at}</td>
                     <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${esc(r.title)}">${thumb}${esc(r.title.slice(0, 30))}</td>
                     <td style="font-size:12px;white-space:nowrap;">${esc(r.buyer_name || '-')}<br>${mpBadge}</td>
-                    <td style="font-size:12px;">$${r.sale_price_usd.toFixed(0)}<br><span style="font-size:10px;color:var(--gray-400);">\u00a5${(r.sale_price_jpy || 0).toLocaleString()}</span></td>
-                    <td style="font-size:12px;">\u00a5${r.source_cost_jpy.toLocaleString()}${proc && proc.platform ? '<br><span style="font-size:10px;color:var(--gray-400);">' + esc(proc.platform) + '</span>' : ''}</td>
-                    <td style="font-size:12px;">\u00a5${shipTotal.toLocaleString()}${r.shipping_method ? '<br><span style="font-size:10px;color:var(--gray-400);">' + r.shipping_method + '</span>' : ''}</td>
+                    <td style="font-size:12px;">$${r.sale_price_usd.toFixed(0)}<br><span style="font-size:11px;color:var(--gray-400);">\u00a5${(r.sale_price_jpy || 0).toLocaleString()}</span></td>
+                    <td style="font-size:12px;">\u00a5${r.source_cost_jpy.toLocaleString()}${proc && proc.platform ? '<br>' + platBadge(proc.platform) : ''}</td>
+                    <td style="font-size:12px;">\u00a5${shipTotal.toLocaleString()}${r.shipping_method ? '<br><span style="font-size:11px;color:var(--gray-400);">' + r.shipping_method + '</span>' : ''}</td>
                     <td style="font-size:12px;">${r.customs_duty_jpy ? '\u00a5' + r.customs_duty_jpy.toLocaleString() : '-'}</td>
-                    <td style="font-size:12px;">$${feesTotal.toFixed(0)}<br><span style="font-size:10px;color:var(--gray-400);">\u00a5${(r.fees_jpy || 0).toLocaleString()}</span></td>
-                    <td style="font-weight:600;color:${profitColor};font-size:12px;">\u00a5${r.net_profit_jpy.toLocaleString()}<br><span style="font-size:10px;">$${r.net_profit_usd.toFixed(0)}</span></td>
-                    <td style="font-weight:600;color:${refundColor};font-size:12px;">\u00a5${profitWithRefund.toLocaleString()}${r.consumption_tax_jpy ? '<br><span style="font-size:10px;color:var(--gray-400);">+\u00a5' + r.consumption_tax_jpy.toLocaleString() + '</span>' : ''}</td>
+                    <td style="font-size:12px;">$${feesTotal.toFixed(0)}<br><span style="font-size:11px;color:var(--gray-400);">\u00a5${(r.fees_jpy || 0).toLocaleString()}</span></td>
+                    <td style="font-weight:600;color:${profitColor};font-size:13px;">\u00a5${r.net_profit_jpy.toLocaleString()}<br><span style="font-size:11px;">$${r.net_profit_usd.toFixed(0)}</span></td>
+                    <td style="font-weight:600;color:${refundColor};font-size:13px;">\u00a5${profitWithRefund.toLocaleString()}${r.consumption_tax_jpy ? '<br><span style="font-size:11px;color:var(--gray-400);">+\u00a5' + r.consumption_tax_jpy.toLocaleString() + '</span>' : ''}</td>
                     <td style="color:${marginColor};font-size:12px;">${r.profit_margin_pct.toFixed(1)}%</td>
-                    <td style="font-size:11px;">${progress}</td>
-                    <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openEditModal(${r.id})" style="padding:2px 8px;font-size:11px;">Edit</button></td>
+                    <td>${progress}</td>
+                    <td><button class="proc-edit-btn" onclick="event.stopPropagation();openEditModal(${r.id})">Edit</button></td>
                 </tr>
                 ${detailHtml}`;
         }).join('');
@@ -746,6 +768,34 @@ async function backfillTracking() {
     }
 }
 
+async function quickSyncSales() {
+    const btn = document.getElementById('quickSyncBtn');
+    const resultSpan = document.getElementById('quickSyncResult');
+    btn.disabled = true;
+    btn.textContent = '同期中...';
+    resultSpan.style.display = 'none';
+    try {
+        const resp = await fetch('/api/sales/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ days: 30 }),
+        });
+        const data = await resp.json();
+        resultSpan.style.display = '';
+        resultSpan.style.color = 'var(--success-600)';
+        resultSpan.textContent = `✓ ${data.new_sales_recorded ?? 0}件追加 (${data.orders_fetched ?? 0}件取得)`;
+        loadSummary(parseInt(document.querySelector('.filter-pills .pill.active')?.dataset?.months || '3'));
+        loadTransactions();
+    } catch (e) {
+        resultSpan.style.display = '';
+        resultSpan.style.color = 'var(--error-600)';
+        resultSpan.textContent = 'エラー: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'eBay同期';
+    }
+}
+
 async function syncAllSales() {
     const btn = document.getElementById('syncAllBtn');
     const resultDiv = document.getElementById('shippingImportResult');
@@ -856,10 +906,10 @@ async function loadDailyAnalytics(days) {
                     : `<div style="width:40px;height:40px;border-radius:6px;background:var(--gray-100);"></div>`;
                 html += `<tr>
                     <td style="padding:6px 8px;">${thumb}</td>
-                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${esc(p.title)}</td>
-                    <td style="font-size:12px;">$${(p.revenue_usd || 0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                    <td style="font-size:12px;color:${(p.profit_usd||0)>=0?'var(--success-500)':'var(--error-500)'};">$${(p.profit_usd || 0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                    <td style="font-size:12px;">${p.sales_count}</td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;">${esc(p.title)}</td>
+                    <td style="font-size:15px;">$${(p.revenue_usd || 0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+                    <td style="font-size:15px;color:${(p.profit_usd||0)>=0?'var(--success-500)':'var(--error-500)'};">$${(p.profit_usd || 0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+                    <td style="font-size:15px;">${p.sales_count}</td>
                 </tr>`;
             }
             html += '</tbody></table>';
