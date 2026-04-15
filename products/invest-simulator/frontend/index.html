@@ -121,18 +121,20 @@
         /* ─── METRIC CARDS ────────────────────────────────────── */
         .metrics-row {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 16px; margin-bottom: 20px;
         }
 
         .metric-card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 12px; padding: 22px 24px;
+            border-radius: 12px;
+            border-top: 4px solid var(--border);
+            padding: 22px 24px;
             box-shadow: var(--shadow-sm);
             transition: box-shadow .2s, border-color .2s;
         }
-        .metric-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-med); }
+        .metric-card:hover { box-shadow: var(--shadow-md); }
 
         .metric-label {
             font-size: 12px; font-weight: 600;
@@ -149,6 +151,15 @@
         .metric-sub {
             font-size: 12px; color: var(--muted); margin-top: 8px;
         }
+        .metric-pill {
+            display: inline-flex; align-items: center;
+            padding: 3px 10px; border-radius: 20px;
+            font-family: var(--mono); font-size: 11px; font-weight: 600;
+            margin-top: 8px;
+        }
+        .metric-pill.pos { background: var(--gain-bg); color: var(--gain); }
+        .metric-pill.neg { background: var(--loss-bg); color: var(--loss); }
+        .metric-pill.neu { background: var(--amber-bg); color: var(--amber); }
 
         /* ─── MIDDLE: CHART + POSITIONS ───────────────────────── */
         .mid-row {
