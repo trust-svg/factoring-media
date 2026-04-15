@@ -189,36 +189,6 @@
         .chart-wrap { padding: 20px; background: #f8fafc; border-radius: 8px; margin: 12px; }
         .chart-canvas-wrap { position: relative; height: 280px; }
 
-        /* positions */
-        .pos-list {
-            padding: 12px; display: flex; flex-direction: column; gap: 8px;
-            max-height: 340px; overflow-y: auto;
-        }
-        .pos-list::-webkit-scrollbar { width: 4px; }
-        .pos-list::-webkit-scrollbar-track { background: #F8FAFC; }
-        .pos-list::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 4px; }
-
-        .pos-item {
-            background: #F8FAFC; border: 1px solid var(--border);
-            border-radius: 8px; padding: 12px 14px;
-            display: flex; justify-content: space-between; align-items: center;
-            transition: border-color .15s, box-shadow .15s;
-        }
-        .pos-item:hover { border-color: var(--border-med); box-shadow: var(--shadow-sm); }
-
-        .pos-ticker {
-            font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text);
-        }
-        .pos-mkt {
-            display: inline-block; margin-left: 6px;
-            font-family: var(--mono); font-size: 10px; font-weight: 700;
-            letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px;
-            background: var(--accent-dim); color: var(--accent);
-        }
-        .pos-shares { font-size: 12px; color: var(--muted); margin-top: 3px; }
-        .pos-right { text-align: right; }
-        .pos-pnl { font-family: var(--mono); font-size: 14px; font-weight: 600; }
-        .pos-val  { font-size: 12px; color: var(--muted); margin-top: 3px; }
 
         /* ─── POSITIONS BAR CHART ─────────────────────────────── */
         .bar-list {
@@ -716,12 +686,6 @@ function actionBg(a) {
     if (a === 'BUY')  return 'var(--buy-bg)';
     if (a === 'SELL') return 'var(--sell-bg)';
     return '#F1F5F9';
-}
-function toggleCycle(el) {
-    const body = el.nextElementSibling;
-    const tog  = el.querySelector('.cycle-toggle');
-    body.classList.toggle('open');
-    tog.textContent = body.classList.contains('open') ? '▲ 閉じる' : '▼ 展開';
 }
 async function fetchCycleLogs() {
     const data = await fetch(`${API}/api/cycles`).then(r => r.json());
