@@ -164,7 +164,7 @@
         /* ─── MIDDLE: CHART + POSITIONS ───────────────────────── */
         .mid-row {
             display: grid;
-            grid-template-columns: 1fr 380px;
+            grid-template-columns: 1.3fr 1fr;
             gap: 16px; margin-bottom: 20px;
         }
 
@@ -186,7 +186,7 @@
         .panel-meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
         /* chart */
-        .chart-wrap { padding: 20px; }
+        .chart-wrap { padding: 20px; background: #f8fafc; border-radius: 8px; margin: 12px; }
         .chart-canvas-wrap { position: relative; height: 280px; }
 
         /* positions */
@@ -219,6 +219,32 @@
         .pos-right { text-align: right; }
         .pos-pnl { font-family: var(--mono); font-size: 14px; font-weight: 600; }
         .pos-val  { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+        /* ─── POSITIONS BAR CHART ─────────────────────────────── */
+        .bar-list {
+            padding: 16px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .bar-item {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .bar-ticker {
+            font-family: var(--mono); font-size: 12px; font-weight: 600;
+            color: var(--text); min-width: 70px; flex-shrink: 0;
+        }
+        .bar-track {
+            flex: 1; height: 8px; background: var(--border);
+            border-radius: 4px; overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%; border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+        .bar-fill.pos { background: var(--accent); }
+        .bar-fill.neg { background: #fca5a5; }
+        .bar-pct {
+            font-family: var(--mono); font-size: 12px; font-weight: 600;
+            min-width: 56px; text-align: right; flex-shrink: 0;
+        }
 
         .gain { color: var(--gain); }
         .loss { color: var(--loss); }
