@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>UI モックアップ — B+C 統合案</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#e2e8f0; font-family:'Inter',sans-serif; padding:32px 16px; color:#0f172a; }
+h1 { text-align:center; font-size:18px; font-weight:700; color:#1e293b; margin-bottom:4px; }
+.lead { text-align:center; color:#64748b; font-size:13px; margin-bottom:28px; }
+
+/* DASHBOARD WRAPPER */
+.dash { background:#f1f5f9; border-radius:20px; overflow:hidden; max-width:900px; margin:0 auto; box-shadow:0 8px 40px rgba(0,0,0,0.12); }
+
+/* HEADER */
+.header { background:#fff; padding:14px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; }
+.logo { font-weight:800; font-size:15px; color:#0f172a; }
+.header-right { display:flex; align-items:center; gap:10px; }
+.mkt-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:99px; }
+.mkt-open { background:#dcfce7; color:#15803d; }
+.mkt-closed { background:#f1f5f9; color:#64748b; }
+.btn-sm { background:#f1f5f9; border:none; border-radius:8px; padding:5px 12px; font-size:12px; font-weight:600; color:#475569; cursor:pointer; }
+
+/* KPI 3-COLUMN */
+.kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:16px; }
+.kpi-card { background:#fff; border-radius:12px; padding:16px; border-top:4px solid; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+.kpi-card.blue  { border-color:#3b82f6; }
+.kpi-card.green { border-color:#10b981; }
+.kpi-card.amber { border-color:#f59e0b; }
+.kpi-card.red   { border-color:#ef4444; }
+.kpi-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; margin-bottom:6px; }
+.kpi-value { font-size:22px; font-weight:800; color:#0f172a; line-height:1; }
+.kpi-jpy { font-size:11px; color:#64748b; margin-top:3px; font-weight:500; }
+.kpi-delta { display:inline-flex; align-items:center; gap:3px; margin-top:6px; font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; }
+.kpi-delta.up   { background:#dcfce7; color:#15803d; }
+.kpi-delta.down { background:#fee2e2; color:#dc2626; }
+.kpi-delta.neut { background:#f1f5f9; color:#64748b; }
+
+/* 2-COL LAYOUT */
+.two-col { display:grid; grid-template-columns:1.3fr 1fr; gap:12px; padding:0 16px 16px; }
+.panel { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+.panel-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; margin-bottom:12px; }
+
+/* CHART */
+.chart-area { height:90px; display:flex; align-items:flex-end; gap:3px; background:#f8fafc; border-radius:8px; padding:8px; }
+.c-bar { flex:1; border-radius:3px 3px 0 0; background:#bfdbfe; }
+.c-bar.recent { background:#3b82f6; }
+
+/* POSITIONS */
+.pos-list { display:flex; flex-direction:column; gap:6px; }
+.pos-row { display:flex; align-items:center; gap:8px; }
+.pos-ticker { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:#1e40af; width:52px; flex-shrink:0; }
+.pos-bar-track { flex:1; height:6px; background:#f1f5f9; border-radius:3px; }
+.pos-bar-fill { height:100%; border-radius:3px; }
+.pos-bar-fill.up   { background:#3b82f6; }
+.pos-bar-fill.down { background:#fca5a5; }
+.pos-pct { font-size:11px; font-weight:700; width:44px; text-align:right; font-family:'JetBrains Mono',monospace; }
+.pos-pct.up   { color:#059669; }
+.pos-pct.down { color:#dc2626; }
+
+/* FULL-WIDTH PANEL */
+.full-panel { background:#fff; border-radius:12px; padding:16px; margin:0 16px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+.trade-table { width:100%; border-collapse:collapse; font-size:12px; }
+.trade-table th { color:#94a3b8; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:0 8px 8px; text-align:left; border-bottom:1px solid #f1f5f9; }
+.trade-table td { padding:7px 8px; border-bottom:1px solid #f8fafc; color:#334155; }
+.badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; }
+.badge.BUY  { background:#dbeafe; color:#1d4ed8; }
+.badge.HOLD { background:#f1f5f9; color:#64748b; }
+.badge.SELL { background:#ffedd5; color:#c2410c; }
+.pag { display:flex; justify-content:center; align-items:center; gap:10px; margin-top:12px; padding-top:10px; border-top:1px solid #f1f5f9; }
+.pag-btn { background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:4px 12px; font-size:12px; font-weight:600; color:#475569; cursor:pointer; }
+.pag-info { font-size:12px; color:#94a3b8; }
+
+/* AI LOG */
+.ai-log { display:flex; flex-direction:column; gap:6px; }
+.ai-row { background:#f8fafc; border-radius:8px; padding:10px 12px; border-left:3px solid #e2e8f0; }
+.ai-row.buy-row { border-color:#3b82f6; }
+.ai-row.hold-row { border-color:#cbd5e1; }
+.ai-row-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.ai-row-time { font-size:10px; color:#94a3b8; font-family:'JetBrains Mono',monospace; }
+.ai-row-body { font-size:11px; color:#475569; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+</style>
+</head>
+<body>
+
+<h1>B + C 統合モックアップ</h1>
+<p class="lead">ライトクリーン × グリッドアナリティクス。シングルページ構成。</p>
+
+<div class="dash">
+
+  <!-- HEADER -->
+  <div class="header">
+    <span class="logo">AI 投資シミュレーター</span>
+    <div class="header-right">
+      <span class="mkt-badge mkt-open">🇺🇸 US 開場中</span>
+      <span class="mkt-badge mkt-closed">🇯🇵 JP 閉場</span>
+      <button class="btn-sm">↻ 更新</button>
+    </div>
+  </div>
+
+  <!-- KPI 3-COLUMN -->
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">総資産</div>
+      <div class="kpi-value">$9,842</div>
+      <div class="kpi-jpy">≈ ¥1,564,878</div>
+      <div class="kpi-delta up">▲ +8.4% 初期比</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">含み損益</div>
+      <div class="kpi-value" style="color:#059669">+$842</div>
+      <div class="kpi-jpy">≈ ¥133,876</div>
+      <div class="kpi-delta up">▲ 全体 +8.4%</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">現金残高</div>
+      <div class="kpi-value">$542</div>
+      <div class="kpi-jpy">JP $392 / US $150</div>
+      <div class="kpi-delta neut">総資産の 5.5%</div>
+    </div>
+  </div>
+
+  <!-- 2-COL: CHART + POSITIONS -->
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-title">資産推移</div>
+      <div class="chart-area">
+        <div class="c-bar" style="height:40%"></div>
+        <div class="c-bar" style="height:48%"></div>
+        <div class="c-bar" style="height:45%"></div>
+        <div class="c-bar" style="height:55%"></div>
+        <div class="c-bar" style="height:52%"></div>
+        <div class="c-bar" style="height:60%"></div>
+        <div class="c-bar" style="height:58%"></div>
+        <div class="c-bar" style="height:65%"></div>
+        <div class="c-bar" style="height:70%"></div>
+        <div class="c-bar" style="height:68%"></div>
+        <div class="c-bar" style="height:75%"></div>
+        <div class="c-bar recent" style="height:82%"></div>
+        <div class="c-bar recent" style="height:88%"></div>
+        <div class="c-bar recent" style="height:92%"></div>
+        <div class="c-bar recent" style="height:100%"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">保有銘柄 — 損益率</div>
+      <div class="pos-list">
+        <div class="pos-row">
+          <span class="pos-ticker">NVDA</span>
+          <div class="pos-bar-track"><div class="pos-bar-fill up" style="width:78%"></div></div>
+          <span class="pos-pct up">+3.91%</span>
+        </div>
+        <div class="pos-row">
+          <span class="pos-ticker">8306.T</span>
+          <div class="pos-bar-track"><div class="pos-bar-fill up" style="width:52%"></div></div>
+          <span class="pos-pct up">+2.62%</span>
+        </div>
+        <div class="pos-row">
+          <span class="pos-ticker">MSFT</span>
+          <div class="pos-bar-track"><div class="pos-bar-fill up" style="width:67%"></div></div>
+          <span class="pos-pct up">+3.36%</span>
+        </div>
+        <div class="pos-row">
+          <span class="pos-ticker">6857.T</span>
+          <div class="pos-bar-track"><div class="pos-bar-fill up" style="width:75%"></div></div>
+          <span class="pos-pct up">+3.75%</span>
+        </div>
+        <div class="pos-row">
+          <span class="pos-ticker">AAPL</span>
+          <div class="pos-bar-track"><div class="pos-bar-fill up" style="width:9%"></div></div>
+          <span class="pos-pct up">+0.45%</span>
+        </div>
+        <div class="pos-row">
+          <span class="pos-ticker">7974.T</span>
+          <div class="pos-bar-track"><div class="pos-bar-fill down" style="width:31%"></div></div>
+          <span class="pos-pct down">−1.57%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRADE LOG -->
+  <div class="full-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span class="panel-title" style="margin:0">取引履歴 <span style="color:#cbd5e1;font-weight:400;font-size:10px">54件</span></span>
+    </div>
+    <table class="trade-table">
+      <thead>
+        <tr>
+          <th>アクション</th><th>銘柄</th><th>株数</th><th>価格</th><th>損益</th><th>理由</th><th>時刻</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge BUY">BUY</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:600;color:#1e40af">6367.T</td>
+          <td>2</td><td>$128.14</td><td>—</td>
+          <td style="color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ポートフォリオの分散化のため</td>
+          <td style="font-family:'JetBrains Mono',monospace;color:#94a3b8;font-size:11px">04/14 14:25</td>
+        </tr>
+        <tr>
+          <td><span class="badge HOLD">HOLD</span></td>
+          <td>—</td><td>—</td><td>—</td><td>—</td>
+          <td style="color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">全銘柄が利確・損切りライン範囲内で様子見</td>
+          <td style="font-family:'JetBrains Mono',monospace;color:#94a3b8;font-size:11px">04/14 22:06</td>
+        </tr>
+        <tr>
+          <td><span class="badge HOLD">HOLD</span></td>
+          <td>—</td><td>—</td><td>—</td><td>—</td>
+          <td style="color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">現金比率が目標を下回るため追加購入を見送り</td>
+          <td style="font-family:'JetBrains Mono',monospace;color:#94a3b8;font-size:11px">04/14 21:56</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pag">
+      <button class="pag-btn">‹ 前へ</button>
+      <span class="pag-info">1 / 3</span>
+      <button class="pag-btn">次へ ›</button>
+    </div>
+  </div>
+
+  <!-- AI LOG -->
+  <div class="full-panel">
+    <div class="panel-title">AI 分析ログ <span style="color:#cbd5e1;font-weight:400">30件</span></div>
+    <div class="ai-log">
+      <div class="ai-row buy-row">
+        <div class="ai-row-head">
+          <span><span class="badge BUY">BUY</span> <span style="font-size:11px;font-weight:600;color:#1e40af;margin-left:4px">6367.T × 2株</span></span>
+          <span class="ai-row-time">04/14 14:25 · JP</span>
+        </div>
+        <div class="ai-row-body">ポートフォリオの分散化。未保有銘柄で業種分散を図る。購入額$256.28で現金比率20%以上を維持</div>
+      </div>
+      <div class="ai-row hold-row">
+        <div class="ai-row-head">
+          <span><span class="badge HOLD">HOLD</span></span>
+          <span class="ai-row-time">04/14 22:06 · US</span>
+        </div>
+        <div class="ai-row-body">全銘柄が利確ライン（+8%）および損切りライン（-5%）の範囲内にあり、明確な売買シグナルがない。現金$542を維持して次のトレンドを待つ。</div>
+      </div>
+      <div class="ai-row hold-row">
+        <div class="ai-row-head">
+          <span><span class="badge HOLD">HOLD</span></span>
+          <span class="ai-row-time">04/14 21:56 · US</span>
+        </div>
+        <div class="ai-row-body">保有銘柄すべてが軽微な含み益状態で、利確・損切りラインのいずれにも達していない。より有利な買い場を待つ。</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center;color:#64748b;font-size:12px;margin-top:20px">このデザインで進める / ここを変えたい など教えてください</p>
+</body>
+</html>
