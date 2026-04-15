@@ -723,51 +723,27 @@ function toggleCycle(el) {
     body.classList.toggle('open');
     tog.textContent = body.classList.contains('open') ? '▲ 閉じる' : '▼ 展開';
 }
-async function fetchCycleLog() {
-    try {
-        const data = await fetch(`${API}/api/cycle_log`).then(r => r.json());
-        document.getElementById('cycle-ct').textContent = `${data.length} 件`;
-        const container = document.getElementById('cycle-log-body');
-        if (!data.length) {
-            container.innerHTML = '<div class="empty">サイクルログなし（初回取引サイクル後に表示されます）</div>';
-            return;
-        }
-        container.innerHTML = data.map((log, i) => {
-            const ts  = new Date(log.timestamp).toLocaleString('ja-JP');
-            const decisions = log.decisions || [];
-            const summary = decisions.length
-                ? decisions.map(d => d.action === 'HOLD' ? 'HOLD' : `${d.action} ${d.ticker}`).join(' / ')
-                : 'ツール未実行';
-            const decisionsHtml = decisions.length
-                ? decisions.map(d => `
-                    <div class="cycle-decision">
-                        <span class="act-badge ${d.action}" style="background:${actionBg(d.action)};color:${actionColor(d.action)};font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:5px;flex-shrink:0">${d.action}</span>
-                        <div>
-                            ${d.ticker ? `<div style="font-family:var(--mono);font-size:13px;font-weight:600;margin-bottom:3px;color:var(--text)">${d.ticker}${d.shares ? ` × ${d.shares}株` : ''} ${d.price ? `@ $${d.price.toFixed(2)}` : ''}</div>` : ''}
-                            <div class="cycle-decision-reason">${d.reason || ''}</div>
-                        </div>
-                    </div>`).join('')
-                : '<div style="font-size:13px;color:var(--muted)">ツールが呼び出されませんでした</div>';
-            return `
-                <div class="cycle-entry">
-                    <div class="cycle-entry-head" onclick="toggleCycle(this)">
-                        <span class="cycle-mkt ${log.market}">${log.market}</span>
-                        <span class="cycle-ts">${ts}</span>
-                        <span class="cycle-summary">${summary}</span>
-                        <span class="cycle-toggle">▼ 展開</span>
-                    </div>
-                    <div class="cycle-body${i === 0 ? ' open' : ''}">
-                        <div class="cycle-section-title">Claude への入力</div>
-                        <div class="cycle-input">${log.input.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-                        <div class="cycle-section-title">判断結果</div>
-                        ${decisionsHtml}
-                    </div>
-                </div>`;
-        }).join('');
-        // 最新エントリのトグルを更新
-        const firstHead = container.querySelector('.cycle-entry-head');
-        if (firstHead) firstHead.querySelector('.cycle-toggle').textContent = '▲ 閉じる';
-    } catch(e) { /* silent */ }
+async function fetchCycleLogs() {
+    const data = await fetch(`${API}/api/cycles`).then(r => r.json());
+    document.getElementById('cycle-ct').textContent = `${data.length} 件`;
+    const body = document.getElementById('cycle-log-body');
+    if (!data.length) { body.innerHTML = '<div class="empty">ログなし</div>'; return; }
+
+    body.innerHTML = data.map(c => {
+        const action = c.action || 'HOLD';
+        const ticker = c.ticker || c.symbol || '—';
+        const ts = c.executed_at || c.timestamp || '';
+        const reason = c.reason || c.analysis || '';
+        return `
+        <div class="ai-log-entry ${action}">
+            <div class="ai-log-head">
+                <span class="ai-log-badge ${action}">${action}</span>
+                <span class="ai-log-ticker">${ticker}</span>
+                <span class="ai-log-ts">${ts ? fD(ts) : ''}</span>
+            </div>
+            <div class="ai-log-body">${reason}</div>
+        </div>`;
+    }).join('');
 }
 
 /* ── status ── */
@@ -836,7 +812,7 @@ async function resetSim() {
 
 /* ── full refresh ── */
 async function refresh() {
-    await Promise.allSettled([fetchPortfolio(), fetchPositions(), fetchTrades(), fetchChart(), fetchStatus(), fetchCycleLog()]);
+    await Promise.allSettled([fetchPortfolio(), fetchPositions(), fetchTrades(), fetchChart(), fetchStatus(), fetchCycleLogs()]);
     document.getElementById('ts').textContent = new Date().toLocaleTimeString('ja-JP');
 }
 
