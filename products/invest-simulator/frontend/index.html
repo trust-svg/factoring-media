@@ -432,27 +432,23 @@
 
     <!-- Metrics -->
     <div class="metrics-row">
-        <div class="metric-card">
+        <div class="metric-card" style="border-top-color:#3b82f6">
             <div class="metric-label">総資産</div>
             <div class="metric-value" id="m-total">$—</div>
-            <div class="metric-sub" id="m-cash">JP $— / US $—</div>
-            <div class="metric-sub" id="m-total-jpy" style="margin-top:3px;color:var(--accent);font-weight:600">≈ ¥—</div>
+            <div class="metric-sub" id="m-total-jpy">≈ ¥—</div>
+            <div id="m-total-pill" class="metric-pill neu">初期比 —%</div>
         </div>
-        <div class="metric-card">
-            <div class="metric-label">損益額</div>
+        <div class="metric-card" id="m-pnl-card" style="border-top-color:#10b981">
+            <div class="metric-label">含み損益</div>
             <div class="metric-value" id="m-pnl">$—</div>
-            <div class="metric-sub">初期資金: $10,000.00</div>
-            <div class="metric-sub" id="m-pnl-jpy" style="margin-top:3px;font-weight:600">≈ ¥—</div>
+            <div class="metric-sub" id="m-pnl-jpy">≈ ¥—</div>
+            <div id="m-pnl-pill" class="metric-pill pos">全体 —%</div>
         </div>
-        <div class="metric-card">
-            <div class="metric-label">損益率</div>
-            <div class="metric-value" id="m-pct">—%</div>
-            <div class="metric-sub" id="m-posval">保有: $—</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">為替 USD/JPY</div>
-            <div class="metric-value" id="m-fx">¥—</div>
-            <div class="metric-sub" id="m-mkt">市場データ取得中</div>
+        <div class="metric-card" style="border-top-color:#f59e0b">
+            <div class="metric-label">現金残高</div>
+            <div class="metric-value" id="m-cash-val">$—</div>
+            <div class="metric-sub" id="m-cash-sub">JP $— / US $—</div>
+            <div id="m-cash-pill" class="metric-pill neu">総資産比 —%</div>
         </div>
     </div>
 
