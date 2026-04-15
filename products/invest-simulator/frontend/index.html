@@ -637,19 +637,19 @@ async function fetchPositions() {
     document.getElementById('pos-ct').textContent = `${data.length} 銘柄`;
     const list = document.getElementById('pos-list');
     if (!data.length) { list.innerHTML = '<div class="empty">保有銘柄なし</div>'; return; }
+
+    const maxAbs = Math.max(...data.map(p => Math.abs(p.pnl_pct)), 0.01);
     list.innerHTML = data.map(p => {
-        const cls = p.pnl_pct >= 0 ? 'gain' : 'loss';
-        const jpy = fY(p.current_value * _usdjpy);
+        const barWidth = (Math.abs(p.pnl_pct) / maxAbs * 100).toFixed(1);
+        const cls = p.pnl_pct >= 0 ? 'pos' : 'neg';
+        const pctStr = (p.pnl_pct >= 0 ? '+' : '') + p.pnl_pct.toFixed(2) + '%';
         return `
-        <div class="pos-item">
-            <div>
-                <span class="pos-ticker">${p.ticker}</span><span class="pos-mkt">${p.market}</span>
-                <div class="pos-shares">${p.shares}株 @ ${f$(p.avg_cost)}</div>
+        <div class="bar-item">
+            <span class="bar-ticker">${p.ticker}</span>
+            <div class="bar-track">
+                <div class="bar-fill ${cls}" style="width:${barWidth}%"></div>
             </div>
-            <div class="pos-right">
-                <div class="pos-pnl ${cls}">${fP(p.pnl_pct)}</div>
-                <div class="pos-val">${f$(p.current_value)} <span style="color:var(--accent);font-size:11px">${jpy}</span></div>
-            </div>
+            <span class="bar-pct ${cls}">${pctStr}</span>
         </div>`;
     }).join('');
 }
