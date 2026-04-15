@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUNE — 大人の余裕が、女性を惹きつける。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FFFFFF;
+      --surface: #F0F9FF;
+      --accent: #0EA5E9;
+      --accent-light: #E0F2FE;
+      --accent-dark: #0369A1;
+      --yellow: #F59E0B;
+      --yellow-light: #FEF3C7;
+      --text-h: #0C4A6E;
+      --text-b: #374151;
+      --text-muted: #9CA3AF;
+      --border: #E5E7EB;
+      --line-green: #06C755;
+      --radius: 14px;
+      --shadow-sm: 0 1px 4px rgba(0,0,0,.06);
+      --shadow-md: 0 4px 20px rgba(14,165,233,.1), 0 2px 8px rgba(0,0,0,.04);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text-b);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ===== TYPOGRAPHY ===== */
+    h1, h2, h3 {
+      font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif;
+      color: var(--text-h);
+      line-height: 1.3;
+    }
+
+    /* ===== UTILITIES ===== */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .section { padding: 88px 0; }
+    .section--surface { background: var(--surface); }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px;
+      padding: 14px 32px;
+      border-radius: 999px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer; border: none;
+      text-decoration: none;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn--sky { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(14,165,233,.3); }
+    .btn--sky:hover { box-shadow: 0 6px 22px rgba(14,165,233,.4); }
+    .btn--yellow { background: var(--yellow); color: #fff; box-shadow: 0 4px 14px rgba(245,158,11,.3); }
+    .btn--yellow:hover { box-shadow: 0 6px 20px rgba(245,158,11,.4); }
+    .btn--line { background: var(--line-green); color: #fff; font-size: 1.15rem; padding: 18px 44px; box-shadow: 0 4px 18px rgba(6,199,85,.35); }
+    .btn--line:hover { box-shadow: 0 6px 26px rgba(6,199,85,.45); }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(.96); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes bounce {
+      0%   { transform: translateY(30px) scale(.97); opacity: 0; }
+      70%  { transform: translateY(-6px) scale(1.01); opacity: 1; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .anim-scale-in { opacity: 0; transform: scale(.96); transition: opacity .5s ease, transform .5s ease; }
+    .anim-fade-up  { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
+    .anim-fade-in  { opacity: 0; transition: opacity .65s ease; }
+    .anim-slide-right { opacity: 0; transform: translateX(-18px); transition: opacity .55s ease, transform .55s ease; }
+    .anim-bounce   { opacity: 0; transform: translateY(30px) scale(.97); transition: opacity .5s cubic-bezier(.34,1.56,.64,1), transform .5s cubic-bezier(.34,1.56,.64,1); }
+    .pill-pop      { opacity: 0; transform: scale(0); transition: opacity .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1); }
+    .anim-visible  { opacity: 1 !important; transform: none !important; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .anim-scale-in, .anim-fade-up, .anim-fade-in, .anim-slide-right, .anim-bounce, .pill-pop { opacity: 1 !important; transform: none !important; }
+    }
+
+    /* ===== HEADER ===== */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg);
+      transition: box-shadow .3s ease;
+      padding: 0 24px;
+    }
+    .nav.scrolled { box-shadow: 0 2px 12px rgba(14,165,233,.12); }
+    .nav__inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 66px;
+    }
+    .nav__logo {
+      font-family: 'Zen Kaku Gothic New', sans-serif;
+      font-size: 1.7rem; font-weight: 900;
+      color: var(--accent);
+      letter-spacing: .06em;
+      text-decoration: none;
+    }
+    .nav__links {
+      display: flex; align-items: center; gap: 28px;
+      list-style: none;
+    }
+    .nav__links a {
+      text-decoration: none; color: var(--text-b);
+      font-size: .9rem; font-weight: 500;
+      transition: color .2s;
+    }
+    .nav__links a:hover { color: var(--accent); }
+    .nav__badge {
+      background: var(--yellow);
+      color: #fff;
+      font-size: .85rem; font-weight: 700;
+      padding: 9px 20px;
+      border-radius: 999px;
+      text-decoration: none;
+      transition: transform .2s, box-shadow .2s;
+      box-shadow: 0 3px 10px rgba(245,158,11,.3);
+    }
+    .nav__badge:hover { transform: translateY(-2px); box-shadow: 0 5px 16px rgba(245,158,11,.4); }
+    @media (max-width: 768px) { .nav__links { display: none; } }
+
+    /* ===== HERO ===== */
+    .hero {
+      padding: 96px 0 80px;
+      background: var(--bg);
+      overflow: hidden;
+    }
+    .hero__inner {
+      max-width: 800px; margin: 0 auto; padding: 0 24px;
+      text-align: center;
+    }
+    .hero__title {
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      font-weight: 900;
+      color: var(--text-h);
+      margin-bottom: 32px;
+      letter-spacing: -.01em;
+    }
+    .hero__pills {
+      display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;
+      margin-bottom: 28px;
+    }
+    .hero__pill {
+      background: var(--accent-light);
+      color: var(--accent-dark);
+      font-size: .88rem; font-weight: 700;
+      padding: 8px 18px;
+      border-radius: 999px;
+      letter-spacing: .03em;
+    }
+    .hero__divider {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      margin: 28px 0;
+      gap: 16px;
+    }
+    .hero__divider-line {
+      height: 1px; flex: 1; max-width: 140px;
+      background: var(--accent-light);
+    }
+    .hero__sun {
+      width: 32px; height: 32px;
+      background: var(--yellow-light);
+      border-radius: 50%;
+      border: 2px solid var(--yellow);
+      position: relative;
+    }
+    .hero__sun::before {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px dashed var(--yellow);
+      opacity: .4;
+    }
+    .hero__sub {
+      font-size: 1.05rem; color: var(--text-b);
+      margin-bottom: 40px; line-height: 1.8;
+    }
+    .hero__actions {
+      display: flex; justify-content: center; flex-wrap: wrap; gap: 14px;
+    }
+
+    /* ===== PROBLEM ===== */
+    .section__label {
+      font-size: .78rem; font-weight: 700;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--yellow);
+      margin-bottom: 10px;
+    }
+    .section__title {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 900;
+      color: var(--text-h);
+      margin-bottom: 14px;
+    }
+    .section__desc {
+      color: var(--text-muted);
+      font-size: .95rem;
+      max-width: 520px;
+    }
+    .section__header { margin-bottom: 48px; }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 22px;
+    }
+    .problem-card {
+      background: var(--bg);
+      border-top: 4px solid var(--yellow);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      box-shadow: var(--shadow-md);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .problem-card__icon {
+      width: 46px; height: 46px;
+      background: var(--yellow-light);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--yellow); font-size: 1.1rem;
+    }
+    .problem-card__text {
+      font-size: .96rem; color: var(--text-b); line-height: 1.75; font-weight: 500;
+    }
+
+    /* ===== HOW IT WORKS ===== */
+    .steps-row {
+      display: flex; align-items: flex-start; justify-content: center;
+      flex-wrap: wrap; gap: 0;
+      position: relative;
+    }
+    .step {
+      flex: 1; min-width: 220px; max-width: 280px;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; padding: 32px 20px;
+      background: var(--accent-light);
+      border-radius: 16px;
+      position: relative;
+      z-index: 1;
+    }
+    .step + .step { margin-left: 0; }
+    .step__arrow {
+      display: flex; align-items: center; padding: 0 10px;
+      color: var(--accent); font-size: 1.4rem;
+      align-self: center;
+    }
+    @media (max-width: 640px) {
+      .step__arrow { transform: rotate(90deg); }
+      .steps-row { flex-direction: column; align-items: center; }
+      .step { max-width: 100%; width: 100%; }
+    }
+    .step__num {
+      font-size: 2.6rem; font-weight: 900;
+      color: var(--accent);
+      font-family: 'Zen Kaku Gothic New', sans-serif;
+      line-height: 1; margin-bottom: 14px;
+    }
+    .step__title { font-size: 1rem; font-weight: 700; color: var(--text-h); margin-bottom: 8px; }
+    .step__desc { font-size: .87rem; color: var(--text-muted); line-height: 1.65; }
+
+    /* ===== BENEFITS ===== */
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    .benefit-card {
+      background: var(--bg);
+      border-left: 4px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 28px 28px 28px 24px;
+      box-shadow: var(--shadow-sm);
+      display: flex; gap: 18px;
+      align-items: flex-start;
+      transition: box-shadow .3s, transform .3s;
+    }
+    .benefit-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+    .benefit-card__icon {
+      width: 48px; height: 48px;
+      background: var(--accent-light);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent); font-size: 1.15rem;
+      flex-shrink: 0;
+    }
+    .benefit-card__title { font-size: 1rem; font-weight: 700; color: var(--text-h); margin-bottom: 7px; }
+    .benefit-card__desc { font-size: .88rem; color: var(--text-muted); line-height: 1.7; }
+
+    /* ===== TESTIMONIALS ===== */
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 28px;
+    }
+    .testimonial-card {
+      background: var(--bg);
+      border-radius: 16px;
+      padding: 32px 28px;
+      box-shadow: var(--shadow-md);
+      position: relative;
+    }
+    .testimonial-card__quote {
+      position: absolute;
+      top: 16px; right: 22px;
+      font-size: 5rem; line-height: 1;
+      color: var(--yellow-light);
+      font-family: Georgia, serif;
+      font-weight: 700;
+      user-select: none;
+    }
+    .testimonial-card__header {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 16px; position: relative; z-index: 1;
+    }
+    .testimonial-card__avatar {
+      width: 46px; height: 46px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 1rem; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .testimonial-card__name { font-weight: 700; color: var(--text-h); font-size: .95rem; }
+    .testimonial-card__age { font-size: .82rem; color: var(--text-muted); }
+    .testimonial-card__stars { color: var(--yellow); font-size: .85rem; margin-bottom: 10px; position: relative; z-index: 1; }
+    .testimonial-card__text { font-size: .93rem; color: var(--text-b); line-height: 1.8; position: relative; z-index: 1; }
+
+    /* ===== CTA ===== */
+    .cta-section {
+      background: var(--surface);
+      padding: 100px 0;
+    }
+    .cta-card {
+      background: var(--bg);
+      border-radius: 24px;
+      padding: 56px 48px;
+      box-shadow: 0 8px 40px rgba(14,165,233,.12);
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .cta-card__title {
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      font-weight: 900;
+      color: var(--text-h);
+      margin-bottom: 14px;
+    }
+    .cta-card__sub { font-size: 1rem; color: var(--text-muted); margin-bottom: 32px; }
+    .cta-card__reassure {
+      margin-top: 18px;
+      font-size: .85rem; color: var(--text-muted);
+      display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;
+    }
+    .cta-card__reassure span { display: flex; align-items: center; gap: 5px; }
+    .cta-card__reassure i { color: var(--accent); font-size: .75rem; }
+    @media (max-width: 600px) { .cta-card { padding: 40px 24px; } }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 40px 24px;
+    }
+    .footer__inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 20px;
+    }
+    .footer__logo {
+      font-family: 'Zen Kaku Gothic New', sans-serif;
+      font-size: 1.4rem; font-weight: 900;
+      color: var(--accent);
+    }
+    .footer__links { display: flex; gap: 24px; list-style: none; }
+    .footer__links a {
+      text-decoration: none; color: var(--text-muted);
+      font-size: .85rem; transition: color .2s;
+    }
+    .footer__links a:hover { color: var(--accent); }
+    .footer__copy {
+      width: 100%; text-align: center;
+      font-size: .8rem; color: var(--text-muted);
+      padding-top: 24px; border-top: 1px solid var(--border); margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAV ===== -->
+  <nav class="nav" id="mainNav">
+    <div class="nav__inner">
+      <a class="nav__logo" href="#">LUNE</a>
+      <ul class="nav__links">
+        <li><a href="#problem">よくある悩み</a></li>
+        <li><a href="#how">ステップ</a></li>
+        <li><a href="#benefits">選ばれる理由</a></li>
+        <li><a href="#testimonials">体験談</a></li>
+      </ul>
+      <a href="#cta" class="nav__badge">無料登録</a>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero__inner">
+      <h1 class="hero__title anim-scale-in">大人の余裕が、<br>女性を惹きつける。</h1>
+      <div class="hero__pills">
+        <span class="hero__pill pill-pop" style="transition-delay:.3s">✓ 50代専用</span>
+        <span class="hero__pill pill-pop" style="transition-delay:.38s">✓ 完全無料</span>
+        <span class="hero__pill pill-pop" style="transition-delay:.46s">✓ サポートあり</span>
+      </div>
+      <div class="hero__divider anim-fade-in" style="transition-delay:.5s">
+        <div class="hero__divider-line"></div>
+        <div class="hero__sun"></div>
+        <div class="hero__divider-line"></div>
+      </div>
+      <p class="hero__sub anim-fade-up" style="transition-delay:.2s">
+        50代以上の男性が、毎月マッチングを叶えています
+      </p>
+      <div class="hero__actions anim-fade-up" style="transition-delay:.35s">
+        <a href="#cta" class="btn btn--line">
+          <i class="fa-brands fa-line"></i>&ensp;LINEで無料登録
+        </a>
+        <a href="#benefits" class="btn btn--yellow">詳しく見る</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PROBLEM ===== -->
+  <section class="section" id="problem">
+    <div class="container">
+      <div class="section__header anim-fade-up">
+        <div class="section__label">Common Issues</div>
+        <h2 class="section__title">こんな悩み、ありませんか？</h2>
+        <p class="section__desc">多くの50代男性が感じる孤独感。LUNEはその悩みに真剣に向き合います。</p>
+      </div>
+      <div class="problem-grid">
+        <div class="problem-card anim-slide-right" style="transition-delay:.0s">
+          <div class="problem-card__icon"><i class="fa-solid fa-calendar-xmark"></i></div>
+          <p class="problem-card__text">出会いの場がなく、なんとなく日々が過ぎていく</p>
+        </div>
+        <div class="problem-card anim-slide-right" style="transition-delay:.12s">
+          <div class="problem-card__icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
+          <p class="problem-card__text">マッチングアプリは"若者向け"に見えて、踏み出せない</p>
+        </div>
+        <div class="problem-card anim-slide-right" style="transition-delay:.24s">
+          <div class="problem-card__icon"><i class="fa-solid fa-circle-question"></i></div>
+          <p class="problem-card__text">自分のような年齢でも、本当に出会えるのか不安</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section class="section section--surface" id="how">
+    <div class="container">
+      <div class="section__header anim-fade-up" style="text-align:center">
+        <div class="section__label">How It Works</div>
+        <h2 class="section__title">かんたん3ステップ</h2>
+        <p class="section__desc" style="margin: 0 auto">登録から最初のマッチングまで、最短1週間。</p>
+      </div>
+      <div class="steps-row">
+        <div class="step anim-slide-right" style="transition-delay:.0s">
+          <div class="step__num">1</div>
+          <div class="step__title">LINEで無料登録</div>
+          <p class="step__desc">60秒で完了。プロフィール入力はスタッフがサポートします。</p>
+        </div>
+        <div class="step__arrow anim-fade-in" style="transition-delay:.15s"><i class="fa-solid fa-arrow-right"></i></div>
+        <div class="step anim-slide-right" style="transition-delay:.15s">
+          <div class="step__num">2</div>
+          <div class="step__title">プロフィール作成</div>
+          <p class="step__desc">専任スタッフが魅力を最大限に引き出すサポートをします。</p>
+        </div>
+        <div class="step__arrow anim-fade-in" style="transition-delay:.3s"><i class="fa-solid fa-arrow-right"></i></div>
+        <div class="step anim-slide-right" style="transition-delay:.3s">
+          <div class="step__num">3</div>
+          <div class="step__title">マッチング開始</div>
+          <p class="step__desc">大人の余裕で、真剣な出会いを楽しんでください。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== BENEFITS ===== -->
+  <section class="section" id="benefits">
+    <div class="container">
+      <div class="section__header anim-fade-up">
+        <div class="section__label">Why LUNE</div>
+        <h2 class="section__title">50代からモテる理由があります</h2>
+        <p class="section__desc">LUNEが選ばれる3つの理由。あなたの「大人力」が最大の武器に。</p>
+      </div>
+      <div class="benefits-grid">
+        <div class="benefit-card anim-fade-up" style="transition-delay:.0s">
+          <div class="benefit-card__icon"><i class="fa-solid fa-venus-mars"></i></div>
+          <div>
+            <h3 class="benefit-card__title">大人を求める女性が多数在籍</h3>
+            <p class="benefit-card__desc">20〜40代の女性会員がLUNEを選ぶ理由は「落ち着いた大人の男性に出会いたい」から</p>
+          </div>
+        </div>
+        <div class="benefit-card anim-fade-up" style="transition-delay:.1s">
+          <div class="benefit-card__icon"><i class="fa-solid fa-shield-halved"></i></div>
+          <div>
+            <h3 class="benefit-card__title">50代専用マッチング</h3>
+            <p class="benefit-card__desc">年齢層を絞ることで、真剣な出会いの確率が劇的に上がります</p>
+          </div>
+        </div>
+        <div class="benefit-card anim-fade-up" style="transition-delay:.2s">
+          <div class="benefit-card__icon"><i class="fa-solid fa-headset"></i></div>
+          <div>
+            <h3 class="benefit-card__title">プロフィール完全サポート</h3>
+            <p class="benefit-card__desc">登録からマッチングまで、専任スタッフがサポート</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TESTIMONIALS ===== -->
+  <section class="section section--surface" id="testimonials">
+    <div class="container">
+      <div class="section__header anim-fade-up">
+        <div class="section__label">Success Stories</div>
+        <h2 class="section__title">実際の体験談</h2>
+        <p class="section__desc">LUNEで人生が変わった先輩ユーザーの声。</p>
+      </div>
+      <div class="testimonials-grid">
+        <div class="testimonial-card anim-fade-in" style="transition-delay:.0s">
+          <div class="testimonial-card__quote">"</div>
+          <div class="testimonial-card__header">
+            <div class="testimonial-card__avatar">田</div>
+            <div>
+              <div class="testimonial-card__name">田中さん</div>
+              <div class="testimonial-card__age">54歳・会社員</div>
+            </div>
+          </div>
+          <div class="testimonial-card__stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-card__text">「1ヶ月でマッチングできました。大人の余裕が武器になるとは思っていませんでした。」</p>
+        </div>
+        <div class="testimonial-card anim-fade-in" style="transition-delay:.15s">
+          <div class="testimonial-card__quote">"</div>
+          <div class="testimonial-card__header">
+            <div class="testimonial-card__avatar">佐</div>
+            <div>
+              <div class="testimonial-card__name">佐藤さん</div>
+              <div class="testimonial-card__age">58歳・自営業</div>
+            </div>
+          </div>
+          <div class="testimonial-card__stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-card__text">「若い頃よりいまの方がモテると実感。経験と安定感が女性に響くんですね。」</p>
+        </div>
+        <div class="testimonial-card anim-fade-in" style="transition-delay:.3s">
+          <div class="testimonial-card__quote">"</div>
+          <div class="testimonial-card__header">
+            <div class="testimonial-card__avatar">鈴</div>
+            <div>
+              <div class="testimonial-card__name">鈴木さん</div>
+              <div class="testimonial-card__age">52歳・会社員</div>
+            </div>
+          </div>
+          <div class="testimonial-card__stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-card__text">「50代専用というだけで、最初からお互い真剣。純粋に出会いを楽しめています。」</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <section class="cta-section" id="cta">
+    <div class="container">
+      <div class="cta-card anim-bounce">
+        <div class="section__label" style="text-align:center">Join LUNE</div>
+        <h2 class="cta-card__title">今すぐLINEで無料登録する</h2>
+        <p class="cta-card__sub">50代からが、本当のモテ時代。あなたの新しい出会いが始まります。</p>
+        <a href="#" class="btn btn--line">
+          <i class="fa-brands fa-line"></i>&ensp;今すぐLINEで無料登録する
+        </a>
+        <div class="cta-card__reassure">
+          <span><i class="fa-solid fa-circle-check"></i> 登録60秒</span>
+          <span><i class="fa-solid fa-circle-check"></i> 完全無料</span>
+          <span><i class="fa-solid fa-circle-check"></i> いつでも退会OK</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__logo">LUNE</div>
+      <ul class="footer__links">
+        <li><a href="#">利用規約</a></li>
+        <li><a href="#">プライバシーポリシー</a></li>
+        <li><a href="#">お問い合わせ</a></li>
+      </ul>
+    </div>
+    <div class="footer__inner">
+      <p class="footer__copy">© 2025 LUNE. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // ===== NAV DROP SHADOW ON SCROLL ===== //
+    const nav = document.getElementById('mainNav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 20);
+    }, { passive: true });
+
+    // ===== INTERSECTION OBSERVER ===== //
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('anim-visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    const animClasses = ['.anim-scale-in', '.anim-fade-up', '.anim-fade-in', '.anim-slide-right', '.anim-bounce', '.pill-pop'];
+    animClasses.forEach(cls => {
+      document.querySelectorAll(cls).forEach(el => io.observe(el));
+    });
+
+    // ===== TRIGGER HERO ANIMS IMMEDIATELY ===== //
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.hero .anim-scale-in, .hero .anim-fade-up, .hero .anim-fade-in, .hero .pill-pop').forEach(el => {
+        io.observe(el);
+      });
+    });
+  </script>
+</body>
+</html>

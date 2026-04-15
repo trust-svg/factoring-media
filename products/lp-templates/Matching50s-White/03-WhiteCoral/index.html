@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUNE — 年齢は、あなたの最強の武器になる。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FFFFFF;
+      --surface: #FFF5F3;
+      --accent: #F4623A;
+      --accent-light: #FFE4DC;
+      --accent-mid: #FDBA9C;
+      --text-h: #7C2D12;
+      --text-b: #44403C;
+      --text-muted: #A8A29E;
+      --border: #F5F0EE;
+      --line-green: #06C755;
+      --radius: 16px;
+      --shadow-sm: 0 1px 4px rgba(0,0,0,.05);
+      --shadow-md: 0 4px 20px rgba(244,98,58,.08), 0 2px 8px rgba(0,0,0,.04);
+      --shadow-coral: 0 4px 20px rgba(244,98,58,.15);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text-b);
+      line-height: 1.75;
+      overflow-x: hidden;
+    }
+
+    /* ===== TYPOGRAPHY ===== */
+    h1, h2, h3 {
+      font-family: 'Shippori Mincho', serif;
+      color: var(--text-h);
+      line-height: 1.45;
+    }
+
+    /* ===== UTILITIES ===== */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .section { padding: 88px 0; }
+    .section--surface { background: var(--surface); }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 9px;
+      padding: 14px 32px;
+      border-radius: 999px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer; border: none;
+      text-decoration: none;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn--coral { background: var(--accent); color: #fff; box-shadow: 0 4px 16px rgba(244,98,58,.3); }
+    .btn--coral:hover { box-shadow: 0 6px 24px rgba(244,98,58,.4); }
+    .btn--outline { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+    .btn--outline:hover { background: var(--accent-light); }
+    .btn--line { background: var(--line-green); color: #fff; font-size: 1.15rem; padding: 18px 44px; box-shadow: 0 4px 18px rgba(6,199,85,.35); }
+    .btn--line:hover { box-shadow: 0 6px 26px rgba(6,199,85,.45); }
+    .btn--line-white { background: #fff; color: var(--line-green); font-size: 1.1rem; padding: 16px 40px; }
+    .btn--line-white:hover { background: #f0fdf4; }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes charFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes ornamentScale {
+      from { opacity: 0; transform: scale(.8); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes popBounce {
+      0%   { opacity: 0; transform: scale(0); }
+      70%  { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes gradientShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .anim-fade-up { opacity: 0; transform: translateY(22px); transition: opacity .65s ease, transform .65s ease; }
+    .anim-fade-in { opacity: 0; transition: opacity .65s ease; }
+    .anim-slide-up { opacity: 0; transform: translateY(28px); transition: opacity .6s ease, transform .6s ease; }
+    .anim-num-pop { opacity: 0; transform: scale(0); transition: opacity .4s cubic-bezier(.34,1.56,.64,1), transform .4s cubic-bezier(.34,1.56,.64,1); }
+    .anim-visible  { opacity: 1 !important; transform: none !important; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .anim-fade-up, .anim-fade-in, .anim-slide-up, .anim-num-pop { opacity: 1 !important; transform: none !important; }
+      .hero__char { opacity: 1 !important; transform: none !important; animation: none !important; }
+    }
+
+    /* ===== HEADER ===== */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--accent-mid);
+      padding: 0 24px;
+    }
+    .nav__inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .nav__logo {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 1.7rem; font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .1em;
+      text-decoration: none;
+    }
+    .nav__links {
+      display: flex; align-items: center; gap: 28px;
+      list-style: none;
+    }
+    .nav__links a {
+      text-decoration: none; color: var(--text-b);
+      font-size: .9rem; font-weight: 500;
+      transition: color .2s;
+    }
+    .nav__links a:hover { color: var(--accent); }
+    .nav__cta { font-size: .9rem; padding: 10px 22px; }
+    @media (max-width: 768px) { .nav__links { display: none; } }
+
+    /* ===== HERO ===== */
+    .hero {
+      padding: 100px 0 80px;
+      background: var(--bg);
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero__inner { max-width: 780px; margin: 0 auto; padding: 0 24px; }
+    .hero__badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: .8rem; font-weight: 700;
+      padding: 6px 16px; border-radius: 999px;
+      margin-bottom: 28px; letter-spacing: .05em;
+    }
+    .hero__title {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 700;
+      color: var(--text-h);
+      margin-bottom: 0;
+      letter-spacing: .03em;
+    }
+    .hero__char {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    .hero__ornament {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px;
+      margin: 24px 0;
+      color: var(--accent-mid);
+      font-size: 1.1rem;
+      letter-spacing: .15em;
+      opacity: 0;
+      transform: scale(.85);
+      transition: opacity .5s ease, transform .5s ease;
+    }
+    .hero__ornament.anim-visible { opacity: 1; transform: scale(1); }
+    .hero__ornament::before,
+    .hero__ornament::after {
+      content: '—';
+      color: var(--accent-mid);
+    }
+    .hero__stats-row {
+      display: flex; justify-content: center; flex-wrap: wrap; gap: 16px;
+      margin: 28px 0;
+    }
+    .hero__stat {
+      background: var(--bg);
+      border-top: 3px solid var(--accent);
+      border-radius: 12px;
+      padding: 18px 24px;
+      box-shadow: var(--shadow-coral);
+      min-width: 140px;
+      text-align: center;
+    }
+    .hero__stat-num {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 1.8rem; font-weight: 700;
+      color: var(--text-h); line-height: 1;
+    }
+    .hero__stat-label { font-size: .78rem; color: var(--text-muted); margin-top: 4px; }
+    .hero__sub {
+      font-size: 1.05rem; color: var(--text-b);
+      margin-bottom: 36px; line-height: 1.8;
+    }
+    .hero__actions {
+      display: flex; justify-content: center; flex-wrap: wrap; gap: 14px;
+    }
+
+    /* ===== SECTION LABELS ===== */
+    .section__label {
+      font-size: .78rem; font-weight: 700;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .section__title {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      color: var(--text-h);
+      margin-bottom: 14px;
+    }
+    .section__desc {
+      color: var(--text-muted);
+      font-size: .95rem;
+      max-width: 520px;
+    }
+    .section__header { margin-bottom: 48px; }
+
+    /* ===== PROBLEM ===== */
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 22px;
+    }
+    .problem-card {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      box-shadow: var(--shadow-md);
+      display: flex; flex-direction: column; gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .problem-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 0;
+      background: var(--accent);
+      transition: height .5s ease;
+    }
+    .problem-card.anim-visible::before { height: 4px; }
+    .problem-card__icon {
+      width: 46px; height: 46px;
+      background: var(--accent-light);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent); font-size: 1.1rem;
+    }
+    .problem-card__text {
+      font-size: .96rem; color: var(--text-b); line-height: 1.75; font-weight: 500;
+    }
+
+    /* ===== BENEFITS ===== */
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 28px;
+    }
+    .benefit-card {
+      padding: 32px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: box-shadow .3s, transform .3s;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .benefit-card:hover { box-shadow: var(--shadow-coral); transform: translateY(-4px); }
+    .benefit-card__num-wrap {
+      width: 3rem; height: 3rem;
+      background: var(--accent-light);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .benefit-card__num {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 1.25rem; font-weight: 700;
+      color: var(--accent); line-height: 1;
+    }
+    .benefit-card__title { font-size: 1.02rem; font-weight: 700; color: var(--text-h); }
+    .benefit-card__desc { font-size: .88rem; color: var(--text-muted); line-height: 1.75; }
+
+    /* ===== TESTIMONIALS ===== */
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 28px;
+    }
+    .testimonial-card {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+    }
+    .testimonial-card__qmark {
+      position: absolute;
+      top: 16px; left: 20px;
+      font-size: 4.5rem;
+      font-family: Georgia, serif;
+      font-weight: 700;
+      color: var(--accent);
+      opacity: .1;
+      line-height: 1;
+      user-select: none;
+    }
+    .testimonial-card__header {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 16px; position: relative; z-index: 1;
+    }
+    .testimonial-card__avatar {
+      width: 48px; height: 48px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 1.1rem; font-weight: 700;
+      font-family: 'Shippori Mincho', serif;
+      flex-shrink: 0;
+    }
+    .testimonial-card__name { font-weight: 700; color: var(--text-h); font-size: .95rem; }
+    .testimonial-card__age { font-size: .82rem; color: var(--text-muted); margin-top: 2px; }
+    .testimonial-card__stars { color: var(--accent); font-size: .85rem; margin-bottom: 10px; position: relative; z-index: 1; }
+    .testimonial-card__text { font-size: .93rem; color: var(--text-b); line-height: 1.8; position: relative; z-index: 1; }
+
+    /* ===== CTA ===== */
+    .cta-section {
+      background: linear-gradient(135deg, #F4623A, #FD8B62);
+      background-size: 200% 200%;
+      animation: gradientShift 6s ease infinite;
+      padding: 100px 0;
+      text-align: center;
+    }
+    .cta-section__inner { max-width: 600px; margin: 0 auto; padding: 0 24px; }
+    .cta-section__label {
+      font-size: .78rem; font-weight: 700;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: rgba(255,255,255,.7);
+      margin-bottom: 14px;
+    }
+    .cta-section__title {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 14px;
+    }
+    .cta-section__sub {
+      font-size: 1rem; color: rgba(255,255,255,.85);
+      margin-bottom: 36px;
+    }
+    .cta-section__reassure {
+      margin-top: 18px;
+      font-size: .85rem; color: rgba(255,255,255,.75);
+      display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;
+    }
+    .cta-section__reassure span { display: flex; align-items: center; gap: 5px; }
+    .cta-section__reassure i { color: rgba(255,255,255,.9); font-size: .75rem; }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 40px 24px;
+    }
+    .footer__inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 20px;
+    }
+    .footer__logo {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 1.4rem; font-weight: 700;
+      color: var(--accent);
+    }
+    .footer__links { display: flex; gap: 24px; list-style: none; }
+    .footer__links a {
+      text-decoration: none; color: var(--text-muted);
+      font-size: .85rem; transition: color .2s;
+    }
+    .footer__links a:hover { color: var(--accent); }
+    .footer__copy {
+      width: 100%; text-align: center;
+      font-size: .8rem; color: var(--text-muted);
+      padding-top: 24px; border-top: 1px solid var(--border); margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAV ===== -->
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__logo" href="#">LUNE</a>
+      <ul class="nav__links">
+        <li><a href="#problem">よくある悩み</a></li>
+        <li><a href="#benefits">選ばれる理由</a></li>
+        <li><a href="#testimonials">体験談</a></li>
+      </ul>
+      <a href="#cta" class="btn btn--coral nav__cta">無料登録</a>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero__inner">
+      <div class="hero__badge">
+        <i class="fa-solid fa-moon"></i>
+        50代以上専用マッチングサービス
+      </div>
+      <h1 class="hero__title" id="heroTitle"></h1>
+      <div class="hero__ornament" id="heroOrnament">
+        <i class="fa-solid fa-diamond" style="font-size:.65rem;color:var(--accent)"></i>
+      </div>
+      <p class="hero__sub anim-fade-up" style="transition-delay:.2s">
+        50代以上の男性が、毎月マッチングを叶えています
+      </p>
+      <div class="hero__stats-row">
+        <div class="hero__stat anim-fade-up" style="transition-delay:.3s">
+          <div class="hero__stat-num" data-count="12000" data-suffix="+">0</div>
+          <div class="hero__stat-label">累計会員数</div>
+        </div>
+        <div class="hero__stat anim-fade-up" style="transition-delay:.4s">
+          <div class="hero__stat-num" data-count="78" data-suffix="%">0</div>
+          <div class="hero__stat-label">マッチング率</div>
+        </div>
+        <div class="hero__stat anim-fade-up" style="transition-delay:.5s">
+          <div class="hero__stat-num" data-count="96" data-suffix="%">0</div>
+          <div class="hero__stat-label">ユーザー満足度</div>
+        </div>
+      </div>
+      <div class="hero__actions anim-fade-up" style="transition-delay:.35s">
+        <a href="#cta" class="btn btn--line">
+          <i class="fa-brands fa-line"></i>&ensp;LINEで無料登録
+        </a>
+        <a href="#benefits" class="btn btn--outline">詳しく見る</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PROBLEM ===== -->
+  <section class="section section--surface" id="problem">
+    <div class="container">
+      <div class="section__header anim-fade-up">
+        <div class="section__label">Common Issues</div>
+        <h2 class="section__title">こんな悩み、ありませんか？</h2>
+        <p class="section__desc">多くの50代男性が同じ悩みを抱えています。LUNEはその壁を取り払います。</p>
+      </div>
+      <div class="problem-grid">
+        <div class="problem-card anim-slide-up" style="transition-delay:.0s">
+          <div class="problem-card__icon"><i class="fa-solid fa-calendar-xmark"></i></div>
+          <p class="problem-card__text">出会いの場がなく、なんとなく日々が過ぎていく</p>
+        </div>
+        <div class="problem-card anim-slide-up" style="transition-delay:.12s">
+          <div class="problem-card__icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
+          <p class="problem-card__text">マッチングアプリは"若者向け"に見えて、踏み出せない</p>
+        </div>
+        <div class="problem-card anim-slide-up" style="transition-delay:.24s">
+          <div class="problem-card__icon"><i class="fa-solid fa-circle-question"></i></div>
+          <p class="problem-card__text">自分のような年齢でも、本当に出会えるのか不安</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== BENEFITS ===== -->
+  <section class="section" id="benefits">
+    <div class="container">
+      <div class="section__header anim-fade-up">
+        <div class="section__label">Why LUNE</div>
+        <h2 class="section__title">50代からモテる理由があります</h2>
+        <p class="section__desc">あなたの年齢は、最強の武器になります。その理由がここにあります。</p>
+      </div>
+      <div class="benefits-grid">
+        <div class="benefit-card anim-fade-up" style="transition-delay:.0s">
+          <div class="benefit-card__num-wrap anim-num-pop" style="transition-delay:.2s">
+            <span class="benefit-card__num">01</span>
+          </div>
+          <h3 class="benefit-card__title">大人を求める女性が多数在籍</h3>
+          <p class="benefit-card__desc">20〜40代の女性会員がLUNEを選ぶ理由は「落ち着いた大人の男性に出会いたい」から</p>
+        </div>
+        <div class="benefit-card anim-fade-up" style="transition-delay:.1s">
+          <div class="benefit-card__num-wrap anim-num-pop" style="transition-delay:.3s">
+            <span class="benefit-card__num">02</span>
+          </div>
+          <h3 class="benefit-card__title">50代専用マッチング</h3>
+          <p class="benefit-card__desc">年齢層を絞ることで、真剣な出会いの確率が劇的に上がります</p>
+        </div>
+        <div class="benefit-card anim-fade-up" style="transition-delay:.2s">
+          <div class="benefit-card__num-wrap anim-num-pop" style="transition-delay:.4s">
+            <span class="benefit-card__num">03</span>
+          </div>
+          <h3 class="benefit-card__title">プロフィール完全サポート</h3>
+          <p class="benefit-card__desc">登録からマッチングまで、専任スタッフがサポート</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TESTIMONIALS ===== -->
+  <section class="section section--surface" id="testimonials">
+    <div class="container">
+      <div class="section__header anim-fade-up">
+        <div class="section__label">Success Stories</div>
+        <h2 class="section__title">実際の体験談</h2>
+        <p class="section__desc">LUNEで人生が変わった先輩ユーザーの声をお届けします。</p>
+      </div>
+      <div class="testimonials-grid">
+        <div class="testimonial-card anim-fade-in" style="transition-delay:.0s">
+          <div class="testimonial-card__qmark">"</div>
+          <div class="testimonial-card__header">
+            <div class="testimonial-card__avatar">田</div>
+            <div>
+              <div class="testimonial-card__name">田中さん</div>
+              <div class="testimonial-card__age">54歳・会社員</div>
+            </div>
+          </div>
+          <div class="testimonial-card__stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-card__text">「1ヶ月でマッチングできました。大人の余裕が武器になるとは思っていませんでした。」</p>
+        </div>
+        <div class="testimonial-card anim-fade-in" style="transition-delay:.15s">
+          <div class="testimonial-card__qmark">"</div>
+          <div class="testimonial-card__header">
+            <div class="testimonial-card__avatar">佐</div>
+            <div>
+              <div class="testimonial-card__name">佐藤さん</div>
+              <div class="testimonial-card__age">58歳・自営業</div>
+            </div>
+          </div>
+          <div class="testimonial-card__stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-card__text">「若い頃よりいまの方がモテると実感。経験と安定感が女性に響くんですね。」</p>
+        </div>
+        <div class="testimonial-card anim-fade-in" style="transition-delay:.3s">
+          <div class="testimonial-card__qmark">"</div>
+          <div class="testimonial-card__header">
+            <div class="testimonial-card__avatar">鈴</div>
+            <div>
+              <div class="testimonial-card__name">鈴木さん</div>
+              <div class="testimonial-card__age">52歳・会社員</div>
+            </div>
+          </div>
+          <div class="testimonial-card__stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-card__text">「50代専用というだけで、最初からお互い真剣。純粋に出会いを楽しめています。」</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <section class="cta-section" id="cta">
+    <div class="cta-section__inner">
+      <div class="anim-fade-up">
+        <div class="cta-section__label">Join LUNE</div>
+        <h2 class="cta-section__title">今すぐLINEで無料登録する</h2>
+        <p class="cta-section__sub">50代からが、本当のモテ時代。あなたの新しい出会いが始まります。</p>
+        <a href="#" class="btn btn--line-white">
+          <i class="fa-brands fa-line" style="color:var(--line-green)"></i>&ensp;今すぐLINEで無料登録する
+        </a>
+        <div class="cta-section__reassure">
+          <span><i class="fa-solid fa-circle-check"></i> 登録60秒</span>
+          <span><i class="fa-solid fa-circle-check"></i> 完全無料</span>
+          <span><i class="fa-solid fa-circle-check"></i> いつでも退会OK</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__logo">LUNE</div>
+      <ul class="footer__links">
+        <li><a href="#">利用規約</a></li>
+        <li><a href="#">プライバシーポリシー</a></li>
+        <li><a href="#">お問い合わせ</a></li>
+      </ul>
+    </div>
+    <div class="footer__inner">
+      <p class="footer__copy">© 2025 LUNE. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // ===== HERO CHAR-BY-CHAR ANIMATION ===== //
+    (function () {
+      const text = '年齢は、あなたの最強の武器になる。';
+      const el = document.getElementById('heroTitle');
+      text.split('').forEach((char, i) => {
+        const span = document.createElement('span');
+        span.classList.add('hero__char');
+        span.textContent = char === ' ' ? '\u00A0' : char;
+        span.style.animation = `charFadeIn .4s ease forwards`;
+        span.style.animationDelay = (100 + i * 45) + 'ms';
+        el.appendChild(span);
+      });
+
+      // Ornament after title
+      const totalDelay = 100 + text.length * 45 + 200;
+      setTimeout(() => {
+        const ornament = document.getElementById('heroOrnament');
+        ornament.classList.add('anim-visible');
+      }, totalDelay);
+    })();
+
+    // ===== INTERSECTION OBSERVER ===== //
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('anim-visible');
+          // Count-up for stat numbers
+          entry.target.querySelectorAll('[data-count]').forEach(numEl => countUp(numEl));
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    const animSelectors = [
+      '.anim-fade-up', '.anim-fade-in', '.anim-slide-up', '.anim-num-pop'
+    ];
+    animSelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => io.observe(el));
+    });
+
+    // ===== COUNT-UP ===== //
+    function countUp(el) {
+      if (el.dataset.counted) return;
+      el.dataset.counted = '1';
+      const target = parseInt(el.dataset.count);
+      const suffix = el.dataset.suffix || '';
+      const duration = 1300;
+      let current = 0;
+      const interval = setInterval(() => {
+        current += Math.ceil(target / 60);
+        if (current >= target) { current = target; clearInterval(interval); }
+        el.textContent = current.toLocaleString('ja-JP') + suffix;
+      }, duration / 60);
+    }
+
+    // Hero stats — count on scroll (observer also handles load if already visible)
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.querySelectorAll('.hero__stat-num[data-count]').forEach(el => countUp(el));
+      }, 700);
+    });
+  </script>
+</body>
+</html>

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>50代、モテるための大人のマッチング | Travis</title>
-    <meta name="description" content="50代からが本番。魅力的な女性たちから圧倒的にモテる、パパ活完全排除のワンランク上のシークレットラウンジ。">
+    <meta name="description" content="50代からが本番。魅力的な女性たちから圧倒的にモテる、等身大のあなたでモテる、プライバシー重視の大人のシークレットマッチング。">
 
     
 
@@ -27,7 +27,7 @@
 
             --clr-text-main: #E0E0E0;
             /* Light text for dark mode feel */
-            --clr-text-light: #999999;
+            --clr-text-light: #bbbbbb;
             --clr-bg-main: #0A0A0A;
             /* Very dark background */
             --clr-bg-light: #1A1A1A;
@@ -67,6 +67,7 @@
         html {
             scroll-behavior: smooth;
             font-size: 16px;
+            overflow-x: hidden;
             /* Base size */
         }
 
@@ -74,7 +75,8 @@
             font-family: var(--font-body);
             color: var(--clr-text-main);
             background-color: var(--clr-bg-main);
-            line-height: 1.8;
+            line-height: 2.0;
+            font-size: 1.125rem;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
         }
@@ -138,7 +140,7 @@
         }
 
         .text-sm {
-            font-size: 0.875rem;
+            font-size: 1rem;
             flex-shrink: 0;
             white-space: nowrap;
         }
@@ -180,7 +182,7 @@
         .section__title-en {
             display: block;
             font-family: var(--font-body);
-            font-size: 0.875rem;
+            font-size: 1rem;
             letter-spacing: 0.15em;
             color: var(--clr-gold);
             margin-bottom: 0.5rem;
@@ -235,9 +237,10 @@
 
         .btn--xlarge {
             padding: 1.5rem 3rem;
-            font-size: 1.25rem;
+            font-size: 1.375rem;
             width: 100%;
-            max-width: 400px;
+            max-width: 480px;
+            white-space: nowrap;
         }
 
         /* Header */
@@ -246,20 +249,26 @@
             top: 0;
             left: 0;
             width: 100%;
+            max-width: 100vw;
             background-color: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            z-index: 1000;
+            z-index: 1001;
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             transition: all 0.3s ease;
+            overflow: visible;
+            box-sizing: border-box;
         }
 
         .header__inner {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.75rem 20px;
+            padding: 0.75rem 16px;
             max-width: 1200px;
             margin: 0 auto;
+            overflow: visible;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .header__logo {
@@ -290,7 +299,8 @@
             padding: 0.5rem 1.25rem;
             border-radius: var(--radius-full);
             font-weight: 700;
-            font-size: 0.875rem;
+            font-size: 1rem;
+            flex-shrink: 0;
         }
 
         .header__cta-btn:hover {
@@ -342,7 +352,7 @@
         }
 
         .hero__subtitle {
-            font-size: 1.125rem;
+            font-size: 1.25rem;
             color: var(--clr-gold);
             font-weight: 700;
             margin-bottom: 1rem;
@@ -363,14 +373,14 @@
         }
 
         .hero__desc {
-            font-size: 1.25rem;
+            font-size: 1.375rem;
             color: var(--clr-text-main);
             margin-bottom: 2rem;
             text-shadow: 0 2px 5px rgba(0, 0, 0, 0.9);
         }
 
         .hero__note {
-            font-size: 0.75rem;
+            font-size: 1rem;
             color: var(--clr-text-light);
             margin-top: 0.5rem;
         }
@@ -399,7 +409,7 @@
         }
 
         .empathy__card p {
-            font-size: 1.125rem;
+            font-size: 1.25rem;
             font-weight: 500;
         }
 
@@ -413,7 +423,7 @@
 
         .empathy__solution-text {
             font-family: var(--font-heading);
-            font-size: 1.5rem;
+            font-size: 1.625rem;
             line-height: 1.6;
         }
 
@@ -471,7 +481,7 @@
         }
 
         .vision__desc {
-            font-size: 1.125rem;
+            font-size: 1.25rem;
         }
 
         /* CTA */
@@ -482,7 +492,7 @@
         }
 
         .cta__desc {
-            font-size: 1.125rem;
+            font-size: 1.25rem;
             margin-bottom: 2rem;
             color: rgba(255, 255, 255, 0.9);
         }
@@ -492,7 +502,7 @@
         }
 
         .cta__note {
-            font-size: 0.75rem;
+            font-size: 1rem;
             color: rgba(255, 255, 255, 0.6);
             margin-top: 1rem;
         }
@@ -522,7 +532,7 @@
         }
 
         .service__item-content h3 {
-            font-size: 1.5rem;
+            font-size: 1.625rem;
             color: var(--clr-primary);
             margin-bottom: 0.75rem;
             padding-bottom: 0.5rem;
@@ -556,7 +566,7 @@
             padding: 0.25rem 1.5rem;
             border-radius: var(--radius-full);
             font-weight: 700;
-            font-size: 0.875rem;
+            font-size: 1rem;
             letter-spacing: 0.1em;
         }
 
@@ -567,7 +577,7 @@
         }
 
         .step-card__title {
-            font-size: 1.25rem;
+            font-size: 1.375rem;
             margin-bottom: 1rem;
             color: var(--clr-primary);
         }
@@ -593,7 +603,7 @@
         }
 
         .safety__title {
-            font-size: 1.5rem;
+            font-size: 1.625rem;
             color: var(--clr-primary);
             margin-bottom: 1.5rem;
             padding-bottom: 1rem;
@@ -611,8 +621,9 @@
         /* Chart Mock */
         .chart-mock__bar {
             display: flex;
-            height: 40px;
-            border-radius: var(--radius-full);
+            min-height: 44px;
+            height: auto;
+            border-radius: var(--radius-lg);
             overflow: hidden;
             margin-top: 1rem;
         }
@@ -624,8 +635,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.875rem;
+            font-size: 0.85rem;
             font-weight: 700;
+            padding: 0.5rem 0.25rem;
+            text-align: center;
+            line-height: 1.3;
         }
 
         .chart-mock__bar .female {
@@ -635,12 +649,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.875rem;
+            font-size: 0.85rem;
             font-weight: 700;
+            padding: 0.5rem 0.25rem;
+            text-align: center;
+            line-height: 1.3;
         }
 
         .chart-mock__info {
-            font-size: 0.9rem;
+            font-size: 1rem;
             text-align: center;
             background: var(--clr-bg-light);
             padding: 1rem;
@@ -684,13 +701,13 @@
         }
 
         .footer__copyright {
-            font-size: 0.875rem;
+            font-size: 1rem;
             color: rgba(255, 255, 255, 0.5);
             margin-bottom: 0.5rem;
         }
 
         .footer__disclaimer {
-            font-size: 0.75rem;
+            font-size: 1rem;
             color: rgba(255, 255, 255, 0.3);
         }
 
@@ -794,6 +811,155 @@
             }
         }
 
+
+        /* ==========================================================================
+   Enhanced Animations (v2)
+   ========================================================================== */
+
+        /* スクロールプログレスバー */
+        .scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--clr-gold), var(--clr-gold-light));
+            z-index: 999;
+            transition: width 0.1s linear;
+        }
+
+        /* ヒーロー パララックス */
+        .hero__bg {
+            transition: transform 0.1s linear;
+            will-change: transform;
+        }
+
+        /* テキストリビール（1文字ずつ出現） */
+        .text-reveal span.char {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .text-reveal.is-revealed span.char {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 画像ズームリビール */
+        .img-zoom-reveal {
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        .img-zoom-reveal img {
+            transition: transform 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s ease;
+            transform: scale(1.15);
+            opacity: 0;
+        }
+        .img-zoom-reveal.is-visible img {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        /* カードスタガー強化 */
+        .stagger-cards > * {
+            opacity: 0;
+            transform: translateY(40px) scale(0.95);
+            transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                        transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .stagger-cards.is-visible > *:nth-child(1) { transition-delay: 0s; }
+        .stagger-cards.is-visible > *:nth-child(2) { transition-delay: 0.15s; }
+        .stagger-cards.is-visible > *:nth-child(3) { transition-delay: 0.3s; }
+        .stagger-cards.is-visible > *:nth-child(4) { transition-delay: 0.45s; }
+        .stagger-cards.is-visible > * {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* 数字カウントアップ */
+        .count-up {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* フローティングパーティクル */
+        .particles-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: radial-gradient(circle, rgba(226,109,90,0.4), transparent);
+            border-radius: 50%;
+            animation: float-particle linear infinite;
+        }
+        @keyframes float-particle {
+            0% { transform: translateY(100vh) translateX(0) scale(0); opacity: 0; }
+            10% { opacity: 1; transform: translateY(90vh) translateX(10px) scale(1); }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) translateX(-20px) scale(0.3); opacity: 0; }
+        }
+
+        /* セクション間ディバイダーライン */
+        .section-divider {
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--clr-gold), transparent);
+            margin: 0 auto;
+            transition: width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .section-divider.is-visible {
+            width: 60%;
+        }
+
+        /* ホバーグロー効果 */
+        .glow-hover {
+            transition: box-shadow 0.4s ease, transform 0.3s ease;
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 25px rgba(226,109,90,0.3), 0 8px 30px rgba(0,0,0,0.3);
+            transform: translateY(-5px);
+        }
+
+        /* CTA シャイン効果 */
+        .btn--line::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent 30%,
+                rgba(255,255,255,0.15) 50%,
+                transparent 70%
+            );
+            animation: shine 3s infinite;
+        }
+        .btn--line {
+            position: relative;
+            overflow: hidden;
+        }
+        @keyframes shine {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            30%, 100% { transform: translateX(100%) rotate(45deg); }
+        }
+
+        /* 画像パララックス（スクロール連動） */
+        .parallax-img {
+            transition: transform 0.2s ease-out;
+            will-change: transform;
+        }
+
         /* ==========================================================================
    Media Queries
    ========================================================================== */
@@ -812,11 +978,15 @@
             }
 
             .hero__desc {
-                font-size: 1rem;
+                font-size: 1.125rem;
+            }
+
+            .hero__bg {
+                background-position: 65% center;
             }
 
             .hero__bg::after {
-                background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.7) 50%, rgba(0, 0, 0, 0.2) 100%);
+                background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 50%, rgba(0, 0, 0, 0.3) 100%);
             }
 
             .empathy__grid,
@@ -857,10 +1027,17 @@
                 display: none;
             }
 
+            .header__inner {
+                padding: 0.5rem 16px;
+            }
+
             .header__cta-btn {
-                padding: 0.5rem 0.75rem;
-                min-width: 36px;
+                padding: 0.5rem 0.7rem;
+                min-width: 38px;
+                min-height: 38px;
                 justify-content: center;
+                font-size: 1.2rem;
+                margin-right: 0;
             }
 
             .btn--xlarge {
@@ -872,6 +1049,97 @@
                 max-height: 40vh !important;
             }
         }
+
+        @media (max-width: 768px) {
+            .empathy__solution-text {
+                font-size: 1.25rem;
+                line-height: 1.7;
+            }
+
+            .empathy__solution-text .ib {
+                display: inline;
+            }
+
+            .empathy__solution-text span {
+                font-size: 1.3rem;
+            }
+
+        }
+
+        @media (max-width: 414px) {
+            /* inline-blockを解除して自然な改行にする */
+            .ib {
+                display: inline;
+            }
+
+            /* ヒーロータイトル縮小 */
+            .hero__title {
+                font-size: 1.75rem;
+            }
+
+            .hero__subtitle {
+                font-size: 1.1rem;
+            }
+
+            .hero__desc {
+                font-size: 1rem;
+            }
+
+            /* セクションタイトル縮小 */
+            .section__title {
+                font-size: 1.5rem;
+            }
+
+            /* CTA系 */
+            .cta__title {
+                font-size: 1.5rem;
+            }
+
+            .final-cta__title {
+                font-size: 1.75rem;
+            }
+
+            /* 画像上テキスト */
+            .night-walk h2,
+            .rendezvous-scene + .section h2 {
+                font-size: 1.5rem;
+            }
+
+            /* btn--xlarge のnowrap解除 */
+            .btn--xlarge {
+                white-space: normal;
+                font-size: 1.1rem;
+                padding: 1rem 1.25rem;
+                max-width: 100%;
+            }
+
+            /* text-sm の nowrap解除 */
+            .text-sm {
+                white-space: normal;
+            }
+
+            /* step-card の余白調整 */
+            .step-card {
+                padding: 2rem 1.25rem;
+            }
+
+            .step-card__desc {
+                font-size: 0.95rem;
+                line-height: 1.7;
+            }
+
+            /* グラフバーのフォント縮小 */
+            .chart-mock__bar .male,
+            .chart-mock__bar .female {
+                font-size: 0.75rem;
+            }
+
+            /* 比較表のh3 */
+            .difference__card h3 {
+                font-size: 1.2rem \!important;
+            }
+        }
+
     </style>
 
     <style id="font-awesome-inline">
@@ -896,12 +1164,15 @@
             <div class="header__logo text-white">
                 <span class="logo-text text-white">Travis</span>
             </div>
-            <a href="#line-cta" class="header__cta-btn">
+            <a href="[広告コードURL]" class="header__cta-btn">
                 <span>LINEで無料登録</span>
                 <i class="fa-brands fa-line"></i>
             </a>
         </div>
     </header>
+
+    <div class="scroll-progress"></div>
+    <div class="particles-container"></div>
 
     <main>
         <!-- Hero Section -->
@@ -910,7 +1181,7 @@
             <div class="hero__content">
                 <p class="hero__subtitle text-white"><span class="ib">無理して飾らない、</span><span class="ib">等身大のあなたでいい</span>
                 </p>
-                <h1 class="hero__title text-white">
+                <h1 class="hero__title text-white text-reveal">
                     おじさん好きな<br>
                     女性と出会える<br>
                     <span>新しいマッチング</span>
@@ -919,11 +1190,11 @@
                     「落ち着いた50代の男性が好き」<br>
                     そんな女性が急増中。
                 </p>
-                <a href="#line-cta" class="btn btn--primary btn--large mt-8 animation-bounce">
+                <a href="[広告コードURL]" class="btn btn--primary btn--large mt-8 animation-bounce">
                     <i class="fa-brands fa-line"></i>
                     今すぐLINEで無料お試し
                 </a>
-                <p class="hero__note" style="color: #999;">※完全匿名・誰にもバレずに始められます</p>
+                <p class="hero__note" style="color: #bbb;">※完全匿名・誰にもバレずに始められます</p>
             </div>
         </section>
 
@@ -935,10 +1206,10 @@
                     <span class="ib">こんな本音、</span><span class="ib">隠していませんか？</span>
                 </h2>
 
-                <div class="empathy__grid text-white">
+                <div class="empathy__grid text-white stagger-cards">
                     <div class="empathy__card hover-up">
                         <i class="fa-solid fa-champagne-glasses empathy__icon"></i>
-                        <p class="text-white">気軽に女性と遊びたいが<br>お金がかかるお店は避けたい</p>
+                        <p class="text-white">気軽に女性と出会いたいが<br>きっかけがなくて困っている</p>
                     </div>
                     <div class="empathy__card hover-up">
                         <i class="fa-solid fa-fire-flame-curved empathy__icon"></i>
@@ -946,7 +1217,7 @@
                     </div>
                     <div class="empathy__card hover-up">
                         <i class="fa-solid fa-ban empathy__icon"></i>
-                        <p class="text-white">パパ活のような<br>お金目的の出会いはウンザリ</p>
+                        <p class="text-white">真剣すぎる婚活は重い…<br>気楽な大人の関係がほしい</p>
                     </div>
                 </div>
 
@@ -965,7 +1236,7 @@
         <section class="vision section fade-in bg-main">
             <div class="container">
                 <div class="vision__inner">
-                    <div class="vision__image-wrapper" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="vision__image-wrapper img-zoom-reveal" style="display: flex; flex-direction: column; gap: 15px;">
                         <img src="images/woman_40s_1.png" alt="女性"
                             style="border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); width: 100%; aspect-ratio: 1; object-fit: cover;">
                         <img src="images/woman_40s_2.png" alt="女性"
@@ -973,9 +1244,9 @@
                     </div>
                     <div class="vision__text-wrapper">
                         <h2 class="vision__title text-white">「普通のおじさん」が<br>モテる時代です。</h2>
-                        <p class="vision__desc text-white" style="color: #ccc;">
+                        <p class="vision__desc text-white" style="color: #ddd;">
                             「若い男性とは合わない」「歳を重ねた落ち着いた男性がいい」という女性が急増しています。<br><br>
-                            高いお店に連れて行く必要も、無理に若作りする必要もありません。等身大で飾らない大人の関係。50代以上の男性がこっそりとヤれるマッチングです。
+                            背伸びする必要も、無理に若作りする必要もありません。ありのままの自分で、気の合う女性と自然に出会える。50代以上の男性が選ばれるマッチングです。
                         </p>
                     </div>
                 </div>
@@ -988,7 +1259,7 @@
             <div class="container">
                 <h2 class="cta__title"><span class="ib">今夜から、</span><span class="ib">新しい刺激を日常に。</span></h2>
 
-                <a href="#" class="btn btn--line btn--xlarge pulse mt-4">
+                <a href="[広告コードURL]" class="btn btn--line btn--xlarge pulse mt-4">
                     <i class="fa-brands fa-line cta__icon"></i>
                     LINEを追加して<br>シークレット登録
                 </a>
@@ -1008,9 +1279,9 @@
                     style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 2rem;">
                     <div class="difference__card slide-left"
                         style="background: #111; padding: 2.5rem; border-radius: 8px; box-shadow: var(--shadow-sm); border-top: 4px solid #444;">
-                        <h3 style="color: #999; margin-bottom: 1.5rem; font-size: 1.25rem;"><i
+                        <h3 style="color: #999; margin-bottom: 1.5rem; font-size: 1.375rem;"><i
                                 class="fa-solid fa-mobile-screen"></i> 一般的なアプリ</h3>
-                        <ul style="color: #ccc; line-height: 2.5; font-size: 1rem;">
+                        <ul style="color: #ddd; line-height: 2.5; font-size: 1.125rem;">
                             <li><i class="fa-solid fa-xmark text-gray" style="margin-right:0.5rem;"></i> 若作りやハイスペックが必須
                             </li>
                             <li><i class="fa-solid fa-xmark text-gray" style="margin-right:0.5rem;"></i> 返信率が低く、なかなか会えない
@@ -1019,10 +1290,10 @@
                             </li>
                         </ul>
                     </div>
-                    <div class="difference__card slide-right delay-1"
+                    <div class="difference__card slide-right delay-1 glow-hover"
                         style="background: var(--clr-primary-light); padding: 2.5rem; border-radius: 8px; box-shadow: var(--shadow-md); border-top: 4px solid var(--clr-gold);">
                         <h3 style="color: var(--clr-gold); margin-bottom: 1.5rem; font-size: 1.5rem;">Travis</h3>
-                        <ul style="color: #fff; line-height: 2.5; font-size: 1.1rem; font-weight: bold;">
+                        <ul style="color: #fff; line-height: 2.5; font-size: 1.25rem; font-weight: bold;">
                             <li><i class="fa-solid fa-check" style="color: var(--clr-gold); margin-right:0.5rem;"></i>
                                 <span class="ib">等身大の「普通のあなた」で</span><span class="ib">勝負できる</span>
                             </li>
@@ -1044,26 +1315,26 @@
                     Travisが選ばれる理由
                 </h2>
 
-                <div class="service__list">
+                <div class="service__list stagger-cards">
                     <div class="service__item slide-up">
                         <div class="service__item-num">01</div>
                         <div class="service__item-content">
-                            <h3 style="color: #fff;">パパ活目的を徹底排除</h3>
-                            <p style="color: #ccc;">業者や金銭目的のユーザーをAIと24時間監視で徹底的にブロックします。対等で純粋な大人の関係だけを楽しめます。</p>
+                            <h3 style="color: #fff;">安心・安全の出会いを保証</h3>
+                            <p style="color: #ddd;">悪質ユーザーや業者をAIと24時間監視で徹底ブロック。対等で純粋な大人の関係だけを楽しめる環境を実現しています。</p>
                         </div>
                     </div>
                     <div class="service__item slide-up delay-1">
                         <div class="service__item-num">02</div>
                         <div class="service__item-content">
                             <h3 style="color: #fff;">完全匿名・シークレット利用</h3>
-                            <p style="color: #ccc;">実名やSNSアカウントの連携は不要。プライバシーを完全に守りながら、奥様や周囲に誰にもバレずにスリリングな出会いを探せます。</p>
+                            <p style="color: #ddd;">実名やSNSアカウントの連携は不要。プライバシーを完全に守りながら、奥様や周囲に誰にもバレずにスリリングな出会いを探せます。</p>
                         </div>
                     </div>
                     <div class="service__item slide-up delay-2">
                         <div class="service__item-num">03</div>
                         <div class="service__item-content">
                             <h3 style="color: #fff;">プライバシー重視の安心設計</h3>
-                            <p style="color: #ccc;">ご近所や職場にバレないよう、身バレ防止機能を完備。安全に、そして安心して若い女性との出会いを楽しめる環境を提供します。</p>
+                            <p style="color: #ddd;">ご近所や職場にバレないよう、身バレ防止機能を完備。安全に、そして安心して若い女性との出会いを楽しめる環境を提供します。</p>
                         </div>
                     </div>
                 </div>
@@ -1077,13 +1348,14 @@
                     <div class="slide-right delay-1">
                         <h2 class="section__title text-white" style="margin-bottom: 1.5rem;">スマホひとつで、<br><span
                                 class="text-gold">新しい日常</span>へ。</h2>
-                        <p class="text-white" style="line-height: 1.8; margin-bottom: 2rem;">
+                        <p class="text-white" style="line-height: 2.0; margin-bottom: 2rem;">
                             気軽なメッセージから、新しい大人の関係が始まります。<br><br>
                             やり取りはLINEで完結するから、面倒なアプリのインストールは不要。周りにバレる心配もありません。
                         </p>
                     </div>
                     <div class="slide-left delay-2">
                         <img src="images/smartphone_woman.png" alt="スマホを見る女性"
+                            class="parallax-img"
                             style="width: 100%; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.5); object-fit: cover; aspect-ratio: 4/3;">
                     </div>
                 </div>
@@ -1098,7 +1370,7 @@
                     ご利用の流れ
                 </h2>
 
-                <div class="steps__grid">
+                <div class="steps__grid stagger-cards">
                     <div class="step-card hover-up">
                         <div class="step-card__num" style="background:#000; color:#D4AF37; border: 1px solid #D4AF37;">
                             STEP 1</div>
@@ -1128,6 +1400,7 @@
         <section class="rendezvous-scene section bg-main slide-up" style="padding: 0;">
             <div style="width: 100%; position: relative;">
                 <img src="images/rendezvous.png" alt="待ち合わせ"
+                    class="parallax-img"
                     style="width: 100%; height: auto; max-height: 60vh; object-fit: cover;">
             </div>
         </section>
@@ -1141,7 +1414,7 @@
                 </h2>
 
                 <div class="voices__grid"
-                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                    class="stagger-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
                     <div class="voice-card slide-up"
                         style="background: #1A1A1A; padding: 2.5rem; border-radius: 8px; border-left: 4px solid var(--clr-gold);">
                         <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
@@ -1157,7 +1430,7 @@
                                         class="fa-solid fa-star"></i></div>
                             </div>
                         </div>
-                        <p class="text-gray" style="line-height: 1.8;">
+                        <p class="text-gray" style="line-height: 2.0; font-size: 1.05rem;">
                             「普通のサラリーマンの自分でも大丈夫か不安でしたが、登録してすぐに女性とマッチング。無理して背伸びせず、飾らない自分で大人の関係で遊べるのが心地よいです。」
                         </p>
                     </div>
@@ -1176,7 +1449,7 @@
                                         class="fa-solid fa-star"></i></div>
                             </div>
                         </div>
-                        <p class="text-gray" style="line-height: 1.8;">
+                        <p class="text-gray" style="line-height: 2.0; font-size: 1.05rem;">
                             「これまで他のアプリでは全く相手にされませんでしたが、Travisでは『大人の落ち着きがいい』と言われ自信を取り戻しました。身バレ対策も完璧で安心です。」
                         </p>
                     </div>
@@ -1205,8 +1478,7 @@
                         <p class="mb-4 text-sm text-gray">大人の関係を求める女性が集まっています。</p>
                         <div class="chart-mock">
                             <div class="chart-mock__bar">
-                                <span class="male" style="background:#222; border-right:2px solid #111;">50代以上の男性
-                                    25%</span>
+                                <span class="male" style="background:#222; border-right:2px solid #111;">50代以上の男性 25%</span>
                                 <span class="female" style="background:var(--clr-gold); color:#111;">女性 75%</span>
                             </div>
                             <div class="chart-mock__info mt-4">
@@ -1222,10 +1494,11 @@
         <section class="night-walk section bg-main fade-in" style="padding: 0;">
             <div style="width: 100%; position: relative;">
                 <img src="images/night_walk.png" alt="夜の街角"
+                    class="parallax-img"
                     style="width: 100%; height: auto; max-height: 50vh; object-fit: cover; opacity: 0.8; mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);">
                 <div
                     style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 100%; padding: 0 20px;">
-                    <h2 class="text-white slide-up" style="font-size: 2rem; text-shadow: 0 4px 10px rgba(0,0,0,0.9);">
+                    <h2 class="text-white slide-up" class="night-overlay-text" style="font-size: 2rem; text-shadow: 0 4px 10px rgba(0,0,0,0.9);">
                         <span class="ib">食事のあとは、</span><br><span class="ib">二人だけの秘密の時間を。</span>
                     </h2>
                 </div>
@@ -1244,7 +1517,7 @@
                         class="ib">今夜から始めませんか？</span></h2>
 
                 <div class="final-cta__btn-wrapper mt-8">
-                    <a href="#line-cta" class="btn btn--line btn--xlarge pulse">
+                    <a href="[広告コードURL]" class="btn btn--line btn--xlarge pulse">
                         <i class="fa-brands fa-line cta__icon"></i>
                         LINEを追加して無料ではじめる
                     </a>
@@ -1305,6 +1578,142 @@
                     animationObserver.observe(el);
                 });
             }
+
+            // ========== Enhanced Animations v2 ==========
+
+            // 1. スクロールプログレスバー
+            const progressBar = document.querySelector('.scroll-progress');
+            if (progressBar) {
+                window.addEventListener('scroll', () => {
+                    const scrollTop = window.scrollY;
+                    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                    progressBar.style.width = (scrollTop / docHeight * 100) + '%';
+                }, { passive: true });
+            }
+
+            // 2. ヒーロー パララックス
+            const heroBg = document.querySelector('.hero__bg');
+            if (heroBg) {
+                window.addEventListener('scroll', () => {
+                    const scrollY = window.scrollY;
+                    if (scrollY < window.innerHeight) {
+                        heroBg.style.transform = 'translateY(' + (scrollY * 0.4) + 'px) scale(1.05)';
+                    }
+                }, { passive: true });
+            }
+
+            // 3. テキストリビール（ヒーロータイトル）
+            document.querySelectorAll('.text-reveal').forEach(el => {
+                const text = el.innerHTML;
+                // brタグを保持しつつ文字を分割
+                const parts = text.split(/(<br\s*\/?>)/gi);
+                let html = '';
+                let charIndex = 0;
+                parts.forEach(part => {
+                    if (part.match(/<br\s*\/?>/i)) {
+                        html += part;
+                    } else {
+                        // spanタグ内のテキストも処理
+                        const cleaned = part.replace(/<[^>]+>/g, '');
+                        for (const char of cleaned) {
+                            if (char.trim() === '') {
+                                html += ' ';
+                            } else {
+                                html += '<span class="char" style="transition-delay:' + (charIndex * 0.04) + 's">' + char + '</span>';
+                                charIndex++;
+                            }
+                        }
+                    }
+                });
+                el.innerHTML = html;
+                // ヒーローは即座に発火
+                setTimeout(() => el.classList.add('is-revealed'), 300);
+            });
+
+            // 4. 画像ズームリビール
+            const zoomObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        zoomObserver.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.2 });
+            document.querySelectorAll('.img-zoom-reveal').forEach(el => zoomObserver.observe(el));
+
+            // 5. カードスタガー
+            const staggerObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        staggerObserver.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.15 });
+            document.querySelectorAll('.stagger-cards').forEach(el => staggerObserver.observe(el));
+
+            // 6. 数字カウントアップ
+            const countObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const el = entry.target;
+                        const target = parseInt(el.dataset.target, 10);
+                        const suffix = el.dataset.suffix || '';
+                        const duration = 2000;
+                        const start = performance.now();
+                        const animate = (now) => {
+                            const progress = Math.min((now - start) / duration, 1);
+                            const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                            el.textContent = Math.floor(target * eased) + suffix;
+                            if (progress < 1) requestAnimationFrame(animate);
+                        };
+                        requestAnimationFrame(animate);
+                        countObserver.unobserve(el);
+                    }
+                });
+            }, { threshold: 0.5 });
+            document.querySelectorAll('.count-up').forEach(el => countObserver.observe(el));
+
+            // 7. フローティングパーティクル
+            const particlesContainer = document.querySelector('.particles-container');
+            if (particlesContainer) {
+                for (let i = 0; i < 15; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'particle';
+                    p.style.left = Math.random() * 100 + '%';
+                    p.style.animationDuration = (8 + Math.random() * 12) + 's';
+                    p.style.animationDelay = (Math.random() * 10) + 's';
+                    p.style.width = (2 + Math.random() * 4) + 'px';
+                    p.style.height = p.style.width;
+                    particlesContainer.appendChild(p);
+                }
+            }
+
+            // 8. セクションディバイダー
+            const dividerObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        dividerObserver.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.5 });
+            document.querySelectorAll('.section-divider').forEach(el => dividerObserver.observe(el));
+
+            // 9. 画像パララックス（スクロール連動）
+            const parallaxImgs = document.querySelectorAll('.parallax-img');
+            if (parallaxImgs.length) {
+                window.addEventListener('scroll', () => {
+                    parallaxImgs.forEach(img => {
+                        const rect = img.getBoundingClientRect();
+                        if (rect.top < window.innerHeight && rect.bottom > 0) {
+                            const offset = (rect.top - window.innerHeight / 2) * 0.08;
+                            img.style.transform = 'translateY(' + offset + 'px)';
+                        }
+                    });
+                }, { passive: true });
+            }
+
         });
     </script>
 </body>

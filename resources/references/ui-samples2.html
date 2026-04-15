@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>UI パターン参考 vol.2</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Hiragino Sans', sans-serif; background: #e8eaed; padding: 24px; }
+h1 { font-size: 16px; color: #333; margin-bottom: 6px; }
+.sub { font-size: 11px; color: #888; margin-bottom: 20px; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.card { background: white; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.card-label { font-size: 11px; font-weight: 700; padding: 7px 14px; background: #2c3e50; color: #aab; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+<h1>eBay Agent Hub — UIパターン vol.2（②③⑨ 系統の深掘り10選）</h1>
+<p class="sub">② Navy ライト系 / ③ ホワイトフラット系 / ⑨ ERPテーブル系 をベースに派生パターンを展開</p>
+<div class="grid" id="grid"></div>
+
+<script>
+const P = [
+
+/* ──────────────────── ② Navy 系派生 ──────────────────── */
+{ label: "A. Navy × コンパクト — kintone風 アイコン付きサイドナビ", html: `
+<div style="background:#f0f4f8;height:380px;display:flex;font-family:'Hiragino Sans',sans-serif;font-size:11px">
+  <div style="width:200px;background:#fff;border-right:1px solid #dde3ea;flex-shrink:0;display:flex;flex-direction:column">
+    <div style="background:#1a56db;color:#fff;padding:12px 14px;font-size:12px;font-weight:700">eBay Agent Hub</div>
+    ${[['📊','ダッシュボード',true],['📦','在庫管理',false],['🛒','受注管理',false],['💬','メッセージ',false],['📈','分析レポート',false],['⚙','設定',false]].map(([ic,l,a])=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:${a?'#eff6ff':'transparent'};color:${a?'#1a56db':'#374151'};border-right:${a?'3px solid #1a56db':'3px solid transparent'};cursor:pointer">
+      <span style="font-size:14px">${ic}</span><span style="font-weight:${a?700:400}">${l}</span>
+    </div>`).join('')}
+    <div style="margin-top:auto;padding:10px 14px;border-top:1px solid #eee;font-size:10px;color:#9ca3af">Hiro · 管理者</div>
+  </div>
+  <div style="flex:1;padding:16px;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:#111827">ダッシュボード</div>
+      <div style="font-size:10px;color:#6b7280;background:#f3f4f6;padding:4px 10px;border-radius:4px">2026年4月</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      ${[['月間売上','¥891,000','64%','▲12% 前月比','#1a56db'],['利益率','18.4%','92%','▼1.6pp 前月比','#dc2626'],['月間利益','¥447,000','59%','▲8% 前月比','#059669']].map(([l,v,r,s,c])=>`
+      <div style="background:white;border-radius:6px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+        <div style="font-size:9px;color:#6b7280;margin-bottom:3px">${l}</div>
+        <div style="font-size:18px;font-weight:700;color:#111827">${v}</div>
+        <div style="height:3px;background:#e5e7eb;border-radius:3px;margin:6px 0"><div style="width:${r};height:100%;background:${c};border-radius:3px"></div></div>
+        <div style="font-size:9px;color:${c}">${s}</div>
+      </div>`).join('')}
+    </div>
+    <div style="background:white;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden">
+      <div style="padding:8px 12px;font-size:10px;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:space-between">
+        <span>要対応アラート</span><span style="color:#1a56db">すべて見る →</span>
+      </div>
+      ${[['🔴','在庫切れ','7件','緊急対応'],['🔵','未読メッセージ','3件','要確認'],['🟡','価格アラート','2件','確認推奨']].map(([ic,l,v,s])=>`
+      <div style="display:flex;align-items:center;padding:7px 12px;border-bottom:1px solid #f3f4f6;gap:8px">
+        <span>${ic}</span>
+        <span style="flex:1;color:#374151">${l}</span>
+        <span style="font-weight:700;color:#111">${v}</span>
+        <span style="font-size:9px;color:#6b7280;background:#f3f4f6;padding:2px 6px;border-radius:3px">${s}</span>
+      </div>`).join('')}
+    </div>
+  </div>
+</div>` },
+
+{ label: "B. Navy × 上部タブナビ — サイボウズ Office / Garoon系", html: `
+<div style="background:#f5f7fa;height:380px;display:flex;flex-direction:column;font-family:'Hiragino Sans',sans-serif;font-size:11px">
+  <div style="background:#003d82;color:white">
+    <div style="padding:8px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.15)">
+      <span style="font-size:12px;font-weight:700">eBay Agent Hub</span>
+      <span style="margin-left:auto;font-size:10px;opacity:.7">Hiro</span>
+    </div>
+    <div style="display:flex;padding:0 16px">
+      ${[['ダッシュボード',true],['在庫',false],['受注',false],['メッセージ',false],['分析',false],['設定',false]].map(([l,a])=>`
+      <div style="padding:7px 14px;font-size:11px;background:${a?'rgba(255,255,255,.15)':'transparent'};border-bottom:${a?'2px solid #fff':'2px solid transparent'};cursor:pointer">${l}</div>`).join('')}
+    </div>
+  </div>
+  <div style="padding:14px 16px;flex:1;overflow:hidden">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+      ${[['月間売上','¥891K'],['利益率','18.4%'],['月間利益','¥447K'],['注文数','89件']].map(([l,v])=>`
+      <div style="background:white;border:1px solid #dde3ea;border-radius:4px;padding:10px;text-align:center">
+        <div style="font-size:9px;color:#5e6c84;margin-bottom:3px">${l}</div>
+        <div style="font-size:15px;font-weight:700;color:#172b4d">${v}</div>
+      </div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="background:white;border:1px solid #dde3ea;border-radius:4px;overflow:hidden">
+        <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#003d82;background:#e8f0fb;border-bottom:1px solid #dde3ea">月間達成状況</div>
+        <div style="padding:10px">
+          ${[['売上','64%','#1a56db'],['利益率','92%','#059669'],['利益','59%','#7c3aed']].map(([l,r,c])=>`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+            <span style="width:52px;color:#5e6c84;font-size:10px">${l}</span>
+            <div style="flex:1;height:6px;background:#f1f3f5;border-radius:3px"><div style="width:${r};height:100%;background:${c};border-radius:3px"></div></div>
+            <span style="width:30px;text-align:right;font-weight:700;color:#172b4d">${r}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div style="background:white;border:1px solid #dde3ea;border-radius:4px;overflow:hidden">
+        <div style="padding:6px 10px;font-size:10px;font-weight:700;color:#003d82;background:#e8f0fb;border-bottom:1px solid #dde3ea">アラート</div>
+        <div style="padding:6px">
+          ${[['在庫切れ','7件','#dc2626'],['未読','3件','#1a56db'],['価格','2件','#d97706'],['同期待ち','1件','#6b7280']].map(([l,v,c])=>`
+          <div style="display:flex;justify-content:space-between;padding:5px 6px;border-bottom:1px solid #f3f4f6;align-items:center">
+            <span style="color:#374151">${l}</span>
+            <span style="background:${c}18;color:${c};font-weight:700;padding:1px 8px;border-radius:10px">${v}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>` },
+
+{ label: "C. Navy × 情報密度MAX — 楽楽精算 / 奉行シリーズ完全体", html: `
+<div style="background:#eceff4;height:380px;display:flex;flex-direction:column;font-family:'Hiragino Sans',sans-serif;font-size:11px">
+  <div style="background:#1b3a6b;color:white;padding:6px 14px;display:flex;align-items:center;gap:16px">
+    <span style="font-size:12px;font-weight:700">eBay Agent Hub</span>
+    <div style="display:flex;gap:1px;margin-left:8px">
+      ${['ホーム','在庫','受注','メッセージ','分析','マスタ','設定'].map((l,i)=>`
+      <div style="padding:4px 10px;font-size:10px;background:${i===0?'rgba(255,255,255,.2)':'transparent'};border-radius:2px">${l}</div>`).join('')}
+    </div>
+    <span style="margin-left:auto;font-size:10px;opacity:.7">2026/04/12 12:49 | Hiro</span>
+  </div>
+  <div style="background:#d0d8e4;padding:4px 14px;font-size:10px;color:#3d4f68">
+    ホーム &gt; ダッシュボード
+  </div>
+  <div style="flex:1;padding:10px 12px;overflow:hidden;display:flex;flex-direction:column;gap:8px">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+      ${[['月間売上','¥891,000'],['利益率','18.4%'],['月間利益','¥447,000'],['注文数','89件'],['在庫切れ','7件']].map(([l,v])=>`
+      <div style="background:white;border:1px solid #c5ccd8;border-radius:3px;padding:8px;text-align:center">
+        <div style="font-size:8px;color:#5e6c84;margin-bottom:2px">${l}</div>
+        <div style="font-size:14px;font-weight:700;color:#1b3a6b">${v}</div>
+      </div>`).join('')}
+    </div>
+    <div style="background:white;border:1px solid #c5ccd8;border-radius:3px;overflow:hidden">
+      <div style="background:#e8ecf2;border-bottom:1px solid #c5ccd8;padding:5px 10px;font-size:10px;font-weight:700;color:#1b3a6b">■ 月間進捗</div>
+      <table style="width:100%;border-collapse:collapse;font-size:10px">
+        <thead><tr style="background:#f4f6fa">${['項目','実績','目標','達成率','前月差','予測'].map(h=>`<th style="padding:4px 8px;border:1px solid #e0e5ee;text-align:center;color:#5e6c84;white-space:nowrap">${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${[['売上','¥891,000','¥5,000,000','64.0%','▲12%','¥1,336K'],['利益率','18.4%','20.0%','92.0%','▼1.6pp','18.4%'],['利益','¥447,000','¥1,000,000','59.0%','▲8%','¥670K']].map(([l,v,t,r,d,p],i)=>`
+          <tr style="background:${i%2===0?'#fff':'#fafbfc'}">
+            <td style="padding:5px 8px;border:1px solid #e8ecf2;font-weight:600">${l}</td>
+            <td style="padding:5px 8px;border:1px solid #e8ecf2;text-align:right;font-weight:700">${v}</td>
+            <td style="padding:5px 8px;border:1px solid #e8ecf2;text-align:right;color:#5e6c84">${t}</td>
+            <td style="padding:5px 8px;border:1px solid #e8ecf2;text-align:center;font-weight:700;color:${parseFloat(r)>=80?'#059669':'#dc2626'}">${r}</td>
+            <td style="padding:5px 8px;border:1px solid #e8ecf2;text-align:center;color:${d.startsWith('▲')?'#059669':'#dc2626'}">${d}</td>
+            <td style="padding:5px 8px;border:1px solid #e8ecf2;text-align:right;color:#1a56db">${p}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="background:white;border:1px solid #c5ccd8;border-radius:3px;overflow:hidden">
+      <div style="background:#fff3cd;border-bottom:1px solid #c5ccd8;padding:5px 10px;font-size:10px;font-weight:700;color:#856404">⚠ 要対応アラート (3件)</div>
+      <div style="display:flex;gap:0">
+        ${[['在庫切れ','7件','#dc2626','要補充'],['未読メッセージ','3件','#1a56db','要返信'],['価格アラート','2件','#d97706','要確認']].map(([l,v,c,s])=>`
+        <div style="flex:1;padding:8px;border-right:1px solid #e8ecf2;text-align:center">
+          <div style="font-size:9px;color:#5e6c84">${l}</div>
+          <div style="font-size:16px;font-weight:700;color:${c}">${v}</div>
+          <div style="font-size:9px;background:${c}15;color:${c};padding:1px 6px;border-radius:3px;margin-top:2px;display:inline-block">${s}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+</div>` },
+
+/* ──────────────────── ③ ホワイトフラット 系派生 ──────────────────── */
+{ label: "D. ホワイト × 左ボーダーカード — 通知系 / Slack管理画面風", html: `
+<div style="background:#f8f9fa;height:380px;display:flex;font-family:'Hiragino Sans',sans-serif;font-size:11px">
+  <div style="width:52px;background:#1d1c1d;display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:16px">
+    ${['⬡','📦','💬','📊','⚙'].map(i=>`<span style="font-size:16px">${i}</span>`).join('')}
+  </div>
+  <div style="width:200px;background:#fff;border-right:1px solid #e8e8e8">
+    <div style="padding:12px 14px;font-size:12px;font-weight:700;border-bottom:1px solid #eee">ワークスペース</div>
+    ${[['# ダッシュボード',true],['# 在庫',false],['# 受注',false],['# メッセージ',false],['# アラート',false]].map(([l,a])=>`
+    <div style="padding:6px 14px;color:${a?'#1d1c1d':'#616061'};background:${a?'#1d1c1d10':'transparent'};font-weight:${a?700:400}">${l}</div>`).join('')}
+    <div style="padding:12px 14px;font-size:10px;color:#616061;border-top:1px solid #eee;margin-top:8px">
+      <div style="font-weight:700;margin-bottom:6px">🔴 要対応</div>
+      <div style="padding:3px 0;color:#e01e5a">在庫切れ 7件</div>
+      <div style="padding:3px 0;color:#1264a3">未読 3件</div>
+    </div>
+  </div>
+  <div style="flex:1;padding:16px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:14px"># ダッシュボード</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${[['月間売上','¥891,000 / ¥5,000,000','64% 達成 · 月末予測 ¥1.34M','#1264a3','▲12% vs前月'],
+         ['利益率','18.4% / 20.0%','92% ペース · 前月差 -1.6pp','#e01e5a','▼1.6pp vs前月'],
+         ['月間利益','¥447,000 / ¥1,000,000','59% 達成 · 月末予測 ¥670K','#2eb886','▲8% vs前月']].map(([l,v,s,c,d])=>`
+      <div style="background:white;border-left:4px solid ${c};border-radius:0 6px 6px 0;padding:10px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:10px;color:#616061;margin-bottom:2px">${l}</div>
+        <div style="font-size:15px;font-weight:700;color:#1d1c1d">${v}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px">
+          <span style="font-size:10px;color:#616061">${s}</span>
+          <span style="font-size:10px;color:${c};font-weight:600">${d}</span>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>
+</div>` },
+
+{ label: "E. ホワイト × グリッドカード — Jira / Trello系 プロジェクト感", html: `
+<div style="background:#f4f5f7;height:380px;display:flex;flex-direction:column;font-family:'Hiragino Sans',sans-serif;font-size:11px">
+  <div style="background:#0052cc;color:white;padding:8px 16px;display:flex;align-items:center;gap:12px">
+    <span style="font-size:12px;font-weight:700">eBay Hub</span>
+    ${['ダッシュボード','在庫','受注','メッセージ'].map((l,i)=>`
+    <span style="padding:4px 10px;background:${i===0?'rgba(255,255,255,.2)':'transparent'};border-radius:3px">${l}</span>`).join('')}
+    <span style="margin-left:auto;font-size:10px;opacity:.8">2026年4月</span>
+  </div>
+  <div style="flex:1;padding:14px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+      ${[['月間売上目標達成率','64%','¥891K / ¥5M','#0052cc'],['利益率目標達成率','92%','18.4% / 20%','#00875a'],['利益目標達成率','59%','¥447K / ¥1M','#6554c0']].map(([l,r,v,c])=>`
+      <div style="background:white;border-radius:4px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.08)">
+        <div style="font-size:9px;color:#5e6c84;margin-bottom:6px">${l}</div>
+        <div style="font-size:28px;font-weight:700;color:${c}">${r}</div>
+        <div style="font-size:10px;color:#5e6c84;margin-top:2px">${v}</div>
+        <div style="height:4px;background:#f4f5f7;border-radius:2px;margin-top:8px"><div style="width:${r};height:100%;background:${c};border-radius:2px"></div></div>
+      </div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      ${[['在庫切れ','7','🔴 緊急','#ffebe6','#de350b'],['未読メッセージ','3','🔵 要確認','#e6f0ff','#0052cc'],['価格アラート','2','🟡 確認','#fffae6','#ff8b00'],['同期待ち','1','⚪ 処理中','#f4f5f7','#5e6c84']].map(([l,v,s,bg,c])=>`
+      <div style="background:${bg};border-radius:4px;padding:10px;text-align:center">
+        <div style="font-size:9px;color:#5e6c84;margin-bottom:4px">${l}</div>
+        <div style="font-size:22px;font-weight:700;color:${c}">${v}</div>
+        <div style="font-size:9px;color:${c};margin-top:4px">${s}</div>
+      </div>`).join('')}
+    </div>
+    <div style="background:white;border-radius:4px;padding:10px;box-shadow:0 1px 2px rgba(0,0,0,.08);margin-top:8px">
+      <div style="font-size:10px;font-weight:700;color:#172b4d;margin-bottom:6px">月末着地予測</div>
+      <div style="display:flex;gap:16px">
+        ${[['売上予測','¥1,337K','✅ 目標超'],['利益予測','¥670K','⚠ 目標33%未達'],['経過日数','12 / 30日','40%消化']].map(([l,v,s])=>`
+        <div><div style="font-size:9px;color:#5e6c84">${l}</div><div style="font-size:13px;font-weight:700">${v}</div><div style="font-size:9px;color:#5e6c84">${s}</div></div>`).join('')}
+      </div>
+    </div>
+  </div>
+</div>` },
+
+{ label: "F. ホワイト × タイムライン — 活動ログ重視 / 業務日報系", html: `
+<div style="background:#fff;height:380px;display:flex;font-family:'Hiragino Sans',sans-serif;font-size:11px">
+  <div style="width:180px;background:#fafbfc;border-right:1px solid #e1e4e8">
+    <div style="padding:12px;font-size:12px;font-weight:700;color:#24292e;border-bottom:1px solid #e1e4e8">eBay Agent</div>
+    <div style="padding:8px">
+      ${[['今日のサマリー','▲'],['先週との比較','▷'],['月間レポート','▷'],['アラート管理','▷']].map(([l,a])=>`
+      <div style="padding:6px 8px;font-size:11px;color:${a==='▲'?'#0366d6':'#586069'};background:${a==='▲'?'#f1f8ff':'transparent'};border-radius:4px;margin-bottom:1px;cursor:pointer">${l}</div>`).join('')}
+    </div>
+    <div style="padding:10px 12px;border-top:1px solid #e1e4e8;margin-top:4px">
+      <div style="font-size:10px;font-weight:700;color:#24292e;margin-bottom:6px">KPI スナップショット</div>
+      ${[['売上','¥891K'],['利益率','18.4%'],['利益','¥447K'],['注文','89件']].map(([l,v])=>`
+      <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px;border-bottom:1px solid #f6f8fa">
+        <span style="color:#586069">${l}</span><span style="font-weight:700">${v}</span>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div style="flex:1;padding:14px;overflow:hidden">
+    <div style="font-size:13px;font-weight:700;color:#24292e;margin-bottom:12px">今日のアクティビティ</div>
+    <div style="position:relative;padding-left:18px">
+      <div style="position:absolute;left:6px;top:0;bottom:0;width:1px;background:#e1e4e8"></div>
+      ${[['12:30','在庫切れアラート','SKU-4821 が在庫切れになりました','#e36209'],
+         ['11:15','新規注文','3件の注文を受信しました (合計 ¥24,800)','#0366d6'],
+         ['10:02','価格アラート','競合が ¥1,200 値下げしました','#d73a49'],
+         ['09:30','同期完了','eBay ← → Shopify 同期が完了しました','#28a745'],
+         ['09:00','日次レポート','昨日の売上: ¥18,400 (3件)','#6f42c1']].map(([t,l,d,c])=>`
+      <div style="position:relative;margin-bottom:10px">
+        <div style="position:absolute;left:-18px;top:4px;width:9px;height:9px;background:${c};border-radius:50%;border:2px solid #fff"></div>
+        <div style="font-size:9px;color:#586069">${t}</div>
+        <div style="font-size:11px;font-weight:700;color:#24292e">${l}</div>
+        <div style="font-size:10px;color:#586069">${d}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+</div>` },
+
+/* ──────────────────── ⑨ ERPテーブル 系派生 ──────────────────── */
+{ label: "G. ERP × 上部ナビ グレー — Yahoo!ビジネス / 楽天市場管理系", html: `
+<div style="background:#f0f0f0;height:380px;display:flex;flex-direction:column;font-family:'Hiragino Sans',sans-serif;font-size:11px">
+  <div style="background:#efefef;border-bottom:1px solid #ccc;padding:6px 14px;display:flex;align-items:center;gap:2px">
+    <span style="font-size:11px;font-weight:700;color:#333;margin-right:12px">eBay Agent Hub</span>
+    ${['ダッシュボード','在庫管理','受注管理','メッセージ','売上分析','マスタ管理','ヘルプ'].map((l,i)=>`
+    <div style="padding:4px 10px;font-size:10px;background:${i===0?'#fff':'transparent'};border:${i===0?'1px solid #ccc':'1px solid transparent'};border-bottom:${i===0?'1px solid #fff':'none'};color:${i===0?'#000':'#555'};cursor:pointer;position:relative;top:${i===0?'1px':'0'}">${l}</div>`).join('')}
+  </div>
+  <div style="flex:1;background:white;border:1px solid #ccc;margin:0;padding:12px;overflow:hidden;display:flex;flex-direction:column;gap:8px">
+    <div style="font-size:11px;font-weight:700;color:#333;padding-bottom:6px;border-bottom:2px solid #003d82">ダッシュボード（2026年4月）</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+      ${[['月間売上','¥891,000','64%達成'],['利益率','18.4%','92%ペース'],['月間利益','¥447,000','59%達成'],['注文数','89件','14%増'],['在庫切れ','7件','要対応']].map(([l,v,s])=>`
+      <div style="background:#f8f8f8;border:1px solid #ddd;padding:8px;text-align:center">
+        <div style="font-size:8px;color:#666;margin-bottom:2px">${l}</div>
+        <div style="font-size:14px;font-weight:700;color:#003d82">${v}</div>
+        <div style="font-size:8px;color:#666;margin-top:2px">${s}</div>
+      </div>`).join('')}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px">
+      <caption style="text-align:left;font-weight:700;color:#333;padding:0 0 4px;font-size:10px">■ 目標対比</caption>
+      <thead>
+        <tr style="background:#003d82;color:white">
+          ${['指標','今月実績','月間目標','達成率','前月同日実績','前月差','月末予測'].map(h=>`<th style="padding:5px 8px;text-align:center;white-space:nowrap">${h}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${[['月間売上','¥891,000','¥5,000,000','64.0%','¥796,000','▲12.0%','¥1,337K'],
+           ['利益率','18.4%','20.0%','92.0%','20.0%','▼1.6pp','18.4%'],
+           ['月間利益','¥447,000','¥1,000,000','59.0%','¥413K','▲8.2%','¥670K']].map(([...row],i)=>`
+        <tr style="background:${i%2===0?'#f8f8f8':'#fff'}">
+          ${row.map((v,j)=>`<td style="padding:5px 8px;border:1px solid #ddd;text-align:${j===0?'left':'right'};font-weight:${j===0||j===3?700:400};color:${j===3?(parseFloat(v)>=80?'#006600':'#cc0000'):j===4?'#555':'#1a1a1a'}">${v}</td>`).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+</div>` },
+
+{ label: "H. ERP × 2カラム レポート — MFクラウド / 弥生会計ダッシュボード系", html: `
+<div style="background:#f0f4f8;height:380px;display:flex;flex-direction:column;font-family:'Hiragino Sans',sans-serif;font-size:11px">
+  <div style="background:#2d5a8e;color:white;padding:7px 14px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:12px;font-weight:700">eBay Agent Hub</span>
+    <span style="font-size:10px;opacity:.7;margin-left:auto">2026年4月 | Hiro</span>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 320px;gap:0;overflow:hidden">
+    <div style="padding:12px;border-right:1px solid #dde3ea;overflow:hidden">
+      <div style="font-size:11px;font-weight:700;color:#2d5a8e;margin-bottom:10px;border-bottom:2px solid #2d5a8e;padding-bottom:4px">月次サマリー</div>
+      <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px">
+        <thead><tr style="background:#2d5a8e;color:white">${['','実績','目標','達成率','予測'].map(h=>`<th style="padding:5px 8px;text-align:right;first:text-align:left">${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${[['売上','¥891K','¥5,000K','64%','¥1,337K'],['利益率','18.4%','20.0%','92%','18.4%'],['利益','¥447K','¥1,000K','59%','¥670K']].map(([l,...vals],i)=>`
+          <tr style="background:${i%2?'#f8fafc':'#fff'}">
+            <td style="padding:5px 8px;font-weight:700;color:#2d5a8e">${l}</td>
+            ${vals.map((v,j)=>`<td style="padding:5px 8px;text-align:right;font-weight:${j===2?700:400};color:${j===2?(parseFloat(v)>=80?'#006600':'#cc0000'):'#1a1a1a'};border:1px solid #e2e8f0">${v}</td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="font-size:11px;font-weight:700;color:#2d5a8e;margin-bottom:6px;border-bottom:1px solid #dde3ea;padding-bottom:4px">前月同日比</div>
+      <table style="width:100%;border-collapse:collapse;font-size:10px">
+        ${[['売上','¥891K','¥796K','▲12%'],['注文数','89件','78件','▲14%'],['在庫切れ','7件','10件','▼3件(改善)']].map(([l,v,p,d])=>`
+        <tr style="border-bottom:1px solid #eef2f7">
+          <td style="padding:4px 6px;color:#4a5568">${l}</td>
+          <td style="padding:4px 6px;font-weight:700;text-align:right">${v}</td>
+          <td style="padding:4px 6px;color:#6b7280;text-align:right">${p}</td>
+          <td style="padding:4px 6px;text-align:right;color:${d.startsWith('▲')||d.includes('改善')?'#059669':'#dc2626'};font-weight:700">${d}</td>
+        </tr>`).join('')}
+      </table>
+    </div>
+    <div style="padding:12px;background:#f8fafc">
+      <div style="font-size:11px;font-weight:700;color:#2d5a8e;margin-bottom:8px;border-bottom:2px solid #2d5a8e;padding-bottom:4px">要対応</div>
+      ${[['🔴 在庫切れ','7件','至急対応が必要です','#fee2e2','#dc2626'],['🔵 未読メッセージ','3件','バイヤーからの問合せ','#eff6ff','#1d4ed8'],['🟡 価格アラート','2件','競合が値下げしました','#fffbeb','#d97706']].map(([l,v,d,bg,c])=>`
+      <div style="background:${bg};border-radius:4px;border-left:3px solid ${c};padding:8px 10px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:700;color:${c}">${l}</span>
+          <span style="font-size:13px;font-weight:700;color:${c}">${v}</span>
+        </div>
+        <div style="font-size:10px;color:#555;margin-top:2px">${d}</div>
+      </div>`).join('')}
+      <div style="background:white;border:1px solid #dde3ea;border-radius:4px;padding:8px;margin-top:4px">
+        <div style="font-size:10px;font-weight:700;color:#2d5a8e;margin-bottom:6px">今日のサマリー</div>
+        ${[['本日売上','¥18,400'],['本日注文','3件'],['日次平均','¥74,250']].map(([l,v])=>`
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #eef2f7;font-size:10px">
+          <span style="color:#6b7280">${l}</span><span style="font-weight:700">${v}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+</div>` },
+
+{ label: "I. ERP × モバイル最適化 — スマホ業務アプリ系 (Sansan / SmartHR mobile)", html: `
+<div style="background:#f5f5f5;height:380px;display:flex;font-family:'Hiragino Sans',sans-serif;font-size:11px;justify-content:center;align-items:center;gap:16px">
+  <!-- Phone mockup -->
+  <div style="width:200px;background:#fff;border-radius:20px;box-shadow:0 4px 20px rgba(0,0,0,.15);overflow:hidden;border:6px solid #222">
+    <div style="background:#1a56db;color:white;padding:10px 12px">
+      <div style="font-size:10px;opacity:.7">eBay Hub</div>
+      <div style="font-size:14px;font-weight:700;margin-top:1px">ダッシュボード</div>
+    </div>
+    <div style="padding:10px;display:flex;flex-direction:column;gap:6px">
+      ${[['売上','¥891K','64%達成','#1a56db'],['利益率','18.4%','92%ペース','#059669'],['利益','¥447K','59%達成','#7c3aed']].map(([l,v,s,c])=>`
+      <div style="background:#f8f9fa;border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between">
+        <div><div style="font-size:8px;color:#888">${l}</div><div style="font-size:14px;font-weight:700">${v}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:${c};font-weight:700">${s}</div></div>
+      </div>`).join('')}
+      <div style="background:#fff3cd;border-radius:8px;padding:8px 10px">
+        <div style="font-size:9px;font-weight:700;color:#856404;margin-bottom:4px">⚠ アラート</div>
+        <div style="font-size:10px;color:#555">在庫切れ 7件 · 未読 3件</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        ${['在庫確認','受注処理','メッセージ','設定'].map(l=>`
+        <div style="background:#1a56db;color:white;text-align:center;padding:7px;border-radius:6px;font-size:10px;font-weight:700">${l}</div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <!-- Tablet mockup -->
+  <div style="width:240px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);overflow:hidden;border:4px solid #333">
+    <div style="background:#1a56db;color:white;padding:7px 12px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;font-weight:700">eBay Hub</span>
+      <span style="margin-left:auto;font-size:9px;opacity:.7">4月</span>
+    </div>
+    <div style="padding:10px;display:flex;flex-direction:column;gap:6px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        ${[['売上','¥891K','64%'],['利益','¥447K','59%'],['利益率','18.4%','92%'],['注文','89件','14%↑']].map(([l,v,s])=>`
+        <div style="background:#f0f4ff;border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:8px;color:#888">${l}</div>
+          <div style="font-size:13px;font-weight:700;color:#1a56db">${v}</div>
+          <div style="font-size:8px;color:#1a56db">${s}</div>
+        </div>`).join('')}
+      </div>
+      <div style="background:#fff3cd;border-radius:6px;padding:7px">
+        <div style="font-size:9px;font-weight:700;color:#856404">要対応 3件</div>
+        <div style="font-size:9px;color:#666;margin-top:2px">在庫7 · 未読3 · 価格2</div>
+      </div>
+    </div>
+  </div>
+</div>` },
+
+{ label: "J. ERP × ダーク ネイビー — セキュリティ・金融系業務システム", html: `
+<div style="background:#0d1b2a;height:380px;display:flex;font-family:'Hiragino Sans',sans-serif;font-size:11px;color:#e2e8f0">
+  <div style="width:160px;background:#0a1520;border-right:1px solid #1e3a5a;flex-shrink:0">
+    <div style="padding:12px 14px;font-size:11px;font-weight:700;color:#93c5fd;border-bottom:1px solid #1e3a5a">eBay Agent Hub</div>
+    ${[['ダッシュボード',true],['在庫管理',false],['受注管理',false],['メッセージ',false],['分析レポート',false],['システム設定',false]].map(([l,a])=>`
+    <div style="padding:8px 14px;font-size:10px;color:${a?'#93c5fd':'#64748b'};background:${a?'rgba(147,197,253,.08)':'transparent'};border-left:${a?'2px solid #3b82f6':'2px solid transparent'}">${l}</div>`).join('')}
+    <div style="margin-top:auto;padding:10px 14px;border-top:1px solid #1e3a5a;font-size:9px;color:#475569;margin-top:40px">
+      <div>🔒 暗号化接続</div>
+      <div style="margin-top:2px">最終ログイン: 今日 09:00</div>
+    </div>
+  </div>
+  <div style="flex:1;padding:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:12px;font-weight:700;color:#e2e8f0">ダッシュボード</span>
+      <span style="font-size:9px;color:#475569;background:#1e3a5a;padding:3px 8px;border-radius:3px">2026-04-12 12:49 JST</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+      ${[['月間売上','¥891,000','64.0%','#3b82f6'],['利益率','18.4%','92.0%','#10b981'],['月間利益','¥447,000','59.0%','#8b5cf6']].map(([l,v,r,c])=>`
+      <div style="background:#0a1520;border:1px solid #1e3a5a;border-radius:4px;padding:12px">
+        <div style="font-size:9px;color:#64748b;margin-bottom:3px">${l}</div>
+        <div style="font-size:16px;font-weight:700;color:${c}">${v}</div>
+        <div style="height:2px;background:#1e3a5a;border-radius:2px;margin:6px 0"><div style="width:${r};height:100%;background:${c}"></div></div>
+        <div style="font-size:9px;color:${c}">${r}</div>
+      </div>`).join('')}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px">
+      <thead><tr style="background:#1e3a5a">${['分類','件数','重要度','対応期限'].map(h=>`<th style="padding:5px 8px;text-align:left;color:#93c5fd;font-weight:600">${h}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${[['在庫切れ','7','高','本日中','#ef4444'],['未読メッセージ','3','中','24時間以内','#f59e0b'],['価格アラート','2','中','48時間以内','#f59e0b'],['同期待ち','1','低','今週中','#64748b']].map(([l,v,p,d,c])=>`
+        <tr style="border-bottom:1px solid #1e3a5a">
+          <td style="padding:6px 8px">${l}</td>
+          <td style="padding:6px 8px;font-weight:700;color:${c}">${v}</td>
+          <td style="padding:6px 8px"><span style="background:${c}20;color:${c};padding:1px 6px;border-radius:3px;font-size:9px">${p}</span></td>
+          <td style="padding:6px 8px;color:#64748b">${d}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+</div>` },
+
+];
+
+const grid = document.getElementById('grid');
+P.forEach(p => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-label">${p.label}</div><div>${p.html}</div>`;
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>

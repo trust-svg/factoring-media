@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUNE — 50代、まだまだこれから。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sky: #0EA5E9;
+      --violet: #7C3AED;
+      --amber: #F59E0B;
+      --ocean: #0284C7;
+      --navy: #0C1445;
+      --bg: #F0F9FF;
+      --bg-2: #E0F2FE;
+      --cta: #06C755;
+      --cta-dark: #059142;
+      --white: #FFFFFF;
+      --text-muted: #4B5A8A;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--navy);
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      padding: 16px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background 0.3s, backdrop-filter 0.3s, box-shadow 0.3s;
+    }
+    nav.transparent {
+      background: transparent;
+    }
+    nav.frosted {
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 2px 20px rgba(2,132,199,0.1);
+    }
+    .nav-logo {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.5rem; font-weight: 800;
+      letter-spacing: 0.15em;
+      color: white;
+      transition: color 0.3s;
+    }
+    nav.frosted .nav-logo { color: var(--navy); }
+    .nav-cta {
+      background: var(--cta);
+      color: white; font-family: 'Poppins', sans-serif;
+      font-weight: 700; font-size: 0.82rem;
+      padding: 10px 22px; border-radius: 50px;
+      text-decoration: none;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .nav-cta:hover { background: var(--cta-dark); transform: scale(1.05); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, var(--sky) 0%, #3B82F6 40%, var(--violet) 100%);
+      background-size: 200% 200%;
+      animation: heroGradient 10s ease infinite;
+    }
+
+    @keyframes heroGradient {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* Grid overlay */
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 60px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 60px);
+      pointer-events: none;
+    }
+
+    /* Floating rings */
+    .ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.18);
+      pointer-events: none;
+      animation: ringRotate linear infinite;
+    }
+    .ring:nth-child(1) {
+      width: 400px; height: 400px;
+      top: -100px; right: -120px;
+      animation-duration: 25s;
+      border-width: 1.5px;
+      border-color: rgba(255,255,255,0.12);
+    }
+    .ring:nth-child(2) {
+      width: 280px; height: 280px;
+      bottom: 10%; left: -80px;
+      animation-duration: 15s;
+      animation-direction: reverse;
+      border-color: rgba(255,255,255,0.15);
+    }
+    .ring:nth-child(3) {
+      width: 160px; height: 160px;
+      top: 30%; right: 8%;
+      animation-duration: 35s;
+      border-width: 1px;
+      border-color: rgba(255,255,255,0.2);
+    }
+    .ring:nth-child(4) {
+      width: 500px; height: 500px;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation-duration: 40s;
+      border-width: 1px;
+      border-color: rgba(255,255,255,0.06);
+    }
+    .ring:nth-child(5) {
+      width: 90px; height: 90px;
+      top: 20%; left: 15%;
+      animation-duration: 18s;
+      border-color: rgba(245,158,11,0.4);
+      border-width: 2px;
+    }
+
+    @keyframes ringRotate {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* Floating filled circles */
+    .float-dot {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: floatDot ease-in-out infinite;
+    }
+    .float-dot:nth-child(6) {
+      width: 12px; height: 12px;
+      background: rgba(245,158,11,0.7);
+      top: 25%; left: 18%;
+      animation-duration: 6s; animation-delay: -1s;
+    }
+    .float-dot:nth-child(7) {
+      width: 8px; height: 8px;
+      background: rgba(255,255,255,0.5);
+      top: 60%; right: 20%;
+      animation-duration: 8s; animation-delay: -3s;
+    }
+    .float-dot:nth-child(8) {
+      width: 16px; height: 16px;
+      background: rgba(255,255,255,0.2);
+      bottom: 25%; left: 30%;
+      animation-duration: 10s; animation-delay: -5s;
+    }
+
+    @keyframes floatDot {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-18px); }
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.75rem; font-weight: 600;
+      padding: 8px 22px; border-radius: 50px;
+      margin-bottom: 32px;
+      letter-spacing: 0.08em;
+      position: relative; z-index: 2;
+      opacity: 0; transform: translateY(24px);
+      animation: fadeInUp 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.3s forwards;
+    }
+
+    @keyframes fadeInUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: clamp(2.2rem, 6.5vw, 4.2rem);
+      font-weight: 800;
+      color: white;
+      line-height: 1.2;
+      margin-bottom: 24px;
+      position: relative; z-index: 2;
+      opacity: 0; transform: translateY(30px);
+      animation: fadeInUp 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.55s forwards;
+    }
+
+    .hero h1 .amber { color: var(--amber); }
+
+    .hero-sub {
+      font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+      color: rgba(255,255,255,0.85);
+      max-width: 520px;
+      line-height: 1.8;
+      margin-bottom: 44px;
+      position: relative; z-index: 2;
+      opacity: 0; transform: translateY(20px);
+      animation: fadeInUp 0.7s ease 0.8s forwards;
+    }
+
+    .hero-cta-wrap {
+      position: relative; z-index: 2;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 14px;
+      opacity: 0;
+      animation: fadeInUp 0.7s ease 1s forwards;
+    }
+
+    .btn-line {
+      display: inline-flex; align-items: center; gap: 12px;
+      background: var(--cta);
+      color: white; font-family: 'Poppins', sans-serif;
+      font-weight: 700; font-size: 1.05rem;
+      padding: 18px 40px; border-radius: 50px;
+      text-decoration: none; border: none; cursor: pointer;
+      box-shadow: 0 8px 32px rgba(6,199,85,0.4);
+      transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+      background-size: 200% 100%;
+      position: relative; overflow: hidden;
+    }
+    .btn-line::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.4s ease;
+    }
+    .btn-line:hover {
+      background: var(--cta-dark);
+      transform: scale(1.04);
+      box-shadow: 0 12px 40px rgba(6,199,85,0.5);
+    }
+    .btn-line:hover::after { transform: translateX(100%); }
+
+    .hero-note { font-size: 0.8rem; color: rgba(255,255,255,0.65); }
+
+    /* DIAGONAL DIVIDER */
+    .diagonal-down {
+      height: 80px;
+      background: white;
+      clip-path: polygon(0 100%, 100% 0, 100% 100%);
+      margin-top: -2px;
+    }
+    .diagonal-up {
+      height: 80px;
+      background: var(--bg);
+      clip-path: polygon(0 0, 100% 100%, 0 100%);
+    }
+
+    /* STATS */
+    .stats-section {
+      background: white;
+      padding: 20px 24px 80px;
+    }
+    .stats-grid {
+      display: flex; flex-wrap: wrap; gap: 20px;
+      justify-content: center; max-width: 960px; margin: 0 auto;
+    }
+    .stat-card {
+      flex: 1 1 180px; max-width: 220px;
+      text-align: center; padding: 36px 20px;
+      border-radius: 20px;
+      background: linear-gradient(160deg, #F0F9FF, #DBEAFE);
+      border: 1px solid #BAE6FD;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 0.55s cubic-bezier(0.34,1.56,0.64,1), transform 0.55s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .stat-card.visible { opacity: 1; transform: translateY(0); }
+    .stat-card:nth-child(2) { transition-delay: 0.1s; }
+    .stat-card:nth-child(3) { transition-delay: 0.2s; }
+    .stat-card:nth-child(4) { transition-delay: 0.3s; }
+
+    .stat-num {
+      font-family: 'Poppins', sans-serif;
+      font-size: 2.6rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--sky), var(--violet));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: block; line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.8rem; color: var(--text-muted);
+      margin-top: 8px; display: block;
+      font-weight: 500;
+    }
+
+    /* SECTION COMMON */
+    .section-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    section { padding: 80px 24px; }
+
+    .sky-section-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2.6rem);
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 56px;
+      text-align: center;
+    }
+    .sky-section-title span {
+      background: linear-gradient(135deg, var(--sky), var(--violet));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* GRID BG white sections */
+    .grid-bg {
+      background:
+        var(--white)
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(2,132,199,0.05) 39px, rgba(2,132,199,0.05) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(2,132,199,0.05) 39px, rgba(2,132,199,0.05) 40px);
+    }
+
+    /* PROBLEM */
+    .problem-section {
+      background: white;
+    }
+
+    .problem-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 24px;
+    }
+
+    .problem-card {
+      background: linear-gradient(145deg, #DBEAFE, #EDE9FE);
+      border-radius: 20px;
+      padding: 36px 32px;
+      border-left: 4px solid var(--sky);
+      box-shadow: 0 4px 20px rgba(2,132,199,0.1);
+      display: flex; gap: 20px; align-items: flex-start;
+      opacity: 0; transform: translateY(28px);
+      transition: opacity 0.55s cubic-bezier(0.34,1.56,0.64,1), transform 0.55s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .problem-card.visible { opacity: 1; transform: translateY(0); }
+    .problem-card:nth-child(2) { transition-delay: 0.1s; }
+    .problem-card:nth-child(3) { transition-delay: 0.2s; }
+
+    .problem-icon-wrap {
+      width: 48px; height: 48px; min-width: 48px;
+      background: white; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(2,132,199,0.15);
+    }
+    .problem-icon-wrap i { color: var(--sky); font-size: 1.2rem; }
+
+    .problem-text {
+      font-size: 0.95rem; line-height: 1.75;
+      color: var(--navy); font-weight: 400;
+    }
+
+    /* BENEFITS */
+    .benefits-section { background: var(--bg); }
+
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 28px;
+    }
+
+    .benefit-card {
+      background: white;
+      border-radius: 24px;
+      padding: 40px 32px;
+      box-shadow: 0 8px 32px rgba(2,132,199,0.12);
+      opacity: 0; transform: translateY(36px);
+      transition: opacity 0.6s cubic-bezier(0.34,1.56,0.64,1), transform 0.6s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .benefit-card.visible { opacity: 1; transform: translateY(0); }
+    .benefit-card:nth-child(2) { transition-delay: 0.12s; }
+    .benefit-card:nth-child(3) { transition-delay: 0.24s; }
+    .benefit-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(2,132,199,0.18); }
+    .benefit-card:hover.visible { transform: translateY(-4px); }
+
+    .benefit-icon-circle {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--sky), var(--violet));
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 24px;
+      box-shadow: 0 6px 20px rgba(14,165,233,0.35);
+    }
+    .benefit-icon-circle i { color: white; font-size: 1.3rem; }
+
+    .benefit-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.05rem; font-weight: 700;
+      color: var(--navy); margin-bottom: 12px;
+    }
+    .benefit-desc {
+      font-size: 0.88rem; line-height: 1.75;
+      color: var(--text-muted);
+    }
+
+    /* TESTIMONIALS */
+    .testimonials-section {
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .testimonial-card {
+      background: white;
+      border-radius: 20px;
+      padding: 36px 32px;
+      border-left: 4px solid var(--violet);
+      box-shadow: 0 6px 28px rgba(124,58,237,0.1);
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.55s cubic-bezier(0.34,1.56,0.64,1), transform 0.55s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .testimonial-card.visible { opacity: 1; transform: translateY(0); }
+    .testimonial-card:nth-child(2) { transition-delay: 0.12s; }
+    .testimonial-card:nth-child(3) { transition-delay: 0.24s; }
+
+    .testimonial-stars {
+      color: var(--amber); font-size: 0.85rem; margin-bottom: 14px;
+    }
+    .testimonial-quote {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem; line-height: 1.8;
+      color: var(--navy);
+      margin-bottom: 20px;
+      font-style: italic;
+    }
+    .testimonial-name {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.8rem; font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* CTA SECTION */
+    .cta-section {
+      background: linear-gradient(135deg, var(--sky) 0%, #3B82F6 50%, var(--violet) 100%);
+      padding: 100px 24px;
+      text-align: center;
+      position: relative; overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 60px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 60px);
+      pointer-events: none;
+    }
+
+    .cta-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.12);
+      pointer-events: none;
+      animation: ringRotate linear infinite;
+    }
+    .cta-ring:nth-child(2) { width: 300px; height: 300px; bottom: -80px; left: -80px; animation-duration: 20s; }
+    .cta-ring:nth-child(3) { width: 200px; height: 200px; top: -50px; right: 100px; animation-duration: 15s; animation-direction: reverse; }
+
+    .cta-section .sky-section-title {
+      color: white;
+      margin-bottom: 16px;
+      position: relative; z-index: 2;
+    }
+    .cta-section .sky-section-title span {
+      -webkit-text-fill-color: var(--amber);
+      background: none;
+    }
+
+    .cta-sub-text {
+      font-size: 1rem; color: rgba(255,255,255,0.8);
+      margin-bottom: 44px;
+      position: relative; z-index: 2;
+    }
+
+    .cta-wrap {
+      position: relative; z-index: 2;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 16px;
+    }
+
+    .cta-checks {
+      display: flex; gap: 20px; flex-wrap: wrap;
+      justify-content: center;
+    }
+    .cta-checks span {
+      font-size: 0.82rem; color: rgba(255,255,255,0.75);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .cta-checks span i { color: var(--cta); }
+
+    /* FOOTER */
+    footer {
+      background: var(--navy);
+      color: rgba(224,242,254,0.6);
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .footer-logo {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.4rem; font-weight: 800;
+      letter-spacing: 0.15em;
+      color: white; display: block;
+      margin-bottom: 10px;
+    }
+    .footer-copy { font-size: 0.8rem; }
+
+    /* RESPONSIVE */
+    @media (max-width: 600px) {
+      nav { padding: 14px 18px; }
+      .hero { padding: 100px 20px 70px; }
+      .stats-grid { gap: 14px; }
+      .stat-card { max-width: 100%; }
+      section { padding: 60px 20px; }
+      .benefits-grid, .problem-cards, .testimonials-grid { grid-template-columns: 1fr; }
+    }
+
+    /* REDUCED MOTION */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .hero-badge, .hero h1, .hero-sub, .hero-cta-wrap { opacity: 1; transform: none; }
+      .stat-card, .problem-card, .benefit-card, .testimonial-card { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="transparent" id="navbar">
+    <span class="nav-logo">LUNE</span>
+    <a href="#" class="nav-cta"><i class="fab fa-line"></i> 無料登録</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="home">
+    <!-- Rings -->
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <!-- Float dots -->
+    <div class="float-dot"></div>
+    <div class="float-dot"></div>
+    <div class="float-dot"></div>
+
+    <div class="hero-badge">✦ 50代以上の男性専用マッチング ✦</div>
+
+    <h1>
+      50代、まだまだ<span class="amber">これから。</span>
+    </h1>
+
+    <p class="hero-sub">
+      50代以上の男性が、毎月マッチングを叶えています
+    </p>
+
+    <div class="hero-cta-wrap">
+      <a href="#" class="btn-line">
+        <i class="fab fa-line" style="font-size:1.2rem;"></i>
+        今すぐLINEで無料登録する
+      </a>
+      <p class="hero-note">登録60秒・完全無料・いつでも退会OK</p>
+    </div>
+  </section>
+
+  <!-- Diagonal divider hero → white -->
+  <div style="height:80px; background: linear-gradient(135deg, var(--sky), var(--violet)); clip-path: polygon(0 0, 100% 0, 100% 0, 0 100%);"></div>
+
+  <!-- STATS -->
+  <section class="stats-section">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-num" data-target="12000">0</span>
+        <span class="stat-label">会員数</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" data-target="87" data-suffix="%">0</span>
+        <span class="stat-label">3ヶ月以内マッチング率</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">50+</span>
+        <span class="stat-label">専用年齢層</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">4.9</span>
+        <span class="stat-label">平均満足度 ★</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="problem-section">
+    <div class="section-inner">
+      <h2 class="sky-section-title"><span>こんな悩み、</span>ありませんか？</h2>
+      <div class="problem-cards">
+        <div class="problem-card">
+          <div class="problem-icon-wrap">
+            <i class="fa-regular fa-clock"></i>
+          </div>
+          <p class="problem-text">出会いの場がなく、なんとなく日々が過ぎていく</p>
+        </div>
+        <div class="problem-card">
+          <div class="problem-icon-wrap">
+            <i class="fa-regular fa-face-sad-tear"></i>
+          </div>
+          <p class="problem-text">マッチングアプリは"若者向け"に見えて、踏み出せない</p>
+        </div>
+        <div class="problem-card">
+          <div class="problem-icon-wrap">
+            <i class="fa-regular fa-circle-question"></i>
+          </div>
+          <p class="problem-text">自分のような年齢でも、本当に出会えるのか不安</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENEFITS -->
+  <section class="benefits-section">
+    <div class="section-inner">
+      <h2 class="sky-section-title">50代から<span>モテる理由</span>があります</h2>
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <div class="benefit-icon-circle">
+            <i class="fa-solid fa-heart"></i>
+          </div>
+          <p class="benefit-title">大人を求める女性が多数在籍</p>
+          <p class="benefit-desc">20〜40代の女性会員がLUNEを選ぶ理由は「落ち着いた大人の男性に出会いたい」から</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-icon-circle">
+            <i class="fa-solid fa-user-group"></i>
+          </div>
+          <p class="benefit-title">50代専用マッチング</p>
+          <p class="benefit-desc">年齢層を絞ることで、真剣な出会いの確率が劇的に上がります</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-icon-circle">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <p class="benefit-title">プロフィール完全サポート</p>
+          <p class="benefit-desc">登録からマッチングまで、専任スタッフがサポート</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="testimonials-section">
+    <div class="section-inner">
+      <h2 class="sky-section-title">実際に<span>マッチングした方の声</span></h2>
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <div class="testimonial-stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-quote">1ヶ月でマッチングできました。大人の余裕が武器になるとは思っていませんでした。</p>
+          <p class="testimonial-name">田中さん（54歳・会社員）</p>
+        </div>
+        <div class="testimonial-card">
+          <div class="testimonial-stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-quote">若い頃よりいまの方がモテると実感。経験と安定感が女性に響くんですね。</p>
+          <p class="testimonial-name">佐藤さん（58歳・自営業）</p>
+        </div>
+        <div class="testimonial-card">
+          <div class="testimonial-stars">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="testimonial-quote">50代専用というだけで、最初からお互い真剣。純粋に出会いを楽しめています。</p>
+          <p class="testimonial-name">鈴木さん（52歳・会社員）</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA SECTION -->
+  <section class="cta-section">
+    <div class="cta-ring"></div>
+    <div class="cta-ring"></div>
+    <h2 class="sky-section-title">今すぐ<span>無料登録</span>する</h2>
+    <p class="cta-sub-text">50代からが、本当のモテ時代。</p>
+    <div class="cta-wrap">
+      <a href="#" class="btn-line">
+        <i class="fab fa-line" style="font-size:1.3rem;"></i>
+        今すぐLINEで無料登録する
+      </a>
+      <div class="cta-checks">
+        <span><i class="fa-solid fa-check"></i> 登録60秒</span>
+        <span><i class="fa-solid fa-check"></i> 完全無料</span>
+        <span><i class="fa-solid fa-check"></i> いつでも退会OK</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <span class="footer-logo">LUNE</span>
+    <p class="footer-copy">© 2025 LUNE. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Nav scroll effect
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 60) {
+        navbar.classList.remove('transparent');
+        navbar.classList.add('frosted');
+      } else {
+        navbar.classList.remove('frosted');
+        navbar.classList.add('transparent');
+      }
+    });
+
+    // Intersection Observer for scroll animations
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) e.target.classList.add('visible');
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll(
+      '.stat-card, .problem-card, .benefit-card, .testimonial-card'
+    ).forEach(el => io.observe(el));
+
+    // Count-up
+    const countUp = (el) => {
+      const target = parseInt(el.dataset.target, 10);
+      const suffix = el.dataset.suffix || '';
+      const duration = 1600;
+      const start = performance.now();
+      const update = (now) => {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const current = Math.round(ease * target);
+        if (target >= 10000) {
+          el.textContent = (current / 1000).toFixed(0) + ',000' + suffix;
+        } else {
+          el.textContent = current + suffix;
+        }
+        if (progress < 1) requestAnimationFrame(update);
+      };
+      requestAnimationFrame(update);
+    };
+
+    const countObserver = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting && e.target.dataset.target) {
+          countUp(e.target);
+          countObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.stat-num[data-target]').forEach(el => countObserver.observe(el));
+  </script>
+</body>
+</html>

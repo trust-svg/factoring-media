@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>UI vol.4 — プロデザイン版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;background:#CBD5E1;padding:32px}
+.lbl{text-align:center;padding:20px 0 8px;font-size:11px;font-weight:700;color:#64748B;letter-spacing:.08em;text-transform:uppercase}
+.ttl{font-size:17px;font-weight:800;color:#1E293B;margin:0 auto 4px;max-width:1280px}
+.desc{font-size:12px;color:#64748B;max-width:1280px;margin:0 auto 14px}
+
+/* ===== PATTERN A: SmartHR-like Blue/White ===== */
+.pa{display:flex;height:700px;width:1280px;margin:0 auto 40px;box-shadow:0 4px 32px rgba(0,0,0,.14);border-radius:12px;overflow:hidden;background:#F8FAFC}
+.pa-sb{width:216px;min-width:216px;background:#fff;border-right:1px solid #E2E8F0;display:flex;flex-direction:column}
+.pa-logo{padding:18px 18px 14px;font-size:13px;font-weight:800;color:#1E40AF;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:8px}
+.pa-logo-icon{width:28px;height:28px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.pa-ng{padding:12px 10px 0}
+.pa-nl{font-size:9px;font-weight:700;color:#94A3B8;padding:0 8px 6px;letter-spacing:.08em;text-transform:uppercase}
+.pa-ni{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12px;color:#475569;cursor:pointer;margin-bottom:2px}
+.pa-ni.on{background:#EFF6FF;color:#1D4ED8;font-weight:700}
+.pa-ni:hover:not(.on){background:#F8FAFC}
+.pa-bx{margin-left:auto;background:#EF4444;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px}
+.pa-main{flex:1;overflow-y:auto;background:#F8FAFC}
+.pa-top{background:#fff;border-bottom:1px solid #E2E8F0;padding:0 22px;height:52px;display:flex;align-items:center;justify-content:space-between}
+.pa-pt{font-size:15px;font-weight:800;color:#0F172A}
+.pa-tr{display:flex;align-items:center;gap:10px;font-size:12px;color:#64748B}
+.pa-sel{border:1px solid #E2E8F0;background:#fff;padding:5px 10px;border-radius:7px;font-size:11px;color:#374151}
+.pa-c{padding:18px 22px}
+
+/* alert */
+.alert-y{background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:9px 14px;display:flex;align-items:center;gap:14px;margin-bottom:16px;font-size:11px;color:#92400E}
+.alert-r{background:#FEF2F2;border:1px solid #FCA5A5;border-left:3px solid #EF4444}
+.ait{display:flex;align-items:center;gap:4px;font-weight:700}
+.ait a{color:#D97706;text-decoration:none}
+
+/* 3-col achieve */
+.ag{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.ac{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid #F1F5F9}
+.ac-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.ac-t{font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.06em}
+.bx-g{background:#DCFCE7;color:#15803D;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px}
+.bx-y{background:#FEF9C3;color:#A16207;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px}
+.bx-r{background:#FEE2E2;color:#DC2626;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px}
+.ac-v{font-size:26px;font-weight:800;color:#0F172A;letter-spacing:-.02em}
+.ac-s{font-size:11px;color:#94A3B8;margin-top:2px;margin-bottom:10px}
+.pb{height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;margin-bottom:7px}
+.pf{height:100%;border-radius:3px}
+.pf-b{background:linear-gradient(90deg,#60A5FA,#2563EB)}
+.pf-y{background:linear-gradient(90deg,#FCD34D,#F59E0B)}
+.pf-g{background:linear-gradient(90deg,#6EE7B7,#10B981)}
+.ac-f{display:flex;justify-content:space-between;font-size:10px;color:#94A3B8}
+.proj{color:#10B981;font-weight:700}
+
+/* mid grid */
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid #F1F5F9}
+.card-h{font-size:12px;font-weight:700;color:#374151;margin-bottom:12px}
+
+/* kpi table */
+.kt{width:100%;border-collapse:collapse}
+.kt tr{border-bottom:1px solid #F8FAFC}
+.kt tr:last-child{border-bottom:none}
+.kt td{padding:7px 4px;font-size:12px}
+.kn{color:#64748B;font-weight:500}
+.kv{font-weight:700;color:#0F172A;text-align:right}
+.kd{text-align:right;font-size:11px;font-weight:700}
+.kd.up{color:#10B981}
+.kd.dn{color:#EF4444}
+.mb-wrap{width:72px}
+.mb{height:4px;background:#F1F5F9;border-radius:2px}
+.mf{height:100%;border-radius:2px;background:#3B82F6}
+.mf-r{background:#EF4444}
+
+/* calendar */
+.cal-h{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px}
+.cdl{font-size:9px;color:#94A3B8;text-align:center;font-weight:700}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cc{aspect-ratio:1;border-radius:4px;background:#F8FAFC;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94A3B8}
+.cc.s1{background:#DBEAFE;color:#1E40AF;font-weight:700}
+.cc.s2{background:#BFDBFE;color:#1D4ED8;font-weight:700}
+.cc.s3{background:#93C5FD;color:#1E3A8A;font-weight:700}
+.cc.td{background:#2563EB;color:#fff;font-weight:800;box-shadow:0 2px 8px rgba(37,99,235,.4)}
+.cc.ft{color:#E2E8F0}
+.cc.em{background:transparent}
+
+/* table */
+.tw{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden;border:1px solid #F1F5F9}
+.th{padding:14px 18px;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center}
+.th h3{font-size:13px;font-weight:700;color:#0F172A}
+table.dt{width:100%;border-collapse:collapse}
+table.dt th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.04em;background:#F8FAFC;border-bottom:1px solid #E2E8F0}
+table.dt td{padding:10px 14px;font-size:12px;color:#374151;border-bottom:1px solid #F8FAFC;vertical-align:middle}
+table.dt tbody tr:hover td{background:#F8FAFC}
+table.dt tbody tr:last-child td{border-bottom:none}
+.st{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.st.sold{background:#DCFCE7;color:#15803D}
+.st.ship{background:#DBEAFE;color:#1D4ED8}
+.st.pend{background:#FEF9C3;color:#A16207}
+.ib{display:flex;align-items:center;gap:6px}
+.ibt{flex:1;height:4px;background:#F1F5F9;border-radius:2px;min-width:50px}
+.ibf{height:100%;border-radius:2px;background:#3B82F6}
+.ibf.g{background:#10B981}
+.ibf.r{background:#EF4444}
+.ibv{font-size:11px;font-weight:700;min-width:34px;text-align:right;color:#374151}
+
+
+/* ===== PATTERN B: Dark Indigo (LayerX) ===== */
+.pb2{display:flex;height:700px;width:1280px;margin:0 auto 40px;box-shadow:0 4px 32px rgba(0,0,0,.2);border-radius:12px;overflow:hidden;background:#F1F5F9}
+.pb-sb{width:200px;min-width:200px;background:#1E293B;display:flex;flex-direction:column}
+.pb-logo{padding:18px 16px 14px;font-size:13px;font-weight:800;color:#fff;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:9px}
+.pb-lm{width:28px;height:28px;background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.pb-ng{padding:14px 10px 0}
+.pb-nl{font-size:9px;font-weight:700;color:rgba(255,255,255,.3);padding:0 10px 7px;letter-spacing:.1em;text-transform:uppercase}
+.pb-ni{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:7px;font-size:12px;color:rgba(255,255,255,.5);cursor:pointer;margin-bottom:2px}
+.pb-ni.on{background:rgba(99,102,241,.25);color:#C7D2FE;font-weight:700}
+.pb-ni.on .pbi{color:#818CF8}
+.pb-ni:hover:not(.on){background:rgba(255,255,255,.05);color:rgba(255,255,255,.75)}
+.pb2-bx{margin-left:auto;background:#EF4444;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px}
+.pb-bot{margin-top:auto;padding:14px;border-top:1px solid rgba(255,255,255,.07)}
+.pb-av{width:30px;height:30px;background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.pb-un{font-size:12px;color:rgba(255,255,255,.7);font-weight:600}
+.pb-ur{font-size:10px;color:rgba(255,255,255,.3)}
+
+.pb-main{flex:1;overflow-y:auto;background:#F1F5F9}
+.pb-top{background:#fff;border-bottom:1px solid #E2E8F0;padding:0 22px;height:52px;display:flex;align-items:center;justify-content:space-between}
+.pb-pt{font-size:15px;font-weight:800;color:#0F172A}
+.pb-btns{display:flex;gap:8px}
+.btn-pri{background:#6366F1;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-sec{background:#fff;color:#374151;border:1px solid #E2E8F0;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer}
+.pb-c{padding:18px 22px}
+
+/* achieve with colored top border */
+.pb-ag{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.pb-ac{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.05);position:relative;overflow:hidden}
+.pb-ac::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.pb-ac.ind::before{background:linear-gradient(90deg,#6366F1,#818CF8)}
+.pb-ac.amb::before{background:linear-gradient(90deg,#F59E0B,#FCD34D)}
+.pb-ac.em::before{background:linear-gradient(90deg,#10B981,#34D399)}
+.pb-lbl{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.pb-row{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.pb-v{font-size:26px;font-weight:800;color:#0F172A;letter-spacing:-.02em}
+.pb-tl{font-size:11px;color:#94A3B8}
+.pb-pf.ind{background:linear-gradient(90deg,#6366F1,#818CF8)}
+.pb-pf.amb{background:linear-gradient(90deg,#F59E0B,#FCD34D)}
+.pb-pf.em{background:linear-gradient(90deg,#10B981,#34D399)}
+.pb-pb{height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;margin-bottom:7px}
+.pb-pf{height:100%;border-radius:3px}
+.pb-ft{display:flex;justify-content:space-between;font-size:11px}
+.pb-pct{font-weight:700;color:#0F172A}
+.pb-fc{color:#10B981;font-weight:600}
+
+/* lower grid */
+.pb-lg{display:grid;grid-template-columns:1fr 360px;gap:14px}
+.pb-tc{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden}
+.pb-tch{padding:13px 18px;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center}
+.pb-tch h3{font-size:13px;font-weight:700;color:#0F172A}
+.pb-tag{font-size:10px;color:#6366F1;background:#EEF2FF;padding:3px 8px;border-radius:4px;font-weight:700}
+table.pb-t{width:100%;border-collapse:collapse}
+table.pb-t th{padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #F1F5F9}
+table.pb-t td{padding:9px 14px;font-size:12px;color:#374151;border-bottom:1px solid #F8FAFC;vertical-align:middle}
+table.pb-t tbody tr:hover td{background:#F8FAFC}
+table.pb-t tbody tr:last-child td{border-bottom:none}
+.pbst{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.pbst.sold{background:#ECFDF5;color:#059669}
+.pbst.ship{background:#EEF2FF;color:#6366F1}
+.pbst.pend{background:#FFFBEB;color:#D97706}
+.mb2{display:flex;align-items:center;gap:6px}
+.mbt{width:56px;height:4px;background:#F1F5F9;border-radius:2px;flex-shrink:0}
+.mbf{height:100%;border-radius:2px;background:#6366F1}
+.mbf.r{background:#EF4444}
+.mbv{font-size:11px;font-weight:700;color:#374151}
+.mbv.r{color:#EF4444}
+
+.pb-rc{display:flex;flex-direction:column;gap:14px}
+.pb-kc{background:#fff;border-radius:10px;padding:14px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.pb-kh{font-size:12px;font-weight:700;color:#0F172A;margin-bottom:10px}
+.pb-kr{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #F8FAFC;font-size:12px}
+.pb-kr:last-child{border-bottom:none}
+.pb-kn{color:#64748B}
+.pb-kv{font-weight:700;color:#0F172A}
+.pb-kt{font-size:11px;font-weight:700}
+.pb-kt.up{color:#10B981}
+.pb-kt.dn{color:#EF4444}
+.pb-cal{background:#fff;border-radius:10px;padding:14px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05);flex:1}
+.pb-ch{font-size:12px;font-weight:700;color:#0F172A;margin-bottom:10px;display:flex;justify-content:space-between}
+.pb-cdh{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px}
+.pb-cdl{font-size:9px;text-align:center;color:#94A3B8;font-weight:700}
+.pb-cg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.pbc{aspect-ratio:1;border-radius:4px;background:#F8FAFC;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94A3B8}
+.pbc.s1{background:#E0E7FF;color:#6366F1;font-weight:700}
+.pbc.s2{background:#C7D2FE;color:#4F46E5;font-weight:700}
+.pbc.s3{background:#A5B4FC;color:#3730A3;font-weight:700}
+.pbc.td{background:#6366F1;color:#fff;font-weight:800;box-shadow:0 2px 6px rgba(99,102,241,.4)}
+.pbc.ft{color:#E2E8F0}
+.pbc.em{background:transparent}
+
+/* bar chart widget */
+.bc-wrap{margin-bottom:16px}
+.bc-item{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.bc-lbl{font-size:10px;color:#64748B;width:22px;text-align:right;flex-shrink:0;font-weight:600}
+.bc-track{flex:1;height:18px;background:#F1F5F9;border-radius:5px;overflow:hidden}
+.bc-fill{height:100%;border-radius:5px;display:flex;align-items:center;padding-left:8px;font-size:10px;font-weight:700;color:#1E40AF;background:linear-gradient(90deg,#BAE6FD,#38BDF8)}
+.bc-fill.hl{background:linear-gradient(90deg,#7DD3FC,#0284C7);color:#fff}
+.bc-val{font-size:10px;color:#64748B;min-width:52px;text-align:right}
+</style>
+</head>
+<body>
+<div class="lbl">UI vol.4 — モダン日本SaaSスタイル（プロデザイン）</div>
+
+<!-- PATTERN A -->
+<div class="ttl">パターン A — ブルー×ホワイト クリーン（SmartHR / マネーフォワード系）</div>
+<div class="desc">清潔感×信頼感。現代国産SaaSで最も多いスタイル。インライン利益率バー + カレンダーヒートマップ内蔵。</div>
+<div class="pa">
+  <div class="pa-sb">
+    <div class="pa-logo"><div class="pa-logo-icon">🛒</div> eBay Hub</div>
+    <div class="pa-ng">
+      <div class="pa-nl">メイン</div>
+      <div class="pa-ni on">📊 ダッシュボード</div>
+      <div class="pa-ni">📦 出品管理 <span class="pa-bx">3</span></div>
+      <div class="pa-ni">🔍 仕入れリサーチ</div>
+      <div class="pa-ni">💬 バイヤー対応 <span class="pa-bx">7</span></div>
+    </div>
+    <div class="pa-ng" style="margin-top:8px">
+      <div class="pa-nl">財務</div>
+      <div class="pa-ni">💴 売上・利益</div>
+      <div class="pa-ni">📅 スケジュール</div>
+    </div>
+    <div class="pa-ng" style="margin-top:8px">
+      <div class="pa-nl">設定</div>
+      <div class="pa-ni">⚙️ 設定</div>
+    </div>
+  </div>
+  <div class="pa-main">
+    <div class="pa-top">
+      <div class="pa-pt">ダッシュボード</div>
+      <div class="pa-tr">
+        <select class="pa-sel"><option>2026年4月</option></select>
+        <span>Hiro ▾</span>
+      </div>
+    </div>
+    <div class="pa-c">
+      <div class="alert-y">⚠️
+        <span class="ait">在庫切れ <a href="#">7件</a></span>
+        <span class="ait">💬 未読 <a href="#">3件</a></span>
+        <span class="ait">📉 価格アラート <a href="#">2件</a></span>
+      </div>
+      <div class="ag">
+        <div class="ac">
+          <div class="ac-top"><div class="ac-t">月間売上</div><span class="bx-g">64% 達成</span></div>
+          <div class="ac-v">¥3,200,000</div>
+          <div class="ac-s">目標 ¥5,000,000</div>
+          <div class="pb"><div class="pf pf-b" style="width:64%"></div></div>
+          <div class="ac-f"><span>残 ¥1,800,000</span><span class="proj">予測 ¥8.1M ✅</span></div>
+        </div>
+        <div class="ac">
+          <div class="ac-top"><div class="ac-t">利益率</div><span class="bx-y">92% 達成</span></div>
+          <div class="ac-v">18.4%</div>
+          <div class="ac-s">目標 20.0%</div>
+          <div class="pb"><div class="pf pf-y" style="width:92%"></div></div>
+          <div class="ac-f"><span>前月比 -1.6% ↓</span><span>ペース注意</span></div>
+        </div>
+        <div class="ac">
+          <div class="ac-top"><div class="ac-t">月間利益</div><span class="bx-r">59% 達成</span></div>
+          <div class="ac-v">¥590,000</div>
+          <div class="ac-s">目標 ¥1,000,000</div>
+          <div class="pb"><div class="pf pf-g" style="width:59%"></div></div>
+          <div class="ac-f"><span>残 ¥410,000</span><span class="proj">予測 ¥1.5M ✅</span></div>
+        </div>
+      </div>
+      <!-- 曜日別棒グラフ -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-h">📊 曜日別平均売上（今月）</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:80px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;font-weight:700;color:#64748B">¥28K</div>
+            <div style="flex:1;width:100%;background:linear-gradient(0deg,#60A5FA,#2563EB);border-radius:4px 4px 0 0;min-height:56px;max-height:56px"></div>
+            <div style="font-size:10px;color:#94A3B8">月</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;font-weight:700;color:#64748B">¥22K</div>
+            <div style="width:100%;background:linear-gradient(0deg,#93C5FD,#3B82F6);border-radius:4px 4px 0 0;height:44px"></div>
+            <div style="font-size:10px;color:#94A3B8">火</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;font-weight:700;color:#1D4ED8">¥32K</div>
+            <div style="width:100%;background:linear-gradient(0deg,#1D4ED8,#1E40AF);border-radius:4px 4px 0 0;height:64px;box-shadow:0 2px 8px rgba(29,78,216,.3)"></div>
+            <div style="font-size:10px;color:#94A3B8">水</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;font-weight:700;color:#64748B">¥20K</div>
+            <div style="width:100%;background:linear-gradient(0deg,#93C5FD,#3B82F6);border-radius:4px 4px 0 0;height:40px"></div>
+            <div style="font-size:10px;color:#94A3B8">木</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;font-weight:700;color:#1D4ED8">¥35K</div>
+            <div style="width:100%;background:linear-gradient(0deg,#1D4ED8,#1E40AF);border-radius:4px 4px 0 0;height:70px;box-shadow:0 2px 8px rgba(29,78,216,.3)"></div>
+            <div style="font-size:10px;color:#94A3B8">金</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;font-weight:700;color:#64748B">¥15K</div>
+            <div style="width:100%;background:linear-gradient(0deg,#BFDBFE,#93C5FD);border-radius:4px 4px 0 0;height:30px"></div>
+            <div style="font-size:10px;color:#94A3B8">土</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;font-weight:700;color:#64748B">¥12K</div>
+            <div style="width:100%;background:linear-gradient(0deg,#BFDBFE,#93C5FD);border-radius:4px 4px 0 0;height:24px"></div>
+            <div style="font-size:10px;color:#94A3B8">日</div>
+          </div>
+        </div>
+      </div>
+      <div class="mg">
+        <div class="card">
+          <div class="card-h">📈 KPI 前月同日比</div>
+          <table class="kt">
+            <tr><td class="kn">売上</td><td class="kv">¥3,200,000</td><td class="mb-wrap"><div class="mb"><div class="mf" style="width:64%"></div></div></td><td class="kd up">+12% ↑</td></tr>
+            <tr><td class="kn">利益率</td><td class="kv">18.4%</td><td class="mb-wrap"><div class="mb"><div class="mf" style="width:92%"></div></div></td><td class="kd dn">-1.6% ↓</td></tr>
+            <tr><td class="kn">出品数</td><td class="kv">142件</td><td class="mb-wrap"><div class="mb"><div class="mf" style="width:78%"></div></div></td><td class="kd up">+8件 ↑</td></tr>
+            <tr><td class="kn">在庫切れ</td><td class="kv">7件</td><td class="mb-wrap"><div class="mb"><div class="mf mf-r" style="width:30%"></div></div></td><td class="kd up">-3件 改善</td></tr>
+            <tr><td class="kn">注文数</td><td class="kv">89件</td><td class="mb-wrap"><div class="mb"><div class="mf" style="width:85%"></div></div></td><td class="kd up">+14% ↑</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-h">📅 2026年4月 売上カレンダー</div>
+          <div class="cal-h">
+            <div class="cdl">日</div><div class="cdl">月</div><div class="cdl">火</div><div class="cdl">水</div><div class="cdl">木</div><div class="cdl">金</div><div class="cdl">土</div>
+          </div>
+          <div class="cal">
+            <div class="cc em"></div><div class="cc s1">1</div><div class="cc s2">2</div><div class="cc s1">3</div><div class="cc s1">4</div><div class="cc s2">5</div><div class="cc">6</div>
+            <div class="cc">7</div><div class="cc s1">8</div><div class="cc s3">9</div><div class="cc s2">10</div><div class="cc s1">11</div><div class="cc td">12</div><div class="cc ft">13</div>
+            <div class="cc ft">14</div><div class="cc ft">15</div><div class="cc ft">16</div><div class="cc ft">17</div><div class="cc ft">18</div><div class="cc ft">19</div><div class="cc ft">20</div>
+            <div class="cc ft">21</div><div class="cc ft">22</div><div class="cc ft">23</div><div class="cc ft">24</div><div class="cc ft">25</div><div class="cc ft">26</div><div class="cc ft">27</div>
+            <div class="cc ft">28</div><div class="cc ft">29</div><div class="cc ft">30</div>
+          </div>
+          <div style="margin-top:7px;font-size:11px;color:#64748B">今日 4/12: ¥18,400 · 3件</div>
+        </div>
+      </div>
+      <div class="tw">
+        <div class="th"><h3>直近の売上明細</h3><span style="font-size:12px;color:#94A3B8">89件 / 今月</span></div>
+        <table class="dt">
+          <thead><tr><th>商品名</th><th>売価</th><th>利益</th><th>利益率</th><th>ステータス</th><th>日付</th></tr></thead>
+          <tbody>
+            <tr><td>BANDAI Action Figure Ltd.</td><td>¥8,500</td><td><strong>¥4,300</strong></td><td><div class="ib"><div class="ibt"><div class="ibf g" style="width:51%"></div></div><span class="ibv">50.6%</span></div></td><td><span class="st ship">発送済</span></td><td>4/12</td></tr>
+            <tr><td>Vintage Camera Minolta X-700</td><td>¥24,000</td><td><strong>¥9,000</strong></td><td><div class="ib"><div class="ibt"><div class="ibf" style="width:38%"></div></div><span class="ibv">37.5%</span></div></td><td><span class="st sold">決済済</span></td><td>4/11</td></tr>
+            <tr><td>Pokemon Cards Box Sealed</td><td>¥12,800</td><td><strong>¥6,300</strong></td><td><div class="ib"><div class="ibt"><div class="ibf g" style="width:49%"></div></div><span class="ibv">49.2%</span></div></td><td><span class="st ship">発送済</span></td><td>4/11</td></tr>
+            <tr><td>Sony WH-1000XM5 Headphones</td><td>¥31,000</td><td><strong style="color:#EF4444">¥2,500</strong></td><td><div class="ib"><div class="ibt"><div class="ibf r" style="width:8%"></div></div><span class="ibv" style="color:#EF4444">8.1%</span></div></td><td><span class="st pend">未発送</span></td><td>4/10</td></tr>
+            <tr><td>Nikon F3 Film Camera Body</td><td>¥18,500</td><td><strong>¥8,500</strong></td><td><div class="ib"><div class="ibt"><div class="ibf" style="width:46%"></div></div><span class="ibv">45.9%</span></div></td><td><span class="st sold">決済済</span></td><td>4/9</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PATTERN B -->
+<div class="ttl">パターン B — ダーク Indigo × テーブル重視（LayerX / Notion系）</div>
+<div class="desc">重厚感・専門性。ダークサイドナビ + 縦型棒グラフ + カレンダー右配置。情報密度最大。</div>
+<div class="pb2">
+  <div class="pb-sb">
+    <div class="pb-logo"><div class="pb-lm">🛒</div>eBay Hub</div>
+    <div class="pb-ng">
+      <div class="pb-nl">MAIN</div>
+      <div class="pb-ni on"><span class="pbi">📊</span> ダッシュボード</div>
+      <div class="pb-ni"><span>📦</span> 出品管理 <span class="pb2-bx">3</span></div>
+      <div class="pb-ni"><span>🔍</span> 仕入れリサーチ</div>
+      <div class="pb-ni"><span>💬</span> バイヤー対応 <span class="pb2-bx">7</span></div>
+      <div class="pb-ni"><span>💴</span> 売上・利益</div>
+    </div>
+    <div class="pb-ng" style="margin-top:8px">
+      <div class="pb-nl">TOOLS</div>
+      <div class="pb-ni"><span>📅</span> スケジュール</div>
+      <div class="pb-ni"><span>⚙️</span> 設定</div>
+    </div>
+    <div class="pb-bot">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="pb-av">H</div>
+        <div><div class="pb-un">Hiro</div><div class="pb-ur">管理者</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="pb-main">
+    <div class="pb-top">
+      <div class="pb-pt">ダッシュボード</div>
+      <div class="pb-btns">
+        <button class="btn-sec">📤 エクスポート</button>
+        <button class="btn-pri">＋ 出品登録</button>
+      </div>
+    </div>
+    <div class="pb-c">
+      <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-left:3px solid #F59E0B;border-radius:8px;padding:9px 14px;margin-bottom:16px;font-size:11px;color:#92400E;display:flex;gap:14px;align-items:center">
+        ⚠️ <strong>在庫切れ 7件</strong> · 未読メッセージ <strong>3件</strong> · 価格アラート <strong>2件</strong>
+      </div>
+      <div class="pb-ag">
+        <div class="pb-ac ind">
+          <div class="pb-lbl">月間売上</div>
+          <div class="pb-row"><span class="pb-v">¥3,200,000</span><span class="pb-tl">/ ¥5,000,000</span></div>
+          <div class="pb-pb"><div class="pb-pf ind" style="width:64%"></div></div>
+          <div class="pb-ft"><span class="pb-pct">64%</span><span class="pb-fc">予測 ¥8.1M ✅</span></div>
+        </div>
+        <div class="pb-ac amb">
+          <div class="pb-lbl">利益率</div>
+          <div class="pb-row"><span class="pb-v">18.4%</span><span class="pb-tl">/ 20.0%</span></div>
+          <div class="pb-pb"><div class="pb-pf amb" style="width:92%"></div></div>
+          <div class="pb-ft"><span class="pb-pct">92%</span><span style="color:#F59E0B;font-weight:600">前月比 -1.6%</span></div>
+        </div>
+        <div class="pb-ac em">
+          <div class="pb-lbl">月間利益</div>
+          <div class="pb-row"><span class="pb-v">¥590,000</span><span class="pb-tl">/ ¥1,000,000</span></div>
+          <div class="pb-pb"><div class="pb-pf em" style="width:59%"></div></div>
+          <div class="pb-ft"><span class="pb-pct">59%</span><span class="pb-fc">予測 ¥1.5M ✅</span></div>
+        </div>
+      </div>
+      <div class="pb-lg">
+        <div class="pb-tc">
+          <div class="pb-tch"><h3>売上明細 — 今月</h3><span class="pb-tag">89件</span></div>
+          <table class="pb-t">
+            <thead><tr><th>商品</th><th>売価</th><th>利益</th><th>利益率</th><th>ステータス</th><th>日付</th></tr></thead>
+            <tbody>
+              <tr><td>BANDAI Action Figure Ltd.</td><td>¥8,500</td><td><strong>¥4,300</strong></td><td><div class="mb2"><div class="mbt"><div class="mbf" style="width:51%"></div></div><span class="mbv">50.6%</span></div></td><td><span class="pbst ship">発送済</span></td><td>4/12</td></tr>
+              <tr><td>Vintage Camera Minolta</td><td>¥24,000</td><td><strong>¥9,000</strong></td><td><div class="mb2"><div class="mbt"><div class="mbf" style="width:38%"></div></div><span class="mbv">37.5%</span></div></td><td><span class="pbst sold">決済済</span></td><td>4/11</td></tr>
+              <tr><td>Pokemon Cards Box Sealed</td><td>¥12,800</td><td><strong>¥6,300</strong></td><td><div class="mb2"><div class="mbt"><div class="mbf" style="width:49%"></div></div><span class="mbv">49.2%</span></div></td><td><span class="pbst ship">発送済</span></td><td>4/11</td></tr>
+              <tr><td>Sony WH-1000XM5</td><td>¥31,000</td><td><strong style="color:#EF4444">¥2,500</strong></td><td><div class="mb2"><div class="mbt"><div class="mbf r" style="width:8%"></div></div><span class="mbv r">8.1%</span></div></td><td><span class="pbst pend">未発送</span></td><td>4/10</td></tr>
+              <tr><td>Nikon F3 Film Camera</td><td>¥18,500</td><td><strong>¥8,500</strong></td><td><div class="mb2"><div class="mbt"><div class="mbf" style="width:46%"></div></div><span class="mbv">45.9%</span></div></td><td><span class="pbst sold">決済済</span></td><td>4/9</td></tr>
+            </tbody>
+          </table>
+          <!-- bar chart inside card -->
+          <div style="padding:14px 18px;border-top:1px solid #F8FAFC">
+            <div style="font-size:12px;font-weight:700;color:#0F172A;margin-bottom:10px">📊 曜日別売上</div>
+            <div class="bc-wrap">
+              <div class="bc-item"><span class="bc-lbl">月</span><div class="bc-track"><div class="bc-fill" style="width:82%">¥28,400</div></div></div>
+              <div class="bc-item"><span class="bc-lbl">火</span><div class="bc-track"><div class="bc-fill" style="width:65%">¥22,600</div></div></div>
+              <div class="bc-item"><span class="bc-lbl">水</span><div class="bc-track"><div class="bc-fill hl" style="width:91%">¥31,500</div></div></div>
+              <div class="bc-item"><span class="bc-lbl">木</span><div class="bc-track"><div class="bc-fill" style="width:58%">¥20,100</div></div></div>
+              <div class="bc-item"><span class="bc-lbl">金</span><div class="bc-track"><div class="bc-fill hl" style="width:100%">¥34,700</div></div></div>
+              <div class="bc-item"><span class="bc-lbl">土</span><div class="bc-track"><div class="bc-fill" style="width:44%">¥15,300</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="pb-rc">
+          <div class="pb-kc">
+            <div class="pb-kh">📈 KPI 前月同日比</div>
+            <div class="pb-kr"><span class="pb-kn">売上</span><span class="pb-kv">¥3,200,000</span><span class="pb-kt up">+12% ↑</span></div>
+            <div class="pb-kr"><span class="pb-kn">利益率</span><span class="pb-kv">18.4%</span><span class="pb-kt dn">-1.6% ↓</span></div>
+            <div class="pb-kr"><span class="pb-kn">出品数</span><span class="pb-kv">142件</span><span class="pb-kt up">+8件 ↑</span></div>
+            <div class="pb-kr"><span class="pb-kn">在庫切れ</span><span class="pb-kv">7件</span><span class="pb-kt up">-3件 改善</span></div>
+            <div class="pb-kr"><span class="pb-kn">注文数</span><span class="pb-kv">89件</span><span class="pb-kt up">+14% ↑</span></div>
+          </div>
+          <div class="pb-cal">
+            <div class="pb-ch"><span>📅 4月 カレンダー</span><span style="font-size:10px;font-weight:500;color:#94A3B8">今日 ¥18,400</span></div>
+            <div class="pb-cdh">
+              <div class="pb-cdl">日</div><div class="pb-cdl">月</div><div class="pb-cdl">火</div><div class="pb-cdl">水</div><div class="pb-cdl">木</div><div class="pb-cdl">金</div><div class="pb-cdl">土</div>
+            </div>
+            <div class="pb-cg">
+              <div class="pbc em"></div><div class="pbc s1">1</div><div class="pbc s2">2</div><div class="pbc s1">3</div><div class="pbc s1">4</div><div class="pbc s2">5</div><div class="pbc">6</div>
+              <div class="pbc">7</div><div class="pbc s1">8</div><div class="pbc s3">9</div><div class="pbc s2">10</div><div class="pbc s1">11</div><div class="pbc td">12</div><div class="pbc ft">13</div>
+              <div class="pbc ft">14</div><div class="pbc ft">15</div><div class="pbc ft">16</div><div class="pbc ft">17</div><div class="pbc ft">18</div><div class="pbc ft">19</div><div class="pbc ft">20</div>
+              <div class="pbc ft">21</div><div class="pbc ft">22</div><div class="pbc ft">23</div><div class="pbc ft">24</div><div class="pbc ft">25</div><div class="pbc ft">26</div><div class="pbc ft">27</div>
+              <div class="pbc ft">28</div><div class="pbc ft">29</div><div class="pbc ft">30</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUNE — 大人の温もりで、本物の縁を結ぶ。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --surface: #F5F3FF;
+      --accent: #6366F1;
+      --accent-light: #EEF2FF;
+      --sand: #D4A96A;
+      --sand-light: #FEF3C7;
+      --text-h: #312E81;
+      --text-b: #44403C;
+      --text-muted: #9CA3AF;
+      --line-green: #06C755;
+      --radius: 8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text-b);
+      line-height: 1.75;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Cormorant Garamond', 'Zen Old Mincho', serif;
+      color: var(--text-h);
+    }
+
+    .container { max-width: 1060px; margin: 0 auto; padding: 0 28px; }
+    .section { padding: 88px 0; }
+
+    /* ─── NAV ─── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--sand);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 0;
+    }
+    .logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 1.7rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    .nav-links {
+      display: flex; align-items: center; gap: 32px;
+      list-style: none;
+    }
+    .nav-links a {
+      text-decoration: none;
+      color: var(--text-b);
+      font-size: 0.875rem;
+      position: relative;
+      padding-bottom: 3px;
+    }
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 0; height: 1px;
+      background: var(--sand);
+      transition: width 0.3s ease;
+    }
+    .nav-links a:hover::after { width: 100%; }
+
+    .nav-cta {
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      background: transparent;
+      border-radius: 50px;
+      padding: 9px 22px;
+      font-size: 0.85rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+    .nav-cta:hover { background: var(--accent); color: #fff; }
+
+    /* ─── HERO ─── */
+    #hero {
+      min-height: 100vh;
+      padding-top: 80px;
+      display: flex; align-items: center;
+      background: var(--bg);
+    }
+    .hero-content {
+      text-align: center;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    .hero-eyebrow {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 1rem;
+      color: var(--text-muted);
+      letter-spacing: 0.2em;
+      display: block;
+      margin-bottom: 24px;
+      opacity: 0;
+      animation: elegantFade 0.9s ease forwards 0.2s;
+    }
+    .hero-h1 {
+      font-size: clamp(2rem, 4.5vw, 3.4rem);
+      line-height: 1.45;
+      margin-bottom: 0;
+      opacity: 0;
+      animation: elegantFade 0.9s ease forwards 0.5s;
+      font-weight: 700;
+    }
+    .gold-rule {
+      width: 0;
+      height: 1px;
+      background: var(--sand);
+      margin: 28px auto;
+      animation: goldExpand 0.5s ease forwards 1.1s;
+    }
+    .hero-sub {
+      color: var(--text-muted);
+      font-size: 0.975rem;
+      margin-bottom: 36px;
+      opacity: 0;
+      animation: elegantFade 0.9s ease forwards 0.9s;
+    }
+    .hero-stats {
+      display: flex; align-items: center; justify-content: center;
+      gap: 20px;
+      margin-bottom: 44px;
+      opacity: 0;
+      animation: elegantFade 0.9s ease forwards 1.2s;
+    }
+    .hero-stat-item {
+      text-align: center;
+    }
+    .hero-stat-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .hero-stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 2px;
+    }
+    .hero-stat-dot {
+      width: 5px; height: 5px;
+      background: var(--accent);
+      border-radius: 50%;
+      opacity: 0.4;
+    }
+    .hero-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      padding: 16px 44px;
+      font-size: 0.975rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 0;
+      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.25);
+      opacity: 0;
+      animation: elegantFade 0.9s ease forwards 1.4s;
+    }
+    .hero-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px rgba(99,102,241,0.35);
+    }
+
+    @keyframes elegantFade { to { opacity: 1; } }
+    @keyframes goldExpand { to { width: 120px; } }
+
+    /* ─── PROBLEM ─── */
+    #problem { background: var(--surface); }
+    .section-title {
+      font-size: clamp(1.4rem, 3vw, 2.1rem);
+      text-align: center;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-bottom: 56px;
+    }
+    .problem-list {
+      max-width: 640px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .problem-item {
+      display: flex; align-items: flex-start; gap: 24px;
+      padding: 28px 0;
+      border-bottom: 1px solid rgba(99,102,241,0.1);
+      border-left: 2px solid var(--accent);
+      padding-left: 24px;
+      margin-left: 0;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    .problem-item:first-child { border-top: none; }
+    .problem-item.visible { opacity: 1; transform: translateY(0); }
+    .problem-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      opacity: 0.6;
+      min-width: 44px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .problem-text {
+      font-size: 0.95rem;
+      color: var(--text-b);
+      line-height: 1.7;
+      padding-top: 4px;
+    }
+
+    /* ─── BENEFITS ─── */
+    #benefits { background: var(--bg); }
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+    }
+    .benefit-card {
+      text-align: center;
+      padding: 36px 24px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .benefit-card.visible { opacity: 1; transform: translateY(0); }
+    .benefit-icon {
+      width: 58px; height: 58px;
+      background: var(--sand-light);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 18px;
+      color: var(--sand);
+      font-size: 1.3rem;
+    }
+    .benefit-card h3 {
+      font-size: 1rem;
+      margin-bottom: 12px;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .benefit-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.75;
+    }
+
+    /* ─── QUOTE ─── */
+    #quote {
+      background: var(--surface);
+      padding: 80px 0;
+    }
+    .quote-inner {
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: center;
+      opacity: 0;
+      transform: scale(0.98);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .quote-inner.visible { opacity: 1; transform: scale(1); }
+    .quote-marks {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 5rem;
+      color: var(--sand);
+      opacity: 0.4;
+      line-height: 0.6;
+      display: block;
+      margin-bottom: 20px;
+    }
+    .quote-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(1.3rem, 2.5vw, 1.9rem);
+      color: var(--text-h);
+      line-height: 1.65;
+      margin-bottom: 20px;
+    }
+    .quote-attr {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+    }
+
+    /* ─── STATS ─── */
+    #stats {
+      background: var(--bg);
+      border-top: 1px solid var(--accent-light);
+      border-bottom: 1px solid var(--accent-light);
+      padding: 56px 0;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+      text-align: center;
+    }
+    .stat-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2.2rem, 4.5vw, 3.2rem);
+      color: var(--accent);
+      font-weight: 700;
+      display: block;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 8px;
+    }
+    .stat-divider {
+      width: 32px; height: 1px;
+      background: var(--sand);
+      margin: 10px auto 0;
+    }
+
+    /* ─── TESTIMONIALS ─── */
+    #testimonials { background: var(--bg); }
+    .testi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .testi-card {
+      padding: 28px 24px;
+      border-top: 2px solid var(--accent-light);
+      transition: box-shadow 0.3s, border-color 0.3s;
+    }
+    .testi-card:hover {
+      box-shadow: 0 8px 28px rgba(99,102,241,0.08);
+      border-color: var(--accent);
+    }
+    .testi-body {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 1.05rem;
+      line-height: 1.75;
+      color: var(--text-b);
+      margin-bottom: 20px;
+    }
+    .testi-footer {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .testi-avatar {
+      width: 36px; height: 36px;
+      background: var(--accent-light);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .testi-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--accent);
+    }
+    .testi-age {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* ─── CTA ─── */
+    #cta {
+      background: var(--bg);
+      padding: 100px 0;
+    }
+    .cta-inner {
+      text-align: center;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+    .cta-h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .cta-sub {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-bottom: 36px;
+    }
+    .cta-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--line-green);
+      color: #fff;
+      border-radius: 50px;
+      padding: 18px 48px;
+      font-size: 1rem;
+      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(6,199,85,0.28);
+    }
+    .cta-btn:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 10px 32px rgba(6,199,85,0.4); }
+    .cta-note {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 14px;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      background: var(--bg);
+      border-top: 1.5px solid var(--accent);
+      padding: 32px 0;
+      text-align: center;
+    }
+    .footer-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 1.5rem;
+      color: var(--accent);
+      font-weight: 600;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .footer-copy { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .benefits-grid, .testi-grid, .stats-grid { grid-template-columns: 1fr; }
+      .hero-stats { flex-direction: column; gap: 16px; }
+      .hero-stat-dot { display: none; }
+      .section { padding: 60px 0; }
+    }
+    @media (max-width: 375px) {
+      .hero-h1 { font-size: 1.75rem; }
+      .hero-btn { padding: 14px 28px; font-size: 0.9rem; }
+    }
+
+    /* ─── REDUCED MOTION ─── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+      .hero-eyebrow, .hero-h1, .hero-sub, .hero-stats, .hero-btn,
+      .fade-up, .problem-item, .benefit-card, .quote-inner {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="container nav-inner">
+      <a class="logo" href="#">LUNE</a>
+      <ul class="nav-links">
+        <li><a href="#problem">悩み</a></li>
+        <li><a href="#benefits">特徴</a></li>
+        <li><a href="#testimonials">口コミ</a></li>
+      </ul>
+      <a class="nav-cta" href="#cta">無料登録</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="container">
+      <div class="hero-content">
+        <span class="hero-eyebrow">50代からが、本当のモテ時代。</span>
+        <h1 class="hero-h1">大人の温もりで、<br>本物の縁を結ぶ。</h1>
+        <div class="gold-rule"></div>
+        <p class="hero-sub">50代以上の男性が、毎月マッチングを叶えています</p>
+        <div class="hero-stats">
+          <div class="hero-stat-item">
+            <span class="hero-stat-num">12,000+</span>
+            <span class="hero-stat-label">会員数</span>
+          </div>
+          <div class="hero-stat-dot"></div>
+          <div class="hero-stat-item">
+            <span class="hero-stat-num">78%</span>
+            <span class="hero-stat-label">マッチング率</span>
+          </div>
+          <div class="hero-stat-dot"></div>
+          <div class="hero-stat-item">
+            <span class="hero-stat-num">92%</span>
+            <span class="hero-stat-label">満足度</span>
+          </div>
+        </div>
+        <a class="hero-btn" href="#cta">
+          <i class="fa-brands fa-line"></i>
+          LINEで無料登録する
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section id="problem" class="section">
+    <div class="container">
+      <h2 class="section-title fade-up">こんな悩み、ありませんか？</h2>
+      <p class="section-sub fade-up">多くの50代男性が感じているリアルな壁</p>
+      <div class="problem-list">
+        <div class="problem-item">
+          <span class="problem-num">01</span>
+          <p class="problem-text">出会いの場がなく、なんとなく日々が過ぎていく</p>
+        </div>
+        <div class="problem-item" style="transition-delay:0.12s">
+          <span class="problem-num">02</span>
+          <p class="problem-text">マッチングアプリは"若者向け"に見えて、踏み出せない</p>
+        </div>
+        <div class="problem-item" style="transition-delay:0.24s">
+          <span class="problem-num">03</span>
+          <p class="problem-text">自分のような年齢でも、本当に出会えるのか不安</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENEFITS -->
+  <section id="benefits" class="section">
+    <div class="container">
+      <h2 class="section-title fade-up">50代からモテる理由があります</h2>
+      <p class="section-sub fade-up">LUNEが選ばれる3つの特徴</p>
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <div class="benefit-icon"><i class="fa-solid fa-heart"></i></div>
+          <h3>大人を求める女性が多数在籍</h3>
+          <p>20〜40代の女性会員がLUNEを選ぶ理由は「落ち着いた大人の男性に出会いたい」から。経験が武器になります。</p>
+        </div>
+        <div class="benefit-card" style="transition-delay:0.15s">
+          <div class="benefit-icon"><i class="fa-solid fa-users"></i></div>
+          <h3>50代専用マッチング</h3>
+          <p>年齢層を絞ることで、真剣な出会いの確率が劇的に上がります。同じ温度感で向き合える場所です。</p>
+        </div>
+        <div class="benefit-card" style="transition-delay:0.3s">
+          <div class="benefit-icon"><i class="fa-solid fa-handshake"></i></div>
+          <h3>プロフィール完全サポート</h3>
+          <p>登録からマッチングまで、専任スタッフがサポート。はじめての方でも安心してご利用いただけます。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE -->
+  <section id="quote">
+    <div class="container">
+      <div class="quote-inner">
+        <span class="quote-marks">"</span>
+        <p class="quote-text">落ち着いた大人の男性に、<br>惹かれます。</p>
+        <p class="quote-attr">— 女性会員より</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="fade-up">
+          <span class="stat-num" data-target="12000" data-suffix="+">0</span>
+          <div class="stat-divider"></div>
+          <span class="stat-label">登録会員数</span>
+        </div>
+        <div class="fade-up" style="transition-delay:0.1s">
+          <span class="stat-num" data-target="78" data-suffix="%">0</span>
+          <div class="stat-divider"></div>
+          <span class="stat-label">マッチング率</span>
+        </div>
+        <div class="fade-up" style="transition-delay:0.2s">
+          <span class="stat-num" data-target="92" data-suffix="%">0</span>
+          <div class="stat-divider"></div>
+          <span class="stat-label">満足度</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section id="testimonials" class="section">
+    <div class="container">
+      <h2 class="section-title fade-up">成功した先輩たちの声</h2>
+      <p class="section-sub fade-up">50代からの出会いを叶えた実績</p>
+      <div class="testi-grid">
+        <div class="testi-card fade-up">
+          <p class="testi-body">「1ヶ月でマッチングできました。大人の余裕が武器になるとは思っていませんでした。」</p>
+          <div class="testi-footer">
+            <div class="testi-avatar">田</div>
+            <div>
+              <div class="testi-name">田中さん</div>
+              <div class="testi-age">54歳・会社員</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card fade-up" style="transition-delay:0.12s">
+          <p class="testi-body">「若い頃よりいまの方がモテると実感。経験と安定感が女性に響くんですね。」</p>
+          <div class="testi-footer">
+            <div class="testi-avatar">佐</div>
+            <div>
+              <div class="testi-name">佐藤さん</div>
+              <div class="testi-age">58歳・自営業</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card fade-up" style="transition-delay:0.24s">
+          <p class="testi-body">「50代専用というだけで、最初からお互い真剣。純粋に出会いを楽しめています。」</p>
+          <div class="testi-footer">
+            <div class="testi-avatar">鈴</div>
+            <div>
+              <div class="testi-name">鈴木さん</div>
+              <div class="testi-age">52歳・会社員</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section id="cta">
+    <div class="container">
+      <div class="cta-inner fade-up">
+        <h2 class="cta-h2">今すぐLINEで<br>無料登録する</h2>
+        <p class="cta-sub">登録60秒・完全無料・いつでも退会OK</p>
+        <a class="cta-btn" href="#">
+          <i class="fa-brands fa-line"></i>
+          今すぐ無料で始める
+        </a>
+        <p class="cta-note">
+          <i class="fa-solid fa-shield-halved" style="color:var(--sand);margin-right:4px"></i>
+          個人情報は厳重に管理しています
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <span class="footer-logo">LUNE</span>
+    <p class="footer-copy">© 2025 LUNE. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // ─── INTERSECTION OBSERVER ───
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.fade-up, .problem-item, .benefit-card, .quote-inner').forEach(el => io.observe(el));
+
+    // ─── COUNT UP ───
+    function countUp(el) {
+      const target = parseInt(el.dataset.target);
+      const suffix = el.dataset.suffix || '';
+      const duration = 1600;
+      const step = target / (duration / 16);
+      let current = 0;
+      const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        el.textContent = Math.floor(current).toLocaleString() + suffix;
+        if (current >= target) clearInterval(timer);
+      }, 16);
+    }
+
+    const statsObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.querySelectorAll('.stat-num[data-target]').forEach(el => countUp(el));
+          statsObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.4 });
+    statsObs.observe(document.getElementById('stats'));
+  </script>
+</body>
+</html>

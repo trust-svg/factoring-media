@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUNE — 大人の温もりで、本物の縁を結ぶ。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #F5F0E8;
+      --cream-dark: #EDE5D8;
+      --brown: #8B4513;
+      --terra: #C67B5C;
+      --sand: #D4A574;
+      --olive: #6B7C4C;
+      --dark-brown: #3D2B1F;
+      --body-text: #4A3728;
+      --muted: #9C7F6E;
+      --card-bg: #FDFAF5;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Source Sans 3', sans-serif;
+      background: var(--cream);
+      color: var(--dark-brown);
+      overflow-x: hidden;
+    }
+
+    /* ── GRAIN TEXTURE ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23grain)' opacity='1'/%3E%3C/svg%3E");
+    }
+
+    /* ── WAVY DIVIDER ── */
+    .wave-divider {
+      width: 100%;
+      overflow: hidden;
+      line-height: 0;
+    }
+    .wave-divider svg { display: block; width: 100%; }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      background: var(--cream);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px 24px;
+      overflow: hidden;
+    }
+
+    /* Organic blob background */
+    .hero-blob {
+      position: absolute;
+      width: min(600px, 90vw);
+      height: min(600px, 90vw);
+      background: radial-gradient(ellipse at center, var(--terra) 0%, rgba(198,123,92,0.4) 50%, transparent 70%);
+      border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation: blobMorph 8s ease-in-out infinite;
+      opacity: 0.18;
+      pointer-events: none;
+    }
+
+    @keyframes blobMorph {
+      0%   { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+      25%  { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+      50%  { border-radius: 30% 70% 60% 40% / 50% 60% 30% 60%; }
+      75%  { border-radius: 70% 30% 40% 60% / 30% 70% 50% 40%; }
+      100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+    }
+
+    /* Leaf decorations */
+    .leaf {
+      position: absolute;
+      opacity: 0.15;
+      animation: sway 5s ease-in-out infinite;
+    }
+    .leaf-1 { top: 10%; left: 5%; animation-delay: 0s; }
+    .leaf-2 { top: 20%; right: 8%; animation-delay: 1s; }
+    .leaf-3 { bottom: 15%; left: 8%; animation-delay: 2s; }
+    .leaf-4 { bottom: 20%; right: 5%; animation-delay: 0.5s; }
+
+    @keyframes sway {
+      0%, 100% { transform: rotate(-3deg) scale(1); }
+      50%       { transform: rotate(3deg) scale(1.05); }
+    }
+
+    .hero-content { position: relative; z-index: 1; max-width: 760px; }
+
+    .hero-tag {
+      display: inline-block;
+      background: var(--terra);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 6px 20px;
+      border-radius: 100px;
+      margin-bottom: 28px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease forwards 0.3s;
+    }
+
+    .hero-title {
+      font-family: 'Merriweather', serif;
+      font-size: clamp(1.8rem, 4.5vw, 3.4rem);
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--dark-brown);
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 0.9s ease forwards 0.5s;
+    }
+
+    .hero-title span { color: var(--terra); }
+
+    .hero-sub {
+      font-size: clamp(0.95rem, 2vw, 1.1rem);
+      color: var(--muted);
+      font-weight: 300;
+      line-height: 1.8;
+      margin-bottom: 40px;
+      opacity: 0;
+      animation: fadeUp 0.9s ease forwards 0.7s;
+    }
+
+    .hero-cta {
+      opacity: 0;
+      animation: fadeUp 0.9s ease forwards 0.9s;
+    }
+
+    .btn-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: #06C755;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 16px 40px;
+      border-radius: 100px;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+
+    .btn-line:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 12px 40px rgba(6,199,85,0.35);
+    }
+
+    .hero-badge {
+      margin-top: 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── PROBLEM SECTION ── */
+    .problem-section {
+      background: var(--cream);
+      padding: 100px 24px;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--olive);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: 'Merriweather', serif;
+      font-size: clamp(1.5rem, 3vw, 2.4rem);
+      font-weight: 700;
+      text-align: center;
+      color: var(--dark-brown);
+      margin-bottom: 60px;
+      line-height: 1.4;
+    }
+
+    .problems-list {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .problem-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      padding: 28px 32px;
+      background: var(--card-bg);
+      border-radius: 24px;
+      box-shadow: 0 4px 24px rgba(139,69,19,0.08);
+      opacity: 0;
+      transform: translateY(30px) rotateX(5deg);
+      transition: opacity 0.6s ease, transform 0.6s ease, box-shadow 0.3s;
+    }
+
+    .problem-item.visible {
+      opacity: 1;
+      transform: translateY(0) rotateX(0);
+    }
+
+    .problem-item:hover {
+      box-shadow: 0 8px 40px rgba(198,123,92,0.2);
+    }
+
+    .problem-icon {
+      width: 44px;
+      height: 44px;
+      background: rgba(198,123,92,0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--terra);
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .problem-text {
+      font-size: 1rem;
+      color: var(--body-text);
+      line-height: 1.75;
+      padding-top: 10px;
+    }
+
+    /* ── TERRA SECTION ── */
+    .terra-section {
+      background: linear-gradient(135deg, #EDE0D0 0%, #E8D5C0 50%, #DFC9AE 100%);
+      padding: 80px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .terra-section::before {
+      content: '';
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(198,123,92,0.2) 0%, transparent 70%);
+      border-radius: 50%;
+      top: -100px;
+      right: -100px;
+      pointer-events: none;
+    }
+
+    .terra-inner {
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: center;
+      position: relative;
+    }
+
+    .terra-number {
+      font-family: 'Merriweather', serif;
+      font-size: 5rem;
+      font-weight: 700;
+      color: var(--terra);
+      opacity: 0.15;
+      line-height: 1;
+    }
+
+    .terra-quote {
+      font-family: 'Merriweather', serif;
+      font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+      font-style: italic;
+      color: var(--dark-brown);
+      line-height: 1.6;
+      margin-top: -30px;
+    }
+
+    /* ── BENEFITS ── */
+    .benefits-section {
+      background: var(--cream);
+      padding: 100px 24px;
+    }
+
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 28px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .benefit-card {
+      background: var(--card-bg);
+      border-radius: 24px;
+      padding: 40px 32px;
+      box-shadow: 0 4px 24px rgba(139,69,19,0.07);
+      transition: transform 0.3s, box-shadow 0.3s;
+      opacity: 0;
+      transform: translateY(30px);
+    }
+
+    .benefit-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .benefit-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 12px 48px rgba(198,123,92,0.18);
+    }
+
+    .benefit-icon-wrap {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, var(--terra), var(--sand));
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+
+    .benefit-title {
+      font-family: 'Merriweather', serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--dark-brown);
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .benefit-text {
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.85;
+    }
+
+    /* ── STATS ── */
+    .stats-section {
+      background: var(--cream-dark);
+      padding: 80px 24px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 40px;
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .stat-item {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+    .stat-item.visible { opacity: 1; transform: translateY(0); }
+
+    .stat-number {
+      font-family: 'Merriweather', serif;
+      font-size: clamp(2.2rem, 4vw, 3.5rem);
+      font-weight: 700;
+      color: var(--olive);
+    }
+
+    .stat-label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      margin-top: 6px;
+    }
+
+    /* ── TESTIMONIALS ── */
+    .testimonials-section {
+      background: linear-gradient(135deg, #EDE0D0 0%, #E8D5C0 100%);
+      padding: 100px 24px;
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 28px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .testimonial-card {
+      background: var(--card-bg);
+      border-radius: 24px 24px 24px 4px;
+      padding: 32px;
+      border: 2px solid var(--sand);
+      box-shadow: 6px 6px 0 rgba(198,123,92,0.15);
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+
+    .testimonial-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .testimonial-text {
+      font-family: 'Merriweather', serif;
+      font-style: italic;
+      font-size: 0.95rem;
+      color: var(--dark-brown);
+      line-height: 1.85;
+      margin-bottom: 20px;
+    }
+
+    .testimonial-author-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .testimonial-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--terra), var(--sand));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .testimonial-author {
+      font-size: 0.82rem;
+      color: var(--brown);
+      font-weight: 600;
+    }
+
+    /* ── CTA ── */
+    .cta-section {
+      background: var(--cream);
+      padding: 120px 24px;
+      text-align: center;
+    }
+
+    .cta-blob {
+      position: relative;
+      display: inline-block;
+    }
+
+    .cta-title {
+      font-family: 'Merriweather', serif;
+      font-size: clamp(1.6rem, 3.5vw, 2.8rem);
+      font-weight: 700;
+      color: var(--dark-brown);
+      line-height: 1.4;
+      margin-bottom: 16px;
+    }
+
+    .cta-sub {
+      font-size: 1rem;
+      color: var(--muted);
+      margin-bottom: 48px;
+      font-weight: 300;
+    }
+
+    .cta-checks {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 28px;
+    }
+
+    .cta-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .cta-check i { color: var(--olive); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--dark-brown);
+      padding: 48px 24px;
+      text-align: center;
+    }
+
+    .footer-logo {
+      font-family: 'Merriweather', serif;
+      font-size: 1.6rem;
+      font-style: italic;
+      color: var(--sand);
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+
+    .footer-copy {
+      font-size: 0.75rem;
+      color: rgba(212,165,116,0.5);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .benefits-grid, .testimonials-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .problem-item { padding: 20px; }
+      .leaf { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .hero-tag, .hero-title, .hero-sub, .hero-cta { opacity: 1; transform: none; }
+      .hero-blob { animation: none; }
+      .leaf { animation: none; }
+      .problem-item, .benefit-card, .testimonial-card, .stat-item { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-blob"></div>
+
+    <!-- Leaf SVG decorations -->
+    <svg class="leaf leaf-1" width="80" height="120" viewBox="0 0 80 120">
+      <path d="M40 10 C10 30, 5 70, 40 110 C75 70, 70 30, 40 10Z" fill="#6B7C4C"/>
+      <line x1="40" y1="10" x2="40" y2="110" stroke="#6B7C4C" stroke-width="1" opacity="0.5"/>
+    </svg>
+    <svg class="leaf leaf-2" width="60" height="90" viewBox="0 0 60 90">
+      <path d="M30 5 C8 22, 5 55, 30 85 C55 55, 52 22, 30 5Z" fill="#C67B5C"/>
+      <line x1="30" y1="5" x2="30" y2="85" stroke="#C67B5C" stroke-width="1" opacity="0.5"/>
+    </svg>
+    <svg class="leaf leaf-3" width="70" height="100" viewBox="0 0 70 100">
+      <path d="M35 8 C9 28, 6 62, 35 92 C64 62, 61 28, 35 8Z" fill="#D4A574"/>
+      <line x1="35" y1="8" x2="35" y2="92" stroke="#D4A574" stroke-width="1" opacity="0.5"/>
+    </svg>
+    <svg class="leaf leaf-4" width="50" height="75" viewBox="0 0 50 75">
+      <path d="M25 5 C6 20, 4 48, 25 70 C46 48, 44 20, 25 5Z" fill="#6B7C4C"/>
+      <line x1="25" y1="5" x2="25" y2="70" stroke="#6B7C4C" stroke-width="1" opacity="0.5"/>
+    </svg>
+
+    <div class="hero-content">
+      <span class="hero-tag">LUNE — 50代専用マッチング</span>
+      <h1 class="hero-title">
+        大人の<span>温もり</span>で、<br>本物の縁を結ぶ。
+      </h1>
+      <p class="hero-sub">50代以上の男性が、毎月マッチングを叶えています</p>
+      <div class="hero-cta">
+        <a href="#" class="btn-line">
+          <i class="fab fa-line"></i>
+          LINEで無料登録
+        </a>
+        <p class="hero-badge">登録60秒・完全無料・いつでも退会OK</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WAVE DIVIDER -->
+  <div class="wave-divider" style="background:var(--cream);">
+    <svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60">
+      <path d="M0,30 C360,60 1080,0 1440,30 L1440,60 L0,60 Z" fill="#EDE0D0"/>
+    </svg>
+  </div>
+
+  <!-- PROBLEM -->
+  <section class="problem-section">
+    <div class="container">
+      <p class="section-label">Problems</p>
+      <h2 class="section-title">こんな悩み、<br>ありませんか？</h2>
+      <div class="problems-list">
+        <div class="problem-item">
+          <div class="problem-icon"><i class="fas fa-route"></i></div>
+          <p class="problem-text">出会いの場がなく、なんとなく日々が過ぎていく</p>
+        </div>
+        <div class="problem-item">
+          <div class="problem-icon"><i class="fas fa-mobile-alt"></i></div>
+          <p class="problem-text">マッチングアプリは"若者向け"に見えて、踏み出せない</p>
+        </div>
+        <div class="problem-item">
+          <div class="problem-icon"><i class="fas fa-question-circle"></i></div>
+          <p class="problem-text">自分のような年齢でも、本当に出会えるのか不安</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WAVE DIVIDER -->
+  <div class="wave-divider" style="background:var(--cream);">
+    <svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60">
+      <path d="M0,0 C360,60 1080,-20 1440,30 L1440,60 L0,60 Z" fill="var(--cream-dark)"/>
+    </svg>
+  </div>
+
+  <!-- TERRA QUOTE -->
+  <section class="terra-section">
+    <div class="terra-inner">
+      <div class="terra-number">50</div>
+      <p class="terra-quote">「50代からが、本当のモテ時代。<br>大人の余裕が、最高の魅力になる。」</p>
+    </div>
+  </section>
+
+  <!-- WAVE DIVIDER -->
+  <div class="wave-divider" style="background:var(--cream-dark);">
+    <svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60">
+      <path d="M0,30 C480,0 960,60 1440,20 L1440,60 L0,60 Z" fill="var(--cream)"/>
+    </svg>
+  </div>
+
+  <!-- BENEFITS -->
+  <section class="benefits-section">
+    <div class="container">
+      <p class="section-label">Why LUNE</p>
+      <h2 class="section-title">50代からモテる理由が<br>あります</h2>
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <div class="benefit-icon-wrap"><i class="fas fa-heart"></i></div>
+          <h3 class="benefit-title">大人を求める女性が多数在籍</h3>
+          <p class="benefit-text">20〜40代の女性会員がLUNEを選ぶ理由は「落ち着いた大人の男性に出会いたい」から。あなたの余裕が最大の武器になります。</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-icon-wrap"><i class="fas fa-users"></i></div>
+          <h3 class="benefit-title">50代専用マッチング</h3>
+          <p class="benefit-text">年齢層を絞ることで、真剣な出会いの確率が劇的に上がります。共通の価値観を持つ本物の出会いを提供します。</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-icon-wrap"><i class="fas fa-hands-helping"></i></div>
+          <h3 class="benefit-title">プロフィール完全サポート</h3>
+          <p class="benefit-text">登録からマッチングまで、専任スタッフがサポート。初めての方も安心して始められる環境を整えています。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats-section">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-number" data-target="12000" data-suffix="+">0</div>
+        <div class="stat-label">会員数</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" data-target="78" data-suffix="%">0</div>
+        <div class="stat-label">マッチング率</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" data-target="96" data-suffix="%">0</div>
+        <div class="stat-label">満足度</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WAVE DIVIDER -->
+  <div class="wave-divider" style="background:var(--cream-dark);">
+    <svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60">
+      <path d="M0,20 C360,60 1080,-10 1440,30 L1440,60 L0,60 Z" fill="#EDE0D0"/>
+    </svg>
+  </div>
+
+  <!-- TESTIMONIALS -->
+  <section class="testimonials-section">
+    <div class="container">
+      <p class="section-label">Voices</p>
+      <h2 class="section-title">実際に出会えた方々の声</h2>
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <p class="testimonial-text">「1ヶ月でマッチングできました。大人の余裕が武器になるとは思っていませんでした。」</p>
+          <div class="testimonial-author-row">
+            <div class="testimonial-avatar">田</div>
+            <span class="testimonial-author">田中さん（54歳・会社員）</span>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <p class="testimonial-text">「若い頃よりいまの方がモテると実感。経験と安定感が女性に響くんですね。」</p>
+          <div class="testimonial-author-row">
+            <div class="testimonial-avatar">佐</div>
+            <span class="testimonial-author">佐藤さん（58歳・自営業）</span>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <p class="testimonial-text">「50代専用というだけで、最初からお互い真剣。純粋に出会いを楽しめています。」</p>
+          <div class="testimonial-author-row">
+            <div class="testimonial-avatar">鈴</div>
+            <span class="testimonial-author">鈴木さん（52歳・会社員）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WAVE DIVIDER -->
+  <div class="wave-divider" style="background:#EDE0D0;">
+    <svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60">
+      <path d="M0,30 C480,60 960,0 1440,30 L1440,60 L0,60 Z" fill="var(--cream)"/>
+    </svg>
+  </div>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <p class="section-label">Get Started</p>
+    <h2 class="cta-title">今すぐLINEで<br>無料登録する</h2>
+    <p class="cta-sub">大人の温もりで、本物の縁を結びましょう</p>
+    <a href="#" class="btn-line" style="font-size:1.1rem; padding:18px 48px;">
+      <i class="fab fa-line"></i>
+      LINEで無料登録する
+    </a>
+    <div class="cta-checks">
+      <div class="cta-check"><i class="fas fa-check-circle"></i> 登録60秒</div>
+      <div class="cta-check"><i class="fas fa-check-circle"></i> 完全無料</div>
+      <div class="cta-check"><i class="fas fa-check-circle"></i> いつでも退会OK</div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">LUNE</div>
+    <p class="footer-copy">© 2025 LUNE. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // ── INTERSECTION OBSERVER ──
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          const delay = parseInt(el.dataset.delay || 0);
+          setTimeout(() => el.classList.add('visible'), delay * 120);
+          observer.unobserve(el);
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.problem-item, .benefit-card, .testimonial-card, .stat-item').forEach((el, i) => {
+      el.dataset.delay = i % 4;
+      observer.observe(el);
+    });
+
+    // ── COUNT UP ──
+    function countUp(el, target, suffix) {
+      let current = 0;
+      const steps = 60;
+      const duration = 1600;
+      const inc = target / steps;
+      let s = 0;
+      const t = setInterval(() => {
+        s++;
+        current = Math.min(Math.round(inc * s), target);
+        el.textContent = current.toLocaleString() + suffix;
+        if (current >= target) clearInterval(t);
+      }, duration / steps);
+    }
+
+    const statObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.querySelectorAll('[data-target]').forEach(el => {
+            countUp(el, parseInt(el.dataset.target), el.dataset.suffix || '');
+          });
+          statObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.4 });
+
+    const statsSection = document.querySelector('.stats-section');
+    if (statsSection) statObserver.observe(statsSection);
+  </script>
+</body>
+</html>

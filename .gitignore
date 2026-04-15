@@ -53,12 +53,13 @@ reports/*.html
 # Git worktrees
 .worktrees/
 
+# Node.js
+node_modules/
+
 # Separate git repos (managed independently)
 products/ai-uranai/
 products/ebay-inventory-tool/
 products/ebay-listing-generator/
 products/video-text-remover/
-reusable/matching-lp/
-ccskill-nanobanana/
-tmp/cc-secretary/
-tmp/cc-company/
+products/lp-templates/matching-lp/
+resources/references/tmp/

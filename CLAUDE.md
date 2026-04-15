@@ -4,43 +4,39 @@ This file is automatically read by Claude at the start of every session.
 
 ## Workspace Overview
 
-This workspace contains multiple **independent** directories.
+This workspace contains 4 top-level directories.
 They are NOT related unless explicitly stated.
 
 | Directory | Purpose |
 |---|---|
-| `client-projects/` | Client-specific deliverables. Isolated per client/contract. |
-| `products/` | My own products and tools (long-term assets). |
-| `marketing/` | Marketing assets for my own services/products. |
-| `reusable/` | Generalized templates. No client-specific content. |
-| `ideas/` | Notes, concepts, drafts. Documentation only. |
+| `.company/` | AI組織本部（部門・戦略・秘書・知識ベース） |
+| `products/` | 全プロダクト・ツール・クライアント案件 |
+| `marketing/` | 広告・マーケ素材（Google/Meta広告、SNS） |
+| `resources/` | ドキュメント・参考資料・素材 |
 
 ## Mandatory Rules
 
 1. **Always work ONLY in the directory explicitly specified by the user.**
 2. **Do NOT mix logic, content, or context across directories.**
-3. `client-projects/` must remain strictly isolated — no reuse without abstraction.
-4. `reusable/` must contain abstracted, non-client-specific content only.
-5. **If no target directory is specified, ask before proceeding.**
+3. `products/clients/` must remain strictly isolated — no reuse without abstraction.
+4. **If no target directory is specified, ask before proceeding.**
 
 ## Directory-Specific Notes
 
-### client-projects/
-- Each subdirectory = one client. Do not cross-reference clients.
-- Treat all content as confidential.
-
 ### products/
-- `ebay-inventory-tool/` — Python scraper + eBay listing automation
-- `google-integration/` — Google Calendar / Drive / Gmail agent
-- `trustlink/` — In planning phase
+- `ebay-agent/` — FastAPI + Claude tool_use + eBay API
+- `d-manager/` — Discord AI組織Bot
+- `messecoach/` (ZINQ) — LINE Bot AIコーチ
+- `factoring-media/` — ファクセルメディアサイト
+- `threads-auto/` — Threads自動運用
+- `lp-templates/` — LPテンプレート（旧reusable/）
+- `clients/` — クライアント案件
 
-### reusable/
-- `matching-lp/` — LP generation template (HTML + image assets + Python scripts)
-  - Scripts: `nanobanana_generate_*.py`, `check_models.py`
-  - Output: `index.html`
-
-### ideas/
-- Documentation-focused. No production code here.
+### resources/
+- `docs/` — 仕様書・設計プラン
+- `references/` — 参考資料・スクリーンショット・データファイル
+- `books/` — 参考書籍PDF
+- `images/` — 画像素材
 
 ## Code Style Preferences
 
@@ -51,5 +47,15 @@ They are NOT related unless explicitly stated.
 ## What NOT to Do
 
 - Never commit `.env` files
-- Never mix client data into `reusable/` or `ideas/`
+- Never mix client data into `products/` general directories
 - Never create files outside the specified target directory without asking
+
+## Daily Dev Journal (Obsidian)
+
+会話の最後（ユーザーが作業を終えようとしている時）に、以下をリマインドする:
+
+> 「今日の開発日誌、Obsidianに付けますか？」
+
+- 保存先: `/Users/Mac_air/Obsidian/Daily/YYYY-MM-DD.md`
+- git log + 未コミット変更から自動生成
+- テンプレート: Tasks / Dev Log / Tomorrow Next / Reflection

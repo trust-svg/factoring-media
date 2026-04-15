@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUNE — 50代、まだまだこれから。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&family=Shippori+Mincho+B1:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --surface: #FFF0F5;
+      --accent: #DB2777;
+      --accent-light: #FCE7F3;
+      --accent-mid: #F9A8D4;
+      --slate: #475569;
+      --slate-light: #F1F5F9;
+      --text-h: #831843;
+      --text-b: #44403C;
+      --text-muted: #94A3B8;
+      --line-green: #06C755;
+      --radius-card: 16px;
+      --shadow-card: 0 4px 24px rgba(219, 39, 119, 0.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text-b);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section { padding: 96px 0; }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: var(--bg);
+    }
+
+    .nav-petal-line {
+      height: 1px;
+      background: var(--accent-mid);
+    }
+
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+    }
+
+    .nav-cta {
+      display: inline-block;
+      padding: 9px 26px;
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .nav-cta:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* ── PETALS ── */
+    .petals-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .petal {
+      position: absolute;
+      opacity: 0.45;
+    }
+
+    /* Cherry blossom petal via clip-path */
+    .petal svg {
+      display: block;
+    }
+
+    /* ── HERO ── */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding-top: 120px;
+      padding-bottom: 80px;
+      position: relative;
+    }
+
+    .hero-eyebrow {
+      display: inline-block;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.22em;
+      color: var(--accent);
+      margin-bottom: 24px;
+      opacity: 0;
+      animation: fadeUpWord 0.6s 0.1s forwards;
+    }
+
+    #hero h1 {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+      font-weight: 800;
+      color: var(--text-h);
+      line-height: 1.35;
+      max-width: 680px;
+      margin-bottom: 12px;
+    }
+
+    .hero-word {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    #hero .sub {
+      margin-top: 20px;
+      font-size: 1rem;
+      color: var(--text-muted);
+      max-width: 440px;
+      opacity: 0;
+      animation: fadeUpWord 0.6s 1s forwards;
+    }
+
+    /* Stats pills */
+    .hero-pills {
+      display: flex;
+      gap: 12px;
+      margin-top: 44px;
+      flex-wrap: wrap;
+      justify-content: center;
+      opacity: 0;
+      animation: fadeUpWord 0.6s 1.2s forwards;
+    }
+
+    .hero-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-light);
+      border-radius: 50px;
+      padding: 10px 22px;
+    }
+
+    .hero-pill-num {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .hero-pill-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* ── PROBLEM ── */
+    #problem {
+      background: var(--slate-light);
+    }
+
+    .section-eyebrow {
+      display: block;
+      font-size: 0.75rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--accent-mid);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: clamp(1.5rem, 3.5vw, 2.3rem);
+      font-weight: 700;
+      color: var(--text-h);
+      margin-bottom: 52px;
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .problem-card {
+      background: var(--bg);
+      border-radius: var(--radius-card);
+      padding: 32px 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .problem-card.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .problem-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 3px;
+      width: 0;
+      background: var(--accent);
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .problem-card.revealed::after {
+      width: 100%;
+    }
+
+    .problem-icon-wrap {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--accent-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    .problem-icon-wrap i {
+      color: var(--slate);
+      font-size: 1.05rem;
+    }
+
+    .problem-card p {
+      font-size: 0.93rem;
+      line-height: 1.8;
+      color: var(--text-b);
+    }
+
+    /* ── BENEFITS ── */
+    #benefits {
+      background: var(--bg);
+    }
+
+    .benefits-list {
+      margin-top: 48px;
+    }
+
+    .benefit-row {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 32px;
+      align-items: start;
+      padding: 36px 0;
+      border-bottom: 1px solid var(--accent-light);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .benefit-row:first-child {
+      border-top: 1px solid var(--accent-light);
+    }
+
+    .benefit-row.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .benefit-num-big {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: 4.5rem;
+      font-weight: 800;
+      color: var(--accent-light);
+      line-height: 1;
+      -webkit-text-stroke: 1.5px var(--accent-mid);
+      padding-top: 4px;
+    }
+
+    .benefit-content { }
+
+    .benefit-title {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-h);
+      margin-bottom: 10px;
+    }
+
+    .benefit-text {
+      font-size: 0.92rem;
+      color: var(--text-b);
+      line-height: 1.85;
+    }
+
+    /* ── QUOTE ── */
+    #quote {
+      background: var(--surface);
+      padding: 80px 0;
+    }
+
+    .quote-frame {
+      max-width: 720px;
+      margin: 0 auto;
+      border: 1px solid var(--accent-mid);
+      border-radius: 4px;
+      padding: 52px 56px;
+      position: relative;
+      text-align: center;
+    }
+
+    /* Double-line frame using ::before */
+    .quote-frame::before {
+      content: '';
+      position: absolute;
+      top: 6px; right: 6px; bottom: 6px; left: 6px;
+      border: 1px solid var(--accent-light);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+
+    .quote-frame-text {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+      font-weight: 700;
+      color: var(--text-h);
+      line-height: 1.8;
+      opacity: 0;
+      transform: translateX(20px);
+      transition: opacity 0.7s, transform 0.7s;
+    }
+
+    .quote-frame-text.revealed {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .quote-attr {
+      display: block;
+      margin-top: 16px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      opacity: 0;
+      transform: translateX(20px);
+      transition: opacity 0.7s 0.15s, transform 0.7s 0.15s;
+    }
+
+    .quote-attr.revealed {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* ── TESTIMONIALS ── */
+    #testimonials {
+      background: var(--bg);
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      margin-top: 52px;
+    }
+
+    /* Polaroid-inspired cards */
+    .testimonial-card {
+      background: var(--bg);
+      border-radius: 4px;
+      padding: 28px 24px 44px;
+      box-shadow: 0 4px 20px rgba(219, 39, 119, 0.1), 0 1px 4px rgba(0,0,0,0.06);
+      opacity: 0;
+      transition: opacity 0.6s, transform 0.6s;
+    }
+
+    .testimonial-card:nth-child(1) { transform: rotate(-1deg) translateY(30px); }
+    .testimonial-card:nth-child(2) { transform: rotate(1deg) translateY(30px); }
+    .testimonial-card:nth-child(3) { transform: rotate(-0.5deg) translateY(30px); }
+
+    .testimonial-card.revealed:nth-child(1) { transform: rotate(-1deg) translateY(0); opacity: 1; }
+    .testimonial-card.revealed:nth-child(2) { transform: rotate(1deg) translateY(0); opacity: 1; }
+    .testimonial-card.revealed:nth-child(3) { transform: rotate(-0.5deg) translateY(0); opacity: 1; }
+
+    .test-stars {
+      color: var(--accent);
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+    }
+
+    .test-text {
+      font-size: 0.92rem;
+      line-height: 1.85;
+      color: var(--text-b);
+      margin-bottom: 20px;
+    }
+
+    .test-author {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: 0.88rem;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* ── FINAL CTA ── */
+    #cta {
+      background: var(--surface);
+      padding: 96px 0;
+    }
+
+    .cta-card {
+      background: var(--bg);
+      border-radius: 24px;
+      padding: 64px 48px;
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+      box-shadow: 0 8px 48px rgba(219, 39, 119, 0.12);
+    }
+
+    .cta-card h2 {
+      font-family: 'Shippori Mincho B1', serif;
+      font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+      font-weight: 800;
+      color: var(--text-h);
+      margin-bottom: 12px;
+    }
+
+    .cta-sub {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+    }
+
+    .btn-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--line-green);
+      color: #fff;
+      padding: 16px 44px;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      min-height: 52px;
+      transition: filter 0.2s, transform 0.2s;
+      box-shadow: 0 4px 16px rgba(6, 199, 85, 0.3);
+    }
+
+    .btn-line:hover {
+      filter: brightness(1.08);
+      transform: translateY(-2px);
+    }
+
+    .btn-note {
+      display: block;
+      margin-top: 14px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--bg);
+      border-top: 1px solid var(--accent-light);
+      padding: 32px 0;
+      text-align: center;
+    }
+
+    footer p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUpWord {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes petalFall {
+      0%   { transform: translateY(-20px) rotate(0deg); opacity: 0.5; }
+      30%  { opacity: 0.45; }
+      70%  { opacity: 0.4; }
+      100% { transform: translateY(calc(100vh + 40px)) rotate(360deg); opacity: 0; }
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      section { padding: 64px 0; }
+
+      .problem-grid,
+      .testimonials-grid { grid-template-columns: 1fr; }
+
+      .benefit-row {
+        grid-template-columns: 80px 1fr;
+        gap: 20px;
+      }
+
+      .benefit-num-big { font-size: 3rem; }
+
+      .hero-pills { gap: 8px; }
+      .hero-pill { padding: 8px 16px; }
+
+      .cta-card { padding: 40px 24px; }
+      .quote-frame { padding: 36px 28px; }
+
+      .testimonials-grid {
+        gap: 40px;
+      }
+    }
+
+    /* ── REDUCED MOTION ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Petals layer -->
+  <div class="petals-container" id="petals-container" aria-hidden="true"></div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <div class="nav-logo">LUNE</div>
+      <a href="#cta" class="nav-cta">無料登録</a>
+    </div>
+    <div class="nav-petal-line"></div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="container" style="position: relative; z-index: 1;">
+      <span class="hero-eyebrow">Matching Service for 50+</span>
+
+      <h1 id="hero-heading">50代、まだまだこれから。</h1>
+
+      <p class="sub">50代以上の男性が、毎月マッチングを叶えています</p>
+
+      <div class="hero-pills">
+        <div class="hero-pill">
+          <span class="hero-pill-num">2,400<span style="font-size:0.9rem">+</span></span>
+          <span class="hero-pill-label">登録会員</span>
+        </div>
+        <div class="hero-pill">
+          <span class="hero-pill-num">87<span style="font-size:0.9rem">%</span></span>
+          <span class="hero-pill-label">マッチング率</span>
+        </div>
+        <div class="hero-pill">
+          <span class="hero-pill-num">98<span style="font-size:0.9rem">%</span></span>
+          <span class="hero-pill-label">満足度</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section id="problem">
+    <div class="container">
+      <span class="section-eyebrow">Problem</span>
+      <h2 class="section-title">こんな悩み、ありませんか？</h2>
+
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="problem-icon-wrap">
+            <i class="fas fa-calendar-xmark"></i>
+          </div>
+          <p>出会いの場がなく、なんとなく日々が過ぎていく</p>
+        </div>
+        <div class="problem-card" style="transition-delay: 0.12s;">
+          <div class="problem-icon-wrap">
+            <i class="fas fa-mobile-screen"></i>
+          </div>
+          <p>マッチングアプリは"若者向け"に見えて、踏み出せない</p>
+        </div>
+        <div class="problem-card" style="transition-delay: 0.24s;">
+          <div class="problem-icon-wrap">
+            <i class="fas fa-circle-question"></i>
+          </div>
+          <p>自分のような年齢でも、本当に出会えるのか不安</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENEFITS -->
+  <section id="benefits">
+    <div class="container">
+      <span class="section-eyebrow">Why LUNE</span>
+      <h2 class="section-title">50代からモテる理由があります</h2>
+
+      <div class="benefits-list">
+        <div class="benefit-row">
+          <div class="benefit-num-big">01</div>
+          <div class="benefit-content">
+            <h3 class="benefit-title">大人を求める女性が多数在籍</h3>
+            <p class="benefit-text">20〜40代の女性会員がLUNEを選ぶ理由は「落ち着いた大人の男性に出会いたい」から。あなたの経験と安定感が、最大の武器になります。</p>
+          </div>
+        </div>
+        <div class="benefit-row" style="transition-delay: 0.1s;">
+          <div class="benefit-num-big">02</div>
+          <div class="benefit-content">
+            <h3 class="benefit-title">50代専用マッチング</h3>
+            <p class="benefit-text">年齢層を絞ることで、真剣な出会いの確率が劇的に上がります。同じステージで出会えるから、はじめから話が通じる。</p>
+          </div>
+        </div>
+        <div class="benefit-row" style="transition-delay: 0.2s;">
+          <div class="benefit-num-big">03</div>
+          <div class="benefit-content">
+            <h3 class="benefit-title">プロフィール完全サポート</h3>
+            <p class="benefit-text">登録からマッチングまで、専任スタッフがサポート。「何を書けばいいかわからない」を丁寧に解決します。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE -->
+  <section id="quote" style="padding: 80px 0;">
+    <div class="container">
+      <div class="quote-frame">
+        <p class="quote-frame-text" id="quote-text">
+          「50代の男性が持つ、静かな自信が好きです。」
+        </p>
+        <span class="quote-attr" id="quote-attr">— 会員の声</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section id="testimonials">
+    <div class="container">
+      <span class="section-eyebrow">Voices</span>
+      <h2 class="section-title">実際に出会えた方々の声</h2>
+
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <div class="test-stars">
+            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+          </div>
+          <p class="test-text">「1ヶ月でマッチングできました。大人の余裕が武器になるとは思っていませんでした。」</p>
+          <p class="test-author">田中さん（54歳・会社員）</p>
+        </div>
+        <div class="testimonial-card" style="transition-delay: 0.14s;">
+          <div class="test-stars">
+            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+          </div>
+          <p class="test-text">「若い頃よりいまの方がモテると実感。経験と安定感が女性に響くんですね。」</p>
+          <p class="test-author">佐藤さん（58歳・自営業）</p>
+        </div>
+        <div class="testimonial-card" style="transition-delay: 0.28s;">
+          <div class="test-stars">
+            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+          </div>
+          <p class="test-text">「50代専用というだけで、最初からお互い真剣。純粋に出会いを楽しめています。」</p>
+          <p class="test-author">鈴木さん（52歳・会社員）</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section id="cta">
+    <div class="container">
+      <div class="cta-card">
+        <h2>今すぐLINEで<br>無料登録する</h2>
+        <p class="cta-sub">50代からが、本当のモテ時代。あなたの出会いは今日始まります。</p>
+        <a href="#" class="btn-line">
+          <i class="fab fa-line" style="font-size: 1.3rem;"></i>
+          今すぐLINEで無料登録する
+        </a>
+        <span class="btn-note">登録60秒 &nbsp;|&nbsp; 完全無料 &nbsp;|&nbsp; いつでも退会OK</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <p>© 2025 LUNE. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // ── Cherry petal generator ──
+    (function() {
+      const container = document.getElementById('petals-container');
+      const petalCount = 12;
+
+      for (let i = 0; i < petalCount; i++) {
+        const el = document.createElement('div');
+        el.className = 'petal';
+
+        const size = 14 + Math.random() * 12; // 14–26px
+        const leftPct = Math.random() * 98;
+        const delay = Math.random() * 12;
+        const duration = 8 + Math.random() * 6;
+        const startTop = -30 - Math.random() * 60;
+
+        el.style.cssText = `
+          left: ${leftPct}%;
+          top: ${startTop}px;
+          animation: petalFall ${duration}s ${delay}s linear infinite;
+          width: ${size}px;
+          height: ${size}px;
+        `;
+
+        // SVG cherry petal shape
+        el.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24">
+          <path d="M12 2 C14 6 18 8 12 12 C6 8 10 6 12 2Z" fill="#F9A8D4"/>
+          <path d="M12 2 C14 6 18 8 12 12 C6 8 10 6 12 2Z" fill="none" stroke="#DB2777" stroke-width="0.5" opacity="0.5"/>
+        </svg>`;
+
+        container.appendChild(el);
+      }
+    })();
+
+    // ── Hero heading animation ──
+    (function() {
+      const h1 = document.getElementById('hero-heading');
+      const text = h1.textContent;
+      h1.textContent = '';
+      h1.style.opacity = '1';
+
+      const chars = [...text];
+      chars.forEach((ch, i) => {
+        const span = document.createElement('span');
+        span.className = 'hero-word';
+        span.textContent = ch;
+        span.style.animation = `fadeUpWord 0.45s ${0.3 + i * 0.06}s forwards`;
+        h1.appendChild(span);
+      });
+    })();
+
+    // ── Intersection Observer ──
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+
+        if (el.classList.contains('problem-card') ||
+            el.classList.contains('benefit-row') ||
+            el.classList.contains('testimonial-card')) {
+          el.classList.add('revealed');
+        }
+
+        if (el.id === 'quote-text' || el.id === 'quote-attr') {
+          el.classList.add('revealed');
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.problem-card, .benefit-row, .testimonial-card, #quote-text, #quote-attr')
+      .forEach(el => io.observe(el));
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>UI vol.6 — Final</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;background:#CBD5E1;padding:28px}
+
+/* ====== SHELL ====== */
+.app{display:flex;height:860px;width:1280px;margin:0 auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border-radius:14px;overflow:hidden}
+
+/* --- SIDEBAR --- */
+.sb{width:216px;min-width:216px;background:#fff;border-right:1px solid #E2E8F0;display:flex;flex-direction:column}
+.sb-logo{padding:16px 18px 14px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:9px}
+.sb-icon{width:30px;height:30px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+.sb-name{font-size:13px;font-weight:800;color:#1E293B}
+.sb-ng{padding:10px 10px 0}
+.sb-nl{font-size:9px;font-weight:700;color:#94A3B8;padding:0 8px 6px;letter-spacing:.09em;text-transform:uppercase}
+.sb-ni{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:12px;color:#475569;cursor:pointer;margin-bottom:1px;transition:.15s}
+.sb-ni.on{background:#EFF6FF;color:#1D4ED8;font-weight:700}
+.sb-ni:hover:not(.on){background:#F8FAFC}
+.ic{font-size:14px;width:18px;text-align:center}
+.sb-bx{margin-left:auto;background:#EF4444;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px}
+.sb-nb{margin-left:auto;background:#F97316;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px}
+.sb-bot{margin-top:auto;padding:12px 14px;border-top:1px solid #E2E8F0;display:flex;align-items:center;gap:10px}
+.sb-av{width:28px;height:28px;background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+.sb-un{font-size:12px;font-weight:700;color:#0F172A}
+.sb-ur{font-size:10px;color:#94A3B8}
+
+/* --- MAIN --- */
+.main{flex:1;overflow-y:auto;background:#F8FAFC;display:flex;flex-direction:column}
+.topbar{background:#fff;border-bottom:1px solid #E2E8F0;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-l{display:flex;align-items:center;gap:10px}
+.page-t{font-size:15px;font-weight:800;color:#0F172A}
+.today-tag{background:#EFF6FF;color:#2563EB;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;border:1px solid #DBEAFE}
+/* USD/JPY rate in topbar */
+.fx-chip{display:flex;align-items:center;gap:5px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer}
+.fx-label{color:#64748B;font-weight:500}
+.fx-val{color:#0F172A;font-weight:800}
+.fx-diff{font-size:10px;font-weight:700}
+.fx-diff.up{color:#EF4444}
+.fx-diff.dn{color:#10B981}
+.topbar-r{display:flex;align-items:center;gap:8px}
+.t-sel{border:1px solid #E2E8F0;background:#fff;padding:5px 10px;border-radius:7px;font-size:11px;color:#374151}
+.t-btn{background:#2563EB;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
+
+.con{padding:16px 20px}
+
+/* --- ALERT --- */
+.alert{background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:11px;color:#92400E}
+.ai{display:flex;align-items:center;gap:4px;font-weight:700}
+.ai a{color:#D97706;text-decoration:none;border-bottom:1px dashed #D97706}
+
+/* --- TOP ROW: 4 cols (3 achieve + payoneer) --- */
+.top-row{display:grid;grid-template-columns:1fr 1fr 1fr 190px;gap:12px;margin-bottom:14px}
+
+/* Achieve card */
+.ac{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.07);position:relative;overflow:hidden;transition:.2s}
+.ac:hover{box-shadow:0 4px 14px rgba(0,0,0,.1)}
+.ac::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.ac.blue::before{background:linear-gradient(90deg,#60A5FA,#1D4ED8)}
+.ac.amber::before{background:linear-gradient(90deg,#FCD34D,#F59E0B)}
+.ac.green::before{background:linear-gradient(90deg,#6EE7B7,#10B981)}
+.ac-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ac-label{font-size:9px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.07em}
+.badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px}
+.badge.g{background:#DCFCE7;color:#15803D}
+.badge.y{background:#FEF9C3;color:#A16207}
+.badge.r{background:#FEE2E2;color:#DC2626}
+.ac-vrow{display:flex;align-items:baseline;gap:6px;margin-bottom:3px}
+.ac-v{font-size:20px;font-weight:800;color:#0F172A;letter-spacing:-.02em}
+.ac-t{font-size:11px;color:#94A3B8}
+.pb{height:5px;background:#F1F5F9;border-radius:3px;overflow:hidden;margin:8px 0 6px}
+.pf{height:100%;border-radius:3px}
+.pf.blue{background:linear-gradient(90deg,#60A5FA,#2563EB)}
+.pf.amber{background:linear-gradient(90deg,#FCD34D,#F59E0B)}
+.pf.green{background:linear-gradient(90deg,#6EE7B7,#10B981)}
+.ac-foot{display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#94A3B8}
+.proj{color:#10B981;font-weight:700}
+.warn{color:#F59E0B;font-weight:700}
+/* donut trigger button */
+.donut-btn{background:none;border:none;cursor:pointer;font-size:11px;color:#6366F1;font-weight:700;padding:0;display:flex;align-items:center;gap:3px;transition:.15s}
+.donut-btn:hover{color:#4338CA}
+
+/* Payoneer */
+.pay-card{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.pay-head{background:linear-gradient(135deg,#FF5F00,#FF8533);padding:12px 14px;color:#fff}
+.pay-lbl{font-size:9px;opacity:.8;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.pay-v{font-size:18px;font-weight:800;letter-spacing:-.02em}
+.pay-sub{font-size:9px;opacity:.7;margin-top:3px}
+.pay-body{padding:10px 14px}
+.pay-row{display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px}
+.pay-name{color:#64748B}
+.pay-val{font-weight:700;color:#0F172A}
+.pay-val.g{color:#10B981}
+
+/* --- MID ROW: chart + KPI/freee + calendar --- */
+.mid-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:14px}
+.card{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card-h{font-size:11px;font-weight:700;color:#374151;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+
+/* chart tabs */
+.tab-bar{display:flex;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;width:fit-content}
+.tab-btn{padding:4px 12px;font-size:10px;font-weight:600;cursor:pointer;border:none;background:#fff;color:#64748B;transition:.15s}
+.tab-btn.on{background:#2563EB;color:#fff}
+.tab-panel{display:none}
+.tab-panel.on{display:block}
+
+/* vertical bar chart */
+.vchart{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;height:78px;margin-top:4px}
+.vbar-col{display:flex;flex-direction:column;align-items:center;gap:2px}
+.vbar-num{font-size:7px;font-weight:700;color:#64748B;text-align:center;white-space:nowrap}
+.vbar-num.hi{color:#1D4ED8}
+.vbar{width:100%;border-radius:3px 3px 0 0}
+.vbar.lo{background:linear-gradient(0deg,#BFDBFE,#93C5FD)}
+.vbar.md{background:linear-gradient(0deg,#93C5FD,#3B82F6)}
+.vbar.hi{background:linear-gradient(0deg,#3B82F6,#1D4ED8);box-shadow:0 2px 6px rgba(37,99,235,.25)}
+.vbar-day{font-size:8px;color:#94A3B8;font-weight:600}
+
+/* monthly SVG chart */
+.chart-legend{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:#374151;font-weight:600}
+.leg-line{width:16px;height:2px;border-radius:1px}
+.leg-line.solid{background:#2563EB}
+.leg-line.dg{background:repeating-linear-gradient(90deg,#94A3B8 0,#94A3B8 4px,transparent 4px,transparent 8px)}
+.leg-line.do{background:repeating-linear-gradient(90deg,#F97316 0,#F97316 4px,transparent 4px,transparent 8px)}
+.chart-wrap{position:relative}
+.chart-svg-wrap{display:flex}
+.y-labels{display:flex;flex-direction:column;justify-content:space-between;padding-bottom:16px;padding-top:2px;width:34px}
+.y-lbl{font-size:8px;color:#94A3B8;text-align:right}
+.x-labels{display:flex;justify-content:space-between;padding-left:34px;margin-top:2px}
+.x-lbl{font-size:8px;color:#94A3B8}
+
+/* KPI */
+.kt{width:100%;border-collapse:collapse}
+.kt tr{border-bottom:1px solid #F8FAFC}
+.kt tr:last-child{border-bottom:none}
+.kt td{padding:5px 3px;font-size:11px}
+.kn{color:#64748B;font-weight:500;width:60px}
+.kv{font-weight:700;color:#0F172A;text-align:right;padding-right:4px;white-space:nowrap}
+.mb-w{width:54px}
+.mini-bar{height:4px;background:#F1F5F9;border-radius:2px;overflow:hidden}
+.mini-fill{height:100%;border-radius:2px}
+.mf-b{background:#3B82F6}
+.mf-r{background:#EF4444}
+.mf-o{background:#F97316}
+.kd{font-size:10px;font-weight:700;text-align:right;white-space:nowrap}
+.kd.up{color:#10B981}
+.kd.dn{color:#EF4444}
+.kd.or{color:#F97316}
+
+/* freee divider */
+.freee-divider{border:none;border-top:1px dashed #E2E8F0;margin:10px 0 8px}
+.freee-lbl{font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px;display:flex;align-items:center;gap:5px}
+.freee-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;border-bottom:1px solid #F8FAFC}
+.freee-row:last-child{border-bottom:none}
+.freee-name{color:#64748B}
+.freee-val{font-weight:700;color:#0F172A}
+.freee-val.g{color:#10B981}
+.freee-val.r{color:#EF4444}
+
+/* Calendar */
+.cal-tabs{display:flex;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;margin-bottom:7px;width:100%}
+.cal-tab{flex:1;padding:3px 0;font-size:10px;font-weight:600;cursor:pointer;border:none;background:#fff;color:#64748B;text-align:center}
+.cal-tab.on{background:#2563EB;color:#fff}
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:3px}
+.cal-dl{font-size:8px;font-weight:700;color:#94A3B8;text-align:center}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cc{aspect-ratio:1;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#94A3B8;background:#F8FAFC;transition:.15s;cursor:pointer}
+.cc:hover:not(.ft):not(.em){transform:scale(1.1);z-index:1}
+.cc.sale-s1{background:#DBEAFE;color:#1E40AF;font-weight:700}
+.cc.sale-s2{background:#BFDBFE;color:#1D4ED8;font-weight:800}
+.cc.sale-s3{background:#93C5FD;color:#1E3A8A;font-weight:800}
+.cc.pay-s1{background:#DCFCE7;color:#15803D;font-weight:700}
+.cc.pay-s2{background:#BBF7D0;color:#166534;font-weight:800}
+.cc.pay-s3{background:#86EFAC;color:#14532D;font-weight:800}
+.cc.td{background:#2563EB;color:#fff;font-weight:800;box-shadow:0 2px 8px rgba(37,99,235,.4)}
+.cc.td-p{background:#10B981;color:#fff;font-weight:800;box-shadow:0 2px 8px rgba(16,185,129,.4)}
+.cc.ft{color:#E2E8F0}
+.cc.em{background:transparent}
+.cal-note{margin-top:6px;font-size:10px;color:#64748B;display:flex;align-items:center;gap:5px}
+
+/* --- ACTION ROW --- */
+.action-row{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px}
+.action-card{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.action-h{font-size:11px;font-weight:700;color:#374151;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.action-h span{font-size:10px;color:#94A3B8;font-weight:500;cursor:pointer}
+.action-h span:hover{color:#2563EB}
+/* action item */
+.act-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F8FAFC;cursor:pointer;transition:.15s}
+.act-item:last-child{border-bottom:none}
+.act-item:hover{background:#F8FAFC;margin:0 -4px;padding:8px 4px;border-radius:6px}
+.act-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.act-icon.red{background:#FEE2E2}
+.act-icon.blue{background:#DBEAFE}
+.act-icon.yellow{background:#FEF9C3}
+.act-icon.orange{background:#FFEDD5}
+.act-body{flex:1}
+.act-title{font-size:11px;font-weight:700;color:#0F172A}
+.act-sub{font-size:10px;color:#64748B;margin-top:1px}
+.act-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
+.act-badge.red{background:#FEE2E2;color:#DC2626}
+.act-badge.blue{background:#DBEAFE;color:#1D4ED8}
+.act-badge.yellow{background:#FEF9C3;color:#A16207}
+.act-badge.orange{background:#FFEDD5;color:#C2410C}
+.act-arrow{color:#CBD5E1;font-size:12px}
+
+/* out-of-stock list */
+.oos-table{width:100%;border-collapse:collapse}
+.oos-table th{padding:6px 8px;text-align:left;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #F1F5F9;background:#FAFAFA}
+.oos-table td{padding:7px 8px;font-size:11px;color:#374151;border-bottom:1px solid #F8FAFC;vertical-align:middle}
+.oos-table tbody tr:last-child td{border-bottom:none}
+.oos-table tbody tr:hover td{background:#F8FAFC}
+.oos-days{background:#FEE2E2;color:#DC2626;font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px}
+.oos-btn{background:#EFF6FF;color:#2563EB;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;border:none;cursor:pointer}
+.oos-btn:hover{background:#DBEAFE}
+
+/* --- SALES TABLE --- */
+.table-wrap{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.table-head{padding:12px 18px;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center}
+.table-head h3{font-size:13px;font-weight:700;color:#0F172A}
+.tbl-meta{font-size:11px;color:#94A3B8}
+table.dt{width:100%;border-collapse:collapse}
+table.dt th{padding:8px 14px;text-align:left;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em;background:#FAFAFA;border-bottom:1px solid #F1F5F9}
+table.dt td{padding:9px 14px;font-size:11px;color:#374151;border-bottom:1px solid #F8FAFC;vertical-align:middle}
+table.dt tbody tr:hover td{background:#F8FAFC}
+table.dt tbody tr:last-child td{border-bottom:none}
+.ib{display:flex;align-items:center;gap:6px}
+.ibt{flex:1;height:5px;background:#F1F5F9;border-radius:3px;overflow:hidden;min-width:44px}
+.ibf{height:100%;border-radius:3px}
+.ibf.hi{background:linear-gradient(90deg,#6EE7B7,#10B981)}
+.ibf.md{background:linear-gradient(90deg,#93C5FD,#3B82F6)}
+.ibf.lo{background:#EF4444}
+.ibv{font-size:10px;font-weight:700;min-width:32px;text-align:right}
+.ibv.hi{color:#10B981}
+.ibv.md{color:#3B82F6}
+.ibv.lo{color:#EF4444}
+.st{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700}
+.st.sold{background:#DCFCE7;color:#15803D}
+.st.ship{background:#DBEAFE;color:#1D4ED8}
+.st.pend{background:#FEF9C3;color:#A16207}
+
+/* ====== MODAL ====== */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(2px)}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;width:520px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
+.modal-head{padding:18px 20px;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{font-size:15px;font-weight:800;color:#0F172A}
+.modal-close{background:none;border:none;font-size:20px;color:#94A3B8;cursor:pointer;line-height:1}
+.modal-close:hover{color:#374151}
+.modal-body{padding:20px;display:flex;gap:20px;align-items:flex-start}
+.modal-donut{flex-shrink:0}
+.modal-table{flex:1}
+.modal-table table{width:100%;border-collapse:collapse}
+.modal-table th{padding:7px 8px;text-align:left;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;border-bottom:1px solid #F1F5F9}
+.modal-table td{padding:8px 8px;font-size:12px;color:#374151;border-bottom:1px solid #F8FAFC;vertical-align:middle}
+.modal-table tr:last-child td{border-bottom:none}
+.modal-bar{display:flex;align-items:center;gap:6px}
+.modal-bar-track{flex:1;height:5px;background:#F1F5F9;border-radius:3px;overflow:hidden}
+.modal-bar-fill{height:100%;border-radius:3px}
+.modal-bar-pct{font-size:10px;font-weight:700;min-width:30px;text-align:right}
+.modal-cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;margin-right:6px}
+.modal-foot{padding:14px 20px;border-top:1px solid #F1F5F9;font-size:11px;color:#64748B;background:#FAFAFA}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sb">
+    <div class="sb-logo">
+      <div class="sb-icon">🛒</div>
+      <div class="sb-name">eBay Hub</div>
+    </div>
+    <div class="sb-ng">
+      <div class="sb-nl">メイン</div>
+      <div class="sb-ni on"><span class="ic">📊</span> ダッシュボード</div>
+      <div class="sb-ni"><span class="ic">📦</span> 出品管理 <span class="sb-bx">3</span></div>
+      <div class="sb-ni"><span class="ic">🔍</span> 仕入れリサーチ <span class="sb-nb">12</span></div>
+      <div class="sb-ni"><span class="ic">💬</span> バイヤー対応 <span class="sb-bx">7</span></div>
+    </div>
+    <div class="sb-ng" style="margin-top:6px">
+      <div class="sb-nl">財務</div>
+      <div class="sb-ni"><span class="ic">💴</span> 売上・利益</div>
+      <div class="sb-ni"><span class="ic">🏦</span> Payoneer</div>
+      <div class="sb-ni"><span class="ic">📋</span> freee 連携</div>
+      <div class="sb-ni"><span class="ic">📅</span> スケジュール</div>
+    </div>
+    <div class="sb-ng" style="margin-top:6px">
+      <div class="sb-nl">設定</div>
+      <div class="sb-ni"><span class="ic">⚙️</span> 設定</div>
+    </div>
+    <div class="sb-bot">
+      <div class="sb-av">H</div>
+      <div><div class="sb-un">Hiro</div><div class="sb-ur">管理者</div></div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-l">
+        <div class="page-t">ダッシュボード</div>
+        <div class="today-tag">本日 4/13</div>
+        <!-- USD/JPY -->
+        <div class="fx-chip">
+          <span class="fx-label">USD/JPY</span>
+          <span class="fx-val">¥152.40</span>
+          <span class="fx-diff up">+0.82 ↑</span>
+        </div>
+      </div>
+      <div class="topbar-r">
+        <select class="t-sel"><option>2026年4月</option></select>
+        <button class="t-btn">＋ 出品登録</button>
+      </div>
+    </div>
+
+    <div class="con">
+      <!-- ALERT -->
+      <div class="alert">⚠️
+        <span class="ai">在庫切れ <a href="#">7件</a></span>
+        <span class="ai">💬 未読 <a href="#">3件</a></span>
+        <span class="ai">📉 価格アラート <a href="#">2件</a></span>
+        <span style="margin-left:auto;font-size:10px;color:#64748B">freee: 残高 <strong style="color:#0F172A">¥1,234,567</strong> · 今月 <strong style="color:#10B981">+¥550,000</strong></span>
+      </div>
+
+      <!-- TOP ROW: 3 achieve + payoneer -->
+      <div class="top-row">
+        <div class="ac blue">
+          <div class="ac-top"><div class="ac-label">月間売上</div><span class="badge g">64% 達成</span></div>
+          <div class="ac-vrow"><span class="ac-v">¥3,200,000</span><span class="ac-t">/ ¥5,000,000</span></div>
+          <div class="pb"><div class="pf blue" style="width:64%"></div></div>
+          <div class="ac-foot"><span>残 ¥1,800,000</span><span class="proj">予測 ¥8.1M ✅</span></div>
+        </div>
+        <div class="ac amber">
+          <div class="ac-top"><div class="ac-label">利益率</div><span class="badge y">92% 達成</span></div>
+          <div class="ac-vrow"><span class="ac-v">18.4%</span><span class="ac-t">/ 20.0%</span></div>
+          <div class="pb"><div class="pf amber" style="width:92%"></div></div>
+          <div class="ac-foot"><span>前月比 -1.6% ↓</span><span class="warn">ペース注意</span></div>
+        </div>
+        <div class="ac green">
+          <div class="ac-top"><div class="ac-label">月間利益</div><span class="badge r">59% 達成</span></div>
+          <div class="ac-vrow"><span class="ac-v">¥590,000</span><span class="ac-t">/ ¥1,000,000</span></div>
+          <div class="pb"><div class="pf green" style="width:59%"></div></div>
+          <div class="ac-foot">
+            <span class="proj">予測 ¥1.5M ✅</span>
+            <button class="donut-btn" onclick="openModal()">📊 カテゴリ分析 ↗</button>
+          </div>
+        </div>
+        <div class="pay-card">
+          <div class="pay-head">
+            <div class="pay-lbl">Payoneer</div>
+            <div class="pay-v">$2,840.00</div>
+            <div class="pay-sub">≈ ¥432,899 (152.4円)</div>
+          </div>
+          <div class="pay-body">
+            <div class="pay-row"><span class="pay-name">今月入金</span><span class="pay-val g">+$1,240</span></div>
+            <div class="pay-row"><span class="pay-name">前回 4/9</span><span class="pay-val">+$580</span></div>
+            <div class="pay-row"><span class="pay-name">未決済</span><span class="pay-val">$340</span></div>
+            <div class="pay-row"><span class="pay-name">次回予定</span><span class="pay-val" style="color:#2563EB">4/16頃</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MID ROW -->
+      <div class="mid-row">
+        <!-- Chart -->
+        <div class="card">
+          <div class="card-h">
+            <span>売上トレンド</span>
+            <div class="tab-bar">
+              <button class="tab-btn" onclick="switchChart('daily',this)">日別</button>
+              <button class="tab-btn on" onclick="switchChart('monthly',this)">月別累計</button>
+            </div>
+          </div>
+
+          <!-- Daily by date -->
+          <div id="chart-daily" class="tab-panel">
+            <div style="font-size:10px;color:#94A3B8;margin-bottom:6px">日別売上（4月1日〜13日）</div>
+            <div class="vchart">
+              <div class="vbar-col"><div class="vbar-num">¥12,000</div><div class="vbar lo" style="height:27px"></div><div class="vbar-day">1</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥18,000</div><div class="vbar md" style="height:40px"></div><div class="vbar-day">2</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥8,000</div><div class="vbar lo" style="height:18px"></div><div class="vbar-day">3</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥15,000</div><div class="vbar lo" style="height:34px"></div><div class="vbar-day">4</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥22,000</div><div class="vbar md" style="height:49px"></div><div class="vbar-day">5</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥5,000</div><div class="vbar lo" style="height:11px"></div><div class="vbar-day">6</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥3,000</div><div class="vbar lo" style="height:7px"></div><div class="vbar-day">7</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥14,000</div><div class="vbar lo" style="height:31px"></div><div class="vbar-day">8</div></div>
+              <div class="vbar-col"><div class="vbar-num hi">¥32,000</div><div class="vbar hi" style="height:72px"></div><div class="vbar-day">9</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥28,000</div><div class="vbar md" style="height:63px"></div><div class="vbar-day">10</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥24,000</div><div class="vbar md" style="height:54px"></div><div class="vbar-day">11</div></div>
+              <div class="vbar-col"><div class="vbar-num">¥18,000</div><div class="vbar md" style="height:40px"></div><div class="vbar-day">12</div></div>
+            </div>
+          </div>
+
+          <!-- Monthly cumulative -->
+          <div id="chart-monthly" class="tab-panel on">
+            <div class="chart-legend">
+              <div class="leg-item"><div class="leg-line solid"></div>今月累計</div>
+              <div class="leg-item"><div class="leg-line dg"></div>目標ライン</div>
+              <div class="leg-item"><div class="leg-line do"></div>先月同日</div>
+              <div style="margin-left:auto;font-size:10px;color:#64748B">目標: ¥5,000,000</div>
+            </div>
+            <div class="chart-wrap">
+              <div class="chart-svg-wrap">
+                <div class="y-labels">
+                  <div class="y-lbl">¥5M</div>
+                  <div class="y-lbl">¥3.75M</div>
+                  <div class="y-lbl">¥2.5M</div>
+                  <div class="y-lbl">¥1.25M</div>
+                  <div class="y-lbl">¥0</div>
+                </div>
+                <svg viewBox="0 0 540 100" style="flex:1;height:100px;overflow:visible">
+                  <defs>
+                    <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.15"/>
+                      <stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <line x1="0" y1="0" x2="540" y2="0" stroke="#F1F5F9" stroke-width="1"/>
+                  <line x1="0" y1="25" x2="540" y2="25" stroke="#F1F5F9" stroke-width="1"/>
+                  <line x1="0" y1="50" x2="540" y2="50" stroke="#F1F5F9" stroke-width="1"/>
+                  <line x1="0" y1="75" x2="540" y2="75" stroke="#F1F5F9" stroke-width="1"/>
+                  <line x1="0" y1="100" x2="540" y2="100" stroke="#F1F5F9" stroke-width="1"/>
+                  <line x1="230" y1="0" x2="230" y2="100" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="4,2"/>
+                  <text x="230" y="-4" text-anchor="middle" font-size="8" fill="#94A3B8">今日</text>
+                  <!-- Target line -->
+                  <polyline points="0,96.7 18,93.3 36,90 54,86.7 72,83.3 90,80 108,76.7 126,73.3 144,70 162,66.7 180,63.3 198,60 216,56.7 234,53.3 252,50 270,46.7 288,43.3 306,40 324,36.7 342,33.3 360,30 378,26.7 396,23.3 414,20 432,16.7 450,13.3 468,10 486,6.7 504,3.3 522,0" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="5,3"/>
+                  <!-- Last month -->
+                  <polyline points="0,98 18,95.6 36,93 54,90 72,86.4 90,85.6 108,85 126,81 144,74 162,65 180,53 198,47 216,43 230,41" fill="none" stroke="#F97316" stroke-width="1.5" stroke-dasharray="5,3"/>
+                  <!-- Area fill -->
+                  <polygon points="0,97.6 18,94.8 36,92.4 54,89 72,85 90,84 108,83.6 126,79 144,71 162,61 180,47 198,41 216,38 230,36 230,100 0,100" fill="url(#ag)"/>
+                  <!-- Actual line -->
+                  <polyline points="0,97.6 18,94.8 36,92.4 54,89 72,85 90,84 108,83.6 126,79 144,71 162,61 180,47 198,41 216,38 230,36" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="230" cy="36" r="4" fill="#2563EB" stroke="#fff" stroke-width="2"/>
+                  <text x="230" y="29" text-anchor="middle" font-size="8" fill="#2563EB" font-weight="700">¥3.2M</text>
+                </svg>
+              </div>
+              <div class="x-labels">
+                <span class="x-lbl">1</span><span class="x-lbl">5</span><span class="x-lbl">10</span>
+                <span class="x-lbl" style="color:#2563EB;font-weight:700">13</span>
+                <span class="x-lbl">15</span><span class="x-lbl">20</span>
+                <span class="x-lbl">25</span><span class="x-lbl">30</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:8px">
+              <div style="background:#EFF6FF;border-radius:6px;padding:6px 10px;flex:1">
+                <div style="font-size:9px;color:#64748B;margin-bottom:2px">今月ペース</div>
+                <div style="font-size:12px;font-weight:700;color:#2563EB">+¥342,857 <span style="font-size:9px">↑12%</span></div>
+                <div style="font-size:9px;color:#64748B">前月同日比</div>
+              </div>
+              <div style="background:#FEF9C3;border-radius:6px;padding:6px 10px;flex:1">
+                <div style="font-size:9px;color:#64748B;margin-bottom:2px">目標比</div>
+                <div style="font-size:12px;font-weight:700;color:#F59E0B">-¥257,143 <span style="font-size:9px">↓12%</span></div>
+                <div style="font-size:9px;color:#64748B">目標ライン対比</div>
+              </div>
+              <div style="background:#ECFDF5;border-radius:6px;padding:6px 10px;flex:1">
+                <div style="font-size:9px;color:#64748B;margin-bottom:2px">月末予測</div>
+                <div style="font-size:12px;font-weight:700;color:#10B981">¥8,100,000</div>
+                <div style="font-size:9px;color:#10B981;font-weight:600">目標達成 ✅</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI + freee -->
+        <div class="card">
+          <div class="card-h">📈 KPI 前月同日比</div>
+          <table class="kt">
+            <tr><td class="kn">売上</td><td class="kv">¥3,200,000</td><td class="mb-w"><div class="mini-bar"><div class="mini-fill mf-b" style="width:64%"></div></div></td><td class="kd up">+12%↑</td></tr>
+            <tr><td class="kn">利益率</td><td class="kv">18.4%</td><td class="mb-w"><div class="mini-bar"><div class="mini-fill mf-b" style="width:92%"></div></div></td><td class="kd dn">-1.6%↓</td></tr>
+            <tr><td class="kn">出品数</td><td class="kv">142件</td><td class="mb-w"><div class="mini-bar"><div class="mini-fill mf-b" style="width:78%"></div></div></td><td class="kd up">+8件↑</td></tr>
+            <tr><td class="kn">在庫切れ</td><td class="kv">7件</td><td class="mb-w"><div class="mini-bar"><div class="mini-fill mf-r" style="width:30%"></div></div></td><td class="kd up">-3件↑</td></tr>
+            <tr><td class="kn">注文数</td><td class="kv">89件</td><td class="mb-w"><div class="mini-bar"><div class="mini-fill mf-b" style="width:85%"></div></div></td><td class="kd up">+14%↑</td></tr>
+            <tr><td class="kn">Payoneer</td><td class="kv">$2,840</td><td class="mb-w"><div class="mini-bar"><div class="mini-fill mf-o" style="width:70%"></div></div></td><td class="kd or">+$580</td></tr>
+          </table>
+          <hr class="freee-divider">
+          <div class="freee-lbl">📋 freee キャッシュフロー</div>
+          <div class="freee-row"><span class="freee-name">口座残高</span><span class="freee-val">¥1,234,567</span></div>
+          <div class="freee-row"><span class="freee-name">今月収入</span><span class="freee-val g">+¥890,000</span></div>
+          <div class="freee-row"><span class="freee-name">今月支出</span><span class="freee-val r">-¥340,000</span></div>
+          <div class="freee-row"><span class="freee-name">純CF</span><span class="freee-val g">+¥550,000</span></div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="card">
+          <div class="card-h" style="margin-bottom:6px">📅 2026年4月</div>
+          <div class="cal-tabs">
+            <button class="cal-tab on" id="cal-t-s" onclick="switchCal('sale')">売上</button>
+            <button class="cal-tab" id="cal-t-p" onclick="switchCal('pay')">入金</button>
+          </div>
+          <div class="cal-head">
+            <div class="cal-dl">日</div><div class="cal-dl">月</div><div class="cal-dl">火</div>
+            <div class="cal-dl">水</div><div class="cal-dl">木</div><div class="cal-dl">金</div><div class="cal-dl">土</div>
+          </div>
+          <div id="cal-sale" class="cal">
+            <div class="cc em"></div>
+            <div class="cc sale-s1">1</div><div class="cc sale-s2">2</div><div class="cc sale-s1">3</div>
+            <div class="cc sale-s1">4</div><div class="cc sale-s2">5</div><div class="cc">6</div>
+            <div class="cc">7</div><div class="cc sale-s1">8</div><div class="cc sale-s3">9</div>
+            <div class="cc sale-s2">10</div><div class="cc sale-s1">11</div><div class="cc sale-s1">12</div>
+            <div class="cc td">13</div><div class="cc ft">14</div><div class="cc ft">15</div>
+            <div class="cc ft">16</div><div class="cc ft">17</div><div class="cc ft">18</div><div class="cc ft">19</div>
+            <div class="cc ft">20</div><div class="cc ft">21</div><div class="cc ft">22</div><div class="cc ft">23</div>
+            <div class="cc ft">24</div><div class="cc ft">25</div><div class="cc ft">26</div><div class="cc ft">27</div>
+            <div class="cc ft">28</div><div class="cc ft">29</div><div class="cc ft">30</div>
+          </div>
+          <div id="cal-pay" class="cal" style="display:none">
+            <div class="cc em"></div>
+            <div class="cc">1</div><div class="cc">2</div><div class="cc">3</div>
+            <div class="cc">4</div><div class="cc pay-s2">5</div><div class="cc">6</div>
+            <div class="cc">7</div><div class="cc">8</div><div class="cc pay-s3">9</div>
+            <div class="cc">10</div><div class="cc">11</div><div class="cc">12</div>
+            <div class="cc td-p">13</div><div class="cc ft">14</div><div class="cc ft">15</div>
+            <div class="cc ft">16</div><div class="cc ft" style="background:#DCFCE7;color:#15803D;opacity:.4">17</div><div class="cc ft">18</div><div class="cc ft">19</div>
+            <div class="cc ft">20</div><div class="cc ft">21</div><div class="cc ft">22</div><div class="cc ft">23</div>
+            <div class="cc ft">24</div><div class="cc ft">25</div><div class="cc ft">26</div><div class="cc ft">27</div>
+            <div class="cc ft">28</div><div class="cc ft">29</div><div class="cc ft">30</div>
+          </div>
+          <div id="cal-s-note" class="cal-note"><div style="width:7px;height:7px;background:#2563EB;border-radius:50%"></div>今日: ¥18,400 · 3件</div>
+          <div id="cal-p-note" class="cal-note" style="display:none"><div style="width:7px;height:7px;background:#10B981;border-radius:50%"></div>次回入金予定: 4/17頃</div>
+        </div>
+      </div>
+
+      <!-- ACTION ROW -->
+      <div class="action-row">
+        <!-- Out-of-stock list -->
+        <div class="action-card">
+          <div class="action-h">
+            ⚠️ 在庫切れ商品 — 7件
+            <span onclick="alert('全件表示')">仕入れ検索 →</span>
+          </div>
+          <table class="oos-table">
+            <thead>
+              <tr><th>商品名</th><th>最終売価</th><th>切れて</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>BANDAI RX-78 Figure</td>
+                <td>¥8,500</td>
+                <td><span class="oos-days">3日</span></td>
+                <td><button class="oos-btn">仕入れ検索</button></td>
+              </tr>
+              <tr>
+                <td>Minolta X-700 Body</td>
+                <td>¥24,000</td>
+                <td><span class="oos-days">5日</span></td>
+                <td><button class="oos-btn">仕入れ検索</button></td>
+              </tr>
+              <tr>
+                <td>Pokemon Box Sealed 2023</td>
+                <td>¥12,800</td>
+                <td><span class="oos-days">1日</span></td>
+                <td><button class="oos-btn">仕入れ検索</button></td>
+              </tr>
+              <tr>
+                <td>Nikon F3 Film Body</td>
+                <td>¥18,500</td>
+                <td><span class="oos-days">7日</span></td>
+                <td><button class="oos-btn">仕入れ検索</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="font-size:10px;color:#94A3B8;margin-top:8px;text-align:center">他 3件 →</div>
+        </div>
+      </div>
+
+      <!-- SALES TABLE -->
+      <div class="table-wrap">
+        <div class="table-head">
+          <h3>売上明細</h3>
+          <span class="tbl-meta">89件 / 今月</span>
+        </div>
+        <table class="dt">
+          <thead>
+            <tr><th>商品名</th><th>売価</th><th>利益</th><th>利益率</th><th>ステータス</th><th>日付</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>BANDAI Action Figure Limited Ed.</td><td>¥8,500</td><td><strong>¥4,300</strong></td><td><div class="ib"><div class="ibt"><div class="ibf hi" style="width:51%"></div></div><span class="ibv hi">50.6%</span></div></td><td><span class="st ship">発送済</span></td><td>4/12</td></tr>
+            <tr><td>Vintage Camera Minolta X-700</td><td>¥24,000</td><td><strong>¥9,000</strong></td><td><div class="ib"><div class="ibt"><div class="ibf md" style="width:38%"></div></div><span class="ibv md">37.5%</span></div></td><td><span class="st sold">決済済</span></td><td>4/11</td></tr>
+            <tr><td>Pokemon Cards Box Sealed 2023</td><td>¥12,800</td><td><strong>¥6,300</strong></td><td><div class="ib"><div class="ibt"><div class="ibf hi" style="width:49%"></div></div><span class="ibv hi">49.2%</span></div></td><td><span class="st ship">発送済</span></td><td>4/11</td></tr>
+            <tr><td>Sony WH-1000XM5 Headphones</td><td>¥31,000</td><td><strong style="color:#EF4444">¥2,500</strong></td><td><div class="ib"><div class="ibt"><div class="ibf lo" style="width:8%"></div></div><span class="ibv lo">8.1%</span></div></td><td><span class="st pend">未発送</span></td><td>4/10</td></tr>
+            <tr><td>Nikon F3 Film Camera Body</td><td>¥18,500</td><td><strong>¥8,500</strong></td><td><div class="ib"><div class="ibt"><div class="ibf md" style="width:46%"></div></div><span class="ibv md">45.9%</span></div></td><td><span class="st sold">決済済</span></td><td>4/9</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- DONUT MODAL -->
+<div class="modal-overlay" id="donut-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>カテゴリ別利益分析 — 2026年4月</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-donut">
+        <svg width="160" height="160" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#F1F5F9" stroke-width="22"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#3B82F6" stroke-width="22"
+            stroke-dasharray="150.8 226.2" transform="rotate(-90 80 80)"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#10B981" stroke-width="22"
+            stroke-dasharray="75.4 301.6" stroke-dashoffset="-150.8" transform="rotate(-90 80 80)"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#F59E0B" stroke-width="22"
+            stroke-dasharray="94.2 283" stroke-dashoffset="-226.2" transform="rotate(-90 80 80)"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#E2E8F0" stroke-width="22"
+            stroke-dasharray="56.5 320.7" stroke-dashoffset="-320.4" transform="rotate(-90 80 80)"/>
+          <text x="80" y="76" text-anchor="middle" font-size="15" font-weight="800" fill="#0F172A">¥590K</text>
+          <text x="80" y="91" text-anchor="middle" font-size="10" fill="#94A3B8">今月利益</text>
+        </svg>
+      </div>
+      <div class="modal-table">
+        <table>
+          <thead>
+            <tr><th>カテゴリ</th><th>利益</th><th>構成比</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="modal-cat-dot" style="background:#3B82F6"></span>カメラ・光学</td>
+              <td><strong>¥236,000</strong></td>
+              <td><div class="modal-bar"><div class="modal-bar-track"><div class="modal-bar-fill" style="width:40%;background:#3B82F6"></div></div><span class="modal-bar-pct" style="color:#3B82F6">40%</span></div></td>
+            </tr>
+            <tr>
+              <td><span class="modal-cat-dot" style="background:#F59E0B"></span>カード・TCG</td>
+              <td><strong>¥147,500</strong></td>
+              <td><div class="modal-bar"><div class="modal-bar-track"><div class="modal-bar-fill" style="width:25%;background:#F59E0B"></div></div><span class="modal-bar-pct" style="color:#F59E0B">25%</span></div></td>
+            </tr>
+            <tr>
+              <td><span class="modal-cat-dot" style="background:#10B981"></span>フィギュア</td>
+              <td><strong>¥118,000</strong></td>
+              <td><div class="modal-bar"><div class="modal-bar-track"><div class="modal-bar-fill" style="width:20%;background:#10B981"></div></div><span class="modal-bar-pct" style="color:#10B981">20%</span></div></td>
+            </tr>
+            <tr>
+              <td><span class="modal-cat-dot" style="background:#E2E8F0"></span>その他</td>
+              <td><strong>¥88,500</strong></td>
+              <td><div class="modal-bar"><div class="modal-bar-track"><div class="modal-bar-fill" style="width:15%;background:#94A3B8"></div></div><span class="modal-bar-pct" style="color:#94A3B8">15%</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-foot">💡 カメラ・光学が利益の40%を占めています。在庫切れ中の Minolta X-700 の仕入れを優先することを推奨します。</div>
+  </div>
+</div>
+
+<script>
+function switchChart(tab, btn) {
+  document.getElementById('chart-daily').className = 'tab-panel' + (tab==='daily'?' on':'');
+  document.getElementById('chart-monthly').className = 'tab-panel' + (tab==='monthly'?' on':'');
+  btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function switchCal(mode) {
+  const s = mode==='sale';
+  document.getElementById('cal-sale').style.display = s ? 'grid' : 'none';
+  document.getElementById('cal-pay').style.display = s ? 'none' : 'grid';
+  document.getElementById('cal-s-note').style.display = s ? 'flex' : 'none';
+  document.getElementById('cal-p-note').style.display = s ? 'none' : 'flex';
+  document.getElementById('cal-t-s').className = 'cal-tab' + (s ? ' on' : '');
+  document.getElementById('cal-t-p').className = 'cal-tab' + (s ? '' : ' on');
+}
+function openModal() {
+  document.getElementById('donut-modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('donut-modal').classList.remove('open');
+}
+</script>
+</body>
+</html>

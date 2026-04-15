@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUNE — 時を重ねた男だけが持つ、深い魅力がある。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --surface: #FFFBEB;
+      --accent: #F97316;
+      --accent-light: #FFEDD5;
+      --yellow: #FBBF24;
+      --yellow-light: #FEF9C3;
+      --text-h: #7C2D12;
+      --text-b: #44403C;
+      --text-muted: #A8A29E;
+      --line-green: #06C755;
+      --radius: 16px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text-b);
+      line-height: 1.75;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3 {
+      font-family: 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
+      color: var(--text-h);
+    }
+
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    .section { padding: 84px 0; }
+
+    /* ─── NAV ─── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(8px);
+      border-bottom: 2px solid var(--accent);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0;
+    }
+    .logo {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+    }
+    .nav-cta {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      padding: 10px 24px;
+      font-size: 0.875rem;
+      font-weight: 700;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex; align-items: center; gap: 8px;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* ─── HERO ─── */
+    #hero {
+      min-height: 100vh;
+      padding-top: 80px;
+      background: var(--bg);
+      display: flex; align-items: center;
+      overflow: hidden;
+    }
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1fr 480px;
+      gap: 40px;
+      align-items: center;
+      width: 100%;
+    }
+    .hero-left { position: relative; z-index: 2; }
+    .hero-eyebrow {
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      display: block;
+    }
+    .hero-h1 {
+      font-size: clamp(1.8rem, 3.2vw, 2.7rem);
+      line-height: 1.45;
+      margin-bottom: 24px;
+      font-weight: 800;
+    }
+    .hero-h1 .hl {
+      color: var(--accent);
+      position: relative;
+      display: inline;
+    }
+    .hero-h1 .hl::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--yellow));
+      border-radius: 2px;
+    }
+    .hero-sub {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 32px;
+    }
+    .hero-mini-stats {
+      display: flex; gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .mini-stat {
+      background: var(--accent-light);
+      border-radius: 12px;
+      padding: 10px 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .mini-stat-icon {
+      color: var(--accent);
+      font-size: 1rem;
+    }
+    .mini-stat-text {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-h);
+    }
+    .mini-stat-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      display: block;
+    }
+    .hero-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--line-green);
+      color: #fff;
+      border-radius: 50px;
+      padding: 16px 40px;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: 'Noto Sans JP', sans-serif;
+      text-decoration: none;
+      box-shadow: 0 6px 24px rgba(6,199,85,0.3);
+      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .hero-btn:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 10px 32px rgba(6,199,85,0.42); }
+
+    /* ─── SUNRISE DECORATION ─── */
+    .hero-right {
+      position: relative;
+      height: 500px;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .sunrise-wrap {
+      position: relative;
+      width: 380px;
+      height: 380px;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .sunrise-arc {
+      position: absolute;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%) rotate(-90deg);
+      transform-origin: center bottom;
+      width: 320px; height: 320px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      border-top-color: var(--accent);
+      border-right-color: var(--yellow);
+      animation: sunriseRotate 0.9s ease-out forwards;
+    }
+    .sunrise-arc-2 {
+      position: absolute;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%) rotate(-90deg);
+      transform-origin: center bottom;
+      width: 260px; height: 260px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: rgba(249,115,22,0.3);
+      border-right-color: rgba(251,191,36,0.3);
+      animation: sunriseRotate 1.1s ease-out forwards 0.15s;
+    }
+    .sunrise-arc-3 {
+      position: absolute;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%) rotate(-90deg);
+      transform-origin: center bottom;
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: rgba(249,115,22,0.15);
+      border-right-color: rgba(251,191,36,0.15);
+      animation: sunriseRotate 1.3s ease-out forwards 0.3s;
+    }
+    .sunrise-circle {
+      position: absolute;
+      bottom: 60px; left: 50%;
+      transform: translateX(-50%);
+      width: 90px; height: 90px;
+      background: radial-gradient(circle, var(--yellow) 0%, var(--accent) 100%);
+      border-radius: 50%;
+      opacity: 0.85;
+    }
+    .sunrise-ground {
+      position: absolute;
+      bottom: 0; left: -20px; right: -20px;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--accent), var(--yellow), var(--accent), transparent);
+      border-radius: 2px;
+    }
+    @keyframes sunriseRotate {
+      from { transform: translateX(-50%) rotate(-180deg); }
+      to   { transform: translateX(-50%) rotate(-90deg); }
+    }
+
+    /* Hero text char reveal — applied by JS */
+    .char { display: inline; opacity: 0; animation: charReveal 0.05s ease forwards; }
+    @keyframes charReveal { to { opacity: 1; } }
+
+    /* ─── PROBLEM ─── */
+    #problem { background: var(--surface); }
+    .section-title {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .section-title-under {
+      display: inline-block;
+      position: relative;
+    }
+    .section-title-under::after {
+      content: '';
+      position: absolute;
+      bottom: -5px; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-bottom: 52px;
+      margin-top: 20px;
+    }
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .problem-card {
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--accent-light);
+      padding: 28px 22px;
+      transition: box-shadow 0.3s, transform 0.3s;
+    }
+    .problem-card:hover {
+      box-shadow: 0 8px 28px rgba(249,115,22,0.12);
+      transform: translateY(-4px);
+    }
+    .problem-icon-badge {
+      width: 44px; height: 44px;
+      background: var(--accent);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+    }
+    .problem-card h3 {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      line-height: 1.55;
+    }
+    .problem-card p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    /* ─── BENEFITS ─── */
+    #benefits { background: var(--bg); }
+    .benefits-steps {
+      max-width: 740px;
+      margin: 0 auto;
+      position: relative;
+    }
+    .benefits-steps::before {
+      content: '';
+      position: absolute;
+      left: 44px;
+      top: 80px;
+      bottom: 60px;
+      width: 0;
+      border-left: 2px dashed var(--accent);
+      opacity: 0.35;
+    }
+    .step {
+      display: flex; gap: 32px; align-items: flex-start;
+      margin-bottom: 48px;
+    }
+    .step:last-child { margin-bottom: 0; }
+    .step-num {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: var(--accent);
+      min-width: 88px;
+      text-align: center;
+      line-height: 1;
+      opacity: 0;
+      transform: translateX(-30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+      flex-shrink: 0;
+    }
+    .step-text {
+      padding-top: 6px;
+      opacity: 0;
+      transform: translateX(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .step.visible .step-num,
+    .step.visible .step-text {
+      opacity: 1; transform: translateX(0);
+    }
+    .step-text h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+    .step-text p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.75;
+    }
+
+    /* ─── STATS ─── */
+    #stats {
+      background: var(--accent);
+      padding: 64px 0;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+      text-align: center;
+    }
+    .stat-num {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      color: #fff;
+      font-weight: 800;
+      display: block;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.82);
+      display: block;
+      margin-top: 8px;
+    }
+
+    /* ─── TESTIMONIALS ─── */
+    #testimonials { background: var(--surface); }
+    .testi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .testi-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px 22px;
+      border-left: 4px solid var(--yellow);
+      transition: box-shadow 0.3s, transform 0.3s;
+    }
+    .testi-card:hover {
+      box-shadow: 0 8px 28px rgba(251,191,36,0.18);
+      transform: translateY(-3px);
+    }
+    .testi-body {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      margin-bottom: 20px;
+      color: var(--text-b);
+    }
+    .testi-footer {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .testi-avatar {
+      width: 40px; height: 40px;
+      background: var(--yellow);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.9rem;
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      flex-shrink: 0;
+    }
+    .testi-name {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--text-h);
+    }
+    .testi-age {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* ─── CTA ─── */
+    #cta { background: var(--bg); padding: 88px 0; }
+    .cta-card {
+      background: linear-gradient(135deg, var(--accent) 0%, #EA580C 60%, #C2410C 100%);
+      border-radius: 32px;
+      padding: 64px 48px;
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto;
+      animation: pulseGlow 3s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 8px 40px rgba(249,115,22,0.3); }
+      50% { box-shadow: 0 16px 60px rgba(249,115,22,0.5); }
+    }
+    .cta-card .cta-label {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 50px;
+      padding: 5px 16px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      display: inline-block;
+      margin-bottom: 18px;
+    }
+    .cta-card h2 {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      color: #fff;
+      font-size: clamp(1.5rem, 3vw, 2.1rem);
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    .cta-card .cta-sub {
+      color: rgba(255,255,255,0.8);
+      font-size: 0.875rem;
+      margin-bottom: 36px;
+    }
+    .cta-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: #fff;
+      color: var(--line-green);
+      border-radius: 50px;
+      padding: 18px 48px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: 'Noto Sans JP', sans-serif;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .cta-btn:hover { opacity: 0.93; transform: translateY(-2px); box-shadow: 0 10px 36px rgba(0,0,0,0.2); }
+    .cta-card .cta-note {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.65);
+      margin-top: 14px;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      background: var(--bg);
+      padding: 32px 0;
+      text-align: center;
+      border-top: 1px solid var(--accent-light);
+    }
+    .footer-logo {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent);
+      display: block;
+      margin-bottom: 8px;
+    }
+    .footer-copy { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ─── UTILITY ─── */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 1024px) {
+      .hero-inner { grid-template-columns: 1fr; }
+      .hero-right { height: 280px; }
+      .sunrise-wrap { width: 280px; height: 280px; }
+      .sunrise-arc { width: 240px; height: 240px; }
+      .sunrise-arc-2 { width: 200px; height: 200px; }
+      .sunrise-arc-3 { width: 160px; height: 160px; }
+    }
+    @media (max-width: 768px) {
+      .problem-grid, .testi-grid, .stats-grid { grid-template-columns: 1fr; }
+      .hero-right { display: none; }
+      .benefits-steps::before { left: 36px; }
+      .section { padding: 56px 0; }
+      .cta-card { padding: 44px 24px; }
+    }
+    @media (max-width: 375px) {
+      .hero-h1 { font-size: 1.6rem; }
+      .hero-btn { padding: 14px 24px; font-size: 0.9rem; }
+      .step-num { font-size: 2.2rem; min-width: 70px; }
+    }
+
+    /* ─── REDUCED MOTION ─── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .fade-up, .step-num, .step-text, .sunrise-arc, .sunrise-arc-2, .sunrise-arc-3 {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      .char { opacity: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="container nav-inner">
+      <a class="logo" href="#">LUNE</a>
+      <a class="nav-cta" href="#cta">
+        <i class="fa-brands fa-line"></i>
+        無料登録
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="container">
+      <div class="hero-inner">
+        <div class="hero-left">
+          <span class="hero-eyebrow">50代からが、本当のモテ時代。</span>
+          <h1 class="hero-h1" id="hero-headline">
+            時を重ねた<span class="hl">男</span>だけが持つ、<br>深い<span class="hl">魅力</span>がある。
+          </h1>
+          <p class="hero-sub">50代以上の男性が、毎月マッチングを叶えています</p>
+          <div class="hero-mini-stats">
+            <div class="mini-stat">
+              <span class="mini-stat-icon"><i class="fa-solid fa-users"></i></span>
+              <div>
+                <span class="mini-stat-text">12,000+</span>
+                <span class="mini-stat-sub">会員数</span>
+              </div>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-icon"><i class="fa-solid fa-heart"></i></span>
+              <div>
+                <span class="mini-stat-text">78%</span>
+                <span class="mini-stat-sub">マッチング率</span>
+              </div>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-icon"><i class="fa-solid fa-star"></i></span>
+              <div>
+                <span class="mini-stat-text">92%</span>
+                <span class="mini-stat-sub">満足度</span>
+              </div>
+            </div>
+          </div>
+          <a class="hero-btn" href="#cta">
+            <i class="fa-brands fa-line"></i>
+            LINEで無料登録する
+          </a>
+        </div>
+        <div class="hero-right">
+          <div class="sunrise-wrap">
+            <div class="sunrise-arc"></div>
+            <div class="sunrise-arc-2"></div>
+            <div class="sunrise-arc-3"></div>
+            <div class="sunrise-circle"></div>
+            <div class="sunrise-ground"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section id="problem" class="section">
+    <div class="container">
+      <h2 class="section-title fade-up">
+        <span class="section-title-under">こんな悩み、ありませんか？</span>
+      </h2>
+      <p class="section-sub fade-up">多くの50代男性が抱える、リアルな出会いの壁</p>
+      <div class="problem-grid">
+        <div class="problem-card fade-up">
+          <div class="problem-icon-badge"><i class="fa-solid fa-hourglass-half"></i></div>
+          <h3>出会いの場がなく、なんとなく日々が過ぎていく</h3>
+          <p>仕事と日常の繰り返しの中で、新しいきっかけが見えない。</p>
+        </div>
+        <div class="problem-card fade-up" style="transition-delay:0.1s">
+          <div class="problem-icon-badge"><i class="fa-solid fa-mobile-screen-button"></i></div>
+          <h3>マッチングアプリは"若者向け"に見えて、踏み出せない</h3>
+          <p>一般的なアプリは若い世代向けで、自分には合わないと感じてしまう。</p>
+        </div>
+        <div class="problem-card fade-up" style="transition-delay:0.2s">
+          <div class="problem-icon-badge"><i class="fa-solid fa-circle-question"></i></div>
+          <h3>自分のような年齢でも、本当に出会えるのか不安</h3>
+          <p>年齢を重ねると出会いが難しくなるのではないかという不安がある。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENEFITS -->
+  <section id="benefits" class="section">
+    <div class="container">
+      <h2 class="section-title fade-up">50代からモテる理由があります</h2>
+      <p class="section-sub fade-up" style="margin-top:16px">LUNEが選ばれる3つのステップ</p>
+      <div class="benefits-steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-text">
+            <h3>大人を求める女性が多数在籍</h3>
+            <p>20〜40代の女性会員がLUNEを選ぶ理由は「落ち着いた大人の男性に出会いたい」から。あなたの人生経験そのものが最高の魅力になります。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-text">
+            <h3>50代専用マッチング</h3>
+            <p>年齢層を絞ることで、真剣な出会いの確率が劇的に上がります。同じ人生ステージにいる者同士だからこそ、深い縁が生まれます。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-text">
+            <h3>プロフィール完全サポート</h3>
+            <p>登録からマッチングまで、専任スタッフがサポート。はじめての方でも安心して、出会いの第一歩を踏み出せます。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats">
+    <div class="container">
+      <div class="stats-grid">
+        <div>
+          <span class="stat-num" data-target="12000" data-suffix="+">0</span>
+          <span class="stat-label">登録会員数</span>
+        </div>
+        <div>
+          <span class="stat-num" data-target="78" data-suffix="%">0</span>
+          <span class="stat-label">マッチング率</span>
+        </div>
+        <div>
+          <span class="stat-num" data-target="92" data-suffix="%">0</span>
+          <span class="stat-label">満足度</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section id="testimonials" class="section">
+    <div class="container">
+      <h2 class="section-title fade-up">成功した先輩たちの声</h2>
+      <p class="section-sub fade-up" style="margin-top:16px">50代からの出会いを叶えた実績</p>
+      <div class="testi-grid">
+        <div class="testi-card fade-up">
+          <p class="testi-body">「1ヶ月でマッチングできました。大人の余裕が武器になるとは思っていませんでした。」</p>
+          <div class="testi-footer">
+            <div class="testi-avatar">田</div>
+            <div>
+              <div class="testi-name">田中さん</div>
+              <div class="testi-age">54歳・会社員</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card fade-up" style="transition-delay:0.1s">
+          <p class="testi-body">「若い頃よりいまの方がモテると実感。経験と安定感が女性に響くんですね。」</p>
+          <div class="testi-footer">
+            <div class="testi-avatar">佐</div>
+            <div>
+              <div class="testi-name">佐藤さん</div>
+              <div class="testi-age">58歳・自営業</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card fade-up" style="transition-delay:0.2s">
+          <p class="testi-body">「50代専用というだけで、最初からお互い真剣。純粋に出会いを楽しめています。」</p>
+          <div class="testi-footer">
+            <div class="testi-avatar">鈴</div>
+            <div>
+              <div class="testi-name">鈴木さん</div>
+              <div class="testi-age">52歳・会社員</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section id="cta">
+    <div class="container">
+      <div class="cta-card fade-up">
+        <div class="cta-label">期間限定・完全無料</div>
+        <h2>今すぐLINEで<br>無料登録する</h2>
+        <p class="cta-sub">登録60秒・完全無料・いつでも退会OK</p>
+        <a class="cta-btn" href="#">
+          <i class="fa-brands fa-line" style="color:var(--line-green)"></i>
+          今すぐ無料で始める
+        </a>
+        <p class="cta-note">
+          <i class="fa-solid fa-lock" style="margin-right:4px"></i>
+          個人情報は厳重に管理しています
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <span class="footer-logo">LUNE</span>
+    <p class="footer-copy">© 2025 LUNE. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // ─── INTERSECTION OBSERVER ───
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) e.target.classList.add('visible');
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+
+    // ─── STEP ANIMATION ───
+    const stepObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const idx = [...document.querySelectorAll('.step')].indexOf(e.target);
+          e.target.style.transitionDelay = (idx * 0.18) + 's';
+          e.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.3 });
+    document.querySelectorAll('.step').forEach(el => stepObs.observe(el));
+
+    // ─── CHAR REVEAL ───
+    (function() {
+      const headline = document.getElementById('hero-headline');
+      if (!headline) return;
+
+      // Collect text nodes only, preserve HTML (spans with .hl)
+      const html = headline.innerHTML;
+      // We'll wrap each visible character with a span for animation
+      let delay = 0;
+      const delayStep = 40; // ms per char
+
+      function wrapChars(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const chars = node.textContent.split('');
+          const fragment = document.createDocumentFragment();
+          chars.forEach(ch => {
+            if (ch === '\n' || ch === ' ') {
+              // preserve whitespace as-is
+              fragment.appendChild(document.createTextNode(ch));
+              delay += delayStep * 0.3;
+            } else {
+              const span = document.createElement('span');
+              span.className = 'char';
+              span.textContent = ch;
+              span.style.animationDelay = delay + 'ms';
+              delay += delayStep;
+              fragment.appendChild(span);
+            }
+          });
+          node.parentNode.replaceChild(fragment, node);
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          [...node.childNodes].forEach(child => wrapChars(child));
+        }
+      }
+
+      wrapChars(headline);
+    })();
+
+    // ─── COUNT UP ───
+    function countUp(el) {
+      const target = parseInt(el.dataset.target);
+      const suffix = el.dataset.suffix || '';
+      const duration = 1800;
+      const step = target / (duration / 16);
+      let current = 0;
+      const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        el.textContent = Math.floor(current).toLocaleString() + suffix;
+        if (current >= target) clearInterval(timer);
+      }, 16);
+    }
+
+    const statsObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.querySelectorAll('.stat-num[data-target]').forEach(el => countUp(el));
+          statsObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.4 });
+    statsObs.observe(document.getElementById('stats'));
+  </script>
+</body>
+</html>

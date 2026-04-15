@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUNE — 50代からが、本当のモテ時代。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&family=Playfair+Display:ital,wght@0,700;1,400;1,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --surface: #FAF5FF;
+      --accent: #7C3AED;
+      --accent-light: #EDE9FE;
+      --gold: #B45309;
+      --gold-light: #FEF3C7;
+      --text-h: #4C1D95;
+      --text-b: #374151;
+      --text-muted: #9CA3AF;
+      --line-green: #06C755;
+      --radius-card: 16px;
+      --shadow-card: 0 4px 24px rgba(124, 58, 237, 0.07);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text-b);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── TYPOGRAPHY ── */
+    .font-serif { font-family: 'Playfair Display', serif; }
+    h1, h2, h3 { font-family: 'Playfair Display', serif; }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section { padding: 96px 0; }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--gold);
+    }
+
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+    }
+
+    .nav-cta {
+      display: inline-block;
+      padding: 10px 28px;
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .nav-cta:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* ── HERO ── */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding-top: 120px;
+      padding-bottom: 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-label {
+      display: inline-block;
+      font-size: 0.78rem;
+      letter-spacing: 0.2em;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.6s 0.1s forwards;
+    }
+
+    #hero h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-style: italic;
+      color: var(--text-h);
+      line-height: 1.35;
+      max-width: 720px;
+      opacity: 0;
+    }
+
+    #hero h1 .word {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    #hero .sub {
+      margin-top: 24px;
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 480px;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.6s 0.9s forwards;
+    }
+
+    /* Iris decoration */
+    .iris-wrap {
+      position: relative;
+      width: 160px;
+      height: 160px;
+      margin: 40px auto 32px;
+    }
+
+    .iris-ellipse {
+      position: absolute;
+      top: 50%; left: 50%;
+      border-radius: 50%;
+      border-width: 1px;
+      border-style: solid;
+    }
+
+    .iris-ellipse-1 {
+      width: 120px; height: 60px;
+      margin-top: -30px; margin-left: -60px;
+      border-color: var(--accent);
+      animation: rotateClockwise 20s linear infinite;
+    }
+
+    .iris-ellipse-2 {
+      width: 100px; height: 140px;
+      margin-top: -70px; margin-left: -50px;
+      border-color: var(--gold);
+      animation: rotateCCW 30s linear infinite;
+    }
+
+    .iris-ellipse-3 {
+      width: 80px; height: 80px;
+      margin-top: -40px; margin-left: -40px;
+      border-color: var(--accent-light);
+      border-width: 1.5px;
+      animation: rotateClockwise 15s linear infinite;
+    }
+
+    .iris-dot {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 8px; height: 8px;
+      background: var(--gold);
+      border-radius: 50%;
+      margin-top: -4px; margin-left: -4px;
+    }
+
+    @keyframes rotateClockwise {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes rotateCCW {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(-360deg); }
+    }
+
+    /* Stats */
+    .hero-stats {
+      display: flex;
+      gap: 0;
+      margin-top: 48px;
+      opacity: 0;
+      transform: translateY(16px);
+      animation: fadeUp 0.6s 1.1s forwards;
+    }
+
+    .stat-box {
+      flex: 1;
+      padding: 20px 28px;
+      border: 1px solid var(--gold);
+      text-align: center;
+      position: relative;
+    }
+
+    .stat-box + .stat-box {
+      border-left: none;
+    }
+
+    .stat-box:first-child { border-radius: 12px 0 0 12px; }
+    .stat-box:last-child { border-radius: 0 12px 12px 0; }
+
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 2px;
+    }
+
+    /* ── GOLD RULE ── */
+    .gold-rule {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .gold-rule-inner {
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+      margin: 0 auto;
+    }
+
+    .gold-rule-inner.revealed {
+      width: 100%;
+    }
+
+    /* ── PROBLEM ── */
+    #problem {
+      background: var(--surface);
+    }
+
+    #problem .section-label {
+      display: inline-block;
+      font-size: 0.75rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      color: var(--text-h);
+      margin-bottom: 52px;
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .problem-card {
+      background: var(--bg);
+      border-radius: var(--radius-card);
+      padding: 36px 28px;
+      border-top: 3px solid var(--accent-light);
+      box-shadow: var(--shadow-card);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .problem-card.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .problem-icon {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--accent-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .problem-icon i {
+      color: var(--accent);
+      font-size: 1.1rem;
+    }
+
+    .problem-dash {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      color: var(--gold);
+      margin-right: 6px;
+      display: inline;
+    }
+
+    .problem-card p {
+      font-size: 0.95rem;
+      line-height: 1.75;
+      color: var(--text-b);
+    }
+
+    /* ── BENEFITS ── */
+    #benefits {
+      background: var(--bg);
+    }
+
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      margin-top: 52px;
+    }
+
+    .benefit-card {
+      padding: 8px 0;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .benefit-card.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .benefit-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--gold-light);
+      line-height: 1;
+      margin-bottom: 12px;
+      -webkit-text-stroke: 1px var(--gold);
+    }
+
+    .benefit-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      color: var(--text-h);
+      margin-bottom: 10px;
+    }
+
+    .benefit-text {
+      font-size: 0.9rem;
+      color: var(--text-b);
+      line-height: 1.8;
+    }
+
+    /* ── QUOTE SECTION ── */
+    #quote {
+      background: var(--surface);
+      padding: 80px 0;
+      text-align: center;
+    }
+
+    .quote-ornament {
+      margin-bottom: 24px;
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: opacity 0.7s, transform 0.7s;
+    }
+
+    .quote-ornament.revealed {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .quote-ornament svg {
+      width: 48px;
+      height: 32px;
+    }
+
+    .quote-text {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: clamp(1.15rem, 2.5vw, 1.55rem);
+      color: var(--text-h);
+      max-width: 720px;
+      margin: 0 auto;
+      line-height: 1.7;
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: opacity 0.7s 0.1s, transform 0.7s 0.1s;
+    }
+
+    .quote-text.revealed {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* ── TESTIMONIALS ── */
+    #testimonials {
+      background: var(--bg);
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      margin-top: 52px;
+    }
+
+    .testimonial-card {
+      background: var(--bg);
+      border-radius: var(--radius-card);
+      padding: 32px 28px;
+      border-left: 3px solid var(--accent);
+      box-shadow: var(--shadow-card);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .testimonial-card.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .testimonial-stars {
+      color: var(--gold);
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+    }
+
+    .testimonial-text {
+      font-size: 0.92rem;
+      line-height: 1.8;
+      color: var(--text-b);
+      margin-bottom: 20px;
+    }
+
+    .testimonial-author {
+      font-size: 0.82rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── FINAL CTA ── */
+    #cta {
+      background: var(--bg);
+      text-align: center;
+    }
+
+    .cta-box {
+      border: 1px solid var(--accent-light);
+      background: var(--surface);
+      border-radius: 24px;
+      padding: 64px 48px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .cta-box h2 {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-style: italic;
+      color: var(--text-h);
+      margin-bottom: 16px;
+    }
+
+    .cta-sub {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+    }
+
+    .btn-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--line-green);
+      color: #fff;
+      padding: 16px 40px;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      min-height: 52px;
+      transition: filter 0.2s, transform 0.2s;
+      box-shadow: 0 4px 16px rgba(6, 199, 85, 0.3);
+    }
+
+    .btn-line:hover {
+      filter: brightness(1.08);
+      transform: translateY(-2px);
+    }
+
+    .btn-note {
+      display: block;
+      margin-top: 14px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--bg);
+      border-top: 1px solid var(--gold);
+      padding: 32px 0;
+      text-align: center;
+    }
+
+    footer p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      section { padding: 64px 0; }
+
+      .problem-grid,
+      .benefits-grid,
+      .testimonials-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-stats {
+        flex-direction: column;
+        width: 100%;
+        max-width: 320px;
+      }
+
+      .stat-box {
+        border-radius: 0 !important;
+        border-left: 1px solid var(--gold) !important;
+        border-top: none;
+      }
+
+      .stat-box:first-child {
+        border-top: 1px solid var(--gold) !important;
+        border-radius: 12px 12px 0 0 !important;
+      }
+
+      .stat-box:last-child {
+        border-radius: 0 0 12px 12px !important;
+      }
+
+      .cta-box {
+        padding: 40px 24px;
+      }
+
+      .nav-logo { font-size: 1.4rem; }
+    }
+
+    /* ── REDUCED MOTION ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <div class="nav-logo">LUNE</div>
+      <a href="#cta" class="nav-cta">無料登録</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="container">
+      <span class="hero-label">Matching Service for 50+</span>
+
+      <h1 id="hero-heading">恋愛は、50代から本番を迎える。</h1>
+
+      <div class="iris-wrap" aria-hidden="true">
+        <div class="iris-ellipse iris-ellipse-1"></div>
+        <div class="iris-ellipse iris-ellipse-2"></div>
+        <div class="iris-ellipse iris-ellipse-3"></div>
+        <div class="iris-dot"></div>
+      </div>
+
+      <p class="sub">50代以上の男性が、毎月マッチングを叶えています</p>
+
+      <div class="hero-stats">
+        <div class="stat-box">
+          <span class="stat-num">2,400<span style="font-size:1.2rem">+</span></span>
+          <span class="stat-label">登録会員数</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num">87<span style="font-size:1.2rem">%</span></span>
+          <span class="stat-label">3ヶ月以内マッチング率</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num">98<span style="font-size:1.2rem">%</span></span>
+          <span class="stat-label">会員満足度</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GOLD RULE -->
+  <div class="container">
+    <div class="gold-rule">
+      <div class="gold-rule-inner" id="gold-rule-1"></div>
+    </div>
+  </div>
+
+  <!-- PROBLEM -->
+  <section id="problem">
+    <div class="container">
+      <span class="section-label">Problem</span>
+      <h2 class="section-title">こんな悩み、ありませんか？</h2>
+
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="problem-icon">
+            <i class="fas fa-calendar-xmark"></i>
+          </div>
+          <p><span class="problem-dash">—</span>出会いの場がなく、なんとなく日々が過ぎていく</p>
+        </div>
+        <div class="problem-card" style="transition-delay: 0.1s;">
+          <div class="problem-icon">
+            <i class="fas fa-mobile-screen"></i>
+          </div>
+          <p><span class="problem-dash">—</span>マッチングアプリは"若者向け"に見えて、踏み出せない</p>
+        </div>
+        <div class="problem-card" style="transition-delay: 0.2s;">
+          <div class="problem-icon">
+            <i class="fas fa-circle-question"></i>
+          </div>
+          <p><span class="problem-dash">—</span>自分のような年齢でも、本当に出会えるのか不安</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENEFITS -->
+  <section id="benefits">
+    <div class="container">
+      <span class="section-label" style="color: var(--gold); font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase;">Why LUNE</span>
+      <h2 class="section-title">50代からモテる理由があります</h2>
+
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <div class="benefit-num">01</div>
+          <h3 class="benefit-title">大人を求める女性が多数在籍</h3>
+          <p class="benefit-text">20〜40代の女性会員がLUNEを選ぶ理由は「落ち着いた大人の男性に出会いたい」から。あなたの経験が、武器になります。</p>
+        </div>
+        <div class="benefit-card" style="transition-delay: 0.12s;">
+          <div class="benefit-num">02</div>
+          <h3 class="benefit-title">50代専用マッチング</h3>
+          <p class="benefit-text">年齢層を絞ることで、真剣な出会いの確率が劇的に上がります。同じステージで出会えるから、はじめから話が通じる。</p>
+        </div>
+        <div class="benefit-card" style="transition-delay: 0.24s;">
+          <div class="benefit-num">03</div>
+          <h3 class="benefit-title">プロフィール完全サポート</h3>
+          <p class="benefit-text">登録からマッチングまで、専任スタッフがサポート。「何を書けばいいかわからない」を解決します。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GOLD RULE 2 -->
+  <div class="container">
+    <div class="gold-rule">
+      <div class="gold-rule-inner" id="gold-rule-2"></div>
+    </div>
+  </div>
+
+  <!-- QUOTE -->
+  <section id="quote">
+    <div class="container">
+      <div class="quote-ornament" id="quote-ornament">
+        <svg viewBox="0 0 48 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 28 Q8 0 20 8 Q12 16 14 28Z" fill="none" stroke="#B45309" stroke-width="1.5"/>
+          <path d="M26 28 Q34 0 46 8 Q38 16 40 28Z" fill="none" stroke="#B45309" stroke-width="1.5"/>
+          <circle cx="7" cy="10" r="2" fill="#B45309" opacity="0.4"/>
+          <circle cx="33" cy="10" r="2" fill="#B45309" opacity="0.4"/>
+        </svg>
+      </div>
+
+      <p class="quote-text" id="quote-text">
+        「年齢を重ねた男性の余裕と誠実さに、惹かれます。」<br>
+        <span style="font-size: 0.9rem; color: var(--gold); font-style: normal; letter-spacing: 0.1em;">— 会員の声</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section id="testimonials">
+    <div class="container">
+      <span class="section-label" style="color: var(--gold); font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase;">Voices</span>
+      <h2 class="section-title">実際に出会えた方々の声</h2>
+
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <div class="testimonial-stars">
+            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+          </div>
+          <p class="testimonial-text">「1ヶ月でマッチングできました。大人の余裕が武器になるとは思っていませんでした。」</p>
+          <p class="testimonial-author">田中さん（54歳・会社員）</p>
+        </div>
+        <div class="testimonial-card" style="transition-delay: 0.1s;">
+          <div class="testimonial-stars">
+            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+          </div>
+          <p class="testimonial-text">「若い頃よりいまの方がモテると実感。経験と安定感が女性に響くんですね。」</p>
+          <p class="testimonial-author">佐藤さん（58歳・自営業）</p>
+        </div>
+        <div class="testimonial-card" style="transition-delay: 0.2s;">
+          <div class="testimonial-stars">
+            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+          </div>
+          <p class="testimonial-text">「50代専用というだけで、最初からお互い真剣。純粋に出会いを楽しめています。」</p>
+          <p class="testimonial-author">鈴木さん（52歳・会社員）</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section id="cta">
+    <div class="container">
+      <div class="cta-box">
+        <h2>今すぐLINEで<br>無料登録する</h2>
+        <p class="cta-sub">登録60秒・完全無料・いつでも退会OK</p>
+        <a href="#" class="btn-line">
+          <i class="fab fa-line" style="font-size: 1.3rem;"></i>
+          LINEで無料登録する
+        </a>
+        <span class="btn-note">登録60秒 &nbsp;|&nbsp; 完全無料 &nbsp;|&nbsp; いつでも退会OK</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <p>© 2025 LUNE. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Hero heading word-by-word animation
+    (function() {
+      const h1 = document.getElementById('hero-heading');
+      const text = h1.textContent;
+      h1.textContent = '';
+      h1.style.opacity = '1';
+
+      // Split by char groups for Japanese
+      const chars = [...text];
+      chars.forEach((ch, i) => {
+        const span = document.createElement('span');
+        span.className = 'word';
+        span.textContent = ch;
+        span.style.animationDelay = (0.3 + i * 0.04) + 's';
+        span.style.animation = 'fadeUp 0.5s forwards';
+        h1.appendChild(span);
+      });
+    })();
+
+    // Intersection Observer for scroll animations
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+
+          if (el.classList.contains('problem-card') ||
+              el.classList.contains('benefit-card') ||
+              el.classList.contains('testimonial-card')) {
+            el.classList.add('revealed');
+          }
+
+          if (el.classList.contains('gold-rule-inner')) {
+            el.classList.add('revealed');
+          }
+
+          if (el.id === 'quote-ornament' || el.id === 'quote-text') {
+            el.classList.add('revealed');
+          }
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.problem-card, .benefit-card, .testimonial-card, .gold-rule-inner, #quote-ornament, #quote-text')
+      .forEach(el => io.observe(el));
+  </script>
+
+</body>
+</html>
