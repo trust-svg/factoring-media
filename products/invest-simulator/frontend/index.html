@@ -688,26 +688,31 @@ function actionBg(a) {
     return '#F1F5F9';
 }
 async function fetchCycleLogs() {
-    const data = await fetch(`${API}/api/cycles`).then(r => r.json());
-    document.getElementById('cycle-ct').textContent = `${data.length} 件`;
+    const data = await fetch(`${API}/api/cycle_log`).then(r => r.json());
     const body = document.getElementById('cycle-log-body');
-    if (!data.length) { body.innerHTML = '<div class="empty">ログなし</div>'; return; }
+    if (!data.length) { document.getElementById('cycle-ct').textContent = '0 件'; body.innerHTML = '<div class="empty">ログなし</div>'; return; }
 
-    body.innerHTML = data.map(c => {
-        const action = c.action || 'HOLD';
-        const ticker = c.ticker || c.symbol || '—';
-        const ts = c.executed_at || c.timestamp || '';
-        const reason = c.reason || c.analysis || '';
-        return `
-        <div class="ai-log-entry ${action}">
+    // Flatten decisions from all cycles into a single list
+    const entries = [];
+    for (const cycle of data) {
+        const ts = cycle.timestamp || '';
+        const mkt = cycle.market || '';
+        for (const d of (cycle.decisions || [])) {
+            entries.push({ action: d.action || 'HOLD', ticker: d.ticker || mkt, ts, reason: d.reason || '' });
+        }
+    }
+    document.getElementById('cycle-ct').textContent = `${entries.length} 件`;
+    if (!entries.length) { body.innerHTML = '<div class="empty">ログなし</div>'; return; }
+
+    body.innerHTML = entries.map(e => `
+        <div class="ai-log-entry ${e.action}">
             <div class="ai-log-head">
-                <span class="ai-log-badge ${action}">${action}</span>
-                <span class="ai-log-ticker">${ticker}</span>
-                <span class="ai-log-ts">${ts ? fD(ts) : ''}</span>
+                <span class="ai-log-badge ${e.action}">${e.action}</span>
+                <span class="ai-log-ticker">${e.ticker}</span>
+                <span class="ai-log-ts">${e.ts ? fD(e.ts) : ''}</span>
             </div>
-            <div class="ai-log-body">${reason}</div>
-        </div>`;
-    }).join('');
+            <div class="ai-log-body">${e.reason}</div>
+        </div>`).join('');
 }
 
 /* ── status ── */
