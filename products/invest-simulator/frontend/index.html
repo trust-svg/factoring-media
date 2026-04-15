@@ -591,34 +591,44 @@ async function fetchPortfolio() {
     const d = await fetch(`${API}/api/portfolio`).then(r => r.json());
     _usdjpy = d.usdjpy || 150;
 
+    // 総資産カード
     const te = document.getElementById('m-total');
     te.textContent = f$(d.total_value); flash(te);
+    document.getElementById('m-total-jpy').textContent = `≈ ${fY(d.total_value * _usdjpy)}`;
+    const initPct = ((d.total_value - 10000) / 10000 * 100);
+    const pill = document.getElementById('m-total-pill');
+    pill.textContent = `初期比 ${fP(initPct)}`;
+    pill.className = `metric-pill ${initPct >= 0 ? 'pos' : 'neg'}`;
 
+    // 含み損益カード
     const pe = document.getElementById('m-pnl');
     pe.textContent = fS(d.pnl);
     pe.className = 'metric-value ' + (d.pnl >= 0 ? 'pos' : 'neg');
-
-    const re = document.getElementById('m-pct');
-    re.textContent = fP(d.pnl_pct);
-    re.className = 'metric-value ' + (d.pnl_pct >= 0 ? 'pos' : 'neg');
-
-    document.getElementById('m-fx').textContent = '¥' + d.usdjpy.toFixed(2);
-    document.getElementById('m-cash').textContent = `JP ${f$(d.cash_jp)} / US ${f$(d.cash_us)}`;
-    document.getElementById('m-total-jpy').textContent = `≈ ${fY(d.total_value * _usdjpy)}`;
     const pnlJpy = document.getElementById('m-pnl-jpy');
     pnlJpy.textContent = `≈ ${fYS(d.pnl * _usdjpy)}`;
     pnlJpy.style.color = d.pnl >= 0 ? 'var(--gain)' : 'var(--loss)';
-    document.getElementById('m-posval').textContent = `保有: ${f$(d.position_value)} / ${fY(d.position_value * _usdjpy)}`;
-    document.getElementById('m-mkt').textContent =
-        `JP: ${d.jp_market_open ? '▲ 開場' : '— 閉場'} / US: ${d.us_market_open ? '▲ 開場' : '— 閉場'}`;
+    const pnlPill = document.getElementById('m-pnl-pill');
+    pnlPill.textContent = `全体 ${fP(d.pnl_pct)}`;
+    pnlPill.className = `metric-pill ${d.pnl >= 0 ? 'pos' : 'neg'}`;
+    document.getElementById('m-pnl-card').style.borderTopColor = d.pnl >= 0 ? '#10b981' : '#ef4444';
 
+    // 現金残高カード
+    const totalCash = (d.cash_jp || 0) + (d.cash_us || 0);
+    document.getElementById('m-cash-val').textContent = f$(totalCash);
+    document.getElementById('m-cash-sub').textContent = `JP ${f$(d.cash_jp)} / US ${f$(d.cash_us)}`;
+    const cashPct = d.total_value > 0 ? (totalCash / d.total_value * 100) : 0;
+    const cashPill = document.getElementById('m-cash-pill');
+    cashPill.textContent = `総資産比 ${cashPct.toFixed(1)}%`;
+    cashPill.className = 'metric-pill neu';
+
+    // Market badges
     const upd = (id, open, label) => {
         const el = document.getElementById(id);
         el.className = `badge ${open ? 'open' : 'closed'}`;
         el.innerHTML = `<div class="badge-dot"></div>${label} ${open ? '開場' : '閉場'}`;
     };
-    upd('bdg-jp', d.jp_market_open, 'JP');
-    upd('bdg-us', d.us_market_open, 'US');
+    upd('bdg-jp', d.jp_market_open, '🇯🇵 JP');
+    upd('bdg-us', d.us_market_open, '🇺🇸 US');
 }
 
 /* ── positions ── */
