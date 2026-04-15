@@ -161,6 +161,20 @@
         .metric-pill.neg { background: var(--loss-bg); color: var(--loss); }
         .metric-pill.neu { background: var(--amber-bg); color: var(--amber); }
 
+        .pnl-breakdown {
+            margin-top: 10px; padding-top: 8px;
+            border-top: 1px dashed var(--border);
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .pnl-breakdown-row {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px;
+        }
+        .pnl-breakdown-lbl { color: var(--muted); }
+        .pnl-breakdown-val { font-family: var(--mono); font-weight: 600; color: var(--sub); }
+        .pnl-breakdown-total .pnl-breakdown-lbl { color: var(--sub); font-weight: 600; }
+        .pnl-breakdown-total .pnl-breakdown-val { font-size: 12px; }
+
         /* ─── MIDDLE: CHART + POSITIONS ───────────────────────── */
         .mid-row {
             display: grid;
@@ -433,6 +447,16 @@
             <div class="metric-value" id="m-pnl">$—</div>
             <div class="metric-sub" id="m-pnl-jpy">≈ ¥—</div>
             <div id="m-pnl-pill" class="metric-pill pos">全体 —%</div>
+            <div class="pnl-breakdown" id="m-pnl-breakdown" style="display:none">
+                <div class="pnl-breakdown-row">
+                    <span class="pnl-breakdown-lbl">手数料概算</span>
+                    <span class="pnl-breakdown-val loss" id="m-commission">−$—</span>
+                </div>
+                <div class="pnl-breakdown-row pnl-breakdown-total">
+                    <span class="pnl-breakdown-lbl">税引後推定 (20%)</span>
+                    <span class="pnl-breakdown-val" id="m-after-tax">$—</span>
+                </div>
+            </div>
         </div>
         <div class="metric-card" style="border-top-color:#f59e0b">
             <div class="metric-label">現金残高</div>
@@ -604,6 +628,8 @@ async function fetchPortfolio() {
     pnlPill.textContent = `全体 ${fP(d.pnl_pct)}`;
     pnlPill.className = `metric-pill ${d.pnl >= 0 ? 'pos' : 'neg'}`;
     document.getElementById('m-pnl-card').style.borderTopColor = d.pnl >= 0 ? '#10b981' : '#ef4444';
+    _currentPnl = d.pnl;
+    updatePnlBreakdown();
 
     // 現金残高カード
     const totalCash = (d.cash_jp || 0) + (d.cash_us || 0);
@@ -668,12 +694,43 @@ async function fetchPositions() {
 
 /* ── trades (paginated) ── */
 let _tradePage = 1;
+let _buySellTrades = 0; // BUY+SELL件数のみ（手数料計算用）
+let _currentPnl = 0;
+
+const TAX_RATE = 0.20315;
+const AVG_TRADE_USD = 500;   // 1取引あたり想定額 $500
+const COMMISSION_RT = 0.002; // 往復 0.2%
+
+function updatePnlBreakdown() {
+    if (_buySellTrades === 0) return;
+    const estCommission = _buySellTrades * AVG_TRADE_USD * COMMISSION_RT;
+    const adjustedPnl   = _currentPnl - estCommission;
+    const afterTaxPnl   = adjustedPnl > 0 ? adjustedPnl * (1 - TAX_RATE) : adjustedPnl;
+    const afterTaxPct   = (afterTaxPnl / 10000) * 100;
+
+    document.getElementById('m-pnl-breakdown').style.display = 'block';
+    document.getElementById('m-commission').textContent =
+        `−$${estCommission.toFixed(2)} (${_buySellTrades}取引)`;
+    const atEl = document.getElementById('m-after-tax');
+    atEl.textContent =
+        (afterTaxPnl >= 0 ? '+' : '−') + '$' + Math.abs(afterTaxPnl).toFixed(2) +
+        ` (${afterTaxPct >= 0 ? '+' : ''}${afterTaxPct.toFixed(1)}%)`;
+    atEl.className = 'pnl-breakdown-val ' + (afterTaxPnl >= 0 ? 'gain' : 'loss');
+}
 const _tradeLimit = 20;
 
 async function fetchTrades(page) {
     if (page !== undefined) _tradePage = page;
     const res = await fetch(`${API}/api/trades?page=${_tradePage}&limit=${_tradeLimit}`).then(r => r.json());
     const items = res.items || [];
+
+    // BUY+SELL件数を推定（HOLD除く）して手数料計算に使う
+    if (items.length > 0) {
+        const buySells = items.filter(t => t.action !== 'HOLD').length;
+        const ratio = buySells / items.length;
+        _buySellTrades = Math.round((res.total || 0) * ratio);
+        updatePnlBreakdown();
+    }
     document.getElementById('trade-ct').textContent = `${res.total} 件`;
     document.getElementById('trade-page-info').textContent = `${res.page} / ${res.pages}`;
     document.getElementById('trade-prev').disabled = res.page <= 1;
