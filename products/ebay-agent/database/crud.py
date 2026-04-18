@@ -788,16 +788,22 @@ def get_overview_alerts(db: Session) -> dict:
           AND ph.lowest_competitor_price_usd < l.price_usd * 0.9
     """)).scalar() or 0
 
+    # 未注文（仕入れ未対応の売上）
+    unordered = db.query(SalesRecord).filter(
+        SalesRecord.progress.in_(["", "未注文"]),
+    ).count()
+
     severity = "ok"
-    if out_of_stock >= 10 or unread_messages >= 5:
+    if out_of_stock >= 10 or unread_messages >= 5 or unordered >= 5:
         severity = "critical"
-    elif out_of_stock > 0 or unread_messages > 0 or price_alerts > 0:
+    elif out_of_stock > 0 or unread_messages > 0 or price_alerts > 0 or unordered > 0:
         severity = "warning"
 
     return {
         "out_of_stock": out_of_stock,
         "unread_messages": unread_messages,
         "price_alerts": int(price_alerts),
+        "unordered": unordered,
         "severity": severity,
     }
 

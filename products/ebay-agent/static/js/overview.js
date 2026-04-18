@@ -53,6 +53,10 @@ function renderAlerts(data) {
         const cls = data.unread_messages >= 5 ? 'critical' : '';
         items.push(`<a href="/chat" class="alert-item ${cls}">💬 未読 ${data.unread_messages}件</a>`);
     }
+    if (data.unordered > 0) {
+        const cls = data.unordered >= 5 ? 'critical' : '';
+        items.push(`<a href="/sales" class="alert-item ${cls}">🛒 未注文 ${data.unordered}件</a>`);
+    }
     if (data.price_alerts > 0) {
         items.push(`<a href="/listings?tab=pricing" class="alert-item">📉 価格アラート ${data.price_alerts}件</a>`);
     }

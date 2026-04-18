@@ -339,6 +339,27 @@ function renderBreakdownChart(data) {
 
     breakdownChart = new ApexCharts(document.getElementById('breakdownChart'), options);
     breakdownChart.render();
+
+    // 費用一覧テーブル
+    const listEl = document.getElementById('costBreakdownList');
+    if (listEl) {
+        const total = values.reduce((a, b) => a + b, 0);
+        const colors = ['#2563EB','#7C3AED','#F59E0B','#EF4444','#6366F1','#94A3B8','#64748B'];
+        listEl.innerHTML = '<table style="width:100%;border-collapse:collapse;">' +
+            values.map((v, i) => {
+                if (v === 0) return '';
+                const pct = total > 0 ? (v / total * 100).toFixed(1) : '0';
+                return `<tr style="border-bottom:1px solid #F1F5F9;">
+                    <td style="padding:4px 0;font-size:12px;color:#1e293b;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[i]};margin-right:6px;vertical-align:middle;"></span>${labels[i]}</td>
+                    <td style="padding:4px 0;font-size:13px;font-weight:700;color:#1e293b;text-align:right;">¥${v.toLocaleString()}</td>
+                    <td style="padding:4px 0;font-size:11px;color:#94A3B8;text-align:right;width:40px;">${pct}%</td>
+                </tr>`;
+            }).join('') +
+            `<tr><td style="padding:5px 0;font-size:12px;font-weight:700;color:#64748B;">合計</td>
+                 <td style="padding:5px 0;font-size:13px;font-weight:800;color:#0F172A;text-align:right;">¥${total.toLocaleString()}</td>
+                 <td style="padding:5px 0;font-size:11px;color:#94A3B8;text-align:right;">100%</td></tr>` +
+            '</table>';
+    }
 }
 
 // ── 取引一覧 ──────────────────────────────────────────
@@ -492,8 +513,11 @@ function renderTransactions(records) {
                     </td>
                 </tr>`;
 
+            const isUnordered = !r.progress || r.progress === '未注文';
+            const rowBg = isUnordered ? 'background:#FEF2F2;' : '';
+
             return `
-                <tr class="proc-row" style="cursor:pointer;" onclick="toggleDetail(${r.id})">
+                <tr class="proc-row" style="cursor:pointer;${rowBg}" onclick="toggleDetail(${r.id})">
                     <td style="width:24px;text-align:center;font-size:11px;color:var(--gray-400);" id="chevron-${r.id}">\u25B6</td>
                     <td style="white-space:nowrap;font-size:12px;">${r.sold_at}</td>
                     <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${esc(r.title)}">${thumb}${esc(r.title.slice(0, 30))}</td>
