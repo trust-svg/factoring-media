@@ -1015,31 +1015,58 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
 def _html_to_text(html: str) -> str:
     """HTMLメッセージからバイヤーの本文のみを抽出する。"""
     import re
+    from html.parser import HTMLParser
+
+    class _Extractor(HTMLParser):
+        """HTML→テキスト変換。<p>→段落区切り(\n\n), <br>→改行(\n)を保持。"""
+        def __init__(self):
+            super().__init__()
+            self.parts: list[str] = []
+            self.skip = False
+        def handle_starttag(self, tag, attrs):
+            if tag in ("style", "head", "script"):
+                self.skip = True
+            if tag == "br":
+                self.parts.append("\n")
+            if tag in ("p", "div", "tr"):
+                if self.parts and self.parts[-1] != "\n":
+                    self.parts.append("\n")
+        def handle_endtag(self, tag):
+            if tag in ("style", "head", "script"):
+                self.skip = False
+            if tag == "p":
+                self.parts.append("\n")
+        def handle_data(self, data):
+            if not self.skip:
+                self.parts.append(data)
+
+    def _parse(fragment: str) -> str:
+        ext = _Extractor()
+        ext.feed(fragment)
+        text = "".join(ext.parts).strip()
+        return re.sub(r"\n{3,}", "\n\n", text)
+
+    # UserInputtedText → ユーザーの実メッセージのみ抽出
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, "html.parser")
-
-        # eBayのHTML: id="UserInputtedText" にユーザーの実際のメッセージがある
         user_text_div = soup.find(id="UserInputtedText")
         if user_text_div:
-            for tag in user_text_div(["script", "style"]):
-                tag.decompose()
-            text = user_text_div.get_text(separator="\n")
+            text = _parse(str(user_text_div))
             # mojibake修正
             try:
                 text = text.encode("latin-1").decode("utf-8")
             except (UnicodeDecodeError, UnicodeEncodeError):
                 pass
-            # 簡易クリーンアップして返す
-            lines = [l.strip() for l in text.split("\n") if l.strip()]
-            return "\n".join(lines)
+            if text:
+                return text
 
         # UserInputtedText がない場合はフォールバック
         for tag in soup(["script", "style", "head"]):
             tag.decompose()
-        text = soup.get_text(separator="\n")
+        text = _parse(str(soup))
     except Exception:
-        text = re.sub(r"<[^>]+>", "\n", html)
+        text = _parse(html)
 
     lines = text.split("\n")
 
@@ -1120,6 +1147,9 @@ def _html_to_text(html: str) -> str:
     for line in lines:
         stripped = line.strip()
         if not stripped:
+            # 段落区切り（空行）を保持
+            if content_started and clean_lines and clean_lines[-1] != "":
+                clean_lines.append("")
             continue
         # ストップパターン: これ以降は引用なので打ち切り
         if any(re.match(p, stripped, re.IGNORECASE) for p in stop_at_patterns):
@@ -1146,6 +1176,7 @@ def _html_to_text(html: str) -> str:
         content_started = True
 
     result = "\n".join(clean_lines)
+    result = re.sub(r"\n{3,}", "\n\n", result)
     # UTF-8 mojibake修正（Latin-1→UTF-8）
     try:
         result = result.encode("latin-1").decode("utf-8")
