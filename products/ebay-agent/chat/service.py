@@ -100,6 +100,10 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
                 sender = "me"
 
             attachment_urls = msg.get("attachment_urls", [])
+            # 24時間以上前のメッセージは既読扱い（他インターフェースで読済みの可能性大）
+            received_dt = _parse_date(msg.get("received_date", ""))
+            is_old = received_dt and received_dt < datetime.utcnow() - timedelta(hours=24)
+            msg_is_read = msg["is_read"] or is_old
             new_msgs.append(BuyerMessage(
                 ebay_message_id=ebay_id,
                 item_id=msg.get("item_id", ""),
@@ -109,7 +113,7 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
                 subject=msg.get("subject", ""),
                 body=body,
                 body_translated="",
-                is_read=1 if msg["is_read"] else 0,
+                is_read=1 if msg_is_read else 0,
                 responded=1 if msg["responded"] else 0,
                 has_attachment=1 if attachment_urls else 0,
                 attachment_urls_json=json.dumps(attachment_urls) if attachment_urls else "[]",

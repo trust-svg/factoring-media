@@ -5,7 +5,7 @@
 {% block page_title %}<span data-en="Buyer Messages" data-ja="バイヤーメッセージ">Buyer Messages</span>{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/chat.css?v=20260414b">
+<link rel="stylesheet" href="/static/css/chat.css?v=20260418f">
 {% endblock %}
 
 {% block content %}
@@ -27,9 +27,15 @@
             </div>
         </div>
         <div class="sync-status" id="syncStatus"></div>
-        <div class="conv-filters" style="padding:0 10px 8px;">
+        <div class="conv-filters" style="padding:0 10px 4px;">
             <button class="filter-btn active" data-filter="all" onclick="setFilter('all')"><span data-en="All" data-ja="全て">All</span></button>
             <button class="filter-btn" data-filter="unread" onclick="setFilter('unread')"><span data-en="Unread" data-ja="未読">Unread</span></button>
+        </div>
+        <div class="conv-filters date-filters" style="padding:0 10px 8px;">
+            <button class="date-filter-btn active" data-days="" onclick="setDateFilter(null)">All</button>
+            <button class="date-filter-btn" data-days="7" onclick="setDateFilter(7)">7d</button>
+            <button class="date-filter-btn" data-days="30" onclick="setDateFilter(30)">30d</button>
+            <button class="date-filter-btn" data-days="90" onclick="setDateFilter(90)">90d</button>
         </div>
         <div class="product-list" id="productList">
             <div class="thread-empty">
@@ -42,7 +48,12 @@
     <!-- Col 2: Buyer List -->
     <div class="buyer-col" id="buyerCol">
         <div class="buyer-col-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 8px;">
-            <h4 style="margin:0;" data-en="Buyers" data-ja="バイヤー">Buyers</h4>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <button class="back-btn mobile-back-btn" onclick="backToList()" style="display:none;" aria-label="Back">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+                </button>
+                <h4 style="margin:0;" data-en="Buyers" data-ja="バイヤー">Buyers</h4>
+            </div>
             <select id="buyerSortSelect" onchange="setBuyerSort(this.value)" style="font-size:11px;border:1px solid var(--border);border-radius:6px;padding:2px 6px;background:var(--bg-primary);color:var(--text-secondary);cursor:pointer;">
                 <option value="date">新着順</option>
                 <option value="unread">未読優先</option>
@@ -136,7 +147,6 @@
 
     <!-- Right: Buyer Info Panel -->
     <div class="buyer-panel" id="buyerPanel">
-        <h4 data-en="Buyer Info" data-ja="バイヤー情報">Buyer Info</h4>
         <div id="buyerInfoContent">
             <div class="buyer-info-card">
                 <div class="info-label" data-en="Select a conversation to view buyer info" data-ja="会話を選択するとバイヤー情報が表示されます">Select a conversation to view buyer info</div>
@@ -169,5 +179,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/chat.js?v=20260414b"></script>
+<script src="/static/js/chat.js?v=20260418f"></script>
 {% endblock %}
