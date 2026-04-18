@@ -1,0 +1,118 @@
+<!-- 期間フィルタ -->
+<div class="filter-pills" style="margin-bottom:16px;">
+    <button class="pill active" data-days="7" onclick="loadAnalytics(7)">7日</button>
+    <button class="pill" data-days="30" onclick="loadAnalytics(30)">30日</button>
+    <button class="pill" data-days="90" onclick="loadAnalytics(90)">90日</button>
+</div>
+
+<!-- KPIカード -->
+<div class="proc-kpi-row cols-3" id="summaryCards">
+    <div class="proc-kpi-card"><div class="proc-kpi-label">総売上件数</div><div class="proc-kpi-val">--</div></div>
+    <div class="proc-kpi-card"><div class="proc-kpi-label">売上</div><div class="proc-kpi-val">--</div></div>
+    <div class="proc-kpi-card"><div class="proc-kpi-label">利益</div><div class="proc-kpi-val">--</div></div>
+    <div class="proc-kpi-card"><div class="proc-kpi-label">平均マージン</div><div class="proc-kpi-val">--</div></div>
+    <div class="proc-kpi-card"><div class="proc-kpi-label">平均利益/件</div><div class="proc-kpi-val">--</div></div>
+    <div class="proc-kpi-card"><div class="proc-kpi-label">仕入れ原価</div><div class="proc-kpi-val">--</div></div>
+</div>
+
+<!-- チャート + トップ商品 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card">
+        <div class="card-h">日次売上・利益</div>
+        <div style="position:relative;height:200px;"><canvas id="analyticsChart"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-h">トップ商品</div>
+        <div id="analyticsTopProducts" style="max-height:220px;overflow-y:auto;"><div style="color:#94A3B8;text-align:center;padding:20px;font-size:12px;">読み込み中...</div></div>
+    </div>
+</div>
+
+<script>
+let analyticsChartInstance = null;
+
+async function loadAnalytics(days) {
+    document.querySelectorAll('[data-days]').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days) === days));
+    try {
+        const data = await apiFetch(`/api/sales/analytics?days=${days}`);
+        const s = data.summary;
+
+        // KPIカード
+        document.getElementById('summaryCards').innerHTML = `
+            <div class="proc-kpi-card">
+                <div class="proc-kpi-label">総売上件数</div>
+                <div class="proc-kpi-val">${s.total_sales}</div>
+                <div class="proc-kpi-sub">${days}日間</div>
+            </div>
+            <div class="proc-kpi-card">
+                <div class="proc-kpi-label">売上</div>
+                <div class="proc-kpi-val">${formatUSD(s.total_revenue_usd)}</div>
+                <div class="proc-kpi-sub">¥${(s.total_revenue_jpy || 0).toLocaleString()}</div>
+            </div>
+            <div class="proc-kpi-card">
+                <div class="proc-kpi-label">利益</div>
+                <div class="proc-kpi-val">${formatUSD(s.total_profit_usd)}</div>
+                <div class="proc-kpi-sub">¥${(s.total_profit_jpy || 0).toLocaleString()}</div>
+            </div>
+            <div class="proc-kpi-card">
+                <div class="proc-kpi-label">平均マージン</div>
+                <div class="proc-kpi-val">${formatPct(s.avg_margin_pct)}</div>
+                <div class="proc-kpi-sub">${s.avg_margin_pct >= 20 ? '目標達成' : '目標未達'}</div>
+            </div>
+            <div class="proc-kpi-card">
+                <div class="proc-kpi-label">平均利益/件</div>
+                <div class="proc-kpi-val">${formatUSD(s.avg_profit_per_sale_usd)}</div>
+                <div class="proc-kpi-sub">1件あたり</div>
+            </div>
+            <div class="proc-kpi-card">
+                <div class="proc-kpi-label">仕入れ原価</div>
+                <div class="proc-kpi-val">${formatJPY(s.total_source_cost_jpy)}</div>
+                <div class="proc-kpi-sub">合計</div>
+            </div>
+        `;
+
+        // チャート
+        const trend = data.daily_trend || [];
+        if (analyticsChartInstance) analyticsChartInstance.destroy();
+        if (trend.length > 0) {
+            analyticsChartInstance = new Chart(document.getElementById('analyticsChart'), {
+                type: 'bar',
+                data: {
+                    labels: trend.map(d => d.date.slice(5)),
+                    datasets: [
+                        { label: '売上', data: trend.map(d => d.revenue_usd), backgroundColor: 'rgba(37,99,235,0.6)', borderRadius: 3, order: 2 },
+                        { label: '利益', data: trend.map(d => d.profit_usd), type: 'line', borderColor: '#10B981', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0, borderWidth: 2, order: 1 },
+                    ],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#64748B', font: { size: 11, weight: 600 } } } },
+                    scales: {
+                        x: { ticks: { color: '#94A3B8', font: { size: 10 } }, grid: { color: '#F1F5F9' } },
+                        y: { ticks: { color: '#94A3B8', font: { size: 10 } }, grid: { color: '#F1F5F9' } },
+                    },
+                },
+            });
+        }
+
+        // トップ商品
+        const tp = data.top_products || [];
+        if (tp.length) {
+            let html = '<table class="proc-table"><thead><tr><th>商品</th><th>売上</th><th>利益</th><th>数量</th></tr></thead><tbody>';
+            for (const p of tp.slice(0, 10)) {
+                html += `<tr class="proc-row">
+                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.title)}">${p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" class="proc-thumb" onerror="this.style.display=\'none\'">' : ''}${escapeHtml(p.title.slice(0, 25))}</td>
+                    <td class="proc-td-num">${formatUSD(p.revenue_usd)}</td>
+                    <td class="proc-td-num" style="color:${p.profit_usd >= 0 ? '#10B981' : '#EF4444'};font-weight:600;">${formatUSD(p.profit_usd)}</td>
+                    <td class="proc-td-num">${p.sales_count}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            document.getElementById('analyticsTopProducts').innerHTML = html;
+        } else {
+            document.getElementById('analyticsTopProducts').innerHTML = '<div style="color:#94A3B8;text-align:center;padding:20px;font-size:12px;">データなし</div>';
+        }
+    } catch (e) {
+        document.getElementById('summaryCards').innerHTML = '<div style="color:#94A3B8;text-align:center;padding:20px;font-size:12px;">読み込みエラー</div>';
+    }
+}
+</script>
