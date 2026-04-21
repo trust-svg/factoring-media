@@ -398,10 +398,25 @@ class AutoMessageRule(Base):
     repeat_buyer_template_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_active: Mapped[int] = mapped_column(Integer, default=1)
     delay_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    mode: Mapped[str] = mapped_column(String(16), default="manual")  # manual | auto
     send_count: Mapped[int] = mapped_column(Integer, default=0)
     last_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ── 未返信候補スキップ記録 ─────────────────────────────
+
+class NoReplyCandidateSkip(Base):
+    """未返信自動返信の候補スキップ/対応済み記録"""
+    __tablename__ = "no_reply_candidate_skips"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    buyer_message_id: Mapped[int] = mapped_column(Integer, index=True)
+    buyer_username: Mapped[str] = mapped_column(String(128), default="")
+    item_id: Mapped[str] = mapped_column(String(64), default="")
+    action: Mapped[str] = mapped_column(String(16), default="skip")  # skip | sent | excluded
+    skipped_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 # ── バイヤー除外リスト ────────────────────────────────
@@ -473,6 +488,47 @@ class AnalyticsReport(Base):
     generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+# ── 死に筒リフレッシュ（S2施策） ─────────────────────────
+
+class ListingRefreshBackup(Base):
+    """死に筒Revise前のバックアップ（ロールバック用）"""
+    __tablename__ = "listing_refresh_backups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sku: Mapped[str] = mapped_column(String(128), index=True)
+    listing_id: Mapped[str] = mapped_column(String(64), default="")
+    action: Mapped[str] = mapped_column(String(16), default="revise")  # revise / es2s
+    old_title: Mapped[str] = mapped_column(String(200), default="")
+    new_title: Mapped[str] = mapped_column(String(200), default="")
+    old_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    new_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    old_item_specifics_json: Mapped[str] = mapped_column(Text, default="{}")
+    new_item_specifics_json: Mapped[str] = mapped_column(Text, default="{}")
+    # 品質ガードの通過内訳
+    quality_checks_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    # status: pending / dry_run / applied / rolled_back / failed / skipped
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    rolled_back_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ListingRefreshRun(Base):
+    """日次リフレッシュ実行ログ（配信パターン可視化）"""
+    __tablename__ = "listing_refresh_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scheduled_date: Mapped[str] = mapped_column(String(10), index=True)  # YYYY-MM-DD
+    hour_jst: Mapped[int] = mapped_column(Integer, default=0)
+    sku: Mapped[str] = mapped_column(String(128), default="")
+    backup_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(16), default="")
+    # outcome: applied / skipped_quality / skipped_quota / dry_run / error
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── DB初期化 ──────────────────────────────────────────────
 
 engine = create_engine(
@@ -484,10 +540,11 @@ engine = create_engine(
 
 @event.listens_for(engine, "connect")
 def _set_sqlite_pragma(dbapi_connection, _connection_record):
-    """WALモード + busy_timeout で読み書き並行化"""
+    """DELETEジャーナルモード: コンテナ再作成時のWAL未永続化による
+    データロストを防ぐため、WALではなくDELETEモードを使用。"""
     cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA journal_mode=DELETE")
+    cursor.execute("PRAGMA synchronous=FULL")
     cursor.execute("PRAGMA busy_timeout=15000")
     cursor.close()
 

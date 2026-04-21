@@ -186,13 +186,58 @@ def _start_scheduler():
             name="Shopify在庫同期",
         )
 
+        # 未返信タイムアウト自動返信チェック（5分間隔）
+        def _check_no_reply_timeout():
+            from chat.auto_message import check_no_reply_timeout
+            from database.models import get_db as _get_db
+            try:
+                db = _get_db()
+                results = check_no_reply_timeout(db)
+                if results:
+                    sent = sum(1 for r in results if r.get("sent"))
+                    logger.info(f"未返信自動返信: {sent}/{len(results)}件送信")
+                db.close()
+            except Exception as e:
+                logger.warning(f"未返信自動返信チェック失敗: {e}")
+
+        scheduler.add_job(
+            _check_no_reply_timeout,
+            IntervalTrigger(minutes=5),
+            id="no_reply_timeout",
+            name="未返信タイムアウト自動返信",
+        )
+
+        # 死に筒Refresh（06:00-23:00 JST、20分ごとに1-2件＋ジッター／内部でWindow/dailyCap制御）
+        def _run_refresh_slot():
+            import asyncio
+            from listing.refresh import run_refresh_slot
+            # 環境変数でON/OFF（初期はOFF、ドライラン完了後にONへ切替）
+            enabled = os.getenv("LISTING_REFRESH_ENABLED", "false").lower() == "true"
+            if not enabled:
+                return
+            try:
+                loop = asyncio.new_event_loop()
+                result = loop.run_until_complete(run_refresh_slot(dry_run=False))
+                if not result.get("skipped"):
+                    logger.info(f"死に筒Refresh: {result.get('processed')}件処理 日次累計{result.get('daily_applied')}")
+            except Exception as e:
+                logger.warning(f"死に筒Refresh失敗: {e}")
+
+        scheduler.add_job(
+            _run_refresh_slot,
+            IntervalTrigger(minutes=20, jitter=600),  # 20分±10分のジッター
+            id="listing_refresh_slot",
+            name="死に筒Refresh",
+        )
+
         scheduler.start()
         logger.info(
             f"スケジューラー起動: 価格モニター {PRICE_CHECK_INTERVAL_HOURS}h間隔 + "
             f"朝ダイジェスト 9:00 + 週間レポート Mon 10:00 + 週次分析 Mon 10:30 + "
             f"月次分析 1日 10:00 + 売上同期 3h間隔 + "
             f"Instagram生成 10:00 + Instagram分析 23:00 + カテゴリ拡張 Wed 11:00 + "
-            f"メッセージ同期 5min間隔"
+            f"メッセージ同期 5min間隔 + 未返信自動返信 5min間隔 + "
+            f"死に筒Refresh 20min間隔（ENV:LISTING_REFRESH_ENABLED制御）"
         )
         return scheduler
     except ImportError:
@@ -845,6 +890,150 @@ async def sales_summary(days: int = 30):
         db.close()
 
 
+# ── 死に筒Refresh API（S2施策） ──────────────────────────
+
+@app.get("/api/refresh/candidates")
+async def refresh_candidates(limit: int = 50):
+    """死に筒SKUの抽出プレビュー"""
+    from listing.refresh import find_dead_listings
+    db = get_db()
+    try:
+        listings = find_dead_listings(db, limit=limit)
+        return {
+            "count": len(listings),
+            "items": [
+                {
+                    "sku": l.sku,
+                    "title": l.title,
+                    "price_usd": l.price_usd,
+                    "listing_id": l.listing_id,
+                }
+                for l in listings
+            ],
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/refresh/dry-run")
+async def refresh_dry_run(request: Request):
+    """サンプルSKUで新タイトル生成＋品質ガード結果を返す（eBay無変更）"""
+    body = await request.json() if await request.body() else {}
+    sample_size = int(body.get("sample_size", 10))
+    from listing.refresh import dry_run_refresh
+    db = get_db()
+    try:
+        results = await dry_run_refresh(db, sample_size=sample_size)
+        passed = sum(1 for r in results if r.get("passed"))
+        return {
+            "total": len(results),
+            "passed": passed,
+            "pass_rate": round(passed / len(results), 3) if results else 0,
+            "results": results,
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/refresh/run-slot")
+async def refresh_run_slot(request: Request):
+    """手動でスロットを1回実行（cron呼び出しと同じ処理）"""
+    body = await request.json() if await request.body() else {}
+    dry_run = bool(body.get("dry_run", False))
+    daily_target = int(body.get("daily_target", 30))
+    from listing.refresh import run_refresh_slot
+    result = await run_refresh_slot(daily_target=daily_target, dry_run=dry_run)
+    return result
+
+
+@app.post("/api/refresh/revise")
+async def refresh_revise(request: Request):
+    """指定SKUを即Revise（テスト用・単発）"""
+    body = await request.json()
+    sku = body.get("sku", "")
+    dry_run = bool(body.get("dry_run", False))
+    if not sku:
+        raise HTTPException(400, "sku required")
+    from listing.refresh import refresh_single
+    db = get_db()
+    try:
+        listing = db.get(Listing, sku)
+        if not listing:
+            raise HTTPException(404, f"SKU {sku} not found")
+        return await refresh_single(db, listing, dry_run=dry_run)
+    finally:
+        db.close()
+
+
+@app.get("/api/refresh/status")
+async def refresh_status():
+    """直近の実行状況サマリー"""
+    from database.models import ListingRefreshBackup, ListingRefreshRun
+    from datetime import datetime, timedelta
+    db = get_db()
+    try:
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        runs = db.query(ListingRefreshRun).filter(
+            ListingRefreshRun.scheduled_date == today
+        ).all()
+        outcomes: dict = {}
+        for r in runs:
+            outcomes[r.outcome] = outcomes.get(r.outcome, 0) + 1
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        recent = db.query(ListingRefreshBackup).filter(
+            ListingRefreshBackup.created_at >= week_ago
+        ).all()
+        weekly_outcomes: dict = {}
+        for b in recent:
+            weekly_outcomes[b.status] = weekly_outcomes.get(b.status, 0) + 1
+        return {
+            "today_outcomes": outcomes,
+            "today_total_runs": len(runs),
+            "week_backup_status": weekly_outcomes,
+            "enabled": os.getenv("LISTING_REFRESH_ENABLED", "false").lower() == "true",
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/refresh/backups")
+async def refresh_backups(limit: int = 50, status: str = ""):
+    """バックアップ一覧（ロールバック対象確認）"""
+    from database.models import ListingRefreshBackup
+    db = get_db()
+    try:
+        q = db.query(ListingRefreshBackup).order_by(ListingRefreshBackup.created_at.desc())
+        if status:
+            q = q.filter(ListingRefreshBackup.status == status)
+        items = q.limit(limit).all()
+        return {
+            "count": len(items),
+            "items": [
+                {
+                    "id": b.id, "sku": b.sku, "status": b.status,
+                    "old_title": b.old_title, "new_title": b.new_title,
+                    "old_price": b.old_price_usd, "new_price": b.new_price_usd,
+                    "applied_at": b.applied_at.isoformat() if b.applied_at else None,
+                    "error": b.error_message,
+                }
+                for b in items
+            ],
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/refresh/rollback/{backup_id}")
+async def refresh_rollback(backup_id: int):
+    """指定バックアップIDの変更を元に戻す"""
+    from listing.refresh import rollback
+    db = get_db()
+    try:
+        return rollback(db, backup_id)
+    finally:
+        db.close()
+
+
 # ── Phase 2: 価格インテリジェンス API ─────────────────────
 # 注意: 固定パスルートを {sku} パラメータルートより先に定義
 
@@ -1001,9 +1190,13 @@ async def sync_sales_endpoint(request: Request):
 
 
 @app.get("/api/sales/analytics")
-async def sales_analytics_endpoint(days: int = 30):
+async def sales_analytics_endpoint(days: int = 30, start_date: str = "", end_date: str = ""):
     """売上分析レポート"""
-    result = await handle_tool_call("get_sales_analytics", {"days": days})
+    params = {"days": days}
+    if start_date and end_date:
+        params["start_date"] = start_date
+        params["end_date"] = end_date
+    result = await handle_tool_call("get_sales_analytics", params)
     return JSONResponse(json.loads(result))
 
 
