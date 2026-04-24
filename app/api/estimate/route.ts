@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifyEstimate } from "@/lib/notify";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -31,6 +32,16 @@ export async function POST(request: NextRequest) {
         memo: memo?.trim() || null,
       },
     });
+
+    // Send notification (non-blocking)
+    notifyEstimate({
+      businessType,
+      invoiceAmount: parseInt(invoiceAmount),
+      urgency,
+      email: email.trim(),
+      phone: phone?.trim() || null,
+      memo: memo?.trim() || null,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, id: estimate.id });
   } catch {
