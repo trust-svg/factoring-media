@@ -1,11 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
+import { AffiliateButton } from "./AffiliateButton";
 
 type CompanyCardProps = {
   slug: string;
@@ -120,22 +115,14 @@ export function CompanyCard({
             詳細を見る
           </Link>
           {affiliateUrl ? (
-            <a
+            <AffiliateButton
               href={affiliateUrl}
-              target="_blank"
-              rel="noopener noreferrer nofollow"
+              company={name}
+              slug={slug}
               className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md"
-              onClick={() => {
-                if (typeof window !== "undefined" && window.gtag) {
-                  window.gtag("event", "affiliate_click", {
-                    company: name,
-                    slug,
-                  });
-                }
-              }}
             >
               公式サイトへ &rarr;
-            </a>
+            </AffiliateButton>
           ) : (
             <a
               href="/estimate"
