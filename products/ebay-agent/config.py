@@ -102,3 +102,12 @@ SHOPIFY_DISCOUNT_RATE = float(os.getenv("SHOPIFY_DISCOUNT_RATE", "0.05"))
 MONTHLY_REVENUE_TARGET_JPY = 5_000_000   # ¥5,000,000
 MONTHLY_MARGIN_TARGET_PCT  = 20.0        # 20%
 MONTHLY_PROFIT_TARGET_JPY  = 1_000_000   # ¥1,000,000
+
+# ── Telegram (無在庫出品通知) ─────────────────────────────
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# ── 無在庫出品パイプライン ────────────────────────────────
+DROPSHIP_PIPELINE_ENABLED = os.getenv("DROPSHIP_PIPELINE_ENABLED", "false").lower() == "true"
+DROPSHIP_TARGET_MARGIN = float(os.getenv("DROPSHIP_TARGET_MARGIN", "0.25"))
+DROPSHIP_DIGEST_TOP_N = int(os.getenv("DROPSHIP_DIGEST_TOP_N", "10"))

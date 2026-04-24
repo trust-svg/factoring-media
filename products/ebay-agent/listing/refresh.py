@@ -150,8 +150,10 @@ def find_dead_listings(
 
     # 過去180日に売上があるSKUを除外
     recently_sold = select(SalesRecord.sku).where(SalesRecord.sold_at >= cutoff)
+    # 無在庫出品（dropship_ebay_reverse）は在庫リアリティがないためリフレッシュ対象外
     q = select(Listing).where(
         Listing.quantity == 1,
+        Listing.source_type.in_(["stocked", "dropship_jp"]),
         ~Listing.sku.in_(recently_sold),
     )
 

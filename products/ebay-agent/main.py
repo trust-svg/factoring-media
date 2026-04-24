@@ -230,6 +230,41 @@ def _start_scheduler():
             name="死に筒Refresh",
         )
 
+        # 無在庫出品パイプライン（毎日 09:00 JST）
+        # eBay高額売れ筋スキャン → 国内逆検索 → Telegram候補通知
+        def _run_dropship_pipeline():
+            import asyncio
+            enabled = os.getenv("DROPSHIP_PIPELINE_ENABLED", "false").lower() == "true"
+            if not enabled:
+                return
+            try:
+                from research.hot_expensive import scan_top_categories
+                from sourcing.reverse_match import find_jp_candidates
+                from comms.dropship_notify import send_dropship_digest
+                from database.models import get_db as _get_db
+
+                db = _get_db()
+                try:
+                    hot = scan_top_categories(db)
+                    logger.info(f"無在庫Pipeline: hot_expensive {len(hot)}件")
+
+                    loop = asyncio.new_event_loop()
+                    cands = loop.run_until_complete(find_jp_candidates(db))
+                    logger.info(f"無在庫Pipeline: dropship_candidates {len(cands)}件")
+
+                    loop.run_until_complete(send_dropship_digest(db))
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.exception(f"無在庫Pipeline失敗: {e}")
+
+        scheduler.add_job(
+            _run_dropship_pipeline,
+            CronTrigger(hour=9, minute=0, timezone="Asia/Tokyo"),
+            id="dropship_pipeline",
+            name="無在庫出品パイプライン",
+        )
+
         scheduler.start()
         logger.info(
             f"スケジューラー起動: 価格モニター {PRICE_CHECK_INTERVAL_HOURS}h間隔 + "
@@ -237,7 +272,8 @@ def _start_scheduler():
             f"月次分析 1日 10:00 + 売上同期 3h間隔 + "
             f"Instagram生成 10:00 + Instagram分析 23:00 + カテゴリ拡張 Wed 11:00 + "
             f"メッセージ同期 5min間隔 + 未返信自動返信 5min間隔 + "
-            f"死に筒Refresh 20min間隔（ENV:LISTING_REFRESH_ENABLED制御）"
+            f"死に筒Refresh 20min間隔（ENV:LISTING_REFRESH_ENABLED制御） + "
+            f"無在庫Pipeline 9:00 JST（ENV:DROPSHIP_PIPELINE_ENABLED制御）"
         )
         return scheduler
     except ImportError:

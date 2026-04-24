@@ -36,6 +36,8 @@ class Listing(Base):
     offer_id: Mapped[str] = mapped_column(String(64), default="")
     seo_score: Mapped[int] = mapped_column(Integer, default=0)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    source_type: Mapped[str] = mapped_column(String(16), default="stocked", index=True)
+    # source_type: stocked / dropship_jp / dropship_ebay_reverse
     shopify_product_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     shopify_variant_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     shopify_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -529,6 +531,59 @@ class ListingRefreshRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+# ── 無在庫出品パイプライン（高額商品拡張） ─────────────────
+
+class HotExpensiveItem(Base):
+    """eBayで売れている高額商品（Sold由来の候補リスト）"""
+    __tablename__ = "hot_expensive_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(512), default="")
+    category: Mapped[str] = mapped_column(String(128), default="", index=True)
+    category_id: Mapped[str] = mapped_column(String(32), default="")
+    query: Mapped[str] = mapped_column(String(256), default="")  # 元検索キーワード
+    median_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    min_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    max_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    sold_qty_30d: Mapped[int] = mapped_column(Integer, default=0)
+    active_count: Mapped[int] = mapped_column(Integer, default=0)
+    sample_listing_id: Mapped[str] = mapped_column(String(64), default="")
+    sample_url: Mapped[Text] = mapped_column(Text, default="")
+    image_url: Mapped[Text] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="new", index=True)
+    # status: new / matched / ignored / duplicate
+    discovered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class DropshipCandidate(Base):
+    """国内逆検索マッチ結果（eBay売れ筋×国内仕入れ先）"""
+    __tablename__ = "dropship_candidates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    hot_item_id: Mapped[Optional[int]] = mapped_column(Integer, index=True, nullable=True)  # HotExpensiveItem.id
+    source_type: Mapped[str] = mapped_column(String(24), default="dropship_ebay_reverse")
+    # source_type: dropship_ebay_reverse (eBay→JP) / dropship_jp (JP→eBay)
+    jp_platform: Mapped[str] = mapped_column(String(32), default="")  # yahoo_auction / mercari / paypay_flea / rakuma / surugaya / offmall
+    jp_url: Mapped[Text] = mapped_column(Text, default="")
+    jp_title: Mapped[str] = mapped_column(String(512), default="")
+    jp_price_jpy: Mapped[int] = mapped_column(Integer, default=0)
+    jp_condition: Mapped[str] = mapped_column(String(64), default="")
+    jp_image_url: Mapped[Text] = mapped_column(Text, default="")
+    ebay_target_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    projected_profit_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    projected_margin_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    exchange_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    match_score: Mapped[float] = mapped_column(Float, default=0.0)  # タイトル類似度等
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    # status: pending / approved / listed / sold / rejected / expired
+    telegram_message_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    listed_sku: Mapped[str] = mapped_column(String(128), default="", index=True)
+    listed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 # ── DB初期化 ──────────────────────────────────────────────
 
 engine = create_engine(
@@ -553,7 +608,7 @@ SessionLocal = sessionmaker(bind=engine)
 
 
 def _migrate_shopify_columns(engine_instance) -> None:
-    """既存のlistingsテーブルにShopifyカラムを追加（冪等）"""
+    """既存のlistingsテーブルにカラムを追加（冪等）"""
     from sqlalchemy import text
     with engine_instance.connect() as conn:
         result = conn.execute(text("PRAGMA table_info(listings)"))
@@ -565,8 +620,13 @@ def _migrate_shopify_columns(engine_instance) -> None:
             stmts.append("ALTER TABLE listings ADD COLUMN shopify_variant_id TEXT")
         if "shopify_synced_at" not in existing:
             stmts.append("ALTER TABLE listings ADD COLUMN shopify_synced_at DATETIME")
+        if "source_type" not in existing:
+            stmts.append("ALTER TABLE listings ADD COLUMN source_type VARCHAR(16) NOT NULL DEFAULT 'stocked'")
         for stmt in stmts:
             conn.execute(text(stmt))
+        if "source_type" in existing or any("source_type" in s for s in stmts):
+            # インデックスは冪等なのでCREATE INDEX IF NOT EXISTS
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_listings_source_type ON listings(source_type)"))
         if stmts:
             conn.commit()
 
