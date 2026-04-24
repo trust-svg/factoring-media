@@ -19,27 +19,40 @@ from database.models import HotExpensiveItem, get_db
 from ebay_core.client import search_ebay_discover
 
 
+# クエリ設計方針:
+#   - 型番 or 具体モデル名を必ず含める（単語2つ以上）
+#   - 「vintage」「antique」等の形容詞単独クエリは曖昧すぎるため禁止
+#   - 1ブランド1クエリに寄せすぎず、型番/モデルで分散させる
 DEFAULT_QUERIES: list[dict] = [
-    {"query": "accuphase amplifier", "category": "Vintage Audio"},
-    {"query": "luxman amplifier vintage", "category": "Vintage Audio"},
-    {"query": "nakamichi dragon cassette", "category": "Vintage Audio"},
-    {"query": "mcintosh amplifier", "category": "Vintage Audio"},
-    {"query": "technics sp-10 turntable", "category": "Vintage Audio"},
-    {"query": "marantz receiver vintage", "category": "Vintage Audio"},
-    {"query": "roland jupiter synthesizer", "category": "Synthesizer"},
+    # Vintage Audio — アンプ/プリ/カセットデッキ等（型番入り）
+    {"query": "accuphase E-305 amplifier", "category": "Vintage Audio"},
+    {"query": "accuphase C-280 preamplifier", "category": "Vintage Audio"},
+    {"query": "luxman L-570 amplifier", "category": "Vintage Audio"},
+    {"query": "luxman CL-360 tube preamp", "category": "Vintage Audio"},
+    {"query": "nakamichi dragon cassette deck", "category": "Vintage Audio"},
+    {"query": "nakamichi 1000ZXL", "category": "Vintage Audio"},
+    {"query": "mcintosh MC275 tube amplifier", "category": "Vintage Audio"},
+    {"query": "technics SP-10 MK2 turntable", "category": "Vintage Audio"},
+    {"query": "marantz 2270 receiver", "category": "Vintage Audio"},
+    # Synthesizer（型番必須）
+    {"query": "roland jupiter-8 synthesizer", "category": "Synthesizer"},
     {"query": "roland jp-8080", "category": "Synthesizer"},
     {"query": "korg ms-20 synthesizer", "category": "Synthesizer"},
     {"query": "yamaha dx7 synthesizer", "category": "Synthesizer"},
-    {"query": "moog synthesizer vintage", "category": "Synthesizer"},
-    {"query": "mamiya rz67 camera", "category": "Vintage Camera"},
+    {"query": "moog minimoog model D", "category": "Synthesizer"},
+    # Vintage Camera（型番入り）
+    {"query": "mamiya rz67 pro ii", "category": "Vintage Camera"},
     {"query": "hasselblad 500cm camera", "category": "Vintage Camera"},
-    {"query": "leica m6 camera", "category": "Vintage Camera"},
+    {"query": "leica m6 ttl", "category": "Vintage Camera"},
     {"query": "nikon f3 titanium", "category": "Vintage Camera"},
-    {"query": "japanese edo samurai armor yoroi", "category": "Samurai Armor"},
+    # 日本関連（カテゴリ自体が狭いので vintage/antique 許容）
+    {"query": "japanese edo samurai armor yoroi kabuto", "category": "Samurai Armor"},
     {"query": "japanese samurai kabuto helmet antique", "category": "Samurai Armor"},
-    {"query": "japanese katana antique sword", "category": "Japanese Sword"},
-    {"query": "casio g-shock mrg titanium", "category": "Vintage Watch"},
-    {"query": "seiko grand seiko vintage", "category": "Vintage Watch"},
+    {"query": "japanese katana antique sword signed", "category": "Japanese Sword"},
+    # Vintage Watch（型番必須 — "seiko vintage" だけだと誤マッチ多数）
+    {"query": "casio G-SHOCK MRG-B2000 titanium", "category": "Vintage Watch"},
+    {"query": "grand seiko SBGA spring drive", "category": "Vintage Watch"},
+    {"query": "grand seiko SBGJ hi-beat", "category": "Vintage Watch"},
 ]
 
 
