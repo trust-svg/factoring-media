@@ -229,6 +229,7 @@ async function main() {
       slug: "paytoday",
       name: "ペイトナーファクタリング",
       officialUrl: "https://paytner.co.jp/factoring",
+      affiliateUrl: "https://faccel.jp/go/paytner",
       description:
         "フリーランス・個人事業主に特化したファクタリングサービス。最短10分で審査完了、即日入金。請求書1枚から利用可能。",
       minAmount: 1,
