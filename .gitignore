@@ -22,9 +22,19 @@ env/
 *.sqlite
 *.sqlite3
 
-# Playwright browser cache
+# Playwright browser cache & MCP output
 .playwright/
 **/.playwright/
+.playwright-mcp/
+**/.playwright-mcp/
+
+# Scratch screenshots / temp files at workspace root
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
+tmp/
 
 # Environment & Secrets
 .env
@@ -50,6 +60,10 @@ reports/*.html
 .claude/settings.local.json
 .mcp.json
 
+# Marketing MCP (local-only credentials)
+marketing/google-ads-mcp/
+marketing/meta-ads-mcp/
+
 # Git worktrees
 .worktrees/
 
@@ -63,3 +77,4 @@ products/ebay-listing-generator/
 products/video-text-remover/
 products/lp-templates/matching-lp/
 resources/references/tmp/
+.superpowers/

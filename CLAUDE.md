@@ -50,6 +50,16 @@ They are NOT related unless explicitly stated.
 - Never mix client data into `products/` general directories
 - Never create files outside the specified target directory without asking
 
+## Temporary Files / Screenshots
+
+- 一時ファイル（スクショ・デバッグ用JSON・動作確認ログなど）は **Workspace直下に置かない**
+- 保存先の優先順位:
+  1. `$TMPDIR`（セッション後に消えて良いもの）
+  2. `tmp/` 配下（`tmp/screenshots/YYYY-MM-DD/` など日付別サブディレクトリを推奨）
+  3. 対象プロダクト配下の `tmp/` or `_scratch/`
+- Playwright MCP / ブラウザ操作のスクショは **必ず絶対パスで上記いずれかに保存**
+- ルート直下に `*.png` / `*.json` / `*.log` を作らないこと（`.gitignore` にも追記済み）
+
 ## Daily Dev Journal (Obsidian)
 
 会話の最後（ユーザーが作業を終えようとしている時）に、以下をリマインドする:
