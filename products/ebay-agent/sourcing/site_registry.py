@@ -78,7 +78,7 @@ SITE_REGISTRY: dict[str, dict] = {
         "max_results": 15,
         "rate_limit_sec": 3.0,
         "scraper_type": "playwright",
-        "scraper_class": "scrapers.mercari.MercariScraper",
+        "scraper_class": "scrapers.mercari_search.MercariScraper",
         "supports_image": True,
         "extract_fields": [
             "title", "price_jpy", "condition",
@@ -103,7 +103,7 @@ SITE_REGISTRY: dict[str, dict] = {
         "notes": "Playwright 必須。メルカリと重複商品あり。",
     },
     "rakuma": {
-        "enabled": False,
+        "enabled": True,
         "display_name": "ラクマ",
         "priority": 6,
         "reliability": 0.60,
