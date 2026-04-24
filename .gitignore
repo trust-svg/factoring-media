@@ -30,3 +30,7 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# separate services / operation assets (managed outside this repo)
+/x-auto/
+/x-assets/
