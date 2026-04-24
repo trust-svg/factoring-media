@@ -1,0 +1,334 @@
+{
+  "schedule": {
+    "frequency": "daily",
+    "time": "07:00",
+    "timezone": "Asia/Tokyo",
+    "skip_weekends": false,
+    "start_date": "2026-04-02"
+  },
+  "queue": [
+    {
+      "date": "2026-04-02",
+      "slug": "what-is-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nf500524dd89d"
+    },
+    {
+      "date": "2026-04-03",
+      "slug": "factoring-accounting",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nfab1c3b13dca",
+      "published_at": "2026-04-21"
+    },
+    {
+      "date": "2026-04-04",
+      "slug": "two-vs-three-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nca63ca640713"
+    },
+    {
+      "date": "2026-04-05",
+      "slug": "factoring-vs-loan",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nfee164a4b651"
+    },
+    {
+      "date": "2026-04-06",
+      "slug": "factoring-high-fee",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n15bc5ccbcc60"
+    },
+    {
+      "date": "2026-04-07",
+      "slug": "factoring-illegal",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n8af3f758fb66"
+    },
+    {
+      "date": "2026-04-08",
+      "slug": "factoring-risky",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nf5d025f85958"
+    },
+    {
+      "date": "2026-04-09",
+      "slug": "factoring-secret",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nde4a2b8232bc"
+    },
+    {
+      "date": "2026-04-10",
+      "slug": "factoring-rejected",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/naaaa91b7085f"
+    },
+    {
+      "date": "2026-04-11",
+      "slug": "same-day-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nc5d0a6fa069e"
+    },
+    {
+      "date": "2026-04-12",
+      "slug": "small-amount-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nbcaca8872791"
+    },
+    {
+      "date": "2026-04-13",
+      "slug": "easy-approval-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n925ef49b7157"
+    },
+    {
+      "date": "2026-04-14",
+      "slug": "online-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nb889ac8661aa"
+    },
+    {
+      "date": "2026-04-15",
+      "slug": "deficit-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n0f6776e5c958"
+    },
+    {
+      "date": "2026-04-16",
+      "slug": "construction-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n652fce5ac3dd"
+    },
+    {
+      "date": "2026-04-17",
+      "slug": "transport-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/na1782e18f3b9"
+    },
+    {
+      "date": "2026-04-18",
+      "slug": "it-freelance-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n7455a7b13f82"
+    },
+    {
+      "date": "2026-04-19",
+      "slug": "medical-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n571bb6514226"
+    },
+    {
+      "date": "2026-04-20",
+      "slug": "sole-proprietor-factoring",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nd6f1afe9f5a5"
+    },
+    {
+      "date": "2026-04-21",
+      "slug": "how-to-choose",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n8434ed249095",
+      "published_at": "2026-04-03"
+    },
+    {
+      "date": "2026-04-22",
+      "slug": "paytner-review",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/ncda55ef087c9",
+      "published_at": "2026-04-22"
+    },
+    {
+      "date": "2026-04-23",
+      "slug": "ququmo-review",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n56abe3b7c9df",
+      "published_at": "2026-04-23"
+    },
+    {
+      "date": "2026-04-24",
+      "slug": "pmg-review",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nae4f5a7b0496",
+      "published_at": "2026-04-24"
+    },
+    {
+      "date": "2026-04-25",
+      "slug": "axel-factor-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-04-26",
+      "slug": "betrading-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-04-27",
+      "slug": "labol-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-04-28",
+      "slug": "olta-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-04-29",
+      "slug": "nihon-chuushou-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-04-30",
+      "slug": "top-management-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-01",
+      "slug": "best-factor-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-02",
+      "slug": "ennavi-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-03",
+      "slug": "jigyou-shikin-agent-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-04",
+      "slug": "factoring-best-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-05",
+      "slug": "mentor-capital-review",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-06",
+      "slug": "paytner-yabai",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-07",
+      "slug": "betrading-ayashii",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-08",
+      "slug": "olta-shinsa-ochita",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-09",
+      "slug": "ququmo-ayashii",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-10",
+      "slug": "labol-osoi",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-11",
+      "slug": "pmg-ayashii",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-12",
+      "slug": "axel-factor-yabai",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-13",
+      "slug": "betrading-hyouban-warui",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-14",
+      "slug": "paytner-shinsa-ochita",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-15",
+      "slug": "olta-tesuuryou-takai",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-16",
+      "slug": "ququmo-tesuuryou-takai",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-17",
+      "slug": "best-factor-ayashii",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-18",
+      "slug": "mentor-capital-ayashii",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-19",
+      "slug": "nihon-chuushou-ayashii",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-20",
+      "slug": "top-management-hyouban",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-21",
+      "slug": "factoring-yametahouga-ii",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-22",
+      "slug": "factoring-koukai",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-23",
+      "slug": "factoring-yamikin",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-24",
+      "slug": "factoring-toritate",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-25",
+      "slug": "factoring-saiban",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-26",
+      "slug": "factoring-hasan",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-27",
+      "slug": "factoring-shinyo-jouhou",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-28",
+      "slug": "factoring-zeimusho",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-29",
+      "slug": "factoring-blacklist",
+      "status": "scheduled"
+    },
+    {
+      "date": "2026-05-30",
+      "slug": "factoring-saimu-chouka",
+      "status": "scheduled"
+    }
+  ]
+}
