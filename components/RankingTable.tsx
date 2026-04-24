@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Stars } from "./CompanyCard";
+import { AffiliateButton } from "./AffiliateButton";
 
 type RankingCompany = {
   slug: string;
@@ -135,14 +136,23 @@ export function RankingTable({ companies }: { companies: RankingCompany[] }) {
                 >
                   詳細を見る
                 </Link>
-                <a
-                  href={c.affiliateUrl || "/estimate"}
-                  target={c.affiliateUrl ? "_blank" : undefined}
-                  rel={c.affiliateUrl ? "noopener noreferrer nofollow" : undefined}
-                  className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md pulse-cta"
-                >
-                  {c.affiliateUrl ? "公式サイトへ \u2192" : "無料診断 \u2192"}
-                </a>
+                {c.affiliateUrl ? (
+                  <AffiliateButton
+                    href={c.affiliateUrl}
+                    company={c.name}
+                    slug={c.slug}
+                    className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md pulse-cta"
+                  >
+                    公式サイトへ &rarr;
+                  </AffiliateButton>
+                ) : (
+                  <a
+                    href="/estimate"
+                    className="flex-1 text-center text-sm bg-cta text-white py-2.5 rounded-lg font-bold hover:bg-cta-dark transition-colors shadow-md pulse-cta"
+                  >
+                    無料診断 &rarr;
+                  </a>
+                )}
               </div>
             </div>
           </div>
