@@ -153,12 +153,16 @@
     {
       "date": "2026-04-25",
       "slug": "axel-factor-review",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n0e0f27355515",
+      "published_at": "2026-04-25"
     },
     {
       "date": "2026-04-26",
       "slug": "betrading-review",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/ndb743ccfc870",
+      "published_at": "2026-04-26"
     },
     {
       "date": "2026-04-27",
