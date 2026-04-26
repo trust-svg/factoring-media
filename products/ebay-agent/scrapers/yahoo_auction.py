@@ -1,7 +1,7 @@
-"""ヤフオク 検索スクレイパー — requests + BeautifulSoup
+"""ヤフオク 検索スクレイパー — Playwright + Stealth
 
 auctions.yahoo.co.jp を検索し、仕入れ候補を返す。
-requestsベースで安定動作。Playwright不要。
+2026-04: VPS IP からの 403 Forbidden 多発のため requests → Playwright 化。
 ※ yahoo_auctions.py（落札履歴スクレイパー）とは別ファイル。
 """
 import asyncio
@@ -10,33 +10,12 @@ import re
 import urllib.parse
 from typing import Optional
 
-import requests
-from bs4 import BeautifulSoup
-
-from scrapers import HEADERS, guess_condition, is_junk
 from sourcing.schema import SourceCandidate
+from scrapers import guess_condition, is_junk
 
 logger = logging.getLogger(__name__)
 
 RATE_LIMIT_SEC = 2.0
-
-# セッション共有（Cookieを保持してbotブロック回避）
-_session: Optional[requests.Session] = None
-
-
-def _get_session() -> requests.Session:
-    global _session
-    if _session is None:
-        _session = requests.Session()
-        _session.headers.update(HEADERS)
-        _session.headers["Accept"] = (
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        )
-        try:
-            _session.get("https://auctions.yahoo.co.jp/", timeout=10)
-        except Exception:
-            pass
-    return _session
 
 
 class YahooAuctionScraper:
@@ -49,9 +28,9 @@ class YahooAuctionScraper:
         junk_ok: bool,
         limit: int = 20,
     ) -> list[SourceCandidate]:
+        from playwright.async_api import async_playwright
+
         await asyncio.sleep(RATE_LIMIT_SEC)
-        results = []
-        session = _get_session()
 
         encoded_kw = urllib.parse.quote(keyword, safe="")
         url = (
@@ -59,40 +38,81 @@ class YahooAuctionScraper:
             f"?fixed=1&max={max_price_jpy}&n=50"
         )
 
+        results: list[SourceCandidate] = []
         try:
-            resp = session.get(url, timeout=15)
-            # 404の場合: キーワードを簡略化してリトライ
-            if resp.status_code == 404:
-                short_kw = _simplify_keyword(keyword)
-                if short_kw and short_kw != keyword:
-                    logger.info(f"[ヤフオク] '{keyword}' → 404 → '{short_kw}' でリトライ")
-                    encoded_kw = urllib.parse.quote(short_kw, safe="")
-                    url = (
-                        f"https://auctions.yahoo.co.jp/search/search/{encoded_kw}/0/"
-                        f"?fixed=1&max={max_price_jpy}&n=50"
-                    )
-                    await asyncio.sleep(1)
-                    resp = session.get(url, timeout=15)
-            if resp.status_code == 404:
-                logger.warning(f"[ヤフオク] '{keyword}': 404（該当なし）")
-                return results
-            resp.raise_for_status()
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch(headless=True)
+                context = await browser.new_context(
+                    locale="ja-JP",
+                    timezone_id="Asia/Tokyo",
+                    user_agent=(
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/130.0.0.0 Safari/537.36"
+                    ),
+                    extra_http_headers={
+                        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+                        "Referer": "https://auctions.yahoo.co.jp/",
+                    },
+                )
+                page = await context.new_page()
+
+                try:
+                    from playwright_stealth import Stealth
+                    await Stealth().apply_stealth_async(page)
+                except ImportError:
+                    pass
+
+                resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                status = resp.status if resp else 0
+
+                if status == 404:
+                    short_kw = _simplify_keyword(keyword)
+                    if short_kw and short_kw != keyword:
+                        logger.info(f"[ヤフオク] '{keyword}' → 404 → '{short_kw}' でリトライ")
+                        encoded_kw = urllib.parse.quote(short_kw, safe="")
+                        url = (
+                            f"https://auctions.yahoo.co.jp/search/search/{encoded_kw}/0/"
+                            f"?fixed=1&max={max_price_jpy}&n=50"
+                        )
+                        await asyncio.sleep(1)
+                        resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        status = resp.status if resp else 0
+
+                if status == 404:
+                    logger.warning(f"[ヤフオク] '{keyword}': 404（該当なし）")
+                    await browser.close()
+                    return results
+
+                if status >= 400:
+                    logger.error(f"[ヤフオク] '{keyword}': HTTP {status}")
+                    await browser.close()
+                    return results
+
+                # JS描画＋lazy load
+                await page.wait_for_timeout(2000)
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(1500)
+
+                items = await page.query_selector_all("li.Product")
+                logger.debug(f"[ヤフオク] li.Product 検出: {len(items)}件")
+
+                for item in items[:limit * 2]:
+                    if len(results) >= limit:
+                        break
+                    try:
+                        candidate = await _parse_item_pw(item)
+                        if candidate:
+                            if candidate.price_jpy <= max_price_jpy:
+                                if junk_ok or not candidate.is_junk:
+                                    results.append(candidate)
+                    except Exception as e:
+                        logger.debug(f"[ヤフオク] アイテムパースエラー: {e}")
+
+                await browser.close()
         except Exception as e:
             logger.error(f"[ヤフオク] 検索失敗: {e}")
             return results
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-        items = soup.select("li.Product")
-
-        for item in items[:limit]:
-            try:
-                candidate = _parse_item(item)
-                if candidate:
-                    if candidate.price_jpy <= max_price_jpy:
-                        if junk_ok or not candidate.is_junk:
-                            results.append(candidate)
-            except Exception as e:
-                logger.debug(f"[ヤフオク] アイテムパースエラー: {e}")
 
         logger.info(f"[ヤフオク] '{keyword}': {len(results)}件取得")
         return results
@@ -105,25 +125,29 @@ def _simplify_keyword(keyword: str) -> str:
     return ""
 
 
-def _parse_item(item) -> Optional[SourceCandidate]:
-    title_el = item.select_one(".Product__titleLink") or item.select_one(".Product__title a")
+async def _parse_item_pw(item) -> Optional[SourceCandidate]:
+    title_el = await item.query_selector(".Product__titleLink") or \
+               await item.query_selector(".Product__title a")
     if not title_el:
         return None
-    title = title_el.get_text(strip=True)
-    url = title_el.get("href", "")
+    title = (await title_el.inner_text()).strip()
+    url = (await title_el.get_attribute("href")) or ""
     if url and not url.startswith("http"):
         url = "https://auctions.yahoo.co.jp" + url
 
-    price_el = item.select_one(".Product__priceValue") or item.select_one(".Product__price")
-    price_text = price_el.get_text(strip=True) if price_el else "0"
+    price_el = await item.query_selector(".Product__priceValue") or \
+               await item.query_selector(".Product__price")
+    price_text = (await price_el.inner_text()).strip() if price_el else "0"
     price_jpy = int(re.sub(r"[^\d]", "", price_text) or "0")
 
     condition = guess_condition(title)
 
-    img_el = item.select_one(".Product__imageData img") or item.select_one("img")
+    img_el = await item.query_selector(".Product__imageData img") or \
+             await item.query_selector("img")
     image_url = ""
     if img_el:
-        image_url = img_el.get("src") or img_el.get("data-src") or ""
+        image_url = (await img_el.get_attribute("src")) or \
+                    (await img_el.get_attribute("data-src")) or ""
 
     return SourceCandidate(
         title=title,

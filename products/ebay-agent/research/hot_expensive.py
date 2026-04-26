@@ -19,40 +19,42 @@ from database.models import HotExpensiveItem, get_db
 from ebay_core.client import search_ebay_discover
 
 
-# クエリ設計方針:
-#   - 型番 or 具体モデル名を必ず含める（単語2つ以上）
-#   - 「vintage」「antique」等の形容詞単独クエリは曖昧すぎるため禁止
-#   - 1ブランド1クエリに寄せすぎず、型番/モデルで分散させる
+# クエリ設計方針（2026-04-26 リファクタ）:
+#   - 「ブランド + 型番」のみに統一（形容詞・"vintage"・"antique" は禁止）
+#   - 形容詞は eBay/JP 双方で検索ノイズ。型番が一致すれば商品は特定できる
+#   - 型番は世界共通（Casio MRG-B2000 等）なので英語クエリのまま日本サイトでも通る
+#   - 例外: "Samurai Armor"/"Japanese Sword" は型番が無いので
+#     ジャンル語を残し、NGワードガード側で誤検知を弾く
 DEFAULT_QUERIES: list[dict] = [
-    # Vintage Audio — アンプ/プリ/カセットデッキ等（型番入り）
-    {"query": "accuphase E-305 amplifier", "category": "Vintage Audio"},
-    {"query": "accuphase C-280 preamplifier", "category": "Vintage Audio"},
-    {"query": "luxman L-570 amplifier", "category": "Vintage Audio"},
-    {"query": "luxman CL-360 tube preamp", "category": "Vintage Audio"},
-    {"query": "nakamichi dragon cassette deck", "category": "Vintage Audio"},
-    {"query": "nakamichi 1000ZXL", "category": "Vintage Audio"},
-    {"query": "mcintosh MC275 tube amplifier", "category": "Vintage Audio"},
-    {"query": "technics SP-10 MK2 turntable", "category": "Vintage Audio"},
-    {"query": "marantz 2270 receiver", "category": "Vintage Audio"},
-    # Synthesizer（型番必須）
-    {"query": "roland jupiter-8 synthesizer", "category": "Synthesizer"},
-    {"query": "roland jp-8080", "category": "Synthesizer"},
-    {"query": "korg ms-20 synthesizer", "category": "Synthesizer"},
-    {"query": "yamaha dx7 synthesizer", "category": "Synthesizer"},
-    {"query": "moog minimoog model D", "category": "Synthesizer"},
-    # Vintage Camera（型番入り）
-    {"query": "mamiya rz67 pro ii", "category": "Vintage Camera"},
-    {"query": "hasselblad 500cm camera", "category": "Vintage Camera"},
-    {"query": "leica m6 ttl", "category": "Vintage Camera"},
-    {"query": "nikon f3 titanium", "category": "Vintage Camera"},
-    # 日本関連（カテゴリ自体が狭いので vintage/antique 許容）
-    {"query": "japanese edo samurai armor yoroi kabuto", "category": "Samurai Armor"},
-    {"query": "japanese samurai kabuto helmet antique", "category": "Samurai Armor"},
-    {"query": "japanese katana antique sword signed", "category": "Japanese Sword"},
-    # Vintage Watch（型番必須 — "seiko vintage" だけだと誤マッチ多数）
-    {"query": "casio G-SHOCK MRG-B2000 titanium", "category": "Vintage Watch"},
-    {"query": "grand seiko SBGA spring drive", "category": "Vintage Watch"},
-    {"query": "grand seiko SBGJ hi-beat", "category": "Vintage Watch"},
+    # Vintage Audio — ブランド+型番のみ
+    {"query": "Accuphase E-305", "category": "Vintage Audio"},
+    {"query": "Accuphase C-280", "category": "Vintage Audio"},
+    {"query": "Luxman L-570", "category": "Vintage Audio"},
+    {"query": "Luxman CL-360", "category": "Vintage Audio"},
+    {"query": "Nakamichi Dragon", "category": "Vintage Audio"},
+    {"query": "Nakamichi 1000ZXL", "category": "Vintage Audio"},
+    {"query": "McIntosh MC275", "category": "Vintage Audio"},
+    {"query": "Technics SP-10 MK2", "category": "Vintage Audio"},
+    {"query": "Marantz 2270", "category": "Vintage Audio"},
+    # Synthesizer
+    {"query": "Roland Jupiter-8", "category": "Synthesizer"},
+    {"query": "Roland JP-8080", "category": "Synthesizer"},
+    {"query": "Korg MS-20", "category": "Synthesizer"},
+    {"query": "Yamaha DX7", "category": "Synthesizer"},
+    {"query": "Moog Minimoog Model D", "category": "Synthesizer"},
+    # Vintage Camera
+    {"query": "Mamiya RZ67 Pro II", "category": "Vintage Camera"},
+    {"query": "Hasselblad 500CM", "category": "Vintage Camera"},
+    {"query": "Leica M6 TTL", "category": "Vintage Camera"},
+    {"query": "Nikon F3 Titanium", "category": "Vintage Camera"},
+    # 日本関連（型番が無いカテゴリのみジャンル語残し+NGワードガード前提）
+    {"query": "edo samurai yoroi kabuto", "category": "Samurai Armor"},
+    {"query": "samurai kabuto helmet antique", "category": "Samurai Armor"},
+    {"query": "japanese katana antique signed", "category": "Japanese Sword"},
+    # Vintage Watch
+    {"query": "Casio MRG-B2000", "category": "Vintage Watch"},
+    {"query": "Grand Seiko SBGA", "category": "Vintage Watch"},
+    {"query": "Grand Seiko SBGJ", "category": "Vintage Watch"},
 ]
 
 
