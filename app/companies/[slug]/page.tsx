@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { Stars } from "@/components/CompanyCard";
 import { ReviewForm } from "@/components/ReviewForm";
 import { generateCompanyJsonLd } from "@/lib/seo";
@@ -7,9 +8,30 @@ import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
 
+const getCompanyBasic = unstable_cache(
+  async (slug: string) => prisma.company.findUnique({ where: { slug } }),
+  ["company-basic"],
+  { revalidate: 3600, tags: ["companies"] },
+);
+
+const getCompanyWithReviews = unstable_cache(
+  async (slug: string) =>
+    prisma.company.findUnique({
+      where: { slug },
+      include: {
+        reviews: {
+          where: { isApproved: true },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    }),
+  ["company-with-reviews"],
+  { revalidate: 3600, tags: ["companies", "reviews"] },
+);
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const company = await prisma.company.findUnique({ where: { slug } });
+  const company = await getCompanyBasic(slug);
   if (!company) return {};
 
   return {
@@ -18,20 +40,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export const revalidate = 3600;
-export const dynamicParams = true;
-
 export default async function CompanyDetailPage({ params }: Props) {
   const { slug } = await params;
-  const company = await prisma.company.findUnique({
-    where: { slug },
-    include: {
-      reviews: {
-        where: { isApproved: true },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+  const company = await getCompanyWithReviews(slug);
 
   if (!company) notFound();
 
