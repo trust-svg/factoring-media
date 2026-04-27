@@ -206,7 +206,7 @@ export default async function CompanyDetailPage({ params }: Props) {
                   <p className="text-sm text-gray-600 mb-2">{review.body}</p>
                   <div className="flex items-center gap-3 text-xs text-gray-400">
                     {review.userType && <span>{review.userType}</span>}
-                    <span>{review.createdAt.toLocaleDateString("ja-JP")}</span>
+                    <span>{new Date(review.createdAt).toLocaleDateString("ja-JP")}</span>
                   </div>
                 </div>
               ))}

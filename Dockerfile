@@ -24,11 +24,13 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/content ./content
 COPY --from=builder /app/package.json ./package.json
+
+RUN mkdir -p /app/.next/cache && chown -R nextjs:nodejs /app/.next
 
 USER nextjs
 EXPOSE 3000
