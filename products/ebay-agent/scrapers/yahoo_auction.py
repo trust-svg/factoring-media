@@ -33,6 +33,27 @@ class YahooAuctionScraper:
         await asyncio.sleep(RATE_LIMIT_SEC)
 
         encoded_kw = urllib.parse.quote(keyword, safe="")
+        # 2026-04: VPS IP は PC 版で 403 連発 → モバイルUA を優先 → ダメなら PC 版にフォールバック
+        attempts = [
+            {
+                "label": "mobile",
+                "ua": (
+                    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) "
+                    "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                    "Version/17.4 Mobile/15E148 Safari/604.1"
+                ),
+                "viewport": {"width": 390, "height": 844},
+            },
+            {
+                "label": "desktop",
+                "ua": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/130.0.0.0 Safari/537.36"
+                ),
+                "viewport": {"width": 1280, "height": 900},
+            },
+        ]
         url = (
             f"https://auctions.yahoo.co.jp/search/search/{encoded_kw}/0/"
             f"?fixed=1&max={max_price_jpy}&n=50"
@@ -42,69 +63,83 @@ class YahooAuctionScraper:
         try:
             async with async_playwright() as pw:
                 browser = await pw.chromium.launch(headless=True)
-                context = await browser.new_context(
-                    locale="ja-JP",
-                    timezone_id="Asia/Tokyo",
-                    user_agent=(
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/130.0.0.0 Safari/537.36"
-                    ),
-                    extra_http_headers={
-                        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
-                        "Referer": "https://auctions.yahoo.co.jp/",
-                    },
-                )
-                page = await context.new_page()
 
-                try:
-                    from playwright_stealth import Stealth
-                    await Stealth().apply_stealth_async(page)
-                except ImportError:
-                    pass
+                items_found: list = []
+                last_status = 0
 
-                resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                status = resp.status if resp else 0
+                for att in attempts:
+                    context = await browser.new_context(
+                        locale="ja-JP",
+                        timezone_id="Asia/Tokyo",
+                        user_agent=att["ua"],
+                        viewport=att["viewport"],
+                        extra_http_headers={
+                            "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+                            "Referer": "https://auctions.yahoo.co.jp/",
+                        },
+                    )
+                    page = await context.new_page()
+                    try:
+                        from playwright_stealth import Stealth
+                        await Stealth().apply_stealth_async(page)
+                    except ImportError:
+                        pass
 
-                if status == 404:
-                    short_kw = _simplify_keyword(keyword)
-                    if short_kw and short_kw != keyword:
-                        logger.info(f"[ヤフオク] '{keyword}' → 404 → '{short_kw}' でリトライ")
-                        encoded_kw = urllib.parse.quote(short_kw, safe="")
-                        url = (
-                            f"https://auctions.yahoo.co.jp/search/search/{encoded_kw}/0/"
-                            f"?fixed=1&max={max_price_jpy}&n=50"
-                        )
-                        await asyncio.sleep(1)
+                    try:
                         resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                        status = resp.status if resp else 0
+                    except Exception as e:
+                        logger.warning(f"[ヤフオク/{att['label']}] goto失敗: {e}")
+                        await context.close()
+                        continue
 
-                if status == 404:
-                    logger.warning(f"[ヤフオク] '{keyword}': 404（該当なし）")
+                    last_status = resp.status if resp else 0
+                    if last_status == 404:
+                        logger.warning(f"[ヤフオク/{att['label']}] '{keyword}': 404（該当なし）")
+                        await context.close()
+                        continue
+                    if last_status >= 400:
+                        logger.warning(f"[ヤフオク/{att['label']}] '{keyword}': HTTP {last_status}")
+                        await context.close()
+                        continue
+
+                    await page.wait_for_timeout(2500)
+                    await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    await page.wait_for_timeout(1500)
+
+                    selectors = [
+                        "li.Product",
+                        "li[class*='Product']",
+                        "a[href*='/jp/auction/']",
+                    ]
+                    for sel in selectors:
+                        items_found = await page.query_selector_all(sel)
+                        if items_found:
+                            logger.debug(
+                                f"[ヤフオク/{att['label']}] sel='{sel}' 検出: {len(items_found)}件"
+                            )
+                            break
+
+                    await context.close()
+                    if items_found:
+                        break
+
+                if not items_found:
+                    logger.error(
+                        f"[ヤフオク] '{keyword}': 全アプローチ失敗 (last_status={last_status})"
+                    )
                     await browser.close()
                     return results
 
-                if status >= 400:
-                    logger.error(f"[ヤフオク] '{keyword}': HTTP {status}")
-                    await browser.close()
-                    return results
-
-                # JS描画＋lazy load
-                await page.wait_for_timeout(2000)
-                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                await page.wait_for_timeout(1500)
-
-                items = await page.query_selector_all("li.Product")
-                logger.debug(f"[ヤフオク] li.Product 検出: {len(items)}件")
-
-                for item in items[:limit * 2]:
+                seen_urls: set[str] = set()
+                for item in items_found[: limit * 3]:
                     if len(results) >= limit:
                         break
                     try:
                         candidate = await _parse_item_pw(item)
-                        if candidate:
-                            if candidate.price_jpy <= max_price_jpy:
+                        if candidate and candidate.url not in seen_urls:
+                            if 0 < candidate.price_jpy <= max_price_jpy:
                                 if junk_ok or not candidate.is_junk:
+                                    seen_urls.add(candidate.url)
                                     results.append(candidate)
                     except Exception as e:
                         logger.debug(f"[ヤフオク] アイテムパースエラー: {e}")
@@ -126,28 +161,60 @@ def _simplify_keyword(keyword: str) -> str:
 
 
 async def _parse_item_pw(item) -> Optional[SourceCandidate]:
-    title_el = await item.query_selector(".Product__titleLink") or \
-               await item.query_selector(".Product__title a")
+    # PC版（li.Product）→ モバイル版（aタグ直） どちらでも動くようにフォールバック
+    title_el = (
+        await item.query_selector(".Product__titleLink")
+        or await item.query_selector(".Product__title a")
+        or await item.query_selector("a[href*='/jp/auction/']")
+    )
+
+    # itemそのものがアンカーなら自分自身を使う
+    self_tag = (await item.evaluate("el => el.tagName")) or ""
+    if not title_el and self_tag.lower() == "a":
+        title_el = item
+
     if not title_el:
         return None
-    title = (await title_el.inner_text()).strip()
+
+    raw_text = (await title_el.inner_text()).strip()
     url = (await title_el.get_attribute("href")) or ""
     if url and not url.startswith("http"):
         url = "https://auctions.yahoo.co.jp" + url
 
-    price_el = await item.query_selector(".Product__priceValue") or \
-               await item.query_selector(".Product__price")
-    price_text = (await price_el.inner_text()).strip() if price_el else "0"
-    price_jpy = int(re.sub(r"[^\d]", "", price_text) or "0")
+    # タイトル: PC版は title 単体、モバイル版は title+価格+詳細が改行で混在
+    title = raw_text.split("\n")[0].strip() if raw_text else ""
+
+    price_el = (
+        await item.query_selector(".Product__priceValue")
+        or await item.query_selector(".Product__price")
+        or await item.query_selector("[class*='Price']")
+    )
+    price_text = (await price_el.inner_text()).strip() if price_el else ""
+
+    price_jpy = 0
+    if price_text:
+        price_jpy = int(re.sub(r"[^\d]", "", price_text) or "0")
+    if price_jpy == 0 and raw_text:
+        # モバイル版: inner_text 全体から「￥XXX」「XXX円」を拾う
+        m = re.search(r"[¥￥]\s*([\d,]+)", raw_text)
+        if not m:
+            m = re.search(r"([\d,]+)\s*円", raw_text)
+        if m:
+            price_jpy = int(m.group(1).replace(",", ""))
 
     condition = guess_condition(title)
 
-    img_el = await item.query_selector(".Product__imageData img") or \
-             await item.query_selector("img")
+    img_el = (
+        await item.query_selector(".Product__imageData img")
+        or await item.query_selector("img")
+    )
     image_url = ""
     if img_el:
         image_url = (await img_el.get_attribute("src")) or \
                     (await img_el.get_attribute("data-src")) or ""
+
+    if not title or not url:
+        return None
 
     return SourceCandidate(
         title=title,

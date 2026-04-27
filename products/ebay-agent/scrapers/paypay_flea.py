@@ -38,9 +38,21 @@ class PayPayFleaScraper:
         try:
             async with async_playwright() as pw:
                 browser = await pw.chromium.launch(headless=True)
-                page = await browser.new_page()
+                context = await browser.new_context(
+                    locale="ja-JP",
+                    timezone_id="Asia/Tokyo",
+                    user_agent=(
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/130.0.0.0 Safari/537.36"
+                    ),
+                    extra_http_headers={
+                        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+                        "Referer": "https://paypayfleamarket.yahoo.co.jp/",
+                    },
+                )
+                page = await context.new_page()
 
-                # stealth 適用（インストール済みなら）
                 try:
                     from playwright_stealth import Stealth
                     await Stealth().apply_stealth_async(page)
@@ -48,9 +60,10 @@ class PayPayFleaScraper:
                     pass
 
                 # DNS一時障害対策: リトライ（最大3回）
+                resp = None
                 for attempt in range(3):
                     try:
-                        await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
                         break
                     except Exception as e:
                         if attempt < 2:
@@ -59,19 +72,42 @@ class PayPayFleaScraper:
                         else:
                             raise
 
-                await page.wait_for_timeout(7000)
+                status = resp.status if resp else 0
+                if status >= 400:
+                    logger.warning(f"[Yahoo!フリマ] '{keyword}': HTTP {status}")
+                    await browser.close()
+                    return results
 
-                # 商品リンクは /item/z{id} 形式
-                items = await page.query_selector_all("a[href*='/item/z']")
+                # JS描画＋lazy load
+                await page.wait_for_timeout(5000)
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(2500)
+
+                # 複数のセレクタを試す（仕様変更に強くする）
+                selectors = [
+                    "a[href*='/item/z']",
+                    "a[href*='/item/']",
+                    "li a[data-cl-params]",
+                ]
+                items = []
+                used_selector = ""
+                for sel in selectors:
+                    items = await page.query_selector_all(sel)
+                    if items:
+                        used_selector = sel
+                        break
+                logger.debug(
+                    f"[Yahoo!フリマ] セレクタ='{used_selector}' 検出: {len(items)}件"
+                )
 
                 seen_urls = set()
-                for item in items:
+                for item in items[: limit * 3]:
                     if len(results) >= limit:
                         break
                     try:
                         candidate = await _parse_item(item)
                         if candidate and candidate.url not in seen_urls:
-                            if candidate.price_jpy <= max_price_jpy:
+                            if candidate.price_jpy <= max_price_jpy and candidate.price_jpy > 0:
                                 if junk_ok or not candidate.is_junk:
                                     seen_urls.add(candidate.url)
                                     results.append(candidate)
