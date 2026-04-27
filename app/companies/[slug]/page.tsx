@@ -19,11 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export const revalidate = 3600;
-
-export async function generateStaticParams() {
-  const companies = await prisma.company.findMany({ select: { slug: true } });
-  return companies.map((c) => ({ slug: c.slug }));
-}
+export const dynamicParams = true;
 
 export default async function CompanyDetailPage({ params }: Props) {
   const { slug } = await params;

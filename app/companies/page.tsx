@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { CompanyCard } from "@/components/CompanyCard";
 import type { Metadata } from "next";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "ファクタリング業者一覧",
