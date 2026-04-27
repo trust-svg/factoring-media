@@ -1,6 +1,7 @@
 import { ArticleLayout } from "@/components/ArticleLayout";
 import { notFound } from "next/navigation";
 import { getArticleBySlug, getAllArticles } from "@/lib/articles";
+import { generateArticleJsonLd, generateBreadcrumbJsonLd } from "@/lib/seo";
 import type { Metadata } from "next";
 import Script from "next/script";
 
@@ -57,29 +58,21 @@ export default async function ArticlePage({ params }: Props) {
 
   const url = `${SITE_URL}/articles/${slug}`;
 
-  const articleJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: article.title,
+  const articleJsonLd = generateArticleJsonLd({
+    slug,
+    title: article.title,
     description: article.description,
-    datePublished: article.date,
-    dateModified: article.date,
-    author: { "@type": "Organization", name: article.author },
-    publisher: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
-    url,
-    mainEntityOfPage: { "@type": "WebPage", "@id": url },
-    ...(article.keywords?.length && { keywords: article.keywords.join(", ") }),
-  };
+    date: article.date,
+    author: article.author,
+    keywords: article.keywords,
+    image: `${SITE_URL}${DEFAULT_OG_IMAGE}`,
+  });
 
-  const breadcrumbJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "ホーム", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "コラム", item: `${SITE_URL}/articles` },
-      { "@type": "ListItem", position: 3, name: article.title, item: url },
-    ],
-  };
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd([
+    { name: "ホーム", url: SITE_URL },
+    { name: "コラム", url: `${SITE_URL}/articles` },
+    { name: article.title, url },
+  ]);
 
   return (
     <>

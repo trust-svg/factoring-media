@@ -1,0 +1,57 @@
+# FACCEL — ファクタリング情報メディア
+
+> 中小企業・個人事業主向けに、ファクタリング（請求書買取による資金調達）の仕組み、業者比較、活用事例を解説する情報メディア。手数料相場・即日対応・審査の通りやすさで業者を比較し、初めて利用する事業者が判断できる情報を整理。
+
+ファクタリングとは未払いの売掛金を専門業者に売却して資金化する手段で、銀行融資と異なり負債計上されません。FACCELは65本以上の解説記事と業者比較データを提供し、即日資金化・審査落ち対策・違法業者の見分け方など実務的な疑問に答えています。
+
+## ファクタリングの基礎知識
+
+- [ファクタリングとは？仕組み・種類・メリットをわかりやすく解説](https://faccel.jp/articles/what-is-factoring): 2社間・3社間ファクタリングの違い、手数料相場、メリット・デメリット
+- [ファクタリングと融資の違い](https://faccel.jp/articles/factoring-vs-loan): 資金調達手段としての比較、選択基準
+- [2社間と3社間ファクタリングの違い](https://faccel.jp/articles/two-vs-three-factoring): 手数料・スピード・売掛先への通知有無の比較
+- [ファクタリングは違法か？](https://faccel.jp/articles/factoring-illegal): 法的位置づけ、闇金との見分け方
+- [ファクタリングの手数料が高い理由](https://faccel.jp/articles/factoring-high-fee): 相場と高すぎる業者の見分け方
+
+## 業者選び・比較
+
+- [ファクタリング業者の選び方](https://faccel.jp/articles/how-to-choose): 5つのチェックポイント
+- [業者一覧（手数料・スピード比較）](https://faccel.jp/companies): 主要業者の比較データ
+- [ランキング](https://faccel.jp/ranking): 編集部評価・口コミによる総合ランキング
+- [口コミ・レビュー](https://faccel.jp/reviews): 利用者投稿の評価
+- [優良業者のレビュー一覧](https://faccel.jp/articles/factoring-best-review): 厳選業者の特徴
+
+## 活用シーン別
+
+- [小口ファクタリング](https://faccel.jp/articles/small-amount-factoring): 数十万円〜の少額対応
+- [個人事業主向けファクタリング](https://faccel.jp/articles/sole-proprietor-factoring): 個人事業主の資金調達
+- [ITフリーランス向けファクタリング](https://faccel.jp/articles/it-freelance-factoring): エンジニアの請求書買取
+- [建設業ファクタリング](https://faccel.jp/articles/construction-factoring): 工事代金の早期資金化
+- [医療ファクタリング](https://faccel.jp/articles/medical-factoring): 診療報酬債権の現金化
+- [運送業ファクタリング](https://faccel.jp/articles/transport-factoring): 運送料の早期回収
+- [赤字でもファクタリングを使える理由](https://faccel.jp/articles/deficit-factoring): 銀行融資が通らない時の選択肢
+- [審査が甘いファクタリング](https://faccel.jp/articles/easy-approval-factoring): 通りやすい業者の特徴
+- [即日ファクタリング](https://faccel.jp/articles/same-day-factoring): スピード対応する業者
+- [オンライン完結ファクタリング](https://faccel.jp/articles/online-factoring): 来店不要で完結
+
+## トラブル・注意点
+
+- [ファクタリングのリスク](https://faccel.jp/articles/factoring-risky): 失敗パターンと対策
+- [審査落ちした時の対処法](https://faccel.jp/articles/factoring-rejected): 否決された理由と再挑戦
+- [ファクタリングを後悔した事例](https://faccel.jp/articles/factoring-koukai): 失敗事例と教訓
+- [二重譲渡のリスク](https://faccel.jp/articles/factoring-double-assignment): 違法行為と罰則
+- [ファクタリングと闇金の見分け方](https://faccel.jp/articles/factoring-yamikin): 違法業者の特徴
+- [ファクタリング会社の倒産リスク](https://faccel.jp/articles/factoring-hasan): 業者選びでの注意
+- [ファクタリングを返済できない場合](https://faccel.jp/articles/factoring-cannot-repay): 法的対応と相談先
+- [税務署とファクタリング](https://faccel.jp/articles/factoring-zeimusho): 税務処理の注意点
+- [ファクタリングの会計処理](https://faccel.jp/articles/factoring-accounting): 仕訳と税務上の扱い
+- [ファクタリングは秘密にできるか](https://faccel.jp/articles/factoring-secret): 売掛先に知られない条件
+
+## Optional
+
+- [運営者情報](https://faccel.jp/about): 編集方針・E-E-A-T情報
+- [プライバシーポリシー](https://faccel.jp/privacy)
+- [利用規約](https://faccel.jp/terms)
+- [無料診断](https://faccel.jp/estimate): 自社に合う業者の絞り込み
+
+最終更新: 2026-04-27
+連絡先: contact@faccel.jp
