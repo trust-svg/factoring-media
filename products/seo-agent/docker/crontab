@@ -1,0 +1,5 @@
+# Weekly SEO report — every Monday 08:00 JST
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+0 8 * * 1 cd /app && /usr/local/bin/python jobs/weekly_report.py >> /app/reports/cron.log 2>&1

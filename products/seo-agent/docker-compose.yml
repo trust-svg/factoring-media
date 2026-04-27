@@ -1,0 +1,14 @@
+services:
+  seo-agent:
+    build: .
+    container_name: seo-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+      - ./credentials:/app/credentials
+      # mount the host repos read-only so adapters can scan articles
+      - ${FACCEL_HOST_PATH:-/opt/factoring-media}:/host/factoring-media:ro
+      - ${SAIMU_HOST_PATH:-/opt/saimu-media}:/host/saimu-media:ro
