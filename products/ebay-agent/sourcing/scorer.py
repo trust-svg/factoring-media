@@ -136,7 +136,7 @@ def _score_image(ebay_image_url: str, candidate_image_url: str) -> tuple[float, 
     if result == "yes":
         return SCORE_IMAGE_MAX, "yes"        # 30pt — 同一商品
     elif result == "maybe":
-        return SCORE_IMAGE_MAX * 0.4, "maybe"  # 12pt — 類似
+        return SCORE_IMAGE_MAX * 0.6, "maybe"  # 18pt — 類似（同型番の角度違い等を救済）
     elif result == "no":
         return -10, "no"                      # -10pt — 別商品ペナルティ
     else:
@@ -256,7 +256,7 @@ def pick_best_candidates(
                 elif img_result == "no":
                     logger.info(f"    画像不一致 (-10pt): [{r.platform}] {r.title[:30]}")
                 elif img_result == "maybe":
-                    logger.info(f"    画像類似 (+{SCORE_IMAGE_MAX * 0.4:.0f}pt): [{r.platform}] {r.title[:30]}")
+                    logger.info(f"    画像類似 (+{SCORE_IMAGE_MAX * 0.6:.0f}pt): [{r.platform}] {r.title[:30]}")
             else:
                 item["image_result"] = "no_image"
 

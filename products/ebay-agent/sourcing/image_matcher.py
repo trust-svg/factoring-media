@@ -130,9 +130,14 @@ def compare_images(ebay_image_url: str, candidate_image_url: str) -> str:
                             {
                                 "type": "text",
                                 "text": (
-                                    "These are two product images. "
-                                    "Is the second image the same product (same brand, same model) as the first? "
-                                    "Reply ONLY with: yes, maybe, or no."
+                                    "These are two product images of vintage electronics or collectibles. "
+                                    "They may be photographed from different angles, distances, lighting, "
+                                    "or backgrounds (e.g. studio shot vs casual photo). "
+                                    "Determine whether they are the SAME MODEL "
+                                    "(same brand and same model number / same identifiable item), "
+                                    "ignoring photo quality, framing, and accessory differences. "
+                                    "If brand/model markings or shape clearly match, answer yes. "
+                                    "Reply ONLY with one word: yes, maybe, or no."
                                 ),
                             },
                         ],
