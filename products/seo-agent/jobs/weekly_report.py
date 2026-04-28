@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 # allow `python jobs/weekly_report.py` and `python -m jobs.weekly_report`
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# .env must be loaded BEFORE any module that reads env vars at import time
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
 from core import db
 from core.analyzer import affiliate_funnel_only, classify, split_by_tier
 from core.gsc_client import fetch_window
@@ -75,7 +78,6 @@ def _process_site(site: Site, run_date: date, lookback_days: int, dry_run: bool)
 
 
 def main() -> int:
-    load_dotenv()
     parser = argparse.ArgumentParser(description="SEO weekly report")
     parser.add_argument("--site", action="append", help="restrict to site name (repeatable)")
     parser.add_argument("--dry-run", action="store_true", help="skip DB write and Telegram notify")
