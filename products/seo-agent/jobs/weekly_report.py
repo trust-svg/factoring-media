@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core import db
-from core.analyzer import classify, split_by_category
+from core.analyzer import affiliate_funnel_only, classify, split_by_tier
 from core.gsc_client import fetch_window
 from core.notifier import notify
 from core.report import ReportContext, render, telegram_summary
@@ -31,7 +31,7 @@ def _select_sites(names: list[str] | None) -> list[Site]:
     return selected
 
 
-def _process_site(site: Site, run_date: date, lookback_days: int, dry_run: bool) -> tuple[int, int, int, Path | None]:
+def _process_site(site: Site, run_date: date, lookback_days: int, dry_run: bool) -> tuple[int, int, int, int, Path | None]:
     end_day = run_date - timedelta(days=3)  # GSC has ~2-3 day lag
     rows = fetch_window(site.gsc_property, end_day, lookback_days)
 
@@ -45,9 +45,15 @@ def _process_site(site: Site, run_date: date, lookback_days: int, dry_run: bool)
         return db.fetch_previous_position(site.name, keyword, page, iso)
 
     insights = classify(rows, previous_lookup=previous_lookup)
-    buckets = split_by_category(insights)
+    buckets = split_by_tier(insights)
+    affiliate = affiliate_funnel_only(insights)
 
-    ctx = ReportContext(site=site, run_date=run_date.isoformat(), buckets=buckets)
+    ctx = ReportContext(
+        site=site,
+        run_date=run_date.isoformat(),
+        buckets=buckets,
+        affiliate_funnel=affiliate,
+    )
     md = render(ctx)
 
     reports_root = Path(os.getenv("REPORTS_DIR", "/app/reports"))
@@ -60,9 +66,10 @@ def _process_site(site: Site, run_date: date, lookback_days: int, dry_run: bool)
         db.record_run(site.name, run_date.isoformat(), len(rows), str(report_path))
 
     return (
-        len(buckets.get("declining", [])),
-        len(buckets.get("stagnant", [])),
-        len(buckets.get("rising", [])),
+        len(buckets.get("rewrite", [])),
+        len(buckets.get("title", [])),
+        len(buckets.get("seed", [])),
+        len(affiliate),
         report_path,
     )
 
@@ -81,15 +88,15 @@ def main() -> int:
     sites = _select_sites(args.site)
     run_date = date.today()
 
-    summary: list[tuple[str, int, int, int]] = []
+    summary: list[tuple[str, int, int, int, int]] = []
     paths: list[Path] = []
     for site in sites:
         try:
-            d, s, r, path = _process_site(site, run_date, args.lookback_days, args.dry_run)
-            summary.append((site.name, d, s, r))
+            rw, ti, se, af, path = _process_site(site, run_date, args.lookback_days, args.dry_run)
+            summary.append((site.name, rw, ti, se, af))
             if path:
                 paths.append(path)
-            print(f"[{site.name}] declining={d} stagnant={s} rising={r} -> {path}")
+            print(f"[{site.name}] rewrite={rw} title={ti} seed={se} affiliate={af} -> {path}")
         except Exception as e:
             print(f"[{site.name}] ERROR: {e}", file=sys.stderr)
             if not args.dry_run:
