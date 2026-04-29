@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(launchctl list*)",
+      "Bash(ffprobe -v *)",
+      "mcp__claude_ai_Google_Calendar__list_events",
+      "mcp__claude_ai_Gmail__search_threads"
+    ]
+  }
+}

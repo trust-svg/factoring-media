@@ -50,6 +50,29 @@ They are NOT related unless explicitly stated.
 - Never mix client data into `products/` general directories
 - Never create files outside the specified target directory without asking
 
+## Working Process Rules（作業プロセス規律）
+
+### 自己検証ルール（完了報告の前に必須）
+- **コード変更後は、対象プロダクトのテスト or スモーク確認を実行し、出力を貼ってから「完了」と報告すること**
+- 確認手段が無い／実行できない場合は、その旨を明示して報告（黙って完了にしない）
+- 検証手段の優先順位:
+  1. 該当プロダクトの `pytest` / `npm test` 等のテストコマンド
+  2. 起動確認（`python main.py` / `docker compose up` で正常起動）
+  3. UI変更ならスクリーンショット or curl での疎通確認
+  4. ログ出力の目視確認
+- 検証コマンドが重い場合（VPS本番デプロイ等）は、ユーザーに確認手段を相談する
+
+### 同じミスは繰り返さない
+- **同じ指摘を2回受けたら、CLAUDE.md or `~/.claude/CLAUDE.md` に追記すること**
+- 局所的な事情（特定プロダクトのみ）なら、そのプロダクト配下に `CLAUDE.md` を置く
+- 全体ルールに昇格させる前に、適用範囲（どのディレクトリ/どの状況）を明示する
+- 不要になったルールは消す（CLAUDE.mdが膨らむと逆効果）
+
+### 不可逆な操作の前に確認
+- 破壊的・不可逆な操作（force push, reset --hard, 本番VPSへの変更, DB drop, 外部API本番送信）は、毎回ユーザーに確認すること
+- 「過去に許可されたから」を理由に省略しない
+- ※ 絶対に止めるべきものはhooksで強制（Phase 3で整備）
+
 ## Temporary Files / Screenshots
 
 - 一時ファイル（スクショ・デバッグ用JSON・動作確認ログなど）は **Workspace直下に置かない**
