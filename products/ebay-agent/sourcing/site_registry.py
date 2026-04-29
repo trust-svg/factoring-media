@@ -5,6 +5,7 @@
   2. 各サイトで読む情報を絞る → extract_fields で取得項目を明示
   3. 商品画像を判別する処理を入れる → supports_image フラグ
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,8 +34,13 @@ SITE_REGISTRY: dict[str, dict] = {
         "scraper_class": "scrapers.yahoo_auction.YahooAuctionScraper",
         "supports_image": True,
         "extract_fields": [
-            "title", "price_jpy", "shipping_jpy", "condition",
-            "image_url", "product_url", "seller_id",
+            "title",
+            "price_jpy",
+            "shipping_jpy",
+            "condition",
+            "image_url",
+            "product_url",
+            "seller_id",
         ],
         "notes": "最大手オークション。requests で安定動作。",
     },
@@ -49,8 +55,11 @@ SITE_REGISTRY: dict[str, dict] = {
         "scraper_class": "scrapers.offmall.OffmallScraper",
         "supports_image": True,
         "extract_fields": [
-            "title", "price_jpy", "condition",
-            "image_url", "product_url",
+            "title",
+            "price_jpy",
+            "condition",
+            "image_url",
+            "product_url",
         ],
         "notes": "ブックオフ公式EC。コンディション表記が統一的。",
     },
@@ -65,8 +74,11 @@ SITE_REGISTRY: dict[str, dict] = {
         "scraper_class": "scrapers.surugaya.SurugayaScraper",
         "supports_image": True,
         "extract_fields": [
-            "title", "price_jpy", "condition",
-            "image_url", "product_url",
+            "title",
+            "price_jpy",
+            "condition",
+            "image_url",
+            "product_url",
         ],
         "notes": "ホビー・ゲーム・AV機器に強い。",
     },
@@ -81,8 +93,11 @@ SITE_REGISTRY: dict[str, dict] = {
         "scraper_class": "scrapers.mercari_search.MercariScraper",
         "supports_image": True,
         "extract_fields": [
-            "title", "price_jpy", "condition",
-            "image_url", "product_url",
+            "title",
+            "price_jpy",
+            "condition",
+            "image_url",
+            "product_url",
         ],
         "notes": "Playwright 必須。Cookie 永続化あり。個人出品のため品質ばらつき大。",
     },
@@ -97,8 +112,11 @@ SITE_REGISTRY: dict[str, dict] = {
         "scraper_class": "scrapers.paypay_flea.PayPayFleaScraper",
         "supports_image": True,
         "extract_fields": [
-            "title", "price_jpy", "condition",
-            "image_url", "product_url",
+            "title",
+            "price_jpy",
+            "condition",
+            "image_url",
+            "product_url",
         ],
         "notes": "Playwright 必須。メルカリと重複商品あり。",
     },
@@ -113,12 +131,33 @@ SITE_REGISTRY: dict[str, dict] = {
         "scraper_class": "scrapers.rakuma.RakumaScraper",
         "supports_image": True,
         "extract_fields": [
-            "title", "price_jpy", "condition",
-            "image_url", "product_url",
+            "title",
+            "price_jpy",
+            "condition",
+            "image_url",
+            "product_url",
         ],
         "notes": "出品数少なめ。デフォルト無効（必要時にダッシュボードからON）。",
     },
 }
+
+
+# ── 環境変数で scraper を差し替え（VPSの IPブロック対応） ──
+# YAHOO_SCRAPE_SOURCE=file の時、ヤフオク + Yahoo!フリマ を file_source 経由に切替
+# Mac の launchd が scrape した JSON を VPS が読む構成
+import os as _os
+
+if _os.getenv("YAHOO_SCRAPE_SOURCE", "").lower() == "file":
+    SITE_REGISTRY["yahoo_auctions"]["scraper_class"] = (
+        "scrapers.file_source.YahooAuctionFileScraper"
+    )
+    SITE_REGISTRY["paypay_flea"]["scraper_class"] = (
+        "scrapers.file_source.PayPayFleaFileScraper"
+    )
+    logger.info(
+        "[site_registry] YAHOO_SCRAPE_SOURCE=file: "
+        "Yahoo系を file_source (Mac scrape) に切替"
+    )
 
 
 def get_enabled_sites() -> list[dict]:
