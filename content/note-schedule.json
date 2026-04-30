@@ -195,7 +195,9 @@
     {
       "date": "2026-05-01",
       "slug": "best-factor-review",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n341d43c3011b",
+      "published_at": "2026-05-01"
     },
     {
       "date": "2026-05-02",
