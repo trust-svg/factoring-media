@@ -4,6 +4,7 @@ hot_expensive_items（eBayで売れている高額商品）の各行に対して
 国内サイト（ヤフオク・メルカリ・ヤフーフリマ・ラクマ・駿河屋・オフモール）を
 横断検索し、目標マージンを満たす無在庫出品候補を dropship_candidates に登録する。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,53 +26,107 @@ logger = logging.getLogger(__name__)
 
 # 無在庫特有コスト想定（国内送料+梱包+国際送料USD基準）
 DEFAULT_DOMESTIC_SHIPPING_JPY = 1500  # 国内送料（仕入れ→倉庫）
-DEFAULT_INTL_SHIPPING_USD = 40.0      # 国際発送（FedEx/DHL想定）
-DEFAULT_PACKAGING_JPY = 1500          # 梱包材・作業費
-DEFAULT_PAYONEER_RATE = 0.02           # Payoneer決済手数料
-DEFAULT_TARGET_MARGIN = 0.25           # 25%以上で候補化
+DEFAULT_INTL_SHIPPING_USD = 40.0  # 国際発送（FedEx/DHL想定）
+DEFAULT_PACKAGING_JPY = 1500  # 梱包材・作業費
+DEFAULT_PAYONEER_RATE = 0.02  # Payoneer決済手数料
+DEFAULT_TARGET_MARGIN = 0.25  # 25%以上で候補化
 
 # ── 品質ガード ──────────────────────────────────────
 # 売値の何%以下を「別商品の可能性」として除外するか
-MIN_PRICE_RATIO = 0.25                # 売値の25%未満は別商品扱い（¥2,510のような誤検知排除）
+MIN_PRICE_RATIO = 0.10  # 売値の10%未満は別商品扱い（¥2,510のような明らかな誤検知のみ排除。本物の安値仕入を救う）
 # 候補スコアの下限（scorerの100点満点）
-MIN_MATCH_SCORE = 45.0                # 実運用で 45-52pt の本物が落ちていたため緩和（画像比較OFF時の暫定値）
+MIN_MATCH_SCORE = (
+    45.0  # 実運用で 45-52pt の本物が落ちていたため緩和（画像比較OFF時の暫定値）
+)
 
 # カテゴリ別 NGキーワード（タイトルに含まれたら除外）
 # 本/CD/DVD/写真集など「本体ではない周辺メディア」を弾く
 CATEGORY_NG_KEYWORDS: dict[str, list[str]] = {
     "Vintage Watch": [
-        "cd", "lp", "dvd", "blu-ray", "ブルーレイ", "bd", "sacd",
-        "本", "文庫", "書籍", "雑誌", "写真集",
-        "カレンダー", "ポスター", "ステッカー", "シール",
+        "cd",
+        "lp",
+        "dvd",
+        "blu-ray",
+        "ブルーレイ",
+        "bd",
+        "sacd",
+        "本",
+        "文庫",
+        "書籍",
+        "雑誌",
+        "写真集",
+        "カレンダー",
+        "ポスター",
+        "ステッカー",
+        "シール",
     ],
     "Vintage Audio": [
-        "cd", "lp", "dvd", "blu-ray", "ブルーレイ", "bd", "sacd",
-        "文庫", "書籍", "雑誌", "写真集", "楽譜",
+        "cd",
+        "lp",
+        "dvd",
+        "blu-ray",
+        "ブルーレイ",
+        "bd",
+        "sacd",
+        "文庫",
+        "書籍",
+        "雑誌",
+        "写真集",
+        "楽譜",
     ],
     "Vintage Camera": [
-        "cd", "lp", "dvd", "文庫", "書籍", "雑誌", "写真集",
+        "cd",
+        "lp",
+        "dvd",
+        "文庫",
+        "書籍",
+        "雑誌",
+        "写真集",
     ],
     "Synthesizer": [
-        "cd", "lp", "dvd", "楽譜", "文庫", "書籍", "雑誌",
+        "cd",
+        "lp",
+        "dvd",
+        "楽譜",
+        "文庫",
+        "書籍",
+        "雑誌",
     ],
     "Samurai Armor": [
-        "cd", "lp", "dvd", "文庫", "書籍", "雑誌",
-        "プラモ", "フィギュア", "ポスター", "ミニチュア", "置物",
+        "cd",
+        "lp",
+        "dvd",
+        "文庫",
+        "書籍",
+        "雑誌",
+        "プラモ",
+        "フィギュア",
+        "ポスター",
+        "ミニチュア",
+        "置物",
     ],
     "Japanese Sword": [
-        "cd", "lp", "dvd", "文庫", "書籍", "プラモ", "フィギュア",
-        "レプリカ", "模造", "玩具",
+        "cd",
+        "lp",
+        "dvd",
+        "文庫",
+        "書籍",
+        "プラモ",
+        "フィギュア",
+        "レプリカ",
+        "模造",
+        "玩具",
     ],
 }
 
 # カテゴリ別 推奨巡回サイト（不要site を絞って誤検知を減らす）
 # 空/未定義カテゴリは全有効サイトを巡回（後方互換）
 CATEGORY_SITE_FILTER: dict[str, list[str]] = {
-    "Vintage Watch":  ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
-    "Vintage Audio":  ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
+    "Vintage Watch": ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
+    "Vintage Audio": ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
     "Vintage Camera": ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
-    "Synthesizer":    ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
-    "Samurai Armor":  ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
+    "Synthesizer": ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
+    "Samurai Armor": ["yahoo_auctions", "mercari", "paypay_flea", "rakuma"],
     "Japanese Sword": ["yahoo_auctions", "mercari"],
 }
 
@@ -101,7 +156,9 @@ def max_source_jpy_for_margin(
     allowed_cost_usd = net_rev_usd - (sale_usd * target_margin)
     if allowed_cost_usd <= 0:
         return 0
-    allowed_cost_jpy = int(allowed_cost_usd * rate) - domestic_shipping_jpy - packaging_jpy
+    allowed_cost_jpy = (
+        int(allowed_cost_usd * rate) - domestic_shipping_jpy - packaging_jpy
+    )
     return max(allowed_cost_jpy, 0)
 
 
@@ -120,11 +177,7 @@ def compute_projected_margin(
     ebay_fees_usd = sale_usd * EBAY_FEE_RATE
     payoneer_fee_usd = sale_usd * payoneer_rate
     profit_usd = (
-        sale_usd
-        - ebay_fees_usd
-        - payoneer_fee_usd
-        - intl_shipping_usd
-        - total_cost_usd
+        sale_usd - ebay_fees_usd - payoneer_fee_usd - intl_shipping_usd - total_cost_usd
     )
     margin_pct = (profit_usd / sale_usd * 100) if sale_usd > 0 else 0.0
     return {
@@ -153,11 +206,14 @@ async def match_single(
     if hot.median_price_usd <= 0:
         return []
 
-    max_jpy = max_source_jpy_for_margin(hot.median_price_usd, target_margin=target_margin)
+    max_jpy = max_source_jpy_for_margin(
+        hot.median_price_usd, target_margin=target_margin
+    )
     if max_jpy <= 0:
         logger.warning(
             "[reverse_match] max_jpy=0 for query=%r median=$%.0f — skip",
-            hot.query, hot.median_price_usd,
+            hot.query,
+            hot.median_price_usd,
         )
         return []
 
@@ -184,7 +240,9 @@ async def match_single(
     try:
         result = await _search_sources(search_params)
     except Exception as e:
-        logger.error("[reverse_match] search_sources failed: %s (query=%r)", e, hot.query)
+        logger.error(
+            "[reverse_match] search_sources failed: %s (query=%r)", e, hot.query
+        )
         return []
 
     # 価格下限（売値の X% 未満は別商品の可能性）
@@ -202,15 +260,22 @@ async def match_single(
 
         # ガード1: 価格範囲外
         if price_jpy <= 0 or price_jpy > max_jpy:
-            rejected_reasons["price_out_of_range"] = rejected_reasons.get("price_out_of_range", 0) + 1
+            rejected_reasons["price_out_of_range"] = (
+                rejected_reasons.get("price_out_of_range", 0) + 1
+            )
             continue
 
         # ガード2: 価格下限（売値の X% 未満）
         if price_jpy < min_jpy:
-            rejected_reasons["price_too_low"] = rejected_reasons.get("price_too_low", 0) + 1
+            rejected_reasons["price_too_low"] = (
+                rejected_reasons.get("price_too_low", 0) + 1
+            )
             logger.info(
                 "  [reject] 価格下限 ¥%d < ¥%d (売値%.0f%%): %s",
-                price_jpy, min_jpy, min_price_ratio * 100, title[:60],
+                price_jpy,
+                min_jpy,
+                min_price_ratio * 100,
+                title[:60],
             )
             continue
 
@@ -223,7 +288,9 @@ async def match_single(
         # ガード4: スコア下限
         if score < min_match_score:
             rejected_reasons["low_score"] = rejected_reasons.get("low_score", 0) + 1
-            logger.info("  [reject] スコア %.1f < %.1f: %s", score, min_match_score, title[:60])
+            logger.info(
+                "  [reject] スコア %.1f < %.1f: %s", score, min_match_score, title[:60]
+            )
             continue
 
         calc = compute_projected_margin(price_jpy, hot.median_price_usd)
@@ -231,25 +298,29 @@ async def match_single(
             rejected_reasons["low_margin"] = rejected_reasons.get("low_margin", 0) + 1
             continue
 
-        matches.append({
-            "hot_item_id": hot.id,
-            "jp_platform": cand.get("platform", ""),
-            "jp_url": cand.get("url", ""),
-            "jp_title": title[:500],
-            "jp_price_jpy": price_jpy,
-            "jp_condition": cand.get("condition", ""),
-            "jp_image_url": cand.get("image_url", ""),
-            "ebay_target_price_usd": hot.median_price_usd,
-            "projected_profit_usd": calc["profit_usd"],
-            "projected_margin_pct": calc["margin_pct"],
-            "exchange_rate": calc["exchange_rate"],
-            "match_score": score,
-        })
+        matches.append(
+            {
+                "hot_item_id": hot.id,
+                "jp_platform": cand.get("platform", ""),
+                "jp_url": cand.get("url", ""),
+                "jp_title": title[:500],
+                "jp_price_jpy": price_jpy,
+                "jp_condition": cand.get("condition", ""),
+                "jp_image_url": cand.get("image_url", ""),
+                "ebay_target_price_usd": hot.median_price_usd,
+                "projected_profit_usd": calc["profit_usd"],
+                "projected_margin_pct": calc["margin_pct"],
+                "exchange_rate": calc["exchange_rate"],
+                "match_score": score,
+            }
+        )
 
     if rejected_reasons:
         logger.info(
             "[reverse_match] query=%r: 採用 %d / 却下 %s",
-            hot.query, len(matches), rejected_reasons,
+            hot.query,
+            len(matches),
+            rejected_reasons,
         )
 
     return matches
@@ -268,27 +339,37 @@ async def find_jp_candidates(
     """
     if hot_items is None:
         cutoff = datetime.utcnow() - timedelta(days=14)
-        hot_items = list(db.execute(
-            select(HotExpensiveItem)
-            .where(
-                HotExpensiveItem.status == "new",
-                HotExpensiveItem.discovered_at >= cutoff,
+        hot_items = list(
+            db.execute(
+                select(HotExpensiveItem)
+                .where(
+                    HotExpensiveItem.status == "new",
+                    HotExpensiveItem.discovered_at >= cutoff,
+                )
+                .order_by(HotExpensiveItem.discovered_at.desc())
             )
-            .order_by(HotExpensiveItem.discovered_at.desc())
-        ).scalars().all())
+            .scalars()
+            .all()
+        )
 
     dedupe_cutoff = datetime.utcnow() - timedelta(hours=dedupe_hours)
     saved: list[DropshipCandidate] = []
 
     for hot in hot_items:
-        matches = await match_single(hot, target_margin=target_margin, top_n_per_item=top_n_per_item)
+        matches = await match_single(
+            hot, target_margin=target_margin, top_n_per_item=top_n_per_item
+        )
         for m in matches:
-            existing = db.execute(
-                select(DropshipCandidate).where(
-                    DropshipCandidate.jp_url == m["jp_url"],
-                    DropshipCandidate.created_at >= dedupe_cutoff,
+            existing = (
+                db.execute(
+                    select(DropshipCandidate).where(
+                        DropshipCandidate.jp_url == m["jp_url"],
+                        DropshipCandidate.created_at >= dedupe_cutoff,
+                    )
                 )
-            ).scalars().first()
+                .scalars()
+                .first()
+            )
             if existing:
                 continue
             cand = DropshipCandidate(**m)
@@ -304,18 +385,23 @@ async def find_jp_candidates(
 
 def list_pending(db: Session, limit: int = 20) -> list[DropshipCandidate]:
     """pending ステータスの候補を想定利益順に返す。"""
-    return list(db.execute(
-        select(DropshipCandidate)
-        .where(DropshipCandidate.status == "pending")
-        .order_by(
-            DropshipCandidate.projected_profit_usd.desc(),
-            DropshipCandidate.created_at.desc(),
+    return list(
+        db.execute(
+            select(DropshipCandidate)
+            .where(DropshipCandidate.status == "pending")
+            .order_by(
+                DropshipCandidate.projected_profit_usd.desc(),
+                DropshipCandidate.created_at.desc(),
+            )
+            .limit(limit)
         )
-        .limit(limit)
-    ).scalars().all())
+        .scalars()
+        .all()
+    )
 
 
 if __name__ == "__main__":
+
     async def _main():
         db = get_db()
         results = await find_jp_candidates(db)
@@ -327,4 +413,5 @@ if __name__ == "__main__":
                 f"(利益 ${r.projected_profit_usd:.0f} / {r.projected_margin_pct:.1f}%)"
             )
             print(f"     {r.jp_title[:80]}")
+
     asyncio.run(_main())
