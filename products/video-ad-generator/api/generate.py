@@ -3,7 +3,6 @@
 from __future__ import annotations
 import asyncio
 import logging
-from pathlib import Path
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from database import get_session, Job, JobStatus, Template
@@ -63,7 +62,7 @@ async def generate_single_image(
     video_prompt: str | None = None
     provider = req.provider or "seedance"
     aspect_ratio = req.aspect_ratio or "9:16"
-    duration_seconds = req.duration_seconds or 10
+    duration_seconds = req.duration_seconds if req.duration_seconds is not None else 10
     camera_preset = req.camera_preset
     template_id = req.template_id
 
@@ -76,7 +75,11 @@ async def generate_single_image(
             video_prompt = req.video_prompt or tmpl.video_prompt
             provider = req.provider or tmpl.default_provider
             aspect_ratio = req.aspect_ratio or tmpl.default_aspect
-            duration_seconds = req.duration_seconds or tmpl.default_duration
+            duration_seconds = (
+                req.duration_seconds
+                if req.duration_seconds is not None
+                else tmpl.default_duration
+            )
             camera_preset = req.camera_preset or tmpl.default_camera_preset
     elif req.pattern is not None:
         if req.pattern not in PATTERNS:
@@ -93,6 +96,11 @@ async def generate_single_image(
             raise HTTPException(
                 status_code=400, detail="image_prompt と video_prompt が必要です"
             )
+
+    if image_prompt is None or video_prompt is None:
+        raise HTTPException(
+            status_code=400, detail="image_prompt と video_prompt が必要です"
+        )
 
     if is_blocked(image_prompt) or is_blocked(video_prompt):
         raise HTTPException(
