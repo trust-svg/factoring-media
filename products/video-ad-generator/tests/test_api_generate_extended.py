@@ -70,6 +70,7 @@ def test_generate_image_with_extended_params(client, monkeypatch):
         assert job.duration_seconds == 5
         assert job.camera_preset == "dolly_in"
         assert job.image_source == "generated"
+        assert job.quality == "low"
 
 
 def test_generate_image_with_template_id(client, monkeypatch):
@@ -106,6 +107,7 @@ def test_generate_image_with_template_id(client, monkeypatch):
         assert job.aspect_ratio == "16:9"
         assert job.duration_seconds == 6
         assert job.camera_preset == "pan_left"
+        assert job.quality == "low"
 
 
 def test_generate_image_blocked_prompt(client):
@@ -120,3 +122,143 @@ def test_generate_image_blocked_prompt(client):
         },
     )
     assert resp.status_code == 400
+
+
+def test_generate_image_with_quality(client, monkeypatch):
+    async def fake(prompt, output_path):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"x")
+
+    monkeypatch.setattr(gen_mod, "generate_image", fake)
+
+    resp = client.post(
+        "/api/generate/image",
+        json={
+            "image_prompt": "Portrait",
+            "video_prompt": "v",
+            "provider": "kling3_pro",
+            "quality": "high",
+        },
+    )
+    assert resp.status_code == 200
+    job_id = resp.json()["job_id"]
+    import database as db_mod
+
+    with db_mod.get_session() as s:
+        assert s.get(db_mod.Job, job_id).quality == "high"
+
+
+def test_generate_image_quality_default_low(client, monkeypatch):
+    async def fake(prompt, output_path):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"x")
+
+    monkeypatch.setattr(gen_mod, "generate_image", fake)
+
+    resp = client.post(
+        "/api/generate/image",
+        json={
+            "image_prompt": "Portrait",
+            "video_prompt": "v",
+            "provider": "seedance",
+        },
+    )
+    assert resp.status_code == 200
+    job_id = resp.json()["job_id"]
+    import database as db_mod
+
+    with db_mod.get_session() as s:
+        assert s.get(db_mod.Job, job_id).quality == "low"
+
+
+def test_generate_image_quality_fallback_to_template(client, monkeypatch):
+    async def fake(prompt, output_path):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"x")
+
+    monkeypatch.setattr(gen_mod, "generate_image", fake)
+
+    cid = client.post(
+        "/api/templates",
+        json={
+            "name": "T-q-fall",
+            "category": "custom",
+            "image_prompt": "i",
+            "video_prompt": "v",
+            "default_provider": "veo3_lite",
+            "default_aspect": "16:9",
+            "default_duration": 6,
+            "default_camera_preset": None,
+            "default_quality": "high",
+        },
+    ).json()["id"]
+
+    resp = client.post("/api/generate/image", json={"template_id": cid})
+    assert resp.status_code == 200
+    job_id = resp.json()["job_id"]
+    import database as db_mod
+
+    with db_mod.get_session() as s:
+        assert s.get(db_mod.Job, job_id).quality == "high"
+
+
+def test_generate_image_quality_explicit_overrides_template(client, monkeypatch):
+    async def fake(prompt, output_path):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"x")
+
+    monkeypatch.setattr(gen_mod, "generate_image", fake)
+
+    cid = client.post(
+        "/api/templates",
+        json={
+            "name": "T-q-override",
+            "category": "custom",
+            "image_prompt": "i",
+            "video_prompt": "v",
+            "default_provider": "veo3_lite",
+            "default_aspect": "16:9",
+            "default_duration": 6,
+            "default_camera_preset": None,
+            "default_quality": "high",
+        },
+    ).json()["id"]
+
+    resp = client.post(
+        "/api/generate/image",
+        json={"template_id": cid, "quality": "low"},
+    )
+    assert resp.status_code == 200
+    job_id = resp.json()["job_id"]
+    import database as db_mod
+
+    with db_mod.get_session() as s:
+        assert s.get(db_mod.Job, job_id).quality == "low"
+
+
+def test_generate_image_invalid_quality_returns_422(client):
+    resp = client.post(
+        "/api/generate/image",
+        json={"image_prompt": "i", "video_prompt": "v", "quality": "ultra"},
+    )
+    assert resp.status_code == 422
+
+
+def test_generate_image_extended_aspects(client, monkeypatch):
+    async def fake(prompt, output_path):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"x")
+
+    monkeypatch.setattr(gen_mod, "generate_image", fake)
+
+    for aspect in ("1:1", "4:3", "3:4", "21:9"):
+        resp = client.post(
+            "/api/generate/image",
+            json={
+                "image_prompt": "i",
+                "video_prompt": "v",
+                "provider": "seedance",
+                "aspect_ratio": aspect,
+            },
+        )
+        assert resp.status_code == 200, f"Failed for aspect {aspect}: {resp.text}"

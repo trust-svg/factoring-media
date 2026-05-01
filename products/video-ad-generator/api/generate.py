@@ -67,6 +67,7 @@ async def generate_single_image(
     duration_seconds = req.duration_seconds if req.duration_seconds is not None else 10
     camera_preset = req.camera_preset
     template_id = req.template_id
+    quality = req.quality or "low"
 
     if req.template_id is not None:
         with get_session() as session:
@@ -83,6 +84,7 @@ async def generate_single_image(
                 else tmpl.default_duration
             )
             camera_preset = req.camera_preset or tmpl.default_camera_preset
+            quality = req.quality or tmpl.default_quality
     elif req.pattern is not None:
         if req.pattern not in PATTERNS:
             raise HTTPException(
@@ -119,6 +121,7 @@ async def generate_single_image(
             duration_seconds=duration_seconds,
             camera_preset=camera_preset,
             image_source=req.image_source,
+            quality=quality,
             status=JobStatus.PENDING,
         )
         session.add(job)
