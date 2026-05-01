@@ -38,6 +38,7 @@ async def approve_job(job_id: int, background_tasks: BackgroundTasks):
             "aspect_ratio": job.aspect_ratio,
             "duration_seconds": job.duration_seconds,
             "camera_preset": job.camera_preset,
+            "quality": job.quality,
             "pattern": job.pattern,
         }
 
@@ -89,6 +90,7 @@ async def _run_video_gen(snap: dict):
             aspect_ratio=snap["aspect_ratio"],
             duration_seconds=snap["duration_seconds"],
             camera_preset=snap["camera_preset"],
+            quality=snap["quality"],
             output_path=output_path,
         )
         provider.validate(req)
@@ -104,9 +106,7 @@ async def _run_video_gen(snap: dict):
                 job.status = JobStatus.DONE
                 job.video_path = str(output_path)
                 job.video_cost_usd = cost
-                job.video_cost_calc_basis = (
-                    "per_second" if snap["provider"] == "veo3_lite" else "per_video"
-                )
+                job.video_cost_calc_basis = provider.cost_basis
                 session.commit()
                 pattern_or_provider = snap.get("pattern") or snap["provider"]
                 await notify_video_done(pattern_or_provider, job_id)
