@@ -15,7 +15,7 @@ PROGRESS_STAGES: tuple[str, ...] = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass
 class VideoGenRequest:
     image_path: Path
     video_prompt: str
