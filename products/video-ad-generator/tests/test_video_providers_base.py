@@ -63,3 +63,8 @@ def test_get_provider_unknown_raises():
 def test_get_provider_seedance():
     p = get_provider("seedance")
     assert p.name == "seedance"
+
+
+def test_get_provider_veo3_lite():
+    p = get_provider("veo3_lite")
+    assert p.name == "veo3_lite"
