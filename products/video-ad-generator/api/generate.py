@@ -1,12 +1,14 @@
 """画像・動画生成トリガー API。"""
+
 from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from database import get_session, Job, JobStatus
-from core.patterns import get_batch_prompts, PATTERNS, is_blocked
+from database import get_session, Job, JobStatus, Template
+from core.patterns import get_batch_prompts, PATTERNS
+from core.safety import is_blocked
 from core.image_gen import generate_image
 from core.notifier import notify_images_ready
 from config import PENDING_DIR
@@ -16,13 +18,20 @@ logger = logging.getLogger(__name__)
 
 
 class SingleGenerateRequest(BaseModel):
-    pattern: str
+    pattern: str | None = None
     custom_prompt: str | None = None
+    template_id: int | None = None
+    image_prompt: str | None = None
+    video_prompt: str | None = None
+    provider: str | None = None
+    aspect_ratio: str | None = None
+    duration_seconds: int | None = None
+    camera_preset: str | None = None
+    image_source: str = "generated"
 
 
 @router.post("/generate/batch")
 async def generate_batch(background_tasks: BackgroundTasks):
-    """月バッチ: ABパターン各2本ずつ計10本の画像を生成する。"""
     prompts = get_batch_prompts()
     job_ids = []
     with get_session() as session:
@@ -30,6 +39,11 @@ async def generate_batch(background_tasks: BackgroundTasks):
             job = Job(
                 pattern=item["pattern"],
                 prompt=item["video_prompt"],
+                provider="seedance",
+                aspect_ratio="9:16",
+                duration_seconds=10,
+                camera_preset=None,
+                image_source="generated",
                 status=JobStatus.PENDING,
             )
             session.add(job)
@@ -42,17 +56,61 @@ async def generate_batch(background_tasks: BackgroundTasks):
 
 
 @router.post("/generate/image")
-async def generate_single_image(req: SingleGenerateRequest, background_tasks: BackgroundTasks):
-    """都度生成: 1本の画像を生成する。"""
-    if req.pattern not in PATTERNS:
-        raise HTTPException(status_code=400, detail=f"Invalid pattern: {req.pattern}")
-    pattern = PATTERNS[req.pattern]
-    image_prompt = req.custom_prompt or pattern["image_prompt"]
-    if is_blocked(image_prompt):
-        raise HTTPException(status_code=400, detail="ブロックワードが含まれています")
+async def generate_single_image(
+    req: SingleGenerateRequest, background_tasks: BackgroundTasks
+):
+    image_prompt: str | None = None
+    video_prompt: str | None = None
+    provider = req.provider or "seedance"
+    aspect_ratio = req.aspect_ratio or "9:16"
+    duration_seconds = req.duration_seconds or 10
+    camera_preset = req.camera_preset
+    template_id = req.template_id
+
+    if req.template_id is not None:
+        with get_session() as session:
+            tmpl = session.get(Template, req.template_id)
+            if not tmpl:
+                raise HTTPException(status_code=404, detail="Template not found")
+            image_prompt = req.image_prompt or tmpl.image_prompt
+            video_prompt = req.video_prompt or tmpl.video_prompt
+            provider = req.provider or tmpl.default_provider
+            aspect_ratio = req.aspect_ratio or tmpl.default_aspect
+            duration_seconds = req.duration_seconds or tmpl.default_duration
+            camera_preset = req.camera_preset or tmpl.default_camera_preset
+    elif req.pattern is not None:
+        if req.pattern not in PATTERNS:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid pattern: {req.pattern}"
+            )
+        pattern = PATTERNS[req.pattern]
+        image_prompt = req.custom_prompt or req.image_prompt or pattern["image_prompt"]
+        video_prompt = req.video_prompt or pattern["video_prompt"]
+    else:
+        image_prompt = req.image_prompt
+        video_prompt = req.video_prompt
+        if not image_prompt or not video_prompt:
+            raise HTTPException(
+                status_code=400, detail="image_prompt と video_prompt が必要です"
+            )
+
+    if is_blocked(image_prompt) or is_blocked(video_prompt):
+        raise HTTPException(
+            status_code=400, detail="プロンプトにブロックワードが含まれています"
+        )
 
     with get_session() as session:
-        job = Job(pattern=req.pattern, prompt=pattern["video_prompt"], status=JobStatus.PENDING)
+        job = Job(
+            pattern=req.pattern,
+            template_id=template_id,
+            prompt=video_prompt,
+            provider=provider,
+            aspect_ratio=aspect_ratio,
+            duration_seconds=duration_seconds,
+            camera_preset=camera_preset,
+            image_source=req.image_source,
+            status=JobStatus.PENDING,
+        )
         session.add(job)
         session.flush()
         job_id = job.id
@@ -82,7 +140,7 @@ async def _run_batch_image_gen(job_ids: list[tuple[int, str, str]]):
                     job.status = JobStatus.FAILED
                     job.error_message = str(e)[:1000]
                     session.commit()
-        await asyncio.sleep(2.0)  # rate limit対策
+        await asyncio.sleep(2.0)
 
     await notify_images_ready(successful)
 
