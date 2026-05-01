@@ -6,6 +6,7 @@ from core.video_providers import (
     PROGRESS_STAGES,
     get_provider,
 )
+from core.video_providers.seedance import SeedanceProvider
 
 
 class _DummyProvider(VideoProvider):
@@ -132,3 +133,31 @@ def test_calc_cost_per_video_basis():
     assert _RateV().calc_cost(req) == 0.5
     req.quality = "high"
     assert _RateV().calc_cost(req) == 1.0
+
+
+def test_seedance_supports_new_aspects():
+    p = SeedanceProvider()
+    for aspect in ("9:16", "16:9", "1:1", "4:3", "3:4", "21:9"):
+        req = _make_req(aspect=aspect)
+        p.validate(req)
+
+
+def test_seedance_cost_basis_is_per_second():
+    p = SeedanceProvider()
+    assert p.cost_basis == "per_second"
+
+
+def test_seedance_calc_cost_low_vs_high():
+    p = SeedanceProvider()
+    low = _make_req()
+    low.quality = "low"
+    high = _make_req()
+    high.quality = "high"
+    assert p.calc_cost(low) < p.calc_cost(high)
+
+
+def test_seedance_low_cost_unchanged_from_phase1():
+    p = SeedanceProvider()
+    req = _make_req(duration=10)
+    req.quality = "low"
+    assert p.calc_cost(req) == round(0.081 * 10, 4)

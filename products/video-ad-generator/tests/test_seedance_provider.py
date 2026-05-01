@@ -1,4 +1,3 @@
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 from core.video_providers.seedance import SeedanceProvider
@@ -32,14 +31,6 @@ def test_calc_cost_per_video(tmp_path):
     req = _make_req(tmp_path)
     cost = p.calc_cost(req)
     assert cost > 0
-
-
-def test_validate_rejects_1to1_ratio(tmp_path):
-    p = SeedanceProvider()
-    req = _make_req(tmp_path)
-    req.aspect_ratio = "1:1"
-    with pytest.raises(ValueError):
-        p.validate(req)
 
 
 def test_camera_preset_appended_to_prompt(tmp_path):

@@ -29,12 +29,11 @@ class SeedanceError(Exception):
 
 class SeedanceProvider(VideoProvider):
     name = "seedance"
-    supported_aspects = ("9:16", "16:9")
+    supported_aspects = ("9:16", "16:9", "1:1", "4:3", "3:4", "21:9")
     supported_durations = (5, 10)
-
-    def calc_cost(self, req: VideoGenRequest) -> float:
-        # Seedance 2.0 basic quality: 概算 $0.081/s（既存実装値）
-        return round(0.081 * req.duration_seconds, 4)
+    cost_basis = "per_second"
+    RATE_MAP = {"low": 0.081, "high": 0.13}
+    QUALITY_MAP = {"low": "basic", "high": "pro"}
 
     def _build_prompt(self, req: VideoGenRequest) -> str:
         hint = get_prompt_hint(req.camera_preset)
@@ -56,7 +55,7 @@ class SeedanceProvider(VideoProvider):
             "images_list": [image_url],
             "aspect_ratio": req.aspect_ratio,
             "duration": req.duration_seconds,
-            "quality": "basic",
+            "quality": self.QUALITY_MAP[req.quality],
         }
 
         last_error: Exception | None = None
