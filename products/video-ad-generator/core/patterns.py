@@ -9,7 +9,7 @@ _BLOCK_WORDS = [
     "aragaki", "yui", "ishihara", "satomi", "ayase", "haruka",
     "toda", "erika", "kitagawa", "keiko", "takeuchi", "yuuko",
     "綾瀬", "新垣", "石原", "戸田", "北川", "竹内",
-    "real person", "celebrity", "idol", "actress", "actor",
+    "celebrity", "idol", "actress", "actor",
 ]
 
 PATTERNS: dict[str, dict] = {

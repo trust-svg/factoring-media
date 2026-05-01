@@ -16,6 +16,7 @@ AUTO_APPROVE_SCORE_THRESHOLD: float = float(os.environ.get("AUTO_APPROVE_SCORE_T
 
 APP_PORT: int = int(os.environ.get("APP_PORT", "8004"))
 APP_HOST: str = "0.0.0.0"
+PUBLIC_BASE_URL: str = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 
 VIDEO_DURATION: int = 10
 VIDEO_ASPECT_RATIO: str = "9:16"
@@ -30,7 +31,7 @@ DB_PATH = BASE_DIR / "video_ad.db"
 
 # Atlas Cloud Seedance 2.0 I2V
 ATLAS_CLOUD_I2V_URL = "https://api.muapi.ai/api/v1/seedance-v2.0-i2v"
-ATLAS_CLOUD_STATUS_URL = "https://api.muapi.ai/api/v1/status/{request_id}"
+ATLAS_CLOUD_STATUS_URL = "https://api.muapi.ai/api/v1/predictions/{request_id}/result"
 
 # NanoBanana PRO (Google Gemini 3 Pro Image)
 NANOBANANA_MODEL = "gemini-3-pro-image-preview"
