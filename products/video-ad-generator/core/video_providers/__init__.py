@@ -4,6 +4,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 __all__ = ["VideoProvider", "VideoGenRequest", "PROGRESS_STAGES", "get_provider"]
 
@@ -33,7 +34,7 @@ class VideoProvider(ABC):
     supported_aspects: tuple[str, ...] = ()
     supported_durations: tuple[int, ...] = ()
     supported_qualities: tuple[str, ...] = ("low", "high")
-    cost_basis: str = "per_video"
+    cost_basis: Literal["per_video", "per_second"] = "per_video"
     RATE_MAP: dict[str, float] = {}
 
     @abstractmethod
