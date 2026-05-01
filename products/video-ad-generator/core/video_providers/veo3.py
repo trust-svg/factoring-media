@@ -53,6 +53,8 @@ class Veo3LiteProvider(VideoProvider):
     async def generate(self, req: VideoGenRequest) -> Path:
         self.validate(req)
         image_b64 = base64.b64encode(req.image_path.read_bytes()).decode("ascii")
+        suffix = req.image_path.suffix.lower()
+        mime_type = "image/png" if suffix == ".png" else "image/jpeg"
 
         payload = {
             "instances": [
@@ -60,7 +62,7 @@ class Veo3LiteProvider(VideoProvider):
                     "prompt": self._build_prompt(req),
                     "image": {
                         "bytesBase64Encoded": image_b64,
-                        "mimeType": "image/jpeg",
+                        "mimeType": mime_type,
                     },
                 }
             ],

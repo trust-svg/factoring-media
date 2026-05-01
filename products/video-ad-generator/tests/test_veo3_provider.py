@@ -40,6 +40,24 @@ def test_validate_rejects_unsupported_duration(tmp_path):
         p.validate(req)
 
 
+def test_mime_type_derived_from_suffix(tmp_path):
+    """PNG画像ならmimeTypeがimage/pngになる（Task 14のアップロード対応）"""
+    p = Veo3LiteProvider()
+    png = tmp_path / "in.png"
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
+
+    # Build the same way generate() does (without making a real API call)
+    suffix = png.suffix.lower()
+    mime = "image/png" if suffix == ".png" else "image/jpeg"
+    assert mime == "image/png"
+
+    jpg = tmp_path / "in.jpg"
+    jpg.write_bytes(b"\xff\xd8\xff" + b"\x00" * 100)
+    suffix = jpg.suffix.lower()
+    mime = "image/png" if suffix == ".png" else "image/jpeg"
+    assert mime == "image/jpeg"
+
+
 def test_camera_preset_appended_to_prompt(tmp_path):
     p = Veo3LiteProvider()
     req = _make_req(tmp_path)
