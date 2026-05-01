@@ -1,12 +1,12 @@
 """承認・却下 API。"""
+
 from __future__ import annotations
-import asyncio
 import logging
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from database import get_session, Job, JobStatus
-from config import PENDING_DIR, APPROVED_DIR, REJECTED_DIR
-from core.video_gen import generate_video
+from config import PENDING_DIR, APPROVED_DIR, REJECTED_DIR, VIDEOS_DIR
+from core.video_providers import get_provider, VideoGenRequest
 from core.notifier import notify_video_done, notify_job_failed
 
 router = APIRouter(prefix="/api")
@@ -20,19 +20,28 @@ async def approve_job(job_id: int, background_tasks: BackgroundTasks):
         if not job or job.status != JobStatus.PENDING:
             raise HTTPException(status_code=404, detail="Job not found or not pending")
         job.status = JobStatus.APPROVED
-        # pending → approved にファイル移動
-        if job.image_path:
+
+        # アップロード画像はファイル移動しない（uploaded フォルダ維持）
+        if job.image_source == "generated" and job.image_path:
             src = Path(job.image_path)
             dst = APPROVED_DIR / src.name
             if src.exists():
                 src.rename(dst)
             job.image_path = str(dst)
-        session.commit()
-        job_id_snap = job.id
-        image_path_snap = job.image_path
-        video_prompt_snap = job.prompt
 
-    background_tasks.add_task(_run_video_gen, job_id_snap, image_path_snap, video_prompt_snap)
+        session.commit()
+        snap = {
+            "id": job.id,
+            "image_path": job.image_path,
+            "video_prompt": job.prompt,
+            "provider": job.provider,
+            "aspect_ratio": job.aspect_ratio,
+            "duration_seconds": job.duration_seconds,
+            "camera_preset": job.camera_preset,
+            "pattern": job.pattern,
+        }
+
+    background_tasks.add_task(_run_video_gen, snap)
     return {"status": "approved", "job_id": job_id}
 
 
@@ -43,7 +52,7 @@ def reject_job(job_id: int):
         if not job or job.status != JobStatus.PENDING:
             raise HTTPException(status_code=404, detail="Job not found or not pending")
         job.status = JobStatus.REJECTED
-        if job.image_path:
+        if job.image_path and job.image_source == "generated":
             src = Path(job.image_path)
             dst = REJECTED_DIR / src.name
             if src.exists():
@@ -53,37 +62,62 @@ def reject_job(job_id: int):
     return {"status": "rejected", "job_id": job_id}
 
 
-async def _run_video_gen(job_id: int, image_path: str, video_prompt: str):
-    """バックグラウンドで動画生成を実行する。"""
-    from config import VIDEOS_DIR
+def _set_stage(job_id: int, stage: str | None) -> None:
+    with get_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.video_progress_stage = stage
+            session.commit()
+
+
+async def _run_video_gen(snap: dict):
+    job_id = snap["id"]
     output_path = VIDEOS_DIR / f"job_{job_id}.mp4"
 
     with get_session() as session:
         job = session.get(Job, job_id)
         if job:
             job.status = JobStatus.VIDEO_GENERATING
+            job.video_progress_stage = "submitting"
             session.commit()
 
     try:
-        await generate_video(
-            image_path=Path(image_path),
-            video_prompt=video_prompt,
+        provider = get_provider(snap["provider"])
+        req = VideoGenRequest(
+            image_path=Path(snap["image_path"]),
+            video_prompt=snap["video_prompt"],
+            aspect_ratio=snap["aspect_ratio"],
+            duration_seconds=snap["duration_seconds"],
+            camera_preset=snap["camera_preset"],
             output_path=output_path,
         )
+        provider.validate(req)
+        cost = provider.calc_cost(req)
+
+        _set_stage(job_id, "uploading_image")
+        await provider.generate(req)
+        _set_stage(job_id, None)
+
         with get_session() as session:
             job = session.get(Job, job_id)
             if job:
                 job.status = JobStatus.DONE
                 job.video_path = str(output_path)
-                job.video_cost_usd = 0.81  # 10秒 × $0.081/s
+                job.video_cost_usd = cost
+                job.video_cost_calc_basis = (
+                    "per_second" if snap["provider"] == "veo3_lite" else "per_video"
+                )
                 session.commit()
-                await notify_video_done(job.pattern, job_id)
+                pattern_or_provider = snap.get("pattern") or snap["provider"]
+                await notify_video_done(pattern_or_provider, job_id)
     except Exception as e:
         logger.error(f"Job {job_id} 動画生成失敗: {e}")
+        stage = None
         with get_session() as session:
             job = session.get(Job, job_id)
             if job:
+                stage = job.video_progress_stage
                 job.status = JobStatus.FAILED
                 job.error_message = str(e)[:1000]
                 session.commit()
-        await notify_job_failed(job_id, str(e))
+        await notify_job_failed(job_id, f"[{stage or 'unknown'}] {e}")
