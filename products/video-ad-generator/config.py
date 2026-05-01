@@ -12,7 +12,9 @@ TELEGRAM_CHAT_ID: str = os.environ["TELEGRAM_CHAT_ID"]
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
 
 AUTO_APPROVE: bool = os.environ.get("AUTO_APPROVE", "false").lower() == "true"
-AUTO_APPROVE_SCORE_THRESHOLD: float = float(os.environ.get("AUTO_APPROVE_SCORE_THRESHOLD", "0.75"))
+AUTO_APPROVE_SCORE_THRESHOLD: float = float(
+    os.environ.get("AUTO_APPROVE_SCORE_THRESHOLD", "0.75")
+)
 
 APP_PORT: int = int(os.environ.get("APP_PORT", "8004"))
 APP_HOST: str = "0.0.0.0"
@@ -27,6 +29,8 @@ PENDING_DIR = OUTPUT_DIR / "pending"
 APPROVED_DIR = OUTPUT_DIR / "approved"
 REJECTED_DIR = OUTPUT_DIR / "rejected"
 VIDEOS_DIR = OUTPUT_DIR / "videos"
+UPLOADED_DIR = OUTPUT_DIR / "uploaded"
+MAX_UPLOAD_SIZE_MB: int = int(os.environ.get("MAX_UPLOAD_SIZE_MB", "20"))
 DB_PATH = BASE_DIR / "video_ad.db"
 
 # Atlas Cloud Seedance 2.0 I2V
