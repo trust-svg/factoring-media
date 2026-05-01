@@ -49,7 +49,7 @@ class SeedanceProvider(VideoProvider):
             "Content-Type": "application/json",
         }
         image_url = await upload_image_to_telegram(req.image_path)
-        logger.info(f"[seedance] image_url={image_url}")
+        logger.info("[seedance] image uploaded to telegram")
 
         payload = {
             "prompt": self._build_prompt(req),
