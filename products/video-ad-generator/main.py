@@ -1,4 +1,5 @@
 """Video Ad Generator — FastAPI メインサーバー"""
+
 from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
@@ -11,6 +12,7 @@ from database import init_db
 from api.generate import router as generate_router
 from api.approve import router as approve_router
 from api.jobs import router as jobs_router
+from api.templates import router as templates_router
 from config import APP_HOST, APP_PORT, BASE_DIR
 
 logging.basicConfig(
@@ -32,6 +34,7 @@ app = FastAPI(title="Video Ad Generator", lifespan=lifespan)
 app.include_router(generate_router)
 app.include_router(approve_router)
 app.include_router(jobs_router)
+app.include_router(templates_router)
 
 # output ディレクトリを静的ファイルとして配信（画像・動画プレビュー用）
 app.mount("/output", StaticFiles(directory=str(BASE_DIR / "output")), name="output")
