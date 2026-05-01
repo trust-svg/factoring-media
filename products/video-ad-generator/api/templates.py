@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -16,9 +18,10 @@ class TemplateCreateRequest(BaseModel):
     image_prompt: str = Field(..., min_length=1, max_length=2000)
     video_prompt: str = Field(..., min_length=1, max_length=2000)
     default_provider: str = "seedance"
-    default_aspect: str = "9:16"
+    default_aspect: Literal["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"] = "9:16"
     default_duration: int = 10
     default_camera_preset: str | None = None
+    default_quality: Literal["low", "high"] = "low"
 
 
 class TemplateUpdateRequest(BaseModel):
@@ -27,9 +30,10 @@ class TemplateUpdateRequest(BaseModel):
     image_prompt: str | None = None
     video_prompt: str | None = None
     default_provider: str | None = None
-    default_aspect: str | None = None
+    default_aspect: Literal["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"] | None = None
     default_duration: int | None = None
     default_camera_preset: str | None = None
+    default_quality: Literal["low", "high"] | None = None
 
 
 def _to_dict(t) -> dict:
@@ -43,6 +47,7 @@ def _to_dict(t) -> dict:
         "default_aspect": t.default_aspect,
         "default_duration": t.default_duration,
         "default_camera_preset": t.default_camera_preset,
+        "default_quality": t.default_quality,
         "is_archived": t.is_archived,
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "updated_at": t.updated_at.isoformat() if t.updated_at else None,

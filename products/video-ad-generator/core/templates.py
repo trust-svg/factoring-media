@@ -16,6 +16,7 @@ def create_template(
     default_aspect: str,
     default_duration: int,
     default_camera_preset: str | None,
+    default_quality: str = "low",
 ) -> Template:
     if is_blocked(image_prompt) or is_blocked(video_prompt):
         raise ValueError("プロンプトにブロックワード（block word）が含まれています")
@@ -29,6 +30,7 @@ def create_template(
             default_aspect=default_aspect,
             default_duration=default_duration,
             default_camera_preset=default_camera_preset,
+            default_quality=default_quality,
             is_archived=False,
         )
         session.add(t)
@@ -64,6 +66,7 @@ def update_template(template_id: int, **fields) -> Template | None:
         "default_aspect",
         "default_duration",
         "default_camera_preset",
+        "default_quality",
         "is_archived",
     }
     sanitized = {k: v for k, v in fields.items() if k in allowed and v is not None}
