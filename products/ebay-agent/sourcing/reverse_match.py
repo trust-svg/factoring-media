@@ -39,6 +39,30 @@ MIN_MATCH_SCORE = (
     45.0  # 実運用で 45-52pt の本物が落ちていたため緩和（画像比較OFF時の暫定値）
 )
 
+# アクセサリ単体出品の検知（タイトルにこれらを含む場合、本体ではない可能性が高い）
+# 例: "NIKON F3/T HP Finder ビューファインダー" は本体ではなく Finder 単体
+ACCESSORY_KEYWORDS = [
+    "ビューファインダー",
+    "viewfinder",
+    "ファインダー",
+    "リモコン",
+    "remote control",
+    "ストラップ",
+    "strap",
+    "lens hood",
+    "レンズフード",
+    "アダプター",
+    " adapter",  # 先頭スペースで "AC adapter" 等を捕捉、機器名内の adapter 誤検知を抑制
+    "充電器",
+    "charger",
+    "バッテリーパック",
+    "battery pack",
+    "取扱説明書",
+    "instruction manual",
+]
+# アクセサリ疑いは売値の何%未満で除外するか（より厳しい）
+ACCESSORY_MIN_PRICE_RATIO = 0.50
+
 # カテゴリ別 NGキーワード（タイトルに含まれたら除外）
 # 本/CD/DVD/写真集など「本体ではない周辺メディア」を弾く
 CATEGORY_NG_KEYWORDS: dict[str, list[str]] = {
@@ -278,6 +302,25 @@ async def match_single(
                 title[:60],
             )
             continue
+
+        # ガード2.5: アクセサリ単体疑い（タイトルにアクセサリ語+極端に低価格）
+        title_lower = title.lower()
+        if any(kw in title_lower for kw in ACCESSORY_KEYWORDS):
+            accessory_min_jpy = int(
+                hot.median_price_usd * rate * ACCESSORY_MIN_PRICE_RATIO
+            )
+            if price_jpy < accessory_min_jpy:
+                rejected_reasons["accessory_only"] = (
+                    rejected_reasons.get("accessory_only", 0) + 1
+                )
+                logger.info(
+                    "  [reject] アクセサリ単体疑い ¥%d < ¥%d (売値%.0f%%): %s",
+                    price_jpy,
+                    accessory_min_jpy,
+                    ACCESSORY_MIN_PRICE_RATIO * 100,
+                    title[:60],
+                )
+                continue
 
         # ガード3: カテゴリNGキーワード
         if _title_has_ng_keyword(title, hot.category or ""):
