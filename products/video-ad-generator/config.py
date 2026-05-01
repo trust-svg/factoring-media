@@ -39,3 +39,15 @@ ATLAS_CLOUD_STATUS_URL = "https://api.muapi.ai/api/v1/predictions/{request_id}/r
 
 # NanoBanana PRO (Google Gemini 3 Pro Image)
 NANOBANANA_MODEL = "gemini-3-pro-image-preview"
+
+# Veo 3.1 Lite (Gemini API)
+VEO3_MODEL_ID: str = os.environ.get("VEO3_MODEL_ID", "veo-3.1-fast-generate-001")
+
+# Kling V3.0 Pro (muapi.ai)
+MUAPI_KLING_MODEL_ID: str = os.environ.get("MUAPI_KLING_MODEL_ID", "kling-v3-pro")
+MUAPI_KLING_I2V_URL: str = os.environ.get(
+    "MUAPI_KLING_I2V_URL", "https://api.muapi.ai/api/v1/kling-v3-pro-i2v"
+)
+
+# UI/Defaults
+DEFAULT_PROVIDER: str = os.environ.get("DEFAULT_PROVIDER", "seedance")
