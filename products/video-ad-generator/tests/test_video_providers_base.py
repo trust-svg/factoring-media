@@ -58,3 +58,8 @@ def test_progress_stages_defined():
 def test_get_provider_unknown_raises():
     with pytest.raises(ValueError, match="unknown provider"):
         get_provider("nonexistent_provider")
+
+
+def test_get_provider_seedance():
+    p = get_provider("seedance")
+    assert p.name == "seedance"
