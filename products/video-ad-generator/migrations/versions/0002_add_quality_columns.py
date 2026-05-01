@@ -24,8 +24,6 @@ def upgrade() -> None:
             "quality", sa.String(length=16), nullable=False, server_default="low"
         ),
     )
-    op.execute("UPDATE jobs SET quality='low' WHERE quality IS NULL")
-
     op.add_column(
         "templates",
         sa.Column(
@@ -34,9 +32,6 @@ def upgrade() -> None:
             nullable=False,
             server_default="low",
         ),
-    )
-    op.execute(
-        "UPDATE templates SET default_quality='low' WHERE default_quality IS NULL"
     )
 
 
