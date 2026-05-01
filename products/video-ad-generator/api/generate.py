@@ -3,6 +3,7 @@
 from __future__ import annotations
 import asyncio
 import logging
+from typing import Literal
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from database import get_session, Job, JobStatus, Template
@@ -23,10 +24,11 @@ class SingleGenerateRequest(BaseModel):
     image_prompt: str | None = None
     video_prompt: str | None = None
     provider: str | None = None
-    aspect_ratio: str | None = None
+    aspect_ratio: Literal["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"] | None = None
     duration_seconds: int | None = None
     camera_preset: str | None = None
     image_source: str = "generated"
+    quality: Literal["low", "high"] | None = None
 
 
 @router.post("/generate/batch")

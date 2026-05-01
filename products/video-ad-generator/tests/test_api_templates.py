@@ -118,3 +118,78 @@ def test_archive_template(client):
     assert all(t["id"] != cid for t in listed)
     listed_all = client.get("/api/templates?include_archived=true").json()
     assert any(t["id"] == cid for t in listed_all)
+
+
+def test_template_create_with_default_quality(client):
+    resp = client.post(
+        "/api/templates",
+        json={
+            "name": "T-q",
+            "category": "custom",
+            "image_prompt": "img",
+            "video_prompt": "vid",
+            "default_provider": "seedance",
+            "default_aspect": "9:16",
+            "default_duration": 10,
+            "default_camera_preset": None,
+            "default_quality": "high",
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["default_quality"] == "high"
+
+
+def test_template_create_default_quality_defaults_to_low(client):
+    resp = client.post(
+        "/api/templates",
+        json={
+            "name": "T-q-default",
+            "category": "custom",
+            "image_prompt": "img",
+            "video_prompt": "vid",
+            "default_provider": "seedance",
+            "default_aspect": "9:16",
+            "default_duration": 10,
+            "default_camera_preset": None,
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["default_quality"] == "low"
+
+
+def test_template_update_default_quality(client):
+    cid = client.post(
+        "/api/templates",
+        json={
+            "name": "T-up",
+            "category": "custom",
+            "image_prompt": "img",
+            "video_prompt": "vid",
+            "default_provider": "seedance",
+            "default_aspect": "9:16",
+            "default_duration": 10,
+            "default_camera_preset": None,
+        },
+    ).json()["id"]
+
+    resp = client.patch(f"/api/templates/{cid}", json={"default_quality": "high"})
+    assert resp.status_code == 200
+    assert resp.json()["default_quality"] == "high"
+
+
+def test_template_invalid_default_quality_returns_422(client):
+    resp = client.post(
+        "/api/templates",
+        json={
+            "name": "T-bad",
+            "category": "custom",
+            "image_prompt": "img",
+            "video_prompt": "vid",
+            "default_provider": "seedance",
+            "default_aspect": "9:16",
+            "default_duration": 10,
+            "default_camera_preset": None,
+            "default_quality": "ultra",
+        },
+    )
+    assert resp.status_code == 422
