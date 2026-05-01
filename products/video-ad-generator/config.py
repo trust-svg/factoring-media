@@ -40,10 +40,25 @@ ATLAS_CLOUD_STATUS_URL = "https://api.muapi.ai/api/v1/predictions/{request_id}/r
 # NanoBanana PRO (Google Gemini 3 Pro Image)
 NANOBANANA_MODEL = "gemini-3-pro-image-preview"
 
-# Veo 3.1 Lite (Gemini API)
-VEO3_MODEL_ID: str = os.environ.get("VEO3_MODEL_ID", "veo-3.1-fast-generate-001")
+# Veo 3.1 (Gemini API): fast = low quality, standard = high quality
+VEO3_FAST_MODEL_ID: str = os.environ.get(
+    "VEO3_FAST_MODEL_ID",
+    os.environ.get("VEO3_MODEL_ID", "veo-3.1-fast-generate-001"),
+)
+VEO3_STANDARD_MODEL_ID: str = os.environ.get(
+    "VEO3_STANDARD_MODEL_ID", "veo-3.1-standard-generate-001"
+)
 
-# Kling V3.0 Pro (muapi.ai)
+# Kling V3 (muapi.ai): std = low quality, pro = high quality
+KLING_STD_URL: str = os.environ.get(
+    "KLING_STD_URL", "https://api.muapi.ai/api/v1/kling-v3-std-i2v"
+)
+KLING_PRO_URL: str = os.environ.get(
+    "KLING_PRO_URL", "https://api.muapi.ai/api/v1/kling-v3-pro-i2v"
+)
+KLING_STD_MODEL_ID: str = os.environ.get("KLING_STD_MODEL_ID", "kling-v3-std")
+KLING_PRO_MODEL_ID: str = os.environ.get("KLING_PRO_MODEL_ID", "kling-v3-pro")
+
 MUAPI_KLING_MODEL_ID: str = os.environ.get("MUAPI_KLING_MODEL_ID", "kling-v3-pro")
 MUAPI_KLING_I2V_URL: str = os.environ.get(
     "MUAPI_KLING_I2V_URL", "https://api.muapi.ai/api/v1/kling-v3-pro-i2v"
