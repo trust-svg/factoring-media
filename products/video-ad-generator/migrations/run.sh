@@ -3,13 +3,24 @@
 # 必ずこのスクリプト経由でマイグレーションを実行する（直接 alembic コマンドを叩かない）。
 set -euo pipefail
 
+# .env が無いと alembic コマンドが KeyError でクラッシュする (env.py が config.py 経由で env vars を必須とするため)
+if [ ! -f "$(dirname "$0")/../.env" ]; then
+  echo "❌ .env not found at $(dirname "$0")/../.env"
+  echo "   Required env vars: GEMINI_API_KEY ATLAS_CLOUD_API_KEY TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID"
+  exit 1
+fi
+
 cd "$(dirname "$0")/.."
 
 case "${1:-help}" in
   backup)
-    ts=$(date +%Y%m%d_%H%M%S)
-    cp video_ad.db "video_ad.db.bak.${ts}"
-    echo "✓ バックアップ作成: video_ad.db.bak.${ts}"
+    if [ ! -f video_ad.db ]; then
+      echo "ℹ️  video_ad.db が存在しません — バックアップをスキップ"
+    else
+      ts=$(date +%Y%m%d_%H%M%S)
+      cp video_ad.db "video_ad.db.bak.${ts}"
+      echo "✓ バックアップ作成: video_ad.db.bak.${ts}"
+    fi
     ;;
   migrate)
     "$0" backup
@@ -26,6 +37,7 @@ case "${1:-help}" in
       echo "❌ バックアップファイルが見つかりません: $2"
       exit 1
     fi
+    # 注意: これは alembic_version テーブルを含む完全なファイル復元。スキーマだけを戻したい場合は `downgrade` を使う。
     cp "$2" video_ad.db
     echo "✓ ロールバック完了: $2 → video_ad.db"
     ;;

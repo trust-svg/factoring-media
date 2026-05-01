@@ -1,9 +1,18 @@
+# NOTE: This file imports `database.Base`, which transitively imports `config.py`.
+# `config.py` requires GEMINI_API_KEY / ATLAS_CLOUD_API_KEY / TELEGRAM_BOT_TOKEN /
+# TELEGRAM_CHAT_ID to be set in `.env` (or as env vars). Running any alembic command
+# without `.env` populated will raise KeyError. Phase 2 will decouple Base from config.
+
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -16,10 +25,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 from database import Base
 
 target_metadata = Base.metadata
