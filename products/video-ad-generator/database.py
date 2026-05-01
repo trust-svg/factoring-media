@@ -39,6 +39,7 @@ class Template(Base):
     default_aspect: Mapped[str] = mapped_column(String(10), default="9:16")
     default_duration: Mapped[int] = mapped_column(Integer, default=10)
     default_camera_preset: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    default_quality: Mapped[str] = mapped_column(String(16), default="low")
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
@@ -64,6 +65,7 @@ class Job(Base):
     duration_seconds: Mapped[int] = mapped_column(Integer, default=10)
     camera_preset: Mapped[str | None] = mapped_column(String(50), nullable=True)
     image_source: Mapped[str] = mapped_column(String(20), default="generated")
+    quality: Mapped[str] = mapped_column(String(16), default="low")
     status: Mapped[JobStatus] = mapped_column(
         Enum(JobStatus), default=JobStatus.PENDING
     )
