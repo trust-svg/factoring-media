@@ -85,3 +85,50 @@ def test_get_provider_veo3_lite():
 def test_get_provider_kling3_pro():
     p = get_provider("kling3_pro")
     assert p.name == "kling3_pro"
+
+
+def test_validate_rejects_unsupported_quality():
+    p = _DummyProvider()
+    req = _make_req()
+    req.quality = "ultra"
+    with pytest.raises(ValueError, match="quality"):
+        p.validate(req)
+
+
+def test_dummy_provider_supports_default_qualities():
+    p = _DummyProvider()
+    assert p.supported_qualities == ("low", "high")
+
+
+def test_calc_cost_per_second_basis():
+    class _RateP(VideoProvider):
+        name = "rateP_sec"
+        supported_aspects = ("9:16",)
+        supported_durations = (10,)
+        cost_basis = "per_second"
+        RATE_MAP = {"low": 0.1, "high": 0.2}
+
+        async def generate(self, req):
+            return req.output_path
+
+    req = _make_req()
+    assert _RateP().calc_cost(req) == round(0.1 * 10, 4)
+    req.quality = "high"
+    assert _RateP().calc_cost(req) == round(0.2 * 10, 4)
+
+
+def test_calc_cost_per_video_basis():
+    class _RateV(VideoProvider):
+        name = "rateP_vid"
+        supported_aspects = ("9:16",)
+        supported_durations = (10,)
+        cost_basis = "per_video"
+        RATE_MAP = {"low": 0.5, "high": 1.0}
+
+        async def generate(self, req):
+            return req.output_path
+
+    req = _make_req()
+    assert _RateV().calc_cost(req) == 0.5
+    req.quality = "high"
+    assert _RateV().calc_cost(req) == 1.0

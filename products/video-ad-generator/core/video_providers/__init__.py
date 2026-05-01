@@ -32,14 +32,20 @@ class VideoProvider(ABC):
     name: str = ""
     supported_aspects: tuple[str, ...] = ()
     supported_durations: tuple[int, ...] = ()
+    supported_qualities: tuple[str, ...] = ("low", "high")
+    cost_basis: str = "per_video"
+    RATE_MAP: dict[str, float] = {}
 
     @abstractmethod
     async def generate(self, req: VideoGenRequest) -> Path:
         """画像と prompt から動画を生成し、output_path に保存して返す。"""
 
-    @abstractmethod
     def calc_cost(self, req: VideoGenRequest) -> float:
         """ジョブのコストを USD で返す。"""
+        rate = self.RATE_MAP[req.quality]
+        if self.cost_basis == "per_second":
+            return round(rate * req.duration_seconds, 4)
+        return round(rate, 4)
 
     def validate(self, req: VideoGenRequest) -> None:
         if req.aspect_ratio not in self.supported_aspects:
@@ -51,6 +57,11 @@ class VideoProvider(ABC):
             raise ValueError(
                 f"{self.name} does not support duration {req.duration_seconds}s. "
                 f"Supported: {self.supported_durations}"
+            )
+        if req.quality not in self.supported_qualities:
+            raise ValueError(
+                f"{self.name} does not support quality {req.quality}. "
+                f"Supported: {self.supported_qualities}"
             )
 
 
