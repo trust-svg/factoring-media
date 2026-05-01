@@ -32,5 +32,5 @@ async def upload_image_to_telegram(image_path: Path) -> str:
         download_url = (
             f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
         )
-        logger.info(f"Telegram upload OK: {download_url}")
+        logger.info("Telegram upload OK: file_path=%s", file_path)
         return download_url
