@@ -54,7 +54,7 @@ async def upload_image(
         img = Image.open(io.BytesIO(content))
         img.verify()
         img = Image.open(io.BytesIO(content))  # verify は close するため再open
-    except Exception:
+    except (OSError, SyntaxError, ValueError):
         raise HTTPException(status_code=400, detail="画像ファイルではありません")
 
     if img.width < MIN_DIM or img.height < MIN_DIM:
