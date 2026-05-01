@@ -14,6 +14,7 @@ from api.approve import router as approve_router
 from api.jobs import router as jobs_router
 from api.templates import router as templates_router
 from api.upload import router as upload_router
+from api.providers import router as providers_router
 from config import APP_HOST, APP_PORT, BASE_DIR
 
 logging.basicConfig(
@@ -37,6 +38,7 @@ app.include_router(approve_router)
 app.include_router(jobs_router)
 app.include_router(templates_router)
 app.include_router(upload_router)
+app.include_router(providers_router)
 
 # output ディレクトリを静的ファイルとして配信（画像・動画プレビュー用）
 app.mount("/output", StaticFiles(directory=str(BASE_DIR / "output")), name="output")
