@@ -68,3 +68,8 @@ def test_get_provider_seedance():
 def test_get_provider_veo3_lite():
     p = get_provider("veo3_lite")
     assert p.name == "veo3_lite"
+
+
+def test_get_provider_kling3_pro():
+    p = get_provider("kling3_pro")
+    assert p.name == "kling3_pro"
