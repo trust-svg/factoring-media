@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
+__all__ = ["VideoProvider", "VideoGenRequest", "PROGRESS_STAGES", "get_provider"]
+
 PROGRESS_STAGES: tuple[str, ...] = (
     "uploading_image",
     "submitting",
@@ -13,7 +15,7 @@ PROGRESS_STAGES: tuple[str, ...] = (
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class VideoGenRequest:
     image_path: Path
     video_prompt: str
