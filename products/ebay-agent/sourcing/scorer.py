@@ -11,6 +11,7 @@
   - タイトル関連度:  0〜15pt（キーワード一致率）
   - 画像一致度:      0〜30pt（Claude Vision 判定）★ 最重要
 """
+
 import logging
 import re
 
@@ -35,25 +36,38 @@ CONDITION_SCORES = {
 
 # 非本体除外キーワード
 EXCLUDE_KEYWORDS = [
-    "manual", "マニュアル", "説明書", "取扱説明書",
-    "parts only", "パーツのみ", "部品のみ",
-    "remote only", "リモコンのみ",
-    "cover only", "カバーのみ",
-    "cable only", "ケーブルのみ",
-    "case only", "ケースのみ",
-    "adapter only", "アダプターのみ",
+    "manual",
+    "マニュアル",
+    "説明書",
+    "取扱説明書",
+    "parts only",
+    "パーツのみ",
+    "部品のみ",
+    "remote only",
+    "リモコンのみ",
+    "cover only",
+    "カバーのみ",
+    "cable only",
+    "ケーブルのみ",
+    "case only",
+    "ケースのみ",
+    "adapter only",
+    "アダプターのみ",
 ]
 
 # 売り切れキーワード
 SOLD_OUT_KEYWORDS = [
-    "sold", "売り切れ", "販売終了", "取引終了",
+    "sold",
+    "売り切れ",
+    "販売終了",
+    "取引終了",
 ]
 
 # ── スコア配分定数 ──
-SCORE_PRICE_MAX = 30        # 価格スコア上限
-SCORE_CONDITION_MAX = 25    # コンディションスコア上限
-SCORE_RELEVANCE_MAX = 15    # タイトル関連度上限
-SCORE_IMAGE_MAX = 30        # 画像一致度上限 ★
+SCORE_PRICE_MAX = 30  # 価格スコア上限
+SCORE_CONDITION_MAX = 25  # コンディションスコア上限
+SCORE_RELEVANCE_MAX = 15  # タイトル関連度上限
+SCORE_IMAGE_MAX = 30  # 画像一致度上限 ★
 
 # 画像比較なし候補のスコアキャップ（画像比較できない場合の最大スコア）
 SCORE_CAP_NO_IMAGE = 70
@@ -75,18 +89,26 @@ def _extract_model_tokens(keyword: str) -> list[str]:
 
 
 def _title_contains_model(title: str, model_tokens: list[str]) -> bool:
-    """候補タイトルに全ての型番トークンが含まれるか判定（AND条件）"""
+    """候補タイトルに全ての型番トークンが含まれるか判定（AND条件、語境界チェック付き）
+
+    型番の前後に英数字が続く場合は別バリアント扱いで除外する。
+    例: 検索 "MS-20" は候補 "MS-20mini" にはマッチしない（"mini" 接尾辞が後続）。
+    例: 検索 "E-305" は候補 "E-305V" や "E-3050" にはマッチしない。
+    """
     title_norm = title.upper().replace("−", "-").replace("ー", "-")
     for token in model_tokens:
         found = False
-        if token in title_norm:
+        # メインパターン: 型番の前後に英数字が続かない（語境界）
+        if re.search(rf"(?<![A-Z0-9]){re.escape(token)}(?![A-Z0-9])", title_norm):
             found = True
-        elif "-" in token and token.replace("-", "") in title_norm.replace("-", ""):
-            found = True
-        elif re.search(r"[A-Z]", token) and re.search(r"\d", token):
-            alpha = re.sub(r"[\d\-]", "", token)
-            digits = re.sub(r"[^\d]", "", token)
-            if alpha and digits and alpha in title_norm and digits in title_norm:
+        # ALT: ハイフン除去版でも語境界チェック
+        elif "-" in token:
+            stripped_token = token.replace("-", "")
+            stripped_title = title_norm.replace("-", "")
+            if re.search(
+                rf"(?<![A-Z0-9]){re.escape(stripped_token)}(?![A-Z0-9])",
+                stripped_title,
+            ):
                 found = True
         if not found:
             return False
@@ -134,13 +156,13 @@ def _score_image(ebay_image_url: str, candidate_image_url: str) -> tuple[float, 
     result = compare_images(ebay_image_url, candidate_image_url)
 
     if result == "yes":
-        return SCORE_IMAGE_MAX, "yes"        # 30pt — 同一商品
+        return SCORE_IMAGE_MAX, "yes"  # 30pt — 同一商品
     elif result == "maybe":
         return SCORE_IMAGE_MAX * 0.6, "maybe"  # 18pt — 類似（同型番の角度違い等を救済）
     elif result == "no":
-        return -10, "no"                      # -10pt — 別商品ペナルティ
+        return -10, "no"  # -10pt — 別商品ペナルティ
     else:
-        return 0, "skip"                      # 0pt — API失敗
+        return 0, "skip"  # 0pt — API失敗
 
 
 def pick_best_candidates(
@@ -177,13 +199,14 @@ def pick_best_candidates(
     if model_tokens:
         before = len(results)
         results = [r for r in results if _title_contains_model(r.title, model_tokens)]
-        logger.info(f"  型番フィルタ ({', '.join(model_tokens)}): {before}件 → {len(results)}件")
+        logger.info(
+            f"  型番フィルタ ({', '.join(model_tokens)}): {before}件 → {len(results)}件"
+        )
 
     # 非本体除外
     before = len(results)
     results = [
-        r for r in results
-        if not any(ex in r.title.lower() for ex in EXCLUDE_KEYWORDS)
+        r for r in results if not any(ex in r.title.lower() for ex in EXCLUDE_KEYWORDS)
     ]
     if before != len(results):
         logger.info(f"  非本体除外: {before}件 → {len(results)}件")
@@ -191,7 +214,8 @@ def pick_best_candidates(
     # 売り切れ除外
     before = len(results)
     results = [
-        r for r in results
+        r
+        for r in results
         if not any(kw in r.title.lower() for kw in SOLD_OUT_KEYWORDS)
         and not any(kw in r.condition.lower() for kw in SOLD_OUT_KEYWORDS)
     ]
@@ -204,7 +228,7 @@ def pick_best_candidates(
     # ── スコアリング（画像比較なし段階） ──
     scored = []
     for r in results:
-        total = r.price_jpy + (r.shipping_jpy if hasattr(r, 'shipping_jpy') else 0)
+        total = r.price_jpy + (r.shipping_jpy if hasattr(r, "shipping_jpy") else 0)
         p_score = _score_price(total, max_price_jpy)
         c_score = _score_condition(r.condition)
         r_score = _score_relevance(r.title, keyword)
@@ -214,16 +238,18 @@ def pick_best_candidates(
         rel_bonus = reliability * 5  # 0.85 → 4.25pt
 
         base_score = p_score + c_score + r_score + rel_bonus
-        scored.append({
-            "result": r,
-            "price_score": p_score,
-            "condition_score": c_score,
-            "relevance_score": r_score,
-            "reliability_bonus": rel_bonus,
-            "image_score": 0.0,
-            "image_result": "pending",
-            "total_score": base_score,
-        })
+        scored.append(
+            {
+                "result": r,
+                "price_score": p_score,
+                "condition_score": c_score,
+                "relevance_score": r_score,
+                "reliability_bonus": rel_bonus,
+                "image_score": 0.0,
+                "image_result": "pending",
+                "total_score": base_score,
+            }
+        )
 
     scored.sort(key=lambda x: x["total_score"], reverse=True)
 
@@ -252,11 +278,17 @@ def pick_best_candidates(
                 item["total_score"] += img_score
 
                 if img_result == "yes":
-                    logger.info(f"    画像一致 (+{SCORE_IMAGE_MAX}pt): [{r.platform}] {r.title[:30]}")
+                    logger.info(
+                        f"    画像一致 (+{SCORE_IMAGE_MAX}pt): [{r.platform}] {r.title[:30]}"
+                    )
                 elif img_result == "no":
-                    logger.info(f"    画像不一致 (-10pt): [{r.platform}] {r.title[:30]}")
+                    logger.info(
+                        f"    画像不一致 (-10pt): [{r.platform}] {r.title[:30]}"
+                    )
                 elif img_result == "maybe":
-                    logger.info(f"    画像類似 (+{SCORE_IMAGE_MAX * 0.6:.0f}pt): [{r.platform}] {r.title[:30]}")
+                    logger.info(
+                        f"    画像類似 (+{SCORE_IMAGE_MAX * 0.6:.0f}pt): [{r.platform}] {r.title[:30]}"
+                    )
             else:
                 item["image_result"] = "no_image"
 
@@ -270,39 +302,47 @@ def pick_best_candidates(
 
     elif not ebay_image_url:
         # eBay画像URLなし → 画像比較スキップ（警告を出す）
-        logger.warning("  ⚠ ebay_image_url 未指定: 画像比較スキップ（精度が低下します）")
+        logger.warning(
+            "  ⚠ ebay_image_url 未指定: 画像比較スキップ（精度が低下します）"
+        )
 
     # ── 結果組み立て ──
     selected = []
     for item in pre_selected[:top_n]:
         r = item["result"]
-        selected.append({
-            "platform": r.platform,
-            "title": r.title,
-            "price_jpy": r.price_jpy,
-            "shipping_jpy": getattr(r, 'shipping_jpy', 0),
-            "total_price_jpy": r.price_jpy + getattr(r, 'shipping_jpy', 0),
-            "condition": r.condition,
-            "url": r.url,
-            "image_url": r.image_url,
-            "is_junk": r.is_junk,
-            "score": round(item["total_score"], 1),
-            "score_breakdown": {
-                "price": round(item["price_score"], 1),
-                "condition": round(item["condition_score"], 1),
-                "relevance": round(item["relevance_score"], 1),
-                "image_match": round(item["image_score"], 1),
-                "image_match_result": item["image_result"],
-                "reliability_bonus": round(item["reliability_bonus"], 1),
-            },
-            "image_verified": item["image_result"] == "yes",
-        })
+        selected.append(
+            {
+                "platform": r.platform,
+                "title": r.title,
+                "price_jpy": r.price_jpy,
+                "shipping_jpy": getattr(r, "shipping_jpy", 0),
+                "total_price_jpy": r.price_jpy + getattr(r, "shipping_jpy", 0),
+                "condition": r.condition,
+                "url": r.url,
+                "image_url": r.image_url,
+                "is_junk": r.is_junk,
+                "score": round(item["total_score"], 1),
+                "score_breakdown": {
+                    "price": round(item["price_score"], 1),
+                    "condition": round(item["condition_score"], 1),
+                    "relevance": round(item["relevance_score"], 1),
+                    "image_match": round(item["image_score"], 1),
+                    "image_match_result": item["image_result"],
+                    "reliability_bonus": round(item["reliability_bonus"], 1),
+                },
+                "image_verified": item["image_result"] == "yes",
+            }
+        )
 
     logger.info(
         f"  → ベスト{len(selected)}件 (画像比較: {'実施' if image_compared else '未実施'}): "
         + " / ".join(
             f"[{c['platform']}] ¥{c['price_jpy']:,} ({c['score']}pt"
-            + (f", 画像:{c['score_breakdown']['image_match_result']}" if image_compared else "")
+            + (
+                f", 画像:{c['score_breakdown']['image_match_result']}"
+                if image_compared
+                else ""
+            )
             + ")"
             for c in selected
         )
