@@ -1,16 +1,12 @@
 """ABパターン5種のプロンプト定義。
 50代向けマッチングアプリ広告用の日本人女性キャラクター生成。
 """
+
 from __future__ import annotations
 import random
 
-# ブロックワード: 実在人物参照を防ぐ著名人名など
-_BLOCK_WORDS = [
-    "aragaki", "yui", "ishihara", "satomi", "ayase", "haruka",
-    "toda", "erika", "kitagawa", "keiko", "takeuchi", "yuuko",
-    "綾瀬", "新垣", "石原", "戸田", "北川", "竹内",
-    "celebrity", "idol", "actress", "actor",
-]
+# 既存呼び出しとの後方互換のため再エクスポート
+from core.safety import is_blocked  # noqa: F401
 
 PATTERNS: dict[str, dict] = {
     "A": {
@@ -91,22 +87,18 @@ PATTERNS: dict[str, dict] = {
 }
 
 
-def is_blocked(prompt: str) -> bool:
-    """プロンプトに実在人物の名前や不適切なワードが含まれていないか確認。"""
-    lower = prompt.lower()
-    return any(word in lower for word in _BLOCK_WORDS)
-
-
 def get_batch_prompts() -> list[dict]:
     """月バッチ用: 各パターン2本ずつ計10本のプロンプトリストを返す。"""
     batch = []
     for pattern_key, pattern in PATTERNS.items():
         for _ in range(2):
-            batch.append({
-                "pattern": pattern_key,
-                "theme": pattern["theme"],
-                "image_prompt": pattern["image_prompt"],
-                "video_prompt": pattern["video_prompt"],
-            })
+            batch.append(
+                {
+                    "pattern": pattern_key,
+                    "theme": pattern["theme"],
+                    "image_prompt": pattern["image_prompt"],
+                    "video_prompt": pattern["video_prompt"],
+                }
+            )
     random.shuffle(batch)
     return batch
