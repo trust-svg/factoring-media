@@ -38,7 +38,7 @@ def test_job_status_transitions(db):
 
 
 def test_template_model_creates():
-    from database import Template, Base, JobStatus
+    from database import Template, Base
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 
