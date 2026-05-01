@@ -31,6 +31,18 @@ def _make_req(aspect="9:16", duration=10):
     )
 
 
+def test_video_gen_request_quality_default():
+    req = VideoGenRequest(
+        image_path=Path("/tmp/x.jpg"),
+        video_prompt="t",
+        aspect_ratio="9:16",
+        duration_seconds=10,
+        camera_preset=None,
+        output_path=Path("/tmp/o.mp4"),
+    )
+    assert req.quality == "low"
+
+
 def test_validate_passes_for_supported():
     p = _DummyProvider()
     p.validate(_make_req())  # no exception

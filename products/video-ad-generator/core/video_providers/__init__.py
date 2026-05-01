@@ -23,6 +23,7 @@ class VideoGenRequest:
     duration_seconds: int
     camera_preset: str | None
     output_path: Path
+    quality: str = "low"
 
 
 class VideoProvider(ABC):
