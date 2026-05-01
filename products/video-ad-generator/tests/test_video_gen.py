@@ -13,6 +13,10 @@ async def test_generate_video_success(tmp_path, monkeypatch):
 
     # Fake provider whose .generate() writes the output file and returns output_path
     async def fake_generate(req):
+        # Lock in the wrapper's hardcoded request fields
+        assert req.aspect_ratio == "9:16"
+        assert req.duration_seconds == 10
+        assert req.camera_preset is None
         req.output_path.parent.mkdir(parents=True, exist_ok=True)
         req.output_path.write_bytes(FAKE_VIDEO_BYTES)
         return req.output_path

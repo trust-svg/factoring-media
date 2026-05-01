@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class VideoGenError(Exception):
-    """後方互換のためのエイリアス。新規コードは SeedanceError を使う。"""
+    """後方互換のためのエイリアス。新規コードは get_provider("seedance") を直接呼び、
+    core.video_providers.seedance.SeedanceError を扱うこと。"""
 
     pass
 
