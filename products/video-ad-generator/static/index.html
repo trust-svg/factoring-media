@@ -4,426 +4,187 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Video Ad Generator</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/generate.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: #e0e0e0; }
-    header { background: #1a1a1a; padding: 16px 24px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; }
-    header h1 { font-size: 18px; font-weight: 600; }
-    .tabs { display: flex; gap: 4px; padding: 16px 24px 0; background: #1a1a1a; border-bottom: 1px solid #333; }
-    .tab { padding: 8px 20px; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 14px; color: #888; border: 1px solid transparent; border-bottom: none; }
-    .tab.active { background: #0f0f0f; color: #fff; border-color: #333; }
-    .content { padding: 24px; }
-    .panel { display: none; }
-    .panel.active { display: block; }
-    .stats-row { display: flex; gap: 16px; margin-bottom: 24px; }
-    .stat-card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px 20px; flex: 1; }
-    .stat-card .label { font-size: 12px; color: #888; margin-bottom: 4px; }
-    .stat-card .value { font-size: 24px; font-weight: 700; }
-    .btn { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
-    .btn-primary { background: #6366f1; color: #fff; }
-    .btn-primary:hover { background: #5153cc; }
-    .btn-success { background: #22c55e; color: #fff; }
-    .btn-danger { background: #ef4444; color: #fff; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 16px; }
-    .image-card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+
+    /* image-grid / video-grid for pending + confirmed panels */
+    .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-md); margin-top: var(--space-md); }
+    .image-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
     .image-card img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; }
-    .image-card .card-footer { padding: 10px; display: flex; gap: 6px; }
+    .image-card .card-footer { padding: var(--space-sm); display: flex; gap: 6px; }
     .image-card .card-footer .btn { flex: 1; padding: 6px 8px; font-size: 12px; }
-    .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
-    .video-card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+    .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-md); margin-top: var(--space-md); }
+    .video-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
     .video-card video { width: 100%; aspect-ratio: 9/16; object-fit: cover; }
-    .video-card .card-info { padding: 10px; font-size: 12px; color: #888; }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; }
-    .form-group select, .form-group textarea { width: 100%; background: #1a1a1a; border: 1px solid #333; color: #e0e0e0; border-radius: 6px; padding: 8px 12px; font-size: 14px; }
-    .form-group textarea { height: 100px; resize: vertical; font-family: inherit; }
-    .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
-    .empty-state { text-align: center; padding: 48px; color: #666; }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
-    .toggle { position: relative; width: 44px; height: 24px; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; inset: 0; background: #333; border-radius: 24px; transition: .2s; }
-    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
-    input:checked + .slider { background: #6366f1; }
-    input:checked + .slider:before { transform: translateX(20px); }
-    #toast { position: fixed; bottom: 24px; right: 24px; background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 14px; display: none; z-index: 9999; }
+    .video-card .card-info { padding: var(--space-sm); font-size: 12px; color: var(--text-secondary); }
+
+    .btn { padding: 8px 16px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: var(--font-body); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { padding: 10px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text-primary); cursor: pointer; font-size: 14px; font-family: var(--font-body); }
+    .btn-secondary:hover { background: var(--surface); }
+
+    .empty-state { text-align: center; padding: 48px; color: var(--text-secondary); }
+
+    /* image-source file input shown when upload mode active */
+    #image-file { width: 100%; margin-top: var(--space-sm); }
+
+    #toast { position: fixed; bottom: 24px; right: 24px; background: #333; color: #fff; padding: 12px 20px; border-radius: var(--radius); font-size: 14px; display: none; z-index: 9999; }
+
+    .canvas h3 { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: var(--space-sm); }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Video Ad Generator</h1>
-    <span id="header-stats" style="font-size:13px;color:#888;">読み込み中...</span>
+
+<!-- Inline aspect-ratio icons so <use href="#aspect-..."> resolves -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="aspect-9-16" viewBox="0 0 32 32">
+    <rect x="9.5" y="2" width="13" height="28" fill="none" stroke="currentColor" stroke-width="2" rx="1"/>
+  </symbol>
+  <symbol id="aspect-16-9" viewBox="0 0 32 32">
+    <rect x="2" y="9.5" width="28" height="13" fill="none" stroke="currentColor" stroke-width="2" rx="1"/>
+  </symbol>
+  <symbol id="aspect-1-1" viewBox="0 0 32 32">
+    <rect x="4" y="4" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" rx="1"/>
+  </symbol>
+  <symbol id="aspect-4-3" viewBox="0 0 32 32">
+    <rect x="2" y="6" width="28" height="20" fill="none" stroke="currentColor" stroke-width="2" rx="1"/>
+  </symbol>
+  <symbol id="aspect-3-4" viewBox="0 0 32 32">
+    <rect x="6" y="2" width="20" height="28" fill="none" stroke="currentColor" stroke-width="2" rx="1"/>
+  </symbol>
+  <symbol id="aspect-21-9" viewBox="0 0 32 32">
+    <rect x="2" y="13" width="28" height="6" fill="none" stroke="currentColor" stroke-width="2" rx="1"/>
+  </symbol>
+</svg>
+
+<div class="app">
+  <header class="topbar">
+    <div class="topbar__logo">Video Ad Generator</div>
+    <nav class="topbar__tabs" role="tablist">
+      <button class="topbar__tab topbar__tab--active" data-panel="generate" role="tab">動画作成</button>
+      <button class="topbar__tab" data-panel="pending" role="tab">承認待ち</button>
+      <button class="topbar__tab" data-panel="confirmed" role="tab">確定済み</button>
+      <a class="topbar__tab" href="/static/templates.html">テンプレート</a>
+    </nav>
+    <span id="header-stats" style="margin-left:auto;font-size:13px;color:var(--text-secondary);"></span>
   </header>
 
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('dashboard')">ダッシュボード</div>
-    <div class="tab" onclick="switchTab('pending')">承認待ち <span id="pending-count"></span></div>
-    <div class="tab" onclick="switchTab('generate')">動画作成</div>
-    <div class="tab" onclick="switchTab('videos')">完成動画</div>
-    <div class="tab" onclick="switchTab('settings')">設定</div>
-  </div>
-
-  <div class="content">
-    <!-- ダッシュボード -->
-    <div id="panel-dashboard" class="panel active">
-      <div class="stats-row">
-        <div class="stat-card"><div class="label">今月の完成動画</div><div class="value" id="stat-done">-</div></div>
-        <div class="stat-card"><div class="label">承認待ち</div><div class="value" id="stat-pending">-</div></div>
-        <div class="stat-card"><div class="label">合計コスト</div><div class="value" id="stat-cost">-</div></div>
-      </div>
-      <button class="btn btn-primary" onclick="startBatch(this)">バッチ生成（月10本）</button>
-    </div>
-
-    <!-- 承認待ち -->
-    <div id="panel-pending" class="panel">
-      <div class="section-title">承認待ち画像</div>
-      <div id="pending-grid" class="image-grid"><div class="empty-state">承認待ちの画像はありません</div></div>
-    </div>
-
-    <!-- 動画作成 -->
-    <div id="panel-generate" class="panel">
-      <div class="section-title">動画作成</div>
-
-      <!-- 入力モード選択 -->
-      <div class="form-group">
-        <label style="margin-bottom:8px;">入力モード</label>
-        <div style="display:flex;gap:20px;padding:12px;background:#1a1a1a;border:1px solid #333;border-radius:6px;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#e0e0e0;font-size:14px;">
-            <input type="radio" name="mode" value="template" checked> テンプレから選ぶ
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#e0e0e0;font-size:14px;">
-            <input type="radio" name="mode" value="custom"> 自由入力
-          </label>
-        </div>
-      </div>
-
-      <!-- テンプレートモード -->
-      <div id="mode-template">
-        <div class="form-group">
-          <label>カテゴリ</label>
-          <select id="tmpl-category">
-            <option value="">すべて</option>
-            <option value="matching_ad">マッチング広告</option>
-            <option value="custom">カスタム</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>テンプレ</label>
-          <select id="tmpl-select"></select>
-        </div>
-      </div>
-
-      <!-- 自由入力モード -->
-      <div id="mode-custom" style="display:none;">
-        <div class="form-group">
-          <label>画像プロンプト</label>
-          <textarea id="image-prompt" placeholder="例: Portrait photo of a warm Japanese woman in her 30s..."></textarea>
-        </div>
-        <div class="form-group">
-          <label>動画プロンプト</label>
-          <textarea id="video-prompt" placeholder="例: Gentle camera pan, natural lighting..."></textarea>
-        </div>
-      </div>
+  <main class="main">
+    <!-- 動画作成: sidebar + canvas -->
+    <aside class="sidebar" id="panel-generate-sidebar">
 
       <!-- 画像ソース -->
-      <div class="form-group">
-        <label style="margin-bottom:8px;">画像ソース</label>
-        <div style="display:flex;gap:20px;padding:12px;background:#1a1a1a;border:1px solid #333;border-radius:6px;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#e0e0e0;font-size:14px;">
-            <input type="radio" name="image-source" value="generated" checked> NanoBanana で生成
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#e0e0e0;font-size:14px;">
-            <input type="radio" name="image-source" value="uploaded"> 既存画像をアップロード
-          </label>
+      <section class="section">
+        <label class="section__label">画像</label>
+        <div class="segmented" role="radiogroup" aria-label="画像ソース" id="image-source-segmented">
+          <button class="segmented__btn segmented__btn--active" data-image-source="generated" role="radio" aria-checked="true">生成</button>
+          <button class="segmented__btn" data-image-source="uploaded" role="radio" aria-checked="false">アップロード</button>
         </div>
-        <input type="file" id="image-file" accept="image/png,image/jpeg" style="display:none;margin-top:8px;">
+        <input type="file" id="image-file" accept="image/png,image/jpeg" hidden>
+      </section>
+
+      <!-- 画像プロンプト -->
+      <section class="section">
+        <label class="section__label" for="image-prompt">画像プロンプト</label>
+        <textarea class="input" id="image-prompt" placeholder="例: Portrait photo of a warm Japanese woman in her 30s..."></textarea>
+      </section>
+
+      <!-- 動画プロンプト -->
+      <section class="section">
+        <label class="section__label" for="video-prompt">動画プロンプト</label>
+        <textarea class="input" id="video-prompt" placeholder="例: Gentle camera pan, natural lighting..."></textarea>
+      </section>
+
+      <!-- Provider -->
+      <section class="section">
+        <label class="section__label">プロバイダー</label>
+        <div class="segmented" role="radiogroup" aria-label="プロバイダー" id="provider-segmented">
+          <!-- JS で構築 -->
+        </div>
+      </section>
+
+      <!-- Quality -->
+      <section class="section">
+        <label class="section__label">画質</label>
+        <div class="segmented" role="radiogroup" aria-label="画質" id="quality-segmented">
+          <button class="segmented__btn segmented__btn--active" data-quality="low" role="radio" aria-checked="true">Low</button>
+          <button class="segmented__btn" data-quality="high" role="radio" aria-checked="false">High</button>
+        </div>
+      </section>
+
+      <!-- Aspect ratio -->
+      <section class="section">
+        <label class="section__label">アスペクト比</label>
+        <div class="chip-grid" role="radiogroup" aria-label="アスペクト比" id="aspect-grid">
+          <!-- JS で構築 -->
+        </div>
+      </section>
+
+      <!-- Duration -->
+      <section class="section">
+        <label class="section__label">尺</label>
+        <div class="segmented" role="radiogroup" aria-label="尺" id="duration-segmented">
+          <!-- JS で構築 -->
+        </div>
+      </section>
+
+      <!-- Camera preset -->
+      <section class="section">
+        <label class="section__label" for="camera-preset">カメラプリセット</label>
+        <select id="camera-preset" class="input">
+          <option value="">なし</option>
+          <option value="static">固定</option>
+          <option value="dolly_in">ドリーイン</option>
+          <option value="dolly_out">ドリーアウト</option>
+          <option value="pan_left">左パン</option>
+          <option value="pan_right">右パン</option>
+          <option value="tilt_up">上ティルト</option>
+          <option value="orbit_left">左オービット</option>
+        </select>
+      </section>
+
+      <!-- Cost & CTA -->
+      <div class="cost-line" aria-live="polite">推定コスト: <span id="cost-estimate">$0.00</span></div>
+      <button class="cta" id="generate-btn">動画を作成</button>
+
+    </aside>
+
+    <!-- 動画作成 canvas -->
+    <section class="canvas" id="panel-generate-canvas">
+      <div id="error-banner" class="banner banner--error" role="alert" hidden></div>
+      <div id="preview-area"></div>
+      <div class="section" style="margin-top: var(--space-xl);">
+        <h3>最近のジョブ</h3>
+        <div class="chip-grid" id="recent-jobs"></div>
       </div>
+      <button class="btn-secondary" onclick="startBatch(this)" style="margin-top:var(--space-lg);">バッチ生成（月10本）</button>
+    </section>
 
-      <!-- 動画パラメータ -->
-      <div style="background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:16px;margin-bottom:16px;">
-        <div style="font-size:13px;color:#aaa;margin-bottom:12px;font-weight:600;">動画パラメータ</div>
-        <div class="form-group">
-          <label>モデル</label>
-          <select id="provider">
-            <option value="seedance">Seedance 2.0</option>
-            <option value="veo3_lite">Veo 3.1 Lite</option>
-            <option value="kling3_pro">Kling V3.0 Pro</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>アスペクト比</label>
-          <select id="aspect-ratio"></select>
-        </div>
-        <div class="form-group">
-          <label>長さ</label>
-          <select id="duration"></select>
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>カメラ動作</label>
-          <select id="camera-preset">
-            <option value="">なし</option>
-            <option value="static">固定</option>
-            <option value="dolly_in">ドリーイン</option>
-            <option value="dolly_out">ドリーアウト</option>
-            <option value="pan_left">左パン</option>
-            <option value="pan_right">右パン</option>
-            <option value="tilt_up">上ティルト</option>
-            <option value="orbit_left">左オービット</option>
-          </select>
-        </div>
+    <!-- 承認待ち panel: full-width -->
+    <section class="canvas" id="panel-pending" hidden>
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:var(--space-md);">承認待ち画像</h2>
+      <div id="pending-grid" class="image-grid">
+        <div class="empty-state">承認待ちの画像はありません</div>
       </div>
+    </section>
 
-      <button id="btn-create" class="btn btn-primary">動画作成を開始</button>
-      <p id="create-result" style="margin-top:12px;font-size:13px;color:#aaa;"></p>
-
-      <p style="margin-top:16px;"><a href="/static/templates.html" style="color:#6366f1;font-size:13px;">→ テンプレ管理</a></p>
-    </div>
-
-    <!-- 完成動画 -->
-    <div id="panel-videos" class="panel">
-      <div class="section-title">完成動画</div>
-      <div id="videos-grid" class="video-grid"><div class="empty-state">完成動画はまだありません</div></div>
-    </div>
-
-    <!-- 設定 -->
-    <div id="panel-settings" class="panel">
-      <div class="section-title">設定</div>
-      <div class="toggle-row">
-        <div>
-          <div style="font-weight:600;">AUTO_APPROVE</div>
-          <div style="font-size:12px;color:#888;margin-top:4px;">ONにすると画像承認なしで自動的に動画化します</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="auto-approve-toggle" onchange="toggleAutoApprove(this)">
-          <span class="slider"></span>
-        </label>
+    <!-- 確定済み panel: full-width -->
+    <section class="canvas" id="panel-confirmed" hidden>
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:var(--space-md);">確定済み動画</h2>
+      <div id="confirmed-grid" class="video-grid">
+        <div class="empty-state">確定済み動画はまだありません</div>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
+</div>
 
-  <div id="toast"></div>
+<div id="toast"></div>
 
-  <script>
-    let currentTab = 'dashboard';
-
-    function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach((t, i) => {
-        t.classList.toggle('active', ['dashboard','pending','generate','videos','settings'][i] === tab);
-      });
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      document.getElementById('panel-' + tab).classList.add('active');
-      currentTab = tab;
-      if (tab === 'pending') loadPending();
-      if (tab === 'videos') loadVideos();
-      if (tab === 'dashboard') loadStats();
-    }
-
-    function showToast(msg) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.style.display = 'block';
-      setTimeout(() => t.style.display = 'none', 3000);
-    }
-
-    async function loadStats() {
-      const r = await fetch('/api/stats');
-      const d = await r.json();
-      document.getElementById('stat-done').textContent = d.done;
-      document.getElementById('stat-pending').textContent = d.pending_approval;
-      document.getElementById('stat-cost').textContent = '$' + d.total_cost_usd.toFixed(2);
-      document.getElementById('header-stats').textContent = `完成: ${d.done}本 / コスト: $${d.total_cost_usd.toFixed(2)}`;
-      const pc = document.getElementById('pending-count');
-      if (d.pending_approval > 0) pc.textContent = `(${d.pending_approval})`;
-    }
-
-    async function loadPending() {
-      const r = await fetch('/api/jobs?status=PENDING');
-      const jobs = await r.json();
-      const grid = document.getElementById('pending-grid');
-      if (!jobs.length) { grid.innerHTML = '<div class="empty-state">承認待ちの画像はありません</div>'; return; }
-      grid.innerHTML = jobs.map(j => `
-        <div class="image-card" id="job-card-${j.id}">
-          ${j.image_path ? `<img src="/output/pending/job_${j.id}.jpg" loading="lazy">` : '<div style="aspect-ratio:9/16;background:#222;display:flex;align-items:center;justify-content:center;color:#555">生成中...</div>'}
-          <div style="padding:8px;font-size:11px;color:#888">パターン${j.pattern}</div>
-          <div class="card-footer">
-            <button class="btn btn-success" onclick="approveJob(${j.id}, this)">承認</button>
-            <button class="btn btn-danger" onclick="rejectJob(${j.id}, this)">却下</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function loadVideos() {
-      const r = await fetch('/api/jobs?status=DONE');
-      const jobs = await r.json();
-      const grid = document.getElementById('videos-grid');
-      if (!jobs.length) { grid.innerHTML = '<div class="empty-state">完成動画はまだありません</div>'; return; }
-      grid.innerHTML = jobs.map(j => `
-        <div class="video-card">
-          <video src="/output/videos/job_${j.id}.mp4" controls playsinline></video>
-          <div class="card-info">
-            パターン${j.pattern} — $${(j.image_cost_usd + j.video_cost_usd).toFixed(2)}<br>
-            <a href="/output/videos/job_${j.id}.mp4" download style="color:#6366f1">ダウンロード</a>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function startBatch(btn) {
-      btn.disabled = true;
-      btn.textContent = '生成中...';
-      const r = await fetch('/api/generate/batch', { method: 'POST' });
-      const d = await r.json();
-      showToast(`バッチ生成開始: ${d.job_count}本`);
-      btn.disabled = false;
-      btn.textContent = 'バッチ生成（月10本）';
-    }
-
-    async function generateSingle(btn) {
-      const pattern = document.getElementById('gen-pattern').value;
-      const prompt = document.getElementById('gen-prompt').value.trim() || null;
-      btn.disabled = true;
-      btn.textContent = '生成中...';
-      const r = await fetch('/api/generate/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pattern, custom_prompt: prompt }),
-      });
-      const d = await r.json();
-      showToast(r.ok ? `生成開始 (Job #${d.job_id})` : `エラー: ${d.detail}`);
-      btn.disabled = false;
-      btn.textContent = '画像生成';
-    }
-
-    async function approveJob(jobId, btn) {
-      btn.disabled = true;
-      const r = await fetch(`/api/approve/${jobId}`, { method: 'POST' });
-      if (r.ok) {
-        document.getElementById(`job-card-${jobId}`)?.remove();
-        showToast(`Job #${jobId} を承認しました。動画生成中...`);
-        loadStats();
-      }
-    }
-
-    async function rejectJob(jobId, btn) {
-      btn.disabled = true;
-      const r = await fetch(`/api/reject/${jobId}`, { method: 'POST' });
-      if (r.ok) {
-        document.getElementById(`job-card-${jobId}`)?.remove();
-        showToast(`Job #${jobId} を却下しました`);
-        loadStats();
-      }
-    }
-
-    function toggleAutoApprove(checkbox) {
-      showToast(`AUTO_APPROVE: ${checkbox.checked ? 'ON' : 'OFF'}（サーバー再起動で反映）`);
-    }
-
-    // 初期ロード
-    loadStats();
-    setInterval(loadStats, 30000);
-  </script>
-
-  <script>
-    // --- 動画作成タブ JS ---
-    const PROVIDER_SUPPORT = {
-      seedance:   { aspects: ["9:16","16:9"], durations: [5,10] },
-      veo3_lite:  { aspects: ["9:16","16:9"], durations: [4,6,8] },
-      kling3_pro: { aspects: ["9:16","16:9","1:1"], durations: [5,10] },
-    };
-
-    function refreshProviderOptions() {
-      const p = document.getElementById("provider").value;
-      const aspectSel = document.getElementById("aspect-ratio");
-      const durSel = document.getElementById("duration");
-      aspectSel.innerHTML = PROVIDER_SUPPORT[p].aspects.map(a => `<option value="${a}">${a}</option>`).join("");
-      durSel.innerHTML = PROVIDER_SUPPORT[p].durations.map(d => `<option value="${d}">${d}秒</option>`).join("");
-    }
-
-    async function refreshTemplates() {
-      const cat = document.getElementById("tmpl-category").value;
-      const url = "/api/templates" + (cat ? `?category=${cat}` : "");
-      const items = await fetch(url).then(r => r.json());
-      const sel = document.getElementById("tmpl-select");
-      sel.innerHTML = items.map(t => `<option value="${t.id}">${t.name} (${t.category})</option>`).join("");
-    }
-
-    document.querySelectorAll('input[name="mode"]').forEach(r => {
-      r.addEventListener("change", () => {
-        document.getElementById("mode-template").style.display = r.value === "template" ? "" : "none";
-        document.getElementById("mode-custom").style.display = r.value === "custom" ? "" : "none";
-      });
-    });
-
-    document.querySelectorAll('input[name="image-source"]').forEach(r => {
-      r.addEventListener("change", () => {
-        document.getElementById("image-file").style.display = r.value === "uploaded" ? "" : "none";
-      });
-    });
-
-    document.getElementById("provider").addEventListener("change", refreshProviderOptions);
-    document.getElementById("tmpl-category").addEventListener("change", refreshTemplates);
-
-    document.getElementById("btn-create").addEventListener("click", async () => {
-      const mode = document.querySelector('input[name="mode"]:checked').value;
-      const imageSource = document.querySelector('input[name="image-source"]:checked').value;
-      const provider = document.getElementById("provider").value;
-      const aspect = document.getElementById("aspect-ratio").value;
-      const duration = parseInt(document.getElementById("duration").value, 10);
-      const cameraPreset = document.getElementById("camera-preset").value || null;
-
-      const result = document.getElementById("create-result");
-      result.textContent = "送信中...";
-
-      try {
-        if (imageSource === "uploaded") {
-          const file = document.getElementById("image-file").files[0];
-          if (!file) throw new Error("画像ファイルを選択してください");
-          const fd = new FormData();
-          fd.append("file", file);
-          fd.append("video_prompt", document.getElementById("video-prompt").value);
-          fd.append("provider", provider);
-          fd.append("aspect_ratio", aspect);
-          fd.append("duration_seconds", duration);
-          if (cameraPreset) fd.append("camera_preset", cameraPreset);
-          const resp = await fetch("/api/upload-image", { method: "POST", body: fd });
-          if (!resp.ok) throw new Error(await resp.text());
-          result.textContent = `アップロード完了: Job #${(await resp.json()).job_id}`;
-        } else {
-          const body = mode === "template"
-            ? { template_id: parseInt(document.getElementById("tmpl-select").value, 10),
-                provider, aspect_ratio: aspect, duration_seconds: duration, camera_preset: cameraPreset }
-            : { image_prompt: document.getElementById("image-prompt").value,
-                video_prompt: document.getElementById("video-prompt").value,
-                provider, aspect_ratio: aspect, duration_seconds: duration, camera_preset: cameraPreset };
-          const resp = await fetch("/api/generate/image", {
-            method: "POST", headers: {"Content-Type":"application/json"},
-            body: JSON.stringify(body),
-          });
-          if (!resp.ok) throw new Error(await resp.text());
-          result.textContent = `生成開始: Job #${(await resp.json()).job_id}`;
-        }
-      } catch (e) {
-        result.textContent = `エラー: ${e.message}`;
-      }
-    });
-
-    // URL ?template_id= prefill: detect and pre-select template on load
-    (function applyUrlTemplateId() {
-      const params = new URLSearchParams(window.location.search);
-      const tid = params.get("template_id");
-      if (!tid) return;
-      // Switch to generate tab, then wait for templates to load and select the matching option
-      switchTab("generate");
-      refreshTemplates().then(() => {
-        const sel = document.getElementById("tmpl-select");
-        if (sel) sel.value = tid;
-      });
-    })();
-
-    refreshProviderOptions();
-    refreshTemplates();
-  </script>
+<script src="/static/js/generate.js" defer></script>
 </body>
 </html>
