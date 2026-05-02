@@ -56,3 +56,4 @@ def test_capabilities_kling_per_video_default(client):
     data = resp.json()
     kling = next(p for p in data if p["name"] == "kling3_pro")
     assert kling["cost_basis"] == "per_video"
+    assert kling["rate_map"] == {"low": 0.72, "high": 0.72}

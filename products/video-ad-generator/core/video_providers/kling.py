@@ -1,12 +1,16 @@
-"""muapi.ai 経由 Kling V3.0 Pro I2V クライアント。"""
+"""MuApi.ai Kling V3.0 Image-to-Video クライアント。"""
 
 from __future__ import annotations
 import asyncio
 import logging
-import os
 from pathlib import Path
 import httpx
-from config import ATLAS_CLOUD_API_KEY, ATLAS_CLOUD_STATUS_URL
+from config import (
+    ATLAS_CLOUD_API_KEY,
+    ATLAS_CLOUD_STATUS_URL,
+    KLING_STD_URL,
+    KLING_PRO_URL,
+)
 from core.video_providers import VideoProvider, VideoGenRequest
 from core.video_providers._telegram_upload import upload_image_to_telegram
 from core.camera_presets import get_kling_params, get_prompt_hint
@@ -18,7 +22,6 @@ RETRY_DELAY = 10.0
 POLL_INTERVAL = 15.0
 TIMEOUT_SECONDS = 900.0
 RATE_LIMIT_WAIT = 30.0
-COST_PER_VIDEO_USD = 0.46  # 概算（muapi.ai 公称値）
 
 
 class KlingError(Exception):
@@ -28,16 +31,10 @@ class KlingError(Exception):
 class Kling3ProProvider(VideoProvider):
     name = "kling3_pro"
     supported_aspects = ("9:16", "16:9", "1:1")
-    supported_durations = (5, 10)
-
-    def calc_cost(self, req: VideoGenRequest) -> float:
-        return COST_PER_VIDEO_USD
-
-    def _i2v_url(self) -> str:
-        return os.environ.get(
-            "MUAPI_KLING_I2V_URL",
-            "https://api.muapi.ai/api/v1/kling-v3-pro-i2v",
-        )
+    supported_durations = (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+    cost_basis = "per_video"
+    RATE_MAP = {"low": 0.72, "high": 0.72}
+    URL_MAP = {"low": KLING_STD_URL, "high": KLING_PRO_URL}
 
     def _build_payload(self, req: VideoGenRequest, image_url: str) -> dict:
         prompt = req.video_prompt
@@ -47,8 +44,7 @@ class Kling3ProProvider(VideoProvider):
 
         payload = {
             "prompt": prompt,
-            "image": image_url,
-            "aspect_ratio": req.aspect_ratio,
+            "image_url": image_url,
             "duration": req.duration_seconds,
         }
 
@@ -65,14 +61,13 @@ class Kling3ProProvider(VideoProvider):
         image_url = await upload_image_to_telegram(req.image_path)
         payload = self._build_payload(req, image_url)
         headers = {"x-api-key": ATLAS_CLOUD_API_KEY, "Content-Type": "application/json"}
+        submit_url = self.URL_MAP[req.quality]
 
         last_error: Exception | None = None
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
-                    resp = await client.post(
-                        self._i2v_url(), headers=headers, json=payload
-                    )
+                    resp = await client.post(submit_url, headers=headers, json=payload)
                     if resp.status_code in (401, 402, 403):
                         raise KlingError(
                             f"auth/billing HTTP {resp.status_code}: {resp.text[:200]}"

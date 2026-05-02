@@ -75,12 +75,12 @@ def test_cost_summary_aggregates_by_provider(client_with_engine):
     _add_job(client, engine, "seedance", 0.81)
     _add_job(client, engine, "seedance", 0.81)
     _add_job(client, engine, "veo3_lite", 0.40)
-    _add_job(client, engine, "kling3_pro", 0.46)
+    _add_job(client, engine, "kling3_pro", 0.72)
 
     resp = client.get("/api/jobs/cost-summary")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total_video_cost_usd"] == pytest.approx(2.48, abs=0.01)
+    assert data["total_video_cost_usd"] == pytest.approx(2.74, abs=0.01)
     by_provider = {p["provider"]: p for p in data["by_provider"]}
     assert by_provider["seedance"]["count"] == 2
     assert by_provider["seedance"]["total_usd"] == pytest.approx(1.62, abs=0.01)

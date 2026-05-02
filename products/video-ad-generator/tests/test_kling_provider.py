@@ -21,13 +21,34 @@ def test_kling_metadata():
     p = Kling3ProProvider()
     assert p.name == "kling3_pro"
     assert {"9:16", "16:9", "1:1"} <= set(p.supported_aspects)
-    assert {5, 10} <= set(p.supported_durations)
+    assert {3, 5, 10, 15} <= set(p.supported_durations)
+    assert p.cost_basis == "per_video"
+    assert p.RATE_MAP == {"low": 0.72, "high": 0.72}
 
 
 def test_calc_cost_per_video(tmp_path):
     p = Kling3ProProvider()
-    cost = p.calc_cost(_make_req(tmp_path))
-    assert cost > 0
+    req = _make_req(tmp_path)
+    req.quality = "low"
+    assert p.calc_cost(req) == 0.72
+    req.quality = "high"
+    assert p.calc_cost(req) == 0.72
+
+
+def test_url_map_routes_by_quality():
+    p = Kling3ProProvider()
+    assert p.URL_MAP["low"] != p.URL_MAP["high"]
+    assert "standard" in p.URL_MAP["low"] or "std" in p.URL_MAP["low"]
+    assert "pro" in p.URL_MAP["high"]
+
+
+def test_payload_uses_image_url_singular(tmp_path):
+    p = Kling3ProProvider()
+    req = _make_req(tmp_path)
+    payload = p._build_payload(req, "https://example.com/img.jpg")
+    assert payload["image_url"] == "https://example.com/img.jpg"
+    assert "image" not in payload
+    assert "aspect_ratio" not in payload
 
 
 def test_camera_params_for_dolly_in(tmp_path):

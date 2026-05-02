@@ -58,17 +58,12 @@ VEO3_STANDARD_MODEL_ID: str = os.environ.get(
 
 # Kling V3 (muapi.ai): std = low quality, pro = high quality
 KLING_STD_URL: str = os.environ.get(
-    "KLING_STD_URL", "https://api.muapi.ai/api/v1/kling-v3-std-i2v"
+    "KLING_STD_URL",
+    "https://api.muapi.ai/api/v1/kling-v3.0-standard-image-to-video",
 )
 KLING_PRO_URL: str = os.environ.get(
-    "KLING_PRO_URL", "https://api.muapi.ai/api/v1/kling-v3-pro-i2v"
-)
-KLING_STD_MODEL_ID: str = os.environ.get("KLING_STD_MODEL_ID", "kling-v3-std")
-KLING_PRO_MODEL_ID: str = os.environ.get("KLING_PRO_MODEL_ID", "kling-v3-pro")
-
-MUAPI_KLING_MODEL_ID: str = os.environ.get("MUAPI_KLING_MODEL_ID", "kling-v3-pro")
-MUAPI_KLING_I2V_URL: str = os.environ.get(
-    "MUAPI_KLING_I2V_URL", "https://api.muapi.ai/api/v1/kling-v3-pro-i2v"
+    "KLING_PRO_URL",
+    "https://api.muapi.ai/api/v1/kling-v3.0-pro-image-to-video",
 )
 
 # UI/Defaults
