@@ -33,17 +33,6 @@ function renderProviders() {
        ${p.name}
      </button>`
   ).join("");
-
-  // re-attach listener each render — old buttons are replaced so no duplicate risk
-  seg.addEventListener("click", e => {
-    const btn = e.target.closest("[data-provider]");
-    if (!btn) return;
-    state.provider = btn.dataset.provider;
-    renderProviders();
-    renderDurations();
-    refreshChipsForProvider();
-    refreshCostEstimate();
-  });
 }
 
 function renderAspects() {
@@ -55,14 +44,6 @@ function renderAspects() {
        <span>${a}</span>
      </button>`
   ).join("");
-
-  grid.addEventListener("click", e => {
-    const btn = e.target.closest("[data-aspect]");
-    if (!btn || btn.classList.contains("chip--disabled")) return;
-    state.aspect = btn.dataset.aspect;
-    refreshChipsForProvider();
-    refreshCostEstimate();
-  });
 }
 
 function renderDurations() {
@@ -74,14 +55,6 @@ function renderDurations() {
        ${d}秒
      </button>`
   ).join("");
-
-  seg.addEventListener("click", e => {
-    const btn = e.target.closest("[data-duration]");
-    if (!btn) return;
-    state.duration = parseInt(btn.dataset.duration, 10);
-    renderDurations();
-    refreshCostEstimate();
-  });
 }
 
 function refreshChipsForProvider() {
@@ -133,6 +106,38 @@ function refreshCostEstimate() {
 }
 
 // ---------- event wiring ----------
+
+function wireProviderSegmented() {
+  document.getElementById("provider-segmented").addEventListener("click", e => {
+    const btn = e.target.closest("[data-provider]");
+    if (!btn) return;
+    state.provider = btn.dataset.provider;
+    renderProviders();
+    renderDurations();
+    refreshChipsForProvider();
+    refreshCostEstimate();
+  });
+}
+
+function wireAspectGrid() {
+  document.getElementById("aspect-grid").addEventListener("click", e => {
+    const btn = e.target.closest("[data-aspect]");
+    if (!btn || btn.classList.contains("chip--disabled")) return;
+    state.aspect = btn.dataset.aspect;
+    refreshChipsForProvider();
+    refreshCostEstimate();
+  });
+}
+
+function wireDurationSegmented() {
+  document.getElementById("duration-segmented").addEventListener("click", e => {
+    const btn = e.target.closest("[data-duration]");
+    if (!btn) return;
+    state.duration = parseInt(btn.dataset.duration, 10);
+    renderDurations();
+    refreshCostEstimate();
+  });
+}
 
 function wireImageSourceSegmented() {
   const seg = document.getElementById("image-source-segmented");
@@ -368,7 +373,10 @@ async function applyUrlTemplatePrefill() {
 
   try {
     const resp = await fetch(`/api/templates/${tid}`);
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      showToast(`テンプレ #${tid} の読み込みに失敗しました`);
+      return;
+    }
     const tmpl = await resp.json();
 
     if (tmpl.image_prompt) document.getElementById("image-prompt").value = tmpl.image_prompt;
@@ -395,14 +403,17 @@ async function applyUrlTemplatePrefill() {
     renderDurations();
     refreshChipsForProvider();
     refreshCostEstimate();
-  } catch (_) {
-    // prefill failure is non-fatal
+  } catch (e) {
+    showToast(`テンプレ #${tid} の読み込みエラー: ${e.message}`);
   }
 }
 
 // ---------- boot ----------
 
 window.addEventListener("DOMContentLoaded", async () => {
+  wireProviderSegmented();
+  wireAspectGrid();
+  wireDurationSegmented();
   wireImageSourceSegmented();
   wireQualitySegmented();
   wireCameraPreset();
