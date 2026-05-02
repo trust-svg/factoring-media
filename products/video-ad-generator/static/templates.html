@@ -2,171 +2,130 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>テンプレ管理</title>
-  <style>
-    body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 20px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
-    .archived { opacity: 0.5; }
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-    .modal-body { background: white; max-width: 600px; margin: 50px auto; padding: 20px; }
-    label { display: block; margin: 8px 0; }
-    textarea { width: 100%; min-height: 60px; }
-    button { margin: 4px; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>テンプレート | Video Ad Generator</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/templates.css">
+  <script src="/static/js/templates.js" defer></script>
 </head>
 <body>
-  <h1>テンプレ管理</h1>
-  <p><a href="/">← トップに戻る</a></p>
 
-  <button id="btn-new">+ 新規作成</button>
-  <label><input type="checkbox" id="show-archived"> アーカイブを表示</label>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar__logo">Video Ad Generator</div>
+    <nav class="topbar__tabs">
+      <a class="topbar__tab" href="/">動画作成</a>
+      <a class="topbar__tab" href="/">承認待ち</a>
+      <a class="topbar__tab" href="/">確定済み</a>
+      <a class="topbar__tab topbar__tab--active" href="/static/templates.html">テンプレート</a>
+    </nav>
+  </header>
 
-  <table id="tmpl-table">
-    <thead>
-      <tr>
-        <th>ID</th><th>名前</th><th>カテゴリ</th><th>モデル</th><th>aspect</th><th>長さ</th><th>カメラ</th><th>操作</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <main class="main">
+    <section class="canvas">
+      <div class="templates-header">
+        <h1>テンプレート</h1>
+        <div class="templates-header__spacer"></div>
+        <label><input type="checkbox" id="show-archived"> アーカイブを表示</label>
+        <button class="btn-primary" id="btn-new">+ 新規作成</button>
+      </div>
 
-  <div id="modal" class="modal">
-    <div class="modal-body">
-      <h2 id="modal-title">テンプレ作成</h2>
-      <input type="hidden" id="m-id">
-      <label>名前: <input type="text" id="m-name"></label>
-      <label>カテゴリ:
-        <select id="m-category">
-          <option value="custom">custom</option>
-          <option value="matching_ad">matching_ad</option>
-          <option value="sns_post">sns_post</option>
-          <option value="product_showcase">product_showcase</option>
-        </select>
-      </label>
-      <label>画像プロンプト: <textarea id="m-image-prompt"></textarea></label>
-      <label>動画プロンプト: <textarea id="m-video-prompt"></textarea></label>
-      <label>デフォルトモデル:
-        <select id="m-provider">
-          <option value="seedance">seedance</option>
-          <option value="veo3_lite">veo3_lite</option>
-          <option value="kling3_pro">kling3_pro</option>
-        </select>
-      </label>
-      <label>デフォルトaspect:
-        <select id="m-aspect"><option>9:16</option><option>16:9</option><option>1:1</option></select>
-      </label>
-      <label>デフォルト長さ:
-        <select id="m-duration"><option>5</option><option>6</option><option>8</option><option>10</option></select>
-      </label>
-      <label>デフォルトカメラ:
-        <select id="m-camera">
-          <option value="">（なし）</option>
-          <option value="static">static</option>
-          <option value="dolly_in">dolly_in</option>
-          <option value="dolly_out">dolly_out</option>
-          <option value="pan_left">pan_left</option>
-          <option value="pan_right">pan_right</option>
-          <option value="tilt_up">tilt_up</option>
-          <option value="orbit_left">orbit_left</option>
-        </select>
-      </label>
-      <button id="m-save">保存</button>
-      <button id="m-cancel">キャンセル</button>
-      <p id="m-error" style="color: red;"></p>
+      <div id="template-grid" class="template-grid"></div>
+    </section>
+  </main>
+</div>
+
+<dialog id="modal" class="modal">
+  <h2 class="modal__title" id="modal-title">テンプレート作成</h2>
+  <input type="hidden" id="m-id">
+
+  <div class="modal__field">
+    <label for="m-name">名前</label>
+    <input type="text" id="m-name">
+  </div>
+
+  <div class="modal__field">
+    <label for="m-category">カテゴリ</label>
+    <select id="m-category">
+      <option value="custom">custom</option>
+      <option value="matching_ad">matching_ad</option>
+      <option value="sns_post">sns_post</option>
+      <option value="product_showcase">product_showcase</option>
+    </select>
+  </div>
+
+  <div class="modal__field">
+    <label for="m-image-prompt">画像プロンプト</label>
+    <textarea id="m-image-prompt"></textarea>
+  </div>
+
+  <div class="modal__field">
+    <label for="m-video-prompt">動画プロンプト</label>
+    <textarea id="m-video-prompt"></textarea>
+  </div>
+
+  <div class="modal__row">
+    <div class="modal__field">
+      <label for="m-provider">プロバイダー</label>
+      <select id="m-provider">
+        <option value="seedance">seedance</option>
+        <option value="kling3">kling3</option>
+      </select>
+    </div>
+    <div class="modal__field">
+      <label for="m-quality">画質</label>
+      <select id="m-quality">
+        <option value="low">low</option>
+        <option value="high">high</option>
+      </select>
     </div>
   </div>
 
-<script>
-async function load() {
-  const showArchived = document.getElementById("show-archived").checked;
-  const items = await fetch(`/api/templates?include_archived=${showArchived}`).then(r => r.json());
-  const tbody = document.querySelector("#tmpl-table tbody");
-  tbody.innerHTML = items.map(t => `
-    <tr class="${t.is_archived ? 'archived' : ''}">
-      <td>${t.id}</td>
-      <td>${escapeHtml(t.name)}</td>
-      <td>${t.category}</td>
-      <td>${t.default_provider}</td>
-      <td>${t.default_aspect}</td>
-      <td>${t.default_duration}s</td>
-      <td>${t.default_camera_preset || '-'}</td>
-      <td>
-        <button onclick="edit(${t.id})">編集</button>
-        ${t.is_archived ? '' : `<button onclick="archive(${t.id})">アーカイブ</button>`}
-        <button onclick="useFor(${t.id})">→ 動画作成</button>
-      </td>
-    </tr>
-  `).join("");
-}
+  <div class="modal__row">
+    <div class="modal__field">
+      <label for="m-aspect">アスペクト比</label>
+      <select id="m-aspect">
+        <option value="9:16">9:16</option>
+        <option value="16:9">16:9</option>
+        <option value="1:1">1:1</option>
+        <option value="4:3">4:3</option>
+        <option value="3:4">3:4</option>
+        <option value="21:9">21:9</option>
+      </select>
+    </div>
+    <div class="modal__field">
+      <label for="m-duration">尺（秒）</label>
+      <select id="m-duration">
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="8">8</option>
+        <option value="10">10</option>
+      </select>
+    </div>
+  </div>
 
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-}
+  <div class="modal__field">
+    <label for="m-camera">カメラプリセット</label>
+    <select id="m-camera">
+      <option value="">（なし）</option>
+      <option value="static">static</option>
+      <option value="dolly_in">dolly_in</option>
+      <option value="dolly_out">dolly_out</option>
+      <option value="pan_left">pan_left</option>
+      <option value="pan_right">pan_right</option>
+      <option value="tilt_up">tilt_up</option>
+      <option value="orbit_left">orbit_left</option>
+    </select>
+  </div>
 
-function openModal(template) {
-  document.getElementById("modal-title").textContent = template ? "テンプレ編集" : "テンプレ作成";
-  document.getElementById("m-id").value = template?.id || "";
-  document.getElementById("m-name").value = template?.name || "";
-  document.getElementById("m-category").value = template?.category || "custom";
-  document.getElementById("m-image-prompt").value = template?.image_prompt || "";
-  document.getElementById("m-video-prompt").value = template?.video_prompt || "";
-  document.getElementById("m-provider").value = template?.default_provider || "seedance";
-  document.getElementById("m-aspect").value = template?.default_aspect || "9:16";
-  document.getElementById("m-duration").value = template?.default_duration || 10;
-  document.getElementById("m-camera").value = template?.default_camera_preset || "";
-  document.getElementById("m-error").textContent = "";
-  document.getElementById("modal").style.display = "block";
-}
+  <div class="modal__error" id="m-error"></div>
 
-document.getElementById("btn-new").addEventListener("click", () => openModal(null));
-document.getElementById("m-cancel").addEventListener("click", () => {
-  document.getElementById("modal").style.display = "none";
-});
-document.getElementById("show-archived").addEventListener("change", load);
+  <div class="modal__footer">
+    <button class="btn-secondary" id="m-cancel">キャンセル</button>
+    <button class="btn-primary" id="m-save">保存</button>
+  </div>
+</dialog>
 
-async function edit(id) {
-  const t = await fetch(`/api/templates/${id}`).then(r => r.json());
-  openModal(t);
-}
-
-async function archive(id) {
-  if (!confirm("アーカイブしますか？")) return;
-  await fetch(`/api/templates/${id}`, { method: "DELETE" });
-  load();
-}
-
-function useFor(id) {
-  window.location.href = `/?template_id=${id}#tab-create`;
-}
-
-document.getElementById("m-save").addEventListener("click", async () => {
-  const id = document.getElementById("m-id").value;
-  const body = {
-    name: document.getElementById("m-name").value,
-    category: document.getElementById("m-category").value,
-    image_prompt: document.getElementById("m-image-prompt").value,
-    video_prompt: document.getElementById("m-video-prompt").value,
-    default_provider: document.getElementById("m-provider").value,
-    default_aspect: document.getElementById("m-aspect").value,
-    default_duration: parseInt(document.getElementById("m-duration").value, 10),
-    default_camera_preset: document.getElementById("m-camera").value || null,
-  };
-  const url = id ? `/api/templates/${id}` : "/api/templates";
-  const method = id ? "PATCH" : "POST";
-  const resp = await fetch(url, {
-    method, headers: {"Content-Type":"application/json"},
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok) {
-    document.getElementById("m-error").textContent = await resp.text();
-    return;
-  }
-  document.getElementById("modal").style.display = "none";
-  load();
-});
-
-load();
-</script>
 </body>
 </html>
