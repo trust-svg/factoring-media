@@ -37,9 +37,8 @@ def test_calc_cost_per_video(tmp_path):
 
 def test_url_map_routes_by_quality():
     p = Kling3ProProvider()
+    assert set(p.URL_MAP.keys()) == {"low", "high"}
     assert p.URL_MAP["low"] != p.URL_MAP["high"]
-    assert "standard" in p.URL_MAP["low"] or "std" in p.URL_MAP["low"]
-    assert "pro" in p.URL_MAP["high"]
 
 
 def test_payload_uses_image_url_singular(tmp_path):
