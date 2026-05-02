@@ -111,7 +111,11 @@ async function editTemplate(id) {
 
 async function archiveTemplate(id) {
   if (!confirm("アーカイブしますか？")) return;
-  await fetch(`/api/templates/${id}`, { method: "DELETE" });
+  const resp = await fetch(`/api/templates/${id}`, { method: "DELETE" });
+  if (!resp.ok) {
+    alert(`アーカイブ失敗: ${resp.status}`);
+    return;
+  }
   loadTemplates();
 }
 
