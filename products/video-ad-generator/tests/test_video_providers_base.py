@@ -142,9 +142,9 @@ def test_seedance_supports_new_aspects():
         p.validate(req)
 
 
-def test_seedance_cost_basis_is_per_second():
+def test_seedance_cost_basis_is_per_video():
     p = SeedanceProvider()
-    assert p.cost_basis == "per_second"
+    assert p.cost_basis == "per_video"
 
 
 def test_seedance_calc_cost_low_vs_high():
@@ -156,8 +156,15 @@ def test_seedance_calc_cost_low_vs_high():
     assert p.calc_cost(low) < p.calc_cost(high)
 
 
-def test_seedance_low_cost_unchanged_from_phase1():
+def test_seedance_low_cost_per_video():
     p = SeedanceProvider()
     req = _make_req(duration=10)
     req.quality = "low"
-    assert p.calc_cost(req) == round(0.081 * 10, 4)
+    assert p.calc_cost(req) == 0.06
+
+
+def test_seedance_high_cost_per_video():
+    p = SeedanceProvider()
+    req = _make_req(duration=10)
+    req.quality = "high"
+    assert p.calc_cost(req) == 0.18

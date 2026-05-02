@@ -1,4 +1,4 @@
-"""Atlas Cloud Seedance 2.0 I2V API クライアント（VideoProvider 実装）。"""
+"""MuApi.ai Seedance Pro I2V API クライアント（VideoProvider 実装）。"""
 
 from __future__ import annotations
 import asyncio
@@ -7,8 +7,9 @@ from pathlib import Path
 import httpx
 from config import (
     ATLAS_CLOUD_API_KEY,
-    ATLAS_CLOUD_I2V_URL,
     ATLAS_CLOUD_STATUS_URL,
+    SEEDANCE_HIGH_URL,
+    SEEDANCE_LOW_URL,
 )
 from core.video_providers import VideoProvider, VideoGenRequest
 from core.video_providers._telegram_upload import upload_image_to_telegram
@@ -30,10 +31,10 @@ class SeedanceError(Exception):
 class SeedanceProvider(VideoProvider):
     name = "seedance"
     supported_aspects = ("9:16", "16:9", "1:1", "4:3", "3:4", "21:9")
-    supported_durations = (5, 10)
-    cost_basis = "per_second"
-    RATE_MAP = {"low": 0.081, "high": 0.13}
-    QUALITY_MAP = {"low": "basic", "high": "pro"}
+    supported_durations = (3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+    cost_basis = "per_video"
+    RATE_MAP = {"low": 0.06, "high": 0.18}
+    URL_MAP = {"low": SEEDANCE_LOW_URL, "high": SEEDANCE_HIGH_URL}
 
     def _build_prompt(self, req: VideoGenRequest) -> str:
         hint = get_prompt_hint(req.camera_preset)
@@ -50,21 +51,18 @@ class SeedanceProvider(VideoProvider):
         image_url = await upload_image_to_telegram(req.image_path)
         logger.info("[seedance] image uploaded to telegram")
 
+        submit_url = self.URL_MAP[req.quality]
         payload = {
             "prompt": self._build_prompt(req),
-            "images_list": [image_url],
-            "aspect_ratio": req.aspect_ratio,
+            "image_url": image_url,
             "duration": req.duration_seconds,
-            "quality": self.QUALITY_MAP[req.quality],
         }
 
         last_error: Exception | None = None
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
-                    resp = await client.post(
-                        ATLAS_CLOUD_I2V_URL, headers=headers, json=payload
-                    )
+                    resp = await client.post(submit_url, headers=headers, json=payload)
 
                     # 認証/課金エラーは即時失敗
                     if resp.status_code in (401, 402, 403):

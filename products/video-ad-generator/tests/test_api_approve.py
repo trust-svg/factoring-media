@@ -104,7 +104,7 @@ def test_approve_writes_provider_cost_basis_seedance(client, tmp_path, monkeypat
 
     with database.get_session() as s:
         job = s.get(Job, job_id)
-        assert job.video_cost_calc_basis == "per_second"
+        assert job.video_cost_calc_basis == "per_video"
 
 
 def test_approve_writes_provider_cost_basis_kling(client, tmp_path, monkeypatch):

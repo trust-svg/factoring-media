@@ -14,5 +14,7 @@ os.environ.setdefault("KLING_STD_URL", "https://example.test/kling-std")
 os.environ.setdefault("KLING_PRO_URL", "https://example.test/kling-pro")
 os.environ.setdefault("KLING_STD_MODEL_ID", "test-kling-std")
 os.environ.setdefault("KLING_PRO_MODEL_ID", "test-kling-pro")
+os.environ.setdefault("SEEDANCE_LOW_URL", "https://example.test/seedance-low")
+os.environ.setdefault("SEEDANCE_HIGH_URL", "https://example.test/seedance-high")
 
 collect_ignore = [".env", ".env.example"]

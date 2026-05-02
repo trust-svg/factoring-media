@@ -31,8 +31,8 @@ def test_capabilities_seedance_has_extended_aspects(client):
         "3:4",
         "21:9",
     }
-    assert seedance["cost_basis"] == "per_second"
-    assert seedance["rate_map"] == {"low": 0.081, "high": 0.13}
+    assert seedance["cost_basis"] == "per_video"
+    assert seedance["rate_map"] == {"low": 0.06, "high": 0.18}
     assert seedance["supported_qualities"] == ["low", "high"]
 
 

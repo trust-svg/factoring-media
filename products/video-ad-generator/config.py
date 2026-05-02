@@ -33,8 +33,15 @@ UPLOADED_DIR = OUTPUT_DIR / "uploaded"
 MAX_UPLOAD_SIZE_MB: int = int(os.environ.get("MAX_UPLOAD_SIZE_MB", "20"))
 DB_PATH = BASE_DIR / "video_ad.db"
 
-# Atlas Cloud Seedance 2.0 I2V
-ATLAS_CLOUD_I2V_URL = "https://api.muapi.ai/api/v1/seedance-v2.0-i2v"
+# Atlas Cloud Seedance Pro I2V (MuApi.ai)
+SEEDANCE_LOW_URL: str = os.environ.get(
+    "SEEDANCE_LOW_URL",
+    "https://api.muapi.ai/api/v1/seedance-pro-i2v-fast",
+)
+SEEDANCE_HIGH_URL: str = os.environ.get(
+    "SEEDANCE_HIGH_URL",
+    "https://api.muapi.ai/api/v1/seedance-pro-i2v",
+)
 ATLAS_CLOUD_STATUS_URL = "https://api.muapi.ai/api/v1/predictions/{request_id}/result"
 
 # NanoBanana PRO (Google Gemini 3 Pro Image)
