@@ -3,7 +3,6 @@
 from __future__ import annotations
 import asyncio
 import logging
-import os
 from pathlib import Path
 import base64
 import httpx
@@ -17,7 +16,6 @@ RETRY_DELAY = 10.0
 POLL_INTERVAL = 15.0
 TIMEOUT_SECONDS = 900.0
 RATE_LIMIT_WAIT = 30.0
-COST_PER_SECOND_USD = 0.05
 
 
 class Veo3Error(Exception):
@@ -26,11 +24,15 @@ class Veo3Error(Exception):
 
 class Veo3LiteProvider(VideoProvider):
     name = "veo3_lite"
-    supported_aspects = ("9:16", "16:9")
-    supported_durations = (4, 6, 8)
-
-    def calc_cost(self, req: VideoGenRequest) -> float:
-        return round(COST_PER_SECOND_USD * req.duration_seconds, 4)
+    supported_aspects = ("16:9", "9:16")
+    # 参照画像必須 (i2v) のため Veo 3.1 仕様で 8 秒のみ許可
+    supported_durations = (8,)
+    cost_basis = "per_second"
+    RATE_MAP = {"low": 0.10, "high": 0.40}
+    MODEL_MAP = {
+        "low": "veo-3.1-fast-generate-preview",
+        "high": "veo-3.1-generate-preview",
+    }
 
     def _build_prompt(self, req: VideoGenRequest) -> str:
         hint = get_prompt_hint(req.camera_preset)
@@ -41,11 +43,11 @@ class Veo3LiteProvider(VideoProvider):
 
         return GEMINI_API_KEY
 
-    def _model_id(self) -> str:
-        return os.environ.get("VEO3_MODEL_ID", "veo-3.1-fast-generate-001")
+    def _model_id(self, req: VideoGenRequest) -> str:
+        return self.MODEL_MAP[req.quality]
 
-    def _generate_url(self) -> str:
-        return f"https://generativelanguage.googleapis.com/v1beta/models/{self._model_id()}:generateVideo"
+    def _generate_url(self, req: VideoGenRequest) -> str:
+        return f"https://generativelanguage.googleapis.com/v1beta/models/{self._model_id(req)}:generateVideo"
 
     def _operation_url(self, op_name: str) -> str:
         return f"https://generativelanguage.googleapis.com/v1beta/{op_name}"
@@ -79,7 +81,7 @@ class Veo3LiteProvider(VideoProvider):
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
                     resp = await client.post(
-                        self._generate_url(), params=params, json=payload
+                        self._generate_url(req), params=params, json=payload
                     )
                     if resp.status_code in (401, 402, 403):
                         raise Veo3Error(
