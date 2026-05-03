@@ -79,7 +79,7 @@ async def _run_video_gen(snap: dict):
         job = session.get(Job, job_id)
         if job:
             job.status = JobStatus.VIDEO_GENERATING
-            job.video_progress_stage = "submitting"
+            job.video_progress_stage = None
             session.commit()
 
     try:
@@ -96,8 +96,7 @@ async def _run_video_gen(snap: dict):
         provider.validate(req)
         cost = provider.calc_cost(req)
 
-        _set_stage(job_id, "uploading_image")
-        await provider.generate(req)
+        await provider.generate(req, progress_callback=lambda s: _set_stage(job_id, s))
         _set_stage(job_id, None)
 
         with get_session() as session:

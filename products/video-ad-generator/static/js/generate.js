@@ -178,6 +178,57 @@ function wireCameraPreset() {
   });
 }
 
+// ---------- progress polling ----------
+
+const STAGE_LABEL = {
+  generating_image: "画像を生成中…",
+  uploading_image: "画像をアップロード中…",
+  submitting: "動画生成リクエスト送信中…",
+  polling: "動画生成を待機中…",
+  downloading_video: "動画をダウンロード中…",
+};
+
+async function pollJobProgress(jobId, { untilVideo = false } = {}) {
+  const startTs = Date.now();
+  const progressEl = document.getElementById("progress-line");
+  progressEl.hidden = false;
+
+  const tick = async () => {
+    let job;
+    try {
+      const resp = await fetch(`/api/jobs/${jobId}`);
+      if (!resp.ok) {
+        progressEl.textContent = "進捗の取得に失敗しました";
+        return;
+      }
+      job = await resp.json();
+    } catch (_) {
+      progressEl.textContent = "進捗の取得に失敗しました";
+      return;
+    }
+    const elapsedSec = Math.round((Date.now() - startTs) / 1000);
+    const stage = job.video_progress_stage;
+    const label = STAGE_LABEL[stage] || (stage ? `処理中… (${stage})` : "処理中…");
+    progressEl.textContent = `${label} (${elapsedSec}s)`;
+
+    if (job.status === "FAILED") {
+      progressEl.textContent = `失敗: ${job.error_message || "(不明)"} (${elapsedSec}s)`;
+      return;
+    }
+    if (job.status === "DONE") {
+      progressEl.textContent = `完了 (${elapsedSec}s)`;
+      return;
+    }
+    // 画像生成完了で承認待ち。動画フェーズまで追わない場合はここで終了
+    if (!untilVideo && job.status === "PENDING" && job.image_path) {
+      progressEl.textContent = `画像生成完了。承認待ち (${elapsedSec}s)`;
+      return;
+    }
+    setTimeout(tick, 3000);
+  };
+  tick();
+}
+
 // ---------- generate button ----------
 
 async function handleGenerate() {
@@ -203,6 +254,7 @@ async function handleGenerate() {
       if (!resp.ok) throw new Error(await resp.text());
       const data = await resp.json();
       showToast(`生成開始: Job #${data.job_id}`);
+      pollJobProgress(data.job_id);
     } else {
       const resp = await fetch("/api/generate/image", {
         method: "POST",
@@ -221,6 +273,7 @@ async function handleGenerate() {
       if (!resp.ok) throw new Error(await resp.text());
       const data = await resp.json();
       showToast(`生成開始: Job #${data.job_id}`);
+      pollJobProgress(data.job_id);
     }
     loadStats();
   } catch (e) {
@@ -329,6 +382,7 @@ async function approveJob(jobId, btn) {
   if (r.ok) {
     document.getElementById(`job-card-${jobId}`)?.remove();
     showToast(`Job #${jobId} を承認しました。動画生成中...`);
+    pollJobProgress(jobId, { untilVideo: true });
     loadStats();
   }
 }

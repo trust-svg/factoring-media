@@ -4,9 +4,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
+from typing import Callable
 import base64
 import httpx
-from core.video_providers import VideoProvider, VideoGenRequest
+from core.video_providers import VideoProvider, VideoGenRequest, noop_progress
 from core.camera_presets import get_prompt_hint
 
 logger = logging.getLogger(__name__)
@@ -52,8 +53,13 @@ class Veo3LiteProvider(VideoProvider):
     def _operation_url(self, op_name: str) -> str:
         return f"https://generativelanguage.googleapis.com/v1beta/{op_name}"
 
-    async def generate(self, req: VideoGenRequest) -> Path:
+    async def generate(
+        self,
+        req: VideoGenRequest,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> Path:
         self.validate(req)
+        cb = progress_callback or noop_progress
         image_b64 = base64.b64encode(req.image_path.read_bytes()).decode("ascii")
         suffix = req.image_path.suffix.lower()
         mime_type = "image/png" if suffix == ".png" else "image/jpeg"
@@ -80,6 +86,7 @@ class Veo3LiteProvider(VideoProvider):
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
+                    cb("submitting")
                     resp = await client.post(
                         self._generate_url(req), params=params, json=payload
                     )
@@ -108,7 +115,9 @@ class Veo3LiteProvider(VideoProvider):
                     if not op_name:
                         raise Veo3Error(f"no operation name in response: {op}")
 
+                    cb("polling")
                     video_url = await self._poll(client, op_name, params)
+                    cb("downloading_video")
                     dl_resp = await client.get(video_url, params=params, timeout=120.0)
                     dl_resp.raise_for_status()
                     req.output_path.parent.mkdir(parents=True, exist_ok=True)

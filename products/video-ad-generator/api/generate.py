@@ -133,16 +133,26 @@ async def generate_single_image(
     return {"status": "started", "job_id": job_id}
 
 
+def _set_image_stage(job_id: int, stage: str | None) -> None:
+    with get_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.video_progress_stage = stage
+            session.commit()
+
+
 async def _run_batch_image_gen(job_ids: list[tuple[int, str, str]]):
     successful = 0
     for job_id, image_prompt, _ in job_ids:
         output_path = PENDING_DIR / f"job_{job_id}.jpg"
         try:
+            _set_image_stage(job_id, "generating_image")
             await generate_image(prompt=image_prompt, output_path=output_path)
             with get_session() as session:
                 job = session.get(Job, job_id)
                 if job:
                     job.image_path = str(output_path)
+                    job.video_progress_stage = None
                     session.commit()
             successful += 1
         except Exception as e:
@@ -161,11 +171,13 @@ async def _run_batch_image_gen(job_ids: list[tuple[int, str, str]]):
 async def _run_single_image_gen(job_id: int, image_prompt: str):
     output_path = PENDING_DIR / f"job_{job_id}.jpg"
     try:
+        _set_image_stage(job_id, "generating_image")
         await generate_image(prompt=image_prompt, output_path=output_path)
         with get_session() as session:
             job = session.get(Job, job_id)
             if job:
                 job.image_path = str(output_path)
+                job.video_progress_stage = None
                 session.commit()
     except Exception as e:
         logger.error(f"Job {job_id} 画像生成失敗: {e}")

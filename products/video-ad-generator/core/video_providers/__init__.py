@@ -4,16 +4,27 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Callable, Literal
 
-__all__ = ["VideoProvider", "VideoGenRequest", "PROGRESS_STAGES", "get_provider"]
+__all__ = [
+    "VideoProvider",
+    "VideoGenRequest",
+    "PROGRESS_STAGES",
+    "get_provider",
+    "noop_progress",
+]
 
 PROGRESS_STAGES: tuple[str, ...] = (
+    "generating_image",
     "uploading_image",
     "submitting",
     "polling",
     "downloading_video",
 )
+
+
+def noop_progress(stage: str) -> None:
+    pass
 
 
 @dataclass
@@ -38,8 +49,15 @@ class VideoProvider(ABC):
     RATE_MAP: dict[str, float] = {}
 
     @abstractmethod
-    async def generate(self, req: VideoGenRequest) -> Path:
-        """画像と prompt から動画を生成し、output_path に保存して返す。"""
+    async def generate(
+        self,
+        req: VideoGenRequest,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> Path:
+        """画像と prompt から動画を生成し、output_path に保存して返す。
+
+        progress_callback: 各ステージ境界で stage 名（PROGRESS_STAGES のいずれか）を渡して呼ばれる。
+        """
 
     def calc_cost(self, req: VideoGenRequest) -> float:
         """ジョブのコストを USD で返す。"""

@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
+from typing import Callable
 import httpx
 from config import (
     ATLAS_CLOUD_API_KEY,
@@ -11,7 +12,7 @@ from config import (
     KLING_STD_URL,
     KLING_PRO_URL,
 )
-from core.video_providers import VideoProvider, VideoGenRequest
+from core.video_providers import VideoProvider, VideoGenRequest, noop_progress
 from core.video_providers._telegram_upload import upload_image_to_telegram
 from core.camera_presets import get_kling_params, get_prompt_hint
 
@@ -56,8 +57,15 @@ class Kling3ProProvider(VideoProvider):
             }
         return payload
 
-    async def generate(self, req: VideoGenRequest) -> Path:
+    async def generate(
+        self,
+        req: VideoGenRequest,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> Path:
         self.validate(req)
+        cb = progress_callback or noop_progress
+
+        cb("uploading_image")
         image_url = await upload_image_to_telegram(req.image_path)
         payload = self._build_payload(req, image_url)
         headers = {"x-api-key": ATLAS_CLOUD_API_KEY, "Content-Type": "application/json"}
@@ -67,6 +75,7 @@ class Kling3ProProvider(VideoProvider):
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
+                    cb("submitting")
                     resp = await client.post(submit_url, headers=headers, json=payload)
                     if resp.status_code in (401, 402, 403):
                         raise KlingError(
@@ -89,7 +98,9 @@ class Kling3ProProvider(VideoProvider):
                         continue
 
                     request_id = resp.json()["request_id"]
+                    cb("polling")
                     video_url = await self._poll(client, request_id, headers)
+                    cb("downloading_video")
                     dl_resp = await client.get(video_url, timeout=120.0)
                     dl_resp.raise_for_status()
                     req.output_path.parent.mkdir(parents=True, exist_ok=True)

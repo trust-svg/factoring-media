@@ -73,7 +73,7 @@ def _make_job(tmp_path: Path, provider: str, quality: str, duration: int = 10) -
 def test_approve_passes_quality_to_provider(client, tmp_path, monkeypatch):
     captured = {}
 
-    async def fake_generate(self, req):
+    async def fake_generate(self, req, progress_callback=None):
         captured["quality"] = req.quality
         req.output_path.parent.mkdir(parents=True, exist_ok=True)
         req.output_path.write_bytes(b"v")
@@ -90,7 +90,7 @@ def test_approve_passes_quality_to_provider(client, tmp_path, monkeypatch):
 
 
 def test_approve_writes_provider_cost_basis_seedance(client, tmp_path, monkeypatch):
-    async def fake_generate(self, req):
+    async def fake_generate(self, req, progress_callback=None):
         req.output_path.parent.mkdir(parents=True, exist_ok=True)
         req.output_path.write_bytes(b"v")
         return req.output_path
@@ -108,7 +108,7 @@ def test_approve_writes_provider_cost_basis_seedance(client, tmp_path, monkeypat
 
 
 def test_approve_writes_provider_cost_basis_kling(client, tmp_path, monkeypatch):
-    async def fake_generate(self, req):
+    async def fake_generate(self, req, progress_callback=None):
         req.output_path.parent.mkdir(parents=True, exist_ok=True)
         req.output_path.write_bytes(b"v")
         return req.output_path

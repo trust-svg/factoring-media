@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
+from typing import Callable
 import httpx
 from config import (
     ATLAS_CLOUD_API_KEY,
@@ -11,7 +12,7 @@ from config import (
     SEEDANCE_HIGH_URL,
     SEEDANCE_LOW_URL,
 )
-from core.video_providers import VideoProvider, VideoGenRequest
+from core.video_providers import VideoProvider, VideoGenRequest, noop_progress
 from core.video_providers._telegram_upload import upload_image_to_telegram
 from core.camera_presets import get_prompt_hint
 
@@ -42,12 +43,18 @@ class SeedanceProvider(VideoProvider):
             return f"{req.video_prompt}, {hint}"
         return req.video_prompt
 
-    async def generate(self, req: VideoGenRequest) -> Path:
+    async def generate(
+        self,
+        req: VideoGenRequest,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> Path:
         self.validate(req)
+        cb = progress_callback or noop_progress
         headers = {
             "x-api-key": ATLAS_CLOUD_API_KEY,
             "Content-Type": "application/json",
         }
+        cb("uploading_image")
         image_url = await upload_image_to_telegram(req.image_path)
         logger.info("[seedance] image uploaded to telegram")
 
@@ -62,6 +69,7 @@ class SeedanceProvider(VideoProvider):
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
+                    cb("submitting")
                     resp = await client.post(submit_url, headers=headers, json=payload)
 
                     # 認証/課金エラーは即時失敗
@@ -95,8 +103,10 @@ class SeedanceProvider(VideoProvider):
                     request_id = resp_data["request_id"]
                     logger.info(f"[seedance] submitted: {request_id}")
 
+                    cb("polling")
                     video_url = await self._poll(client, request_id, headers)
 
+                    cb("downloading_video")
                     dl_resp = await client.get(video_url, timeout=120.0)
                     dl_resp.raise_for_status()
                     req.output_path.parent.mkdir(parents=True, exist_ok=True)
