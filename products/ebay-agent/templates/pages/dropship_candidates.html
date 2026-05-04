@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}無在庫候補 — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Dropship Candidates" data-ja="無在庫候補">無在庫候補</span>{% endblock %}
+{% block breadcrumb %}無在庫候補{% endblock %}
+
+{% block head %}
+<style>
+    .ds-summary {
+        background: #fff; border-radius: 10px;
+        padding: 14px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        margin-bottom: 14px;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; flex-wrap: wrap;
+    }
+    .ds-summary-text {
+        font-size: 13px; color: #475569;
+    }
+    .ds-summary-count {
+        font-size: 22px; font-weight: 800; color: #0F172A; margin-right: 8px;
+    }
+    .ds-help {
+        font-size: 12px; color: #64748B;
+    }
+    .ds-help code {
+        background: #F1F5F9; padding: 1px 6px; border-radius: 4px;
+        font-size: 11px; color: #2563EB;
+    }
+
+    .ds-card {
+        background: #fff; border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        margin-bottom: 12px; overflow: hidden;
+    }
+    .ds-card-head {
+        padding: 14px 18px;
+        border-bottom: 1px solid #F1F5F9;
+        font-size: 14px; font-weight: 700; color: #0F172A;
+    }
+    .ds-table { width: 100%; border-collapse: collapse; }
+    .ds-table th {
+        padding: 10px 12px; text-align: left;
+        font-size: 11px; font-weight: 700; color: #94A3B8;
+        text-transform: uppercase; letter-spacing: .04em;
+        background: #FAFAFA; border-bottom: 1px solid #F1F5F9;
+        white-space: nowrap;
+    }
+    .ds-table td {
+        padding: 12px; font-size: 12px; color: #374151;
+        border-bottom: 1px solid #F8FAFC; vertical-align: top;
+    }
+    .ds-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .ds-table tr:last-child td { border-bottom: none; }
+
+    .ds-thumb {
+        width: 56px; height: 56px; object-fit: cover;
+        border-radius: 6px; border: 1px solid #E2E8F0;
+        background: #F8FAFC;
+    }
+    .ds-thumb-empty {
+        width: 56px; height: 56px;
+        border-radius: 6px; background: #F1F5F9;
+        display: flex; align-items: center; justify-content: center;
+        color: #CBD5E1; font-size: 18px;
+    }
+    .ds-title {
+        font-weight: 600; color: #0F172A; line-height: 1.4;
+        margin-bottom: 4px;
+        max-width: 360px;
+        word-break: break-word;
+    }
+    .ds-meta {
+        font-size: 11px; color: #64748B;
+    }
+    .ds-meta a { color: #2563EB; text-decoration: none; }
+    .ds-meta a:hover { text-decoration: underline; }
+
+    .ds-platform {
+        display: inline-block;
+        padding: 2px 8px; border-radius: 6px;
+        background: #EFF6FF; color: #2563EB;
+        font-size: 11px; font-weight: 600;
+    }
+    .ds-status {
+        display: inline-block;
+        padding: 2px 8px; border-radius: 9999px;
+        font-size: 11px; font-weight: 600;
+    }
+    .ds-status.pending { background: #FEF3C7; color: #B45309; }
+    .ds-status.approved { background: #DBEAFE; color: #1D4ED8; }
+
+    .ds-margin {
+        font-weight: 700;
+        font-size: 13px;
+    }
+    .ds-margin.good { color: #10B981; }
+    .ds-margin.mid { color: #F59E0B; }
+    .ds-margin.low { color: #EF4444; }
+
+    .ds-actions {
+        display: flex; flex-direction: column; gap: 6px;
+        white-space: nowrap;
+    }
+    .ds-btn {
+        background: #2563EB; color: #fff; border: none;
+        padding: 6px 14px; border-radius: 7px;
+        font-size: 12px; font-weight: 700; cursor: pointer;
+        font-family: 'Inter', sans-serif;
+    }
+    .ds-btn:hover { background: #1D4ED8; }
+    .ds-btn:disabled { background: #94A3B8; cursor: wait; }
+    .ds-btn.outline {
+        background: #fff; color: #475569;
+        border: 1px solid #E2E8F0;
+    }
+    .ds-btn.outline:hover { border-color: #93C5FD; color: #2563EB; }
+    .ds-btn.danger { background: #fff; color: #EF4444; border: 1px solid #FCA5A5; }
+    .ds-btn.danger:hover { background: #FEF2F2; }
+
+    .ds-empty {
+        padding: 48px 16px; text-align: center;
+        color: #94A3B8; font-size: 13px;
+    }
+
+    .ds-toast {
+        position: fixed; bottom: 24px; right: 24px;
+        background: #0F172A; color: #fff;
+        padding: 12px 18px; border-radius: 8px;
+        font-size: 13px; box-shadow: 0 10px 24px rgba(0,0,0,.18);
+        opacity: 0; transform: translateY(8px);
+        transition: opacity .2s, transform .2s;
+        z-index: 9999; max-width: 360px;
+    }
+    .ds-toast.show { opacity: 1; transform: translateY(0); }
+    .ds-toast.error { background: #B91C1C; }
+    .ds-toast.success { background: #047857; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ds-summary">
+    <div class="ds-summary-text">
+        <span class="ds-summary-count">{{ candidates|length }}</span>
+        件の候補（pending / approved）— eBay+eShip 同時出品ボタンから登録できます。
+    </div>
+    <div class="ds-help">
+        <code>POST /api/dropship/publish/{id}</code> がドラフト作成 ／ <code>?publish=1</code> で即公開
+    </div>
+</div>
+
+<div class="ds-card">
+    <div class="ds-card-head">候補一覧（利益順 上位50件）</div>
+    {% if not candidates %}
+    <div class="ds-empty">候補はまだありません。9:00 JST の日次スキャン後に表示されます。</div>
+    {% else %}
+    <div style="overflow-x:auto;">
+        <table class="ds-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>商品</th>
+                    <th>仕入先</th>
+                    <th class="num">仕入(JPY)</th>
+                    <th class="num">eBay想定(USD)</th>
+                    <th class="num">想定利益</th>
+                    <th class="num">マージン</th>
+                    <th>状態</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in candidates %}
+                {% set margin = c.projected_margin_pct or 0 %}
+                {% set margin_cls = 'good' if margin >= 30 else ('mid' if margin >= 20 else 'low') %}
+                <tr id="cand-row-{{ c.id }}">
+                    <td><code style="font-size:11px;color:#94A3B8;">#{{ c.id }}</code></td>
+                    <td>
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            {% if c.jp_image_url %}
+                            <img src="{{ c.jp_image_url }}" class="ds-thumb" onerror="this.outerHTML='<div class=&quot;ds-thumb-empty&quot;>📷</div>'">
+                            {% else %}
+                            <div class="ds-thumb-empty">📷</div>
+                            {% endif %}
+                            <div>
+                                <div class="ds-title">{{ c.jp_title or '(no title)' }}</div>
+                                <div class="ds-meta">
+                                    {% if c.jp_url %}<a href="{{ c.jp_url }}" target="_blank" rel="noopener">仕入先 ↗</a>{% endif %}
+                                    {% if c.jp_condition %} · {{ c.jp_condition }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="ds-platform">{{ c.jp_platform or '-' }}</span></td>
+                    <td class="num">¥{{ '{:,}'.format(c.jp_price_jpy or 0) }}</td>
+                    <td class="num">${{ '%.0f'|format(c.ebay_target_price_usd or 0) }}</td>
+                    <td class="num">${{ '%.0f'|format(c.projected_profit_usd or 0) }}</td>
+                    <td class="num"><span class="ds-margin {{ margin_cls }}">{{ '%.1f'|format(margin) }}%</span></td>
+                    <td><span class="ds-status {{ c.status }}">{{ c.status }}</span></td>
+                    <td>
+                        <div class="ds-actions">
+                            <button class="ds-btn" onclick="publishCandidate({{ c.id }}, false, this)">📦 ドラフト出品</button>
+                            <button class="ds-btn outline" onclick="publishCandidate({{ c.id }}, true, this)">⚡ 即公開</button>
+                            <button class="ds-btn danger" onclick="rejectCandidate({{ c.id }}, this)">却下</button>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<div id="dsToast" class="ds-toast"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, kind) {
+    const t = document.getElementById('dsToast');
+    t.textContent = msg;
+    t.className = 'ds-toast show ' + (kind || '');
+    clearTimeout(window._dsToastTimer);
+    window._dsToastTimer = setTimeout(() => {
+        t.className = 'ds-toast';
+    }, 5000);
+}
+
+async function publishCandidate(id, immediate, btn) {
+    const label = immediate ? '即公開' : 'ドラフト出品';
+    const confirmMsg = immediate
+        ? `候補 #${id} を eBay で即公開 + eShip 在庫登録します。よろしいですか？`
+        : `候補 #${id} を eBay ドラフト + eShip 在庫に登録します。よろしいですか？`;
+    if (!confirm(confirmMsg)) return;
+
+    const row = document.getElementById('cand-row-' + id);
+    const buttons = row.querySelectorAll('button');
+    buttons.forEach(b => b.disabled = true);
+    btn.textContent = '出品中...';
+
+    try {
+        const url = `/api/dropship/publish/${id}` + (immediate ? '?publish=1' : '');
+        const resp = await fetch(url, { method: 'POST' });
+        const data = await resp.json();
+
+        if (data.status === 'ok' || data.status === 'partial') {
+            const ebayMsg = data.ebay && data.ebay.ok ? `eBay✓ (offer ${data.ebay.offer_id || '-'})` : `eBay✗ ${data.ebay && data.ebay.error || ''}`;
+            const eshipMsg = data.eship && data.eship.ok ? `eShip✓ (inv ${data.eship.inventory_id || '-'})` : `eShip✗ ${data.eship && data.eship.message || ''}`;
+            showToast(`#${id} ${label}完了: SKU=${data.sku} | ${ebayMsg} | ${eshipMsg}`, data.status === 'ok' ? 'success' : 'error');
+            setTimeout(() => location.reload(), 2500);
+        } else {
+            showToast(`#${id} 失敗: ${data.message || 'unknown error'}`, 'error');
+            buttons.forEach(b => b.disabled = false);
+            btn.textContent = immediate ? '⚡ 即公開' : '📦 ドラフト出品';
+        }
+    } catch (e) {
+        showToast(`#${id} ネットワークエラー: ${e.message}`, 'error');
+        buttons.forEach(b => b.disabled = false);
+        btn.textContent = immediate ? '⚡ 即公開' : '📦 ドラフト出品';
+    }
+}
+
+async function rejectCandidate(id, btn) {
+    if (!confirm(`候補 #${id} を却下します（status=rejected）。よろしいですか？`)) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+        const resp = await fetch(`/api/dropship/reject/${id}`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.status === 'ok') {
+            showToast(`#${id} を却下しました`, 'success');
+            const row = document.getElementById('cand-row-' + id);
+            if (row) row.style.opacity = '0.4';
+            setTimeout(() => row && row.remove(), 800);
+        } else {
+            showToast(`却下失敗: ${data.message || 'unknown'}`, 'error');
+            btn.disabled = false;
+            btn.textContent = '却下';
+        }
+    } catch (e) {
+        showToast(`ネットワークエラー: ${e.message}`, 'error');
+        btn.disabled = false;
+        btn.textContent = '却下';
+    }
+}
+</script>
+{% endblock %}

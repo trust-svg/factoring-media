@@ -2,6 +2,7 @@
 
 統合ダッシュボード + REST API + AIエージェントエンドポイント
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,9 +25,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from config import (
-    APP_HOST, APP_PORT, DEAL_WATCHER_DB, EBAY_FEE_RATE, PAYONEER_FEE_RATE,
-    PRICE_CHECK_INTERVAL_HOURS, SHOPIFY_WEBHOOK_SECRET, STATIC_DIR, TEMPLATES_DIR,
-    MONTHLY_REVENUE_TARGET_JPY, MONTHLY_MARGIN_TARGET_PCT, MONTHLY_PROFIT_TARGET_JPY,
+    APP_HOST,
+    APP_PORT,
+    DEAL_WATCHER_DB,
+    EBAY_FEE_RATE,
+    PAYONEER_FEE_RATE,
+    PRICE_CHECK_INTERVAL_HOURS,
+    SHOPIFY_WEBHOOK_SECRET,
+    STATIC_DIR,
+    TEMPLATES_DIR,
+    MONTHLY_REVENUE_TARGET_JPY,
+    MONTHLY_MARGIN_TARGET_PCT,
+    MONTHLY_PROFIT_TARGET_JPY,
 )
 from database.models import get_db, init_db, InventoryItem, Listing
 from database import crud
@@ -42,6 +52,7 @@ logger = logging.getLogger("ebay-agent")
 
 
 # ── アプリ初期化 ──────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -64,7 +75,12 @@ def _start_scheduler():
         from apscheduler.triggers.cron import CronTrigger
         from apscheduler.triggers.interval import IntervalTrigger
         from pricing.monitor import run_price_monitor
-        from comms.scheduled_jobs import send_morning_digest, send_weekly_report, auto_sync_sales, auto_sync_and_close_shopify
+        from comms.scheduled_jobs import (
+            send_morning_digest,
+            send_weekly_report,
+            auto_sync_sales,
+            auto_sync_and_close_shopify,
+        )
         from comms.report_generator import run_weekly_report, run_monthly_report
 
         scheduler = BackgroundScheduler()
@@ -120,7 +136,11 @@ def _start_scheduler():
         )
 
         # Instagram コンテンツ自動生成（毎日10:00 JST）
-        from instagram.scheduler import auto_generate_instagram_content, sync_instagram_analytics
+        from instagram.scheduler import (
+            auto_generate_instagram_content,
+            sync_instagram_analytics,
+        )
+
         scheduler.add_job(
             auto_generate_instagram_content,
             CronTrigger(hour=10, minute=0, timezone="Asia/Tokyo"),
@@ -140,12 +160,17 @@ def _start_scheduler():
         def _run_category_expansion():
             import asyncio
             from research.category_expansion import run_category_expansion_pipeline
+
             try:
                 loop = asyncio.new_event_loop()
                 result = loop.run_until_complete(
-                    run_category_expansion_pipeline(notify=True, auto_source=True, top_n=3)
+                    run_category_expansion_pipeline(
+                        notify=True, auto_source=True, top_n=3
+                    )
                 )
-                logger.info(f"カテゴリ拡張完了: {result.get('categories_evaluated', 0)}カテゴリ分析")
+                logger.info(
+                    f"カテゴリ拡張完了: {result.get('categories_evaluated', 0)}カテゴリ分析"
+                )
             except Exception as e:
                 logger.exception(f"カテゴリ拡張失敗: {e}")
 
@@ -161,6 +186,7 @@ def _start_scheduler():
             import asyncio
             from chat.service import sync_messages
             from database.models import get_db as _get_db
+
             try:
                 db = _get_db()
                 loop = asyncio.new_event_loop()
@@ -190,6 +216,7 @@ def _start_scheduler():
         def _check_no_reply_timeout():
             from chat.auto_message import check_no_reply_timeout
             from database.models import get_db as _get_db
+
             try:
                 db = _get_db()
                 results = check_no_reply_timeout(db)
@@ -211,6 +238,7 @@ def _start_scheduler():
         def _run_refresh_slot():
             import asyncio
             from listing.refresh import run_refresh_slot
+
             # 環境変数でON/OFF（初期はOFF、ドライラン完了後にONへ切替）
             enabled = os.getenv("LISTING_REFRESH_ENABLED", "false").lower() == "true"
             if not enabled:
@@ -219,7 +247,9 @@ def _start_scheduler():
                 loop = asyncio.new_event_loop()
                 result = loop.run_until_complete(run_refresh_slot(dry_run=False))
                 if not result.get("skipped"):
-                    logger.info(f"死に筒Refresh: {result.get('processed')}件処理 日次累計{result.get('daily_applied')}")
+                    logger.info(
+                        f"死に筒Refresh: {result.get('processed')}件処理 日次累計{result.get('daily_applied')}"
+                    )
             except Exception as e:
                 logger.warning(f"死に筒Refresh失敗: {e}")
 
@@ -234,6 +264,7 @@ def _start_scheduler():
         # eBay高額売れ筋スキャン → 国内逆検索 → Telegram候補通知
         def _run_dropship_pipeline():
             import asyncio
+
             enabled = os.getenv("DROPSHIP_PIPELINE_ENABLED", "false").lower() == "true"
             if not enabled:
                 return
@@ -277,7 +308,9 @@ def _start_scheduler():
         )
         return scheduler
     except ImportError:
-        logger.warning("APScheduler 未インストール — スケジューラー無効。pip install apscheduler で有効化できます。")
+        logger.warning(
+            "APScheduler 未インストール — スケジューラー無効。pip install apscheduler で有効化できます。"
+        )
         return None
 
 
@@ -290,10 +323,15 @@ app = FastAPI(
 
 # グローバル例外ハンドラー（デバッグ用）
 import traceback as _tb
+
+
 @app.exception_handler(Exception)
 async def _global_exc_handler(request: Request, exc: Exception):
-    logger.error(f"★ UNHANDLED {request.method} {request.url.path}: {exc}\n{''.join(_tb.format_exception(type(exc), exc, exc.__traceback__))}")
+    logger.error(
+        f"★ UNHANDLED {request.method} {request.url.path}: {exc}\n{''.join(_tb.format_exception(type(exc), exc, exc.__traceback__))}"
+    )
     return JSONResponse(status_code=500, content={"detail": str(exc)})
+
 
 # 静的ファイル + テンプレート
 STATIC_DIR.mkdir(exist_ok=True)
@@ -303,19 +341,24 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # 静的ファイルのキャッシュ無効化（開発用） — raw ASGI middleware（BaseHTTPMiddleware不使用）
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+
 class CacheStaticMiddleware:
     """静的ファイルにブラウザキャッシュヘッダーを設定する。
 
     JS/CSS: 1時間キャッシュ（開発中は短め、本番では延長可）
     画像: 7日間キャッシュ（ebayimg.comはプロキシしないので対象外）
     """
+
     def __init__(self, app: ASGIApp):
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] == "http" and scope["path"].startswith("/static/"):
             path = scope["path"].lower()
-            if any(path.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".gif")):
+            if any(
+                path.endswith(ext)
+                for ext in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".gif")
+            ):
                 max_age = 604800  # 7日
             elif any(path.endswith(ext) for ext in (".js", ".css")):
                 max_age = 3600  # 1時間
@@ -325,12 +368,16 @@ class CacheStaticMiddleware:
             async def send_with_cache(message):
                 if message["type"] == "http.response.start":
                     headers = list(message.get("headers", []))
-                    headers.append((b"cache-control", f"public, max-age={max_age}".encode()))
+                    headers.append(
+                        (b"cache-control", f"public, max-age={max_age}".encode())
+                    )
                     message["headers"] = headers
                 await send(message)
+
             await self.app(scope, receive, send_with_cache)
         else:
             await self.app(scope, receive, send)
+
 
 app.add_middleware(CacheStaticMiddleware)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -342,12 +389,15 @@ def render(request: Request, template: str, context: dict = None):
     ctx = context or {}
     return templates.TemplateResponse(request=request, name=template, context=ctx)
 
+
 # Chat API Router
 from chat.router import router as chat_router
+
 app.include_router(chat_router)
 
 
 # ── ページルート ──────────────────────────────────────────
+
 
 @app.get("/", response_class=HTMLResponse)
 async def overview_page(request: Request):
@@ -360,6 +410,7 @@ async def overview_page(request: Request):
 
 
 # ── 統合ページ (v2 メニュー構成) ──────────────────────────
+
 
 @app.get("/listings", response_class=HTMLResponse)
 async def listings_page(request: Request):
@@ -382,6 +433,7 @@ async def procurement_page(request: Request):
 async def research_page(request: Request):
     """リサーチ（Discovery + Deal Watcher 統合）"""
     import httpx
+
     data = _get_deal_watcher_data()
     scan_status = {"last_run": None, "running": False}
     try:
@@ -390,7 +442,11 @@ async def research_page(request: Request):
             scan_status = resp.json()
     except Exception:
         pass
-    return render(request, "pages/research.html", {**data, "scan_status": scan_status, "interval": 3})
+    return render(
+        request,
+        "pages/research.html",
+        {**data, "scan_status": scan_status, "interval": 3},
+    )
 
 
 @app.get("/sales", response_class=HTMLResponse)
@@ -400,6 +456,7 @@ async def sales_page(request: Request):
 
 
 # ── 旧URL → 新URLリダイレクト ──────────────────────────
+
 
 @app.get("/inventory", response_class=HTMLResponse)
 async def inventory_redirect():
@@ -440,13 +497,77 @@ async def chat_settings_page(request: Request):
     return render(request, "pages/chat_settings.html")
 
 
+# ── 無在庫候補 出品（eBay+eShip 同時） ────────────────────
+
+
+@app.get("/dropship/candidates", response_class=HTMLResponse)
+async def dropship_candidates_page(request: Request):
+    """無在庫候補一覧（eBay+eShip 同時出品ボタン付き）"""
+    from sqlalchemy import desc
+    from database.models import DropshipCandidate, get_db as _get_db
+
+    db = _get_db()
+    try:
+        rows = (
+            db.query(DropshipCandidate)
+            .filter(DropshipCandidate.status.in_(["pending", "approved"]))
+            .order_by(desc(DropshipCandidate.projected_profit_usd))
+            .limit(50)
+            .all()
+        )
+        return render(request, "pages/dropship_candidates.html", {"candidates": rows})
+    finally:
+        db.close()
+
+
+@app.post("/api/dropship/publish/{candidate_id}")
+async def api_dropship_publish(candidate_id: int, request: Request):
+    """候補1件を eBay ドラフト + eShip 在庫に同時登録する。
+
+    ?publish=1 を付けると eBay も即公開（デフォルトはドラフトのみ）。
+    """
+    from services.dropship_publish import publish_dropship_candidate
+    from database.models import get_db as _get_db
+
+    publish_immediately = request.query_params.get("publish") == "1"
+    db = _get_db()
+    try:
+        result = await publish_dropship_candidate(
+            db, candidate_id, publish_immediately=publish_immediately
+        )
+    finally:
+        db.close()
+    return JSONResponse(result)
+
+
+@app.post("/api/dropship/reject/{candidate_id}")
+async def api_dropship_reject(candidate_id: int):
+    """候補を却下（status=rejected）する。"""
+    from database.models import DropshipCandidate, get_db as _get_db
+
+    db = _get_db()
+    try:
+        cand = db.get(DropshipCandidate, candidate_id)
+        if not cand:
+            return JSONResponse(
+                {"status": "error", "message": "not found"}, status_code=404
+            )
+        cand.status = "rejected"
+        db.commit()
+        return {"status": "ok", "candidate_id": candidate_id}
+    finally:
+        db.close()
+
+
 # ── eBay Platform Notifications Webhook ──────────────────
+
 
 @app.get("/webhook/ebay")
 async def ebay_webhook_verify(challenge_code: str = ""):
     """eBay Webhook検証チャレンジに応答する。"""
     import os
     from chat.webhook import verify_challenge
+
     verification_token = os.getenv("EBAY_VERIFICATION_TOKEN", "")
     endpoint_url = os.getenv("EBAY_WEBHOOK_URL", "")
     if not challenge_code:
@@ -459,6 +580,7 @@ async def ebay_webhook_verify(challenge_code: str = ""):
 async def ebay_webhook_receive(request: Request):
     """eBay Platform Notificationsを受信して処理する。"""
     from chat.webhook import handle_notification
+
     body = await request.body()
     body_str = body.decode("utf-8")
     logger.info(f"eBay Webhook受信: {len(body_str)} bytes")
@@ -481,6 +603,7 @@ async def reports_page(request: Request):
 async def api_report_list(type: str = ""):
     """レポート一覧API"""
     from comms.report_generator import get_report_list
+
     reports = get_report_list(report_type=type)
     return {"reports": reports}
 
@@ -489,6 +612,7 @@ async def api_report_list(type: str = ""):
 async def api_report_detail(report_id: int):
     """レポート詳細API"""
     from comms.report_generator import get_report_by_id
+
     report = get_report_by_id(report_id)
     if not report:
         return JSONResponse(status_code=404, content={"error": "Report not found"})
@@ -501,8 +625,11 @@ async def api_generate_report(request: Request):
     body = await request.json()
     report_type = body.get("type", "weekly")
     if report_type not in ("weekly", "monthly"):
-        return JSONResponse(status_code=400, content={"error": "type must be 'weekly' or 'monthly'"})
+        return JSONResponse(
+            status_code=400, content={"error": "type must be 'weekly' or 'monthly'"}
+        )
     from comms.report_generator import generate_report
+
     data = generate_report(report_type)
     return data
 
@@ -514,6 +641,7 @@ async def instagram_page(request: Request):
 
 # ── Deal Watcher ──────────────────────────────────────────
 
+
 def _get_deal_watcher_data():
     """Read deal-watcher DB and return grouped listings with eBay enrichment."""
     import os
@@ -521,15 +649,25 @@ def _get_deal_watcher_data():
 
     dw_db = DEAL_WATCHER_DB
     if not os.path.exists(dw_db):
-        return {"groups": [], "keywords": [], "kw_count": 0, "listing_count": 0, "hidden_count": 0}
+        return {
+            "groups": [],
+            "keywords": [],
+            "kw_count": 0,
+            "listing_count": 0,
+            "hidden_count": 0,
+        }
 
     conn = sqlite3.connect(dw_db)
     conn.row_factory = sqlite3.Row
 
-    keywords = [dict(r) for r in conn.execute("SELECT * FROM keywords ORDER BY name").fetchall()]
+    keywords = [
+        dict(r) for r in conn.execute("SELECT * FROM keywords ORDER BY name").fetchall()
+    ]
     kw_count = sum(1 for k in keywords if k["active"])
     listing_count = conn.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
-    hidden_count = conn.execute("SELECT COUNT(*) FROM listings WHERE COALESCE(hidden,0)=1").fetchone()[0]
+    hidden_count = conn.execute(
+        "SELECT COUNT(*) FROM listings WHERE COALESCE(hidden,0)=1"
+    ).fetchone()[0]
 
     groups_raw = conn.execute("""
         SELECT k.id, k.name, COUNT(l.id) as listing_count,
@@ -542,18 +680,32 @@ def _get_deal_watcher_data():
 
     groups = []
     for g in groups_raw:
-        items = conn.execute("""
+        items = conn.execute(
+            """
             SELECT * FROM listings WHERE keyword_id = ? AND COALESCE(hidden,0) = 0
             ORDER BY price ASC NULLS LAST
-        """, (g["id"],)).fetchall()
-        groups.append({
-            "keyword_id": g["id"], "keyword": g["name"],
-            "count": g["listing_count"], "min_price": g["min_price"],
-            "max_price": g["max_price"], "latest_found": g["latest_found"],
-            "listings": [{**dict(i), "est_profit_jpy": dict(i).get("est_profit_jpy")} for i in items],
-            "ebay_price": None, "ebay_qty": None, "ebay_listing_id": None, "ebay_title": None,
-            "eship_profit": None,
-        })
+        """,
+            (g["id"],),
+        ).fetchall()
+        groups.append(
+            {
+                "keyword_id": g["id"],
+                "keyword": g["name"],
+                "count": g["listing_count"],
+                "min_price": g["min_price"],
+                "max_price": g["max_price"],
+                "latest_found": g["latest_found"],
+                "listings": [
+                    {**dict(i), "est_profit_jpy": dict(i).get("est_profit_jpy")}
+                    for i in items
+                ],
+                "ebay_price": None,
+                "ebay_qty": None,
+                "ebay_listing_id": None,
+                "ebay_title": None,
+                "eship_profit": None,
+            }
+        )
     conn.close()
 
     # Enrich with eBay data from agent.db + eShip profit data
@@ -563,17 +715,23 @@ def _get_deal_watcher_data():
         ebay_data = {}
         for row in ebay_listings:
             ebay_data[row.sku] = {
-                "title": row.title, "title_lower": (row.title or "").lower(),
-                "price_usd": row.price_usd, "quantity": row.quantity,
-                "listing_id": row.listing_id, "sku": row.sku,
+                "title": row.title,
+                "title_lower": (row.title or "").lower(),
+                "price_usd": row.price_usd,
+                "quantity": row.quantity,
+                "listing_id": row.listing_id,
+                "sku": row.sku,
             }
 
         # Load eShip profit data from file cache (written by /deals/api/eship-sync)
         eship_profits = {}
         try:
-            cache_file = os.path.join(os.path.dirname(DEAL_WATCHER_DB), ".eship_profit_cache.json")
+            cache_file = os.path.join(
+                os.path.dirname(DEAL_WATCHER_DB), ".eship_profit_cache.json"
+            )
             if os.path.exists(cache_file):
                 import json as _json
+
                 with open(cache_file, "r") as f:
                     cache_data = _json.load(f)
                 if time.time() - cache_data.get("ts", 0) < 3600:
@@ -600,29 +758,42 @@ def _get_deal_watcher_data():
 
                 # eShip profit = 売上 - 手数料 - 送料 - 関税 - 広告費 - 仕入原価
                 # Match by listing_id (Item ID) first, then SKU
-                eship = eship_profits.get(best["listing_id"], {}) or eship_profits.get(best["sku"], {})
-                base_profit = eship.get("profit")       # eShipの登録仕入価格ベースの利益
-                eship_pp = eship.get("purchase_price")   # eShipの登録仕入価格
+                eship = eship_profits.get(best["listing_id"], {}) or eship_profits.get(
+                    best["sku"], {}
+                )
+                base_profit = eship.get("profit")  # eShipの登録仕入価格ベースの利益
+                eship_pp = eship.get("purchase_price")  # eShipの登録仕入価格
 
                 # Per-listing profit: adjust by price difference
                 # adjusted_profit = base_profit + (eship_purchase_price - listing_price)
                 for item in group["listings"]:
                     cost_jpy = item.get("price") or 0
-                    if base_profit is not None and eship_pp is not None and cost_jpy > 0:
+                    if (
+                        base_profit is not None
+                        and eship_pp is not None
+                        and cost_jpy > 0
+                    ):
                         adjusted = base_profit + (eship_pp - cost_jpy)
                         item["est_profit_jpy"] = round(adjusted)
                     else:
                         item["est_profit_jpy"] = None
 
                 # Group-level: show best (cheapest listing) profit
-                profits = [i["est_profit_jpy"] for i in group["listings"] if i.get("est_profit_jpy") is not None]
+                profits = [
+                    i["est_profit_jpy"]
+                    for i in group["listings"]
+                    if i.get("est_profit_jpy") is not None
+                ]
                 group["eship_profit"] = max(profits) if profits else None
     finally:
         db.close()
 
     return {
-        "groups": groups, "keywords": keywords, "kw_count": kw_count,
-        "listing_count": listing_count, "hidden_count": hidden_count,
+        "groups": groups,
+        "keywords": keywords,
+        "kw_count": kw_count,
+        "listing_count": listing_count,
+        "hidden_count": hidden_count,
     }
 
 
@@ -635,6 +806,7 @@ async def deals_redirect():
 async def deals_scan():
     """Proxy scan trigger to deal-watcher service."""
     import httpx
+
     try:
         async with httpx.AsyncClient() as client:
             await client.post("http://127.0.0.1:8001/scan", timeout=5)
@@ -646,6 +818,7 @@ async def deals_scan():
 @app.post("/deals/keywords/add")
 async def deals_add_keyword(name: str = Form(...)):
     import sqlite3
+
     name = name.strip()
     if name:
         conn = sqlite3.connect(DEAL_WATCHER_DB)
@@ -658,6 +831,7 @@ async def deals_add_keyword(name: str = Form(...)):
 @app.post("/deals/keywords/{keyword_id}/toggle")
 async def deals_toggle_keyword(keyword_id: int):
     import sqlite3
+
     conn = sqlite3.connect(DEAL_WATCHER_DB)
     conn.execute("UPDATE keywords SET active = 1 - active WHERE id = ?", (keyword_id,))
     conn.commit()
@@ -668,6 +842,7 @@ async def deals_toggle_keyword(keyword_id: int):
 @app.post("/deals/keywords/{keyword_id}/delete")
 async def deals_delete_keyword(keyword_id: int):
     import sqlite3
+
     conn = sqlite3.connect(DEAL_WATCHER_DB)
     conn.execute("DELETE FROM keywords WHERE id = ?", (keyword_id,))
     conn.commit()
@@ -678,6 +853,7 @@ async def deals_delete_keyword(keyword_id: int):
 @app.post("/deals/listings/{listing_id}/hide")
 async def deals_hide_listing(listing_id: int):
     import sqlite3
+
     conn = sqlite3.connect(DEAL_WATCHER_DB)
     conn.execute("UPDATE listings SET hidden = 1 WHERE id = ?", (listing_id,))
     conn.commit()
@@ -688,6 +864,7 @@ async def deals_hide_listing(listing_id: int):
 @app.post("/deals/keywords/{keyword_id}/hide-all")
 async def deals_hide_keyword(keyword_id: int):
     import sqlite3
+
     conn = sqlite3.connect(DEAL_WATCHER_DB)
     conn.execute("UPDATE listings SET hidden = 1 WHERE keyword_id = ?", (keyword_id,))
     conn.commit()
@@ -699,10 +876,12 @@ async def deals_hide_keyword(keyword_id: int):
 async def deals_eship_sync():
     """Fetch eShip profit data for all inventory items (cached 1hr)."""
     import importlib
+
     dw_dir = os.path.dirname(DEAL_WATCHER_DB)
     if dw_dir not in sys.path:
         sys.path.insert(0, dw_dir)
     import eship as eship_mod
+
     importlib.reload(eship_mod)
 
     profits = await eship_mod.fetch_eship_profits()
@@ -722,7 +901,9 @@ async def deals_eship(
     # Read listing from deal-watcher DB
     conn = sqlite3.connect(DEAL_WATCHER_DB)
     conn.row_factory = sqlite3.Row
-    listing = conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
+    listing = conn.execute(
+        "SELECT * FROM listings WHERE id = ?", (listing_id,)
+    ).fetchone()
     conn.close()
 
     if not listing:
@@ -730,11 +911,13 @@ async def deals_eship(
 
     # Import eship module from deal-watcher (reload to pick up changes)
     import importlib
+
     dw_dir = os.path.dirname(DEAL_WATCHER_DB)
     if dw_dir not in sys.path:
         sys.path.insert(0, dw_dir)
 
     import eship
+
     importlib.reload(eship)
     update_eship_item = eship.update_eship_item
 
@@ -744,7 +927,9 @@ async def deals_eship(
         agent_db = os.path.join(os.path.dirname(__file__), "agent.db")
         aconn = sqlite3.connect(agent_db)
         aconn.row_factory = sqlite3.Row
-        row = aconn.execute("SELECT sku FROM listings WHERE title = ?", (ebay_title,)).fetchone()
+        row = aconn.execute(
+            "SELECT sku FROM listings WHERE title = ?", (ebay_title,)
+        ).fetchone()
         if row:
             sku = row["sku"] or ""
         aconn.close()
@@ -766,8 +951,7 @@ async def deals_eship(
             agent_db = os.path.join(os.path.dirname(__file__), "agent.db")
             agent_conn = sqlite3.connect(agent_db)
             agent_conn.execute(
-                "UPDATE listings SET quantity = 1 WHERE title = ?",
-                (ebay_title,)
+                "UPDATE listings SET quantity = 1 WHERE title = ?", (ebay_title,)
             )
             agent_conn.commit()
             agent_conn.close()
@@ -779,6 +963,7 @@ async def deals_eship(
 
 
 # ── AIエージェント API ────────────────────────────────────
+
 
 @app.post("/api/agent")
 async def agent_endpoint(request: Request):
@@ -795,7 +980,7 @@ async def agent_endpoint(request: Request):
         if "api_key" in str(e):
             raise HTTPException(
                 status_code=500,
-                detail="ANTHROPIC_API_KEY が設定されていません。.env ファイルにキーを追加してください。"
+                detail="ANTHROPIC_API_KEY が設定されていません。.env ファイルにキーを追加してください。",
             )
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
@@ -805,6 +990,7 @@ async def agent_endpoint(request: Request):
 
 # ── ツール直接呼び出し API ────────────────────────────────
 
+
 @app.post("/api/tool/{tool_name}")
 async def tool_endpoint(tool_name: str, request: Request):
     """個別ツールを直接呼び出すエンドポイント"""
@@ -812,6 +998,7 @@ async def tool_endpoint(tool_name: str, request: Request):
     try:
         result = await handle_tool_call(tool_name, body)
         import json
+
         return JSONResponse(json.loads(result))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -819,11 +1006,13 @@ async def tool_endpoint(tool_name: str, request: Request):
 
 # ── 在庫管理 API ──────────────────────────────────────────
 
+
 @app.get("/api/inventory")
 async def get_inventory():
     """全出品の在庫状況を取得"""
     result = await handle_tool_call("check_inventory", {"out_of_stock_only": False})
     import json
+
     return JSONResponse(json.loads(result))
 
 
@@ -832,24 +1021,29 @@ async def get_out_of_stock():
     """在庫切れアイテムのみ取得"""
     result = await handle_tool_call("check_inventory", {"out_of_stock_only": True})
     import json
+
     return JSONResponse(json.loads(result))
 
 
 # ── 出品管理 API ──────────────────────────────────────────
+
 
 @app.get("/api/listings")
 async def list_listings():
     db = get_db()
     try:
         listings = crud.get_all_listings(db)
-        return [{
-            "sku": l.sku,
-            "title": l.title,
-            "price_usd": l.price_usd,
-            "quantity": l.quantity,
-            "seo_score": l.seo_score,
-            "category_name": l.category_name,
-        } for l in listings]
+        return [
+            {
+                "sku": l.sku,
+                "title": l.title,
+                "price_usd": l.price_usd,
+                "quantity": l.quantity,
+                "seo_score": l.seo_score,
+                "category_name": l.category_name,
+            }
+            for l in listings
+        ]
     finally:
         db.close()
 
@@ -878,44 +1072,53 @@ async def get_listing(sku: str):
 
 # ── 出品生成 API ──────────────────────────────────────────
 
+
 @app.post("/api/generate")
 async def generate_listing_endpoint(request: Request):
     """AI出品生成"""
     body = await request.json()
     result = await handle_tool_call("generate_listing", body)
     import json
+
     return JSONResponse(json.loads(result))
 
 
 # ── SEO分析 API ───────────────────────────────────────────
 
+
 @app.post("/api/analyze/{sku}")
 async def analyze_seo_endpoint(sku: str):
     result = await handle_tool_call("analyze_seo", {"sku": sku})
     import json
+
     return JSONResponse(json.loads(result))
 
 
 # ── 為替レート API ────────────────────────────────────────
 
+
 @app.get("/api/exchange-rate")
 async def exchange_rate_endpoint():
     result = await handle_tool_call("get_exchange_rate", {})
     import json
+
     return JSONResponse(json.loads(result))
 
 
 # ── 利益計算 API ──────────────────────────────────────────
+
 
 @app.post("/api/margin")
 async def margin_endpoint(request: Request):
     body = await request.json()
     result = await handle_tool_call("calculate_margin", body)
     import json
+
     return JSONResponse(json.loads(result))
 
 
 # ── 売上分析 API ──────────────────────────────────────────
+
 
 @app.get("/api/sales/summary")
 async def sales_summary(days: int = 30):
@@ -928,10 +1131,12 @@ async def sales_summary(days: int = 30):
 
 # ── 死に筒Refresh API（S2施策） ──────────────────────────
 
+
 @app.get("/api/refresh/candidates")
 async def refresh_candidates(limit: int = 50):
     """死に筒SKUの抽出プレビュー"""
     from listing.refresh import find_dead_listings
+
     db = get_db()
     try:
         listings = find_dead_listings(db, limit=limit)
@@ -957,6 +1162,7 @@ async def refresh_dry_run(request: Request):
     body = await request.json() if await request.body() else {}
     sample_size = int(body.get("sample_size", 10))
     from listing.refresh import dry_run_refresh
+
     db = get_db()
     try:
         results = await dry_run_refresh(db, sample_size=sample_size)
@@ -978,6 +1184,7 @@ async def refresh_run_slot(request: Request):
     dry_run = bool(body.get("dry_run", False))
     daily_target = int(body.get("daily_target", 30))
     from listing.refresh import run_refresh_slot
+
     result = await run_refresh_slot(daily_target=daily_target, dry_run=dry_run)
     return result
 
@@ -991,6 +1198,7 @@ async def refresh_revise(request: Request):
     if not sku:
         raise HTTPException(400, "sku required")
     from listing.refresh import refresh_single
+
     db = get_db()
     try:
         listing = db.get(Listing, sku)
@@ -1006,19 +1214,24 @@ async def refresh_status():
     """直近の実行状況サマリー"""
     from database.models import ListingRefreshBackup, ListingRefreshRun
     from datetime import datetime, timedelta
+
     db = get_db()
     try:
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        runs = db.query(ListingRefreshRun).filter(
-            ListingRefreshRun.scheduled_date == today
-        ).all()
+        runs = (
+            db.query(ListingRefreshRun)
+            .filter(ListingRefreshRun.scheduled_date == today)
+            .all()
+        )
         outcomes: dict = {}
         for r in runs:
             outcomes[r.outcome] = outcomes.get(r.outcome, 0) + 1
         week_ago = datetime.utcnow() - timedelta(days=7)
-        recent = db.query(ListingRefreshBackup).filter(
-            ListingRefreshBackup.created_at >= week_ago
-        ).all()
+        recent = (
+            db.query(ListingRefreshBackup)
+            .filter(ListingRefreshBackup.created_at >= week_ago)
+            .all()
+        )
         weekly_outcomes: dict = {}
         for b in recent:
             weekly_outcomes[b.status] = weekly_outcomes.get(b.status, 0) + 1
@@ -1036,9 +1249,12 @@ async def refresh_status():
 async def refresh_backups(limit: int = 50, status: str = ""):
     """バックアップ一覧（ロールバック対象確認）"""
     from database.models import ListingRefreshBackup
+
     db = get_db()
     try:
-        q = db.query(ListingRefreshBackup).order_by(ListingRefreshBackup.created_at.desc())
+        q = db.query(ListingRefreshBackup).order_by(
+            ListingRefreshBackup.created_at.desc()
+        )
         if status:
             q = q.filter(ListingRefreshBackup.status == status)
         items = q.limit(limit).all()
@@ -1046,9 +1262,13 @@ async def refresh_backups(limit: int = 50, status: str = ""):
             "count": len(items),
             "items": [
                 {
-                    "id": b.id, "sku": b.sku, "status": b.status,
-                    "old_title": b.old_title, "new_title": b.new_title,
-                    "old_price": b.old_price_usd, "new_price": b.new_price_usd,
+                    "id": b.id,
+                    "sku": b.sku,
+                    "status": b.status,
+                    "old_title": b.old_title,
+                    "new_title": b.new_title,
+                    "old_price": b.old_price_usd,
+                    "new_price": b.new_price_usd,
                     "applied_at": b.applied_at.isoformat() if b.applied_at else None,
                     "error": b.error_message,
                 }
@@ -1063,6 +1283,7 @@ async def refresh_backups(limit: int = 50, status: str = ""):
 async def refresh_rollback(backup_id: int):
     """指定バックアップIDの変更を元に戻す"""
     from listing.refresh import rollback
+
     db = get_db()
     try:
         return rollback(db, backup_id)
@@ -1072,6 +1293,7 @@ async def refresh_rollback(backup_id: int):
 
 # ── Phase 2: 価格インテリジェンス API ─────────────────────
 # 注意: 固定パスルートを {sku} パラメータルートより先に定義
+
 
 @app.post("/api/pricing/monitor")
 async def run_monitor(request: Request):
@@ -1116,27 +1338,31 @@ async def price_alerts():
         )
 
         latest = (
-            db.query(PriceHistory)
-            .join(subq, PriceHistory.id == subq.c.max_id)
-            .all()
+            db.query(PriceHistory).join(subq, PriceHistory.id == subq.c.max_id).all()
         )
 
         alerts = []
         for ph in latest:
             if ph.avg_competitor_price_usd > 0:
-                diff = (ph.our_price_usd - ph.avg_competitor_price_usd) / ph.avg_competitor_price_usd * 100
+                diff = (
+                    (ph.our_price_usd - ph.avg_competitor_price_usd)
+                    / ph.avg_competitor_price_usd
+                    * 100
+                )
                 if abs(diff) > 10:
                     listing = crud.get_listing(db, ph.sku)
-                    alerts.append({
-                        "sku": ph.sku,
-                        "title": listing.title if listing else ph.sku,
-                        "our_price": ph.our_price_usd,
-                        "avg_competitor": ph.avg_competitor_price_usd,
-                        "lowest_competitor": ph.lowest_competitor_price_usd,
-                        "diff_pct": round(diff, 1),
-                        "action": "値下げ検討" if diff > 10 else "値上げ余地あり",
-                        "recorded_at": ph.recorded_at.isoformat(),
-                    })
+                    alerts.append(
+                        {
+                            "sku": ph.sku,
+                            "title": listing.title if listing else ph.sku,
+                            "our_price": ph.our_price_usd,
+                            "avg_competitor": ph.avg_competitor_price_usd,
+                            "lowest_competitor": ph.lowest_competitor_price_usd,
+                            "diff_pct": round(diff, 1),
+                            "action": "値下げ検討" if diff > 10 else "値上げ余地あり",
+                            "recorded_at": ph.recorded_at.isoformat(),
+                        }
+                    )
 
         alerts.sort(key=lambda a: abs(a["diff_pct"]), reverse=True)
         return alerts
@@ -1145,6 +1371,7 @@ async def price_alerts():
 
 
 # ── 価格分析（SKUパラメータルート — 固定パスルートより後に定義） ──
+
 
 @app.post("/api/pricing/advice/{sku}")
 async def price_advice(sku: str, request: Request):
@@ -1161,14 +1388,17 @@ async def price_history(sku: str, days: int = 30):
     db = get_db()
     try:
         history = crud.get_price_history(db, sku, days=days)
-        return [{
-            "recorded_at": h.recorded_at.isoformat(),
-            "our_price": h.our_price_usd,
-            "avg_competitor": h.avg_competitor_price_usd,
-            "lowest_competitor": h.lowest_competitor_price_usd,
-            "num_competitors": h.num_competitors,
-            "exchange_rate": h.exchange_rate,
-        } for h in history]
+        return [
+            {
+                "recorded_at": h.recorded_at.isoformat(),
+                "our_price": h.our_price_usd,
+                "avg_competitor": h.avg_competitor_price_usd,
+                "lowest_competitor": h.lowest_competitor_price_usd,
+                "num_competitors": h.num_competitors,
+                "exchange_rate": h.exchange_rate,
+            }
+            for h in history
+        ]
     finally:
         db.close()
 
@@ -1178,10 +1408,12 @@ async def pricing_endpoint(sku: str):
     """競合価格分析（単体SKU）"""
     result = await handle_tool_call("analyze_pricing", {"sku": sku})
     import json
+
     return JSONResponse(json.loads(result))
 
 
 # ── Phase 3: 需要検知・リサーチ API ────────────────────────
+
 
 @app.post("/api/research/demand")
 async def research_demand_endpoint(request: Request):
@@ -1217,6 +1449,7 @@ async def pipeline_preview_endpoint(request: Request):
 
 # ── Phase 4: コミュニケーション＆分析 API ──────────────────
 
+
 @app.post("/api/sales/sync")
 async def sync_sales_endpoint(request: Request):
     """売上データ同期"""
@@ -1226,7 +1459,9 @@ async def sync_sales_endpoint(request: Request):
 
 
 @app.get("/api/sales/analytics")
-async def sales_analytics_endpoint(days: int = 30, start_date: str = "", end_date: str = ""):
+async def sales_analytics_endpoint(
+    days: int = 30, start_date: str = "", end_date: str = ""
+):
     """売上分析レポート"""
     params = {"days": days}
     if start_date and end_date:
@@ -1261,28 +1496,41 @@ async def process_messages_endpoint(request: Request):
 
 # ── アクティビティ API ──────────────────────────────────
 
+
 @app.get("/api/activity/recent")
 async def recent_activity(limit: int = 10):
     """最近のアクティビティ"""
     from database.models import SalesRecord, ChangeHistory
     from sqlalchemy import desc
+
     db = get_db()
     try:
-        sales = db.query(SalesRecord).order_by(desc(SalesRecord.sold_at)).limit(limit).all()
-        changes = db.query(ChangeHistory).order_by(desc(ChangeHistory.applied_at)).limit(limit).all()
+        sales = (
+            db.query(SalesRecord).order_by(desc(SalesRecord.sold_at)).limit(limit).all()
+        )
+        changes = (
+            db.query(ChangeHistory)
+            .order_by(desc(ChangeHistory.applied_at))
+            .limit(limit)
+            .all()
+        )
         activities = []
         for s in sales:
-            activities.append({
-                "type": "sale",
-                "time": s.sold_at.isoformat(),
-                "text": f"Sale: {s.title[:40]} ${s.sale_price_usd:.2f}",
-            })
+            activities.append(
+                {
+                    "type": "sale",
+                    "time": s.sold_at.isoformat(),
+                    "text": f"Sale: {s.title[:40]} ${s.sale_price_usd:.2f}",
+                }
+            )
         for c in changes:
-            activities.append({
-                "type": "change",
-                "time": c.applied_at.isoformat(),
-                "text": f"Changed: {c.sku[:20]} {c.field_changed}",
-            })
+            activities.append(
+                {
+                    "type": "change",
+                    "time": c.applied_at.isoformat(),
+                    "text": f"Changed: {c.sku[:20]} {c.field_changed}",
+                }
+            )
         activities.sort(key=lambda a: a["time"], reverse=True)
         return activities[:limit]
     finally:
@@ -1290,6 +1538,7 @@ async def recent_activity(limit: int = 10):
 
 
 # ── 仕入れ管理 API ──────────────────────────────────────
+
 
 @app.get("/api/procurements")
 async def list_procurements(status: str = ""):
@@ -1316,7 +1565,11 @@ async def list_procurements(status: str = ""):
         skus = list({p.sku for p in procs if p.sku})
         image_map = {}
         if skus:
-            listings = db.query(Listing.sku, Listing.image_urls_json).filter(Listing.sku.in_(skus)).all()
+            listings = (
+                db.query(Listing.sku, Listing.image_urls_json)
+                .filter(Listing.sku.in_(skus))
+                .all()
+            )
             for l in listings:
                 try:
                     urls = json.loads(l.image_urls_json) if l.image_urls_json else []
@@ -1340,8 +1593,12 @@ async def list_procurements(status: str = ""):
                 "consumption_tax_jpy": p.consumption_tax_jpy,
                 "total_cost_jpy": p.total_cost_jpy,
                 "status": p.status,
-                "purchase_date": p.purchase_date.isoformat() if p.purchase_date else None,
-                "received_date": p.received_date.isoformat() if p.received_date else None,
+                "purchase_date": p.purchase_date.isoformat()
+                if p.purchase_date
+                else None,
+                "received_date": p.received_date.isoformat()
+                if p.received_date
+                else None,
                 "notes": p.notes or "",
                 "sale": sales_by_sku.get(p.sku),
             }
@@ -1376,7 +1633,13 @@ async def create_procurement(request: Request):
             notes=body.get("notes", ""),
             **({"purchase_date": purchase_date} if purchase_date else {}),
         )
-        return JSONResponse({"id": proc.id, "total_cost_jpy": proc.total_cost_jpy, "status": proc.status})
+        return JSONResponse(
+            {
+                "id": proc.id,
+                "total_cost_jpy": proc.total_cost_jpy,
+                "status": proc.status,
+            }
+        )
     finally:
         db.close()
 
@@ -1387,21 +1650,28 @@ async def get_procurements_by_sku(sku: str):
     db = get_db()
     try:
         procs = crud.get_procurement_by_sku(db, sku)
-        return [{
-            "id": p.id,
-            "sku": p.sku,
-            "platform": p.platform,
-            "title": p.title,
-            "url": p.url,
-            "purchase_price_jpy": p.purchase_price_jpy,
-            "shipping_cost_jpy": p.shipping_cost_jpy,
-            "other_cost_jpy": p.other_cost_jpy,
-            "total_cost_jpy": p.total_cost_jpy,
-            "status": p.status,
-            "purchase_date": p.purchase_date.isoformat() if p.purchase_date else None,
-            "received_date": p.received_date.isoformat() if p.received_date else None,
-            "notes": p.notes,
-        } for p in procs]
+        return [
+            {
+                "id": p.id,
+                "sku": p.sku,
+                "platform": p.platform,
+                "title": p.title,
+                "url": p.url,
+                "purchase_price_jpy": p.purchase_price_jpy,
+                "shipping_cost_jpy": p.shipping_cost_jpy,
+                "other_cost_jpy": p.other_cost_jpy,
+                "total_cost_jpy": p.total_cost_jpy,
+                "status": p.status,
+                "purchase_date": p.purchase_date.isoformat()
+                if p.purchase_date
+                else None,
+                "received_date": p.received_date.isoformat()
+                if p.received_date
+                else None,
+                "notes": p.notes,
+            }
+            for p in procs
+        ]
     finally:
         db.close()
 
@@ -1414,17 +1684,26 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
     for key in ["sku", "platform", "title", "url", "status", "notes"]:
         if key in body:
             kwargs[key] = body[key]
-    for key in ["purchase_price_jpy", "shipping_cost_jpy", "other_cost_jpy", "consumption_tax_jpy"]:
+    for key in [
+        "purchase_price_jpy",
+        "shipping_cost_jpy",
+        "other_cost_jpy",
+        "consumption_tax_jpy",
+    ]:
         if key in body:
             kwargs[key] = int(body[key])
     if body.get("purchase_date"):
         try:
-            kwargs["purchase_date"] = datetime.strptime(body["purchase_date"], "%Y-%m-%d")
+            kwargs["purchase_date"] = datetime.strptime(
+                body["purchase_date"], "%Y-%m-%d"
+            )
         except ValueError:
             pass
     if body.get("received_date"):
         try:
-            kwargs["received_date"] = datetime.strptime(body["received_date"], "%Y-%m-%d")
+            kwargs["received_date"] = datetime.strptime(
+                body["received_date"], "%Y-%m-%d"
+            )
         except ValueError:
             pass
     db = get_db()
@@ -1432,7 +1711,13 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         proc = crud.update_procurement(db, proc_id, **kwargs)
         if not proc:
             raise HTTPException(404, "Procurement not found")
-        return JSONResponse({"id": proc.id, "status": proc.status, "total_cost_jpy": proc.total_cost_jpy})
+        return JSONResponse(
+            {
+                "id": proc.id,
+                "status": proc.status,
+                "total_cost_jpy": proc.total_cost_jpy,
+            }
+        )
     finally:
         db.close()
 
@@ -1443,6 +1728,7 @@ async def delete_procurement(proc_id: int):
     db = get_db()
     try:
         from database.models import Procurement
+
         proc = db.query(Procurement).filter(Procurement.id == proc_id).first()
         if not proc:
             raise HTTPException(404, "Procurement not found")
@@ -1454,6 +1740,7 @@ async def delete_procurement(proc_id: int):
 
 
 # ── Instagram API ─────────────────────────────────────────
+
 
 @app.post("/api/instagram/generate")
 async def instagram_generate_endpoint(request: Request):
@@ -1483,28 +1770,38 @@ async def instagram_posts_endpoint(status: str = ""):
     """Instagram投稿一覧"""
     from database.models import InstagramPost
     from sqlalchemy import desc
+
     db = get_db()
     try:
         q = db.query(InstagramPost)
         if status:
             q = q.filter(InstagramPost.status == status)
         posts = q.order_by(desc(InstagramPost.created_at)).limit(50).all()
-        return [{
-            "id": p.id,
-            "sku": p.sku,
-            "content_type": p.content_type,
-            "tone": p.tone,
-            "status": p.status,
-            "caption_preview": p.caption[:120] + "..." if len(p.caption) > 120 else p.caption,
-            "hashtag_count": len(json.loads(p.hashtags_json)) if p.hashtags_json else 0,
-            "image_count": len(json.loads(p.image_urls_json)) if p.image_urls_json else 0,
-            "impressions": p.impressions,
-            "likes": p.likes,
-            "saves": p.saves,
-            "created_at": p.created_at.isoformat(),
-            "published_at": p.published_at.isoformat() if p.published_at else None,
-            "scheduled_at": p.scheduled_at.isoformat() if p.scheduled_at else None,
-        } for p in posts]
+        return [
+            {
+                "id": p.id,
+                "sku": p.sku,
+                "content_type": p.content_type,
+                "tone": p.tone,
+                "status": p.status,
+                "caption_preview": p.caption[:120] + "..."
+                if len(p.caption) > 120
+                else p.caption,
+                "hashtag_count": len(json.loads(p.hashtags_json))
+                if p.hashtags_json
+                else 0,
+                "image_count": len(json.loads(p.image_urls_json))
+                if p.image_urls_json
+                else 0,
+                "impressions": p.impressions,
+                "likes": p.likes,
+                "saves": p.saves,
+                "created_at": p.created_at.isoformat(),
+                "published_at": p.published_at.isoformat() if p.published_at else None,
+                "scheduled_at": p.scheduled_at.isoformat() if p.scheduled_at else None,
+            }
+            for p in posts
+        ]
     finally:
         db.close()
 
@@ -1513,6 +1810,7 @@ async def instagram_posts_endpoint(status: str = ""):
 async def instagram_post_detail(post_id: int):
     """Instagram投稿詳細"""
     from database.models import InstagramPost
+
     db = get_db()
     try:
         post = db.query(InstagramPost).filter(InstagramPost.id == post_id).first()
@@ -1526,8 +1824,12 @@ async def instagram_post_detail(post_id: int):
             "content_type": post.content_type,
             "tone": post.tone,
             "cta": post.cta,
-            "image_urls": json.loads(post.image_urls_json) if post.image_urls_json else [],
-            "slide_suggestions": json.loads(post.slide_suggestions_json) if post.slide_suggestions_json else [],
+            "image_urls": json.loads(post.image_urls_json)
+            if post.image_urls_json
+            else [],
+            "slide_suggestions": json.loads(post.slide_suggestions_json)
+            if post.slide_suggestions_json
+            else [],
             "status": post.status,
             "ig_post_id": post.ig_post_id,
             "impressions": post.impressions,
@@ -1537,8 +1839,12 @@ async def instagram_post_detail(post_id: int):
             "saves": post.saves,
             "link_clicks": post.link_clicks,
             "created_at": post.created_at.isoformat(),
-            "published_at": post.published_at.isoformat() if post.published_at else None,
-            "scheduled_at": post.scheduled_at.isoformat() if post.scheduled_at else None,
+            "published_at": post.published_at.isoformat()
+            if post.published_at
+            else None,
+            "scheduled_at": post.scheduled_at.isoformat()
+            if post.scheduled_at
+            else None,
         }
     finally:
         db.close()
@@ -1553,6 +1859,7 @@ async def instagram_dm_reply_endpoint(request: Request):
 
 
 # ── 利益管理 ─────────────────────────────────────────────
+
 
 @app.get("/profit", response_class=HTMLResponse)
 async def profit_redirect():
@@ -1572,6 +1879,7 @@ async def profit_summary_api(months: int = 6):
 async def profit_breakdown_api(month: str = ""):
     if not month:
         from datetime import datetime
+
         month = datetime.utcnow().strftime("%Y-%m")
     db = get_db()
     try:
@@ -1591,7 +1899,9 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
         period_months = {"1M": 1, "3M": 3, "6M": 6, "12M": 12}
         ym = ""
         if month in period_months:
-            from_date = (datetime.utcnow() - relativedelta(months=period_months[month])).strftime("%Y-%m-%d")
+            from_date = (
+                datetime.utcnow() - relativedelta(months=period_months[month])
+            ).strftime("%Y-%m-%d")
             to_date = ""  # 現在まで
         elif month:
             ym = month  # YYYY-MM形式
@@ -1607,7 +1917,9 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
                 pass
         if to_date:
             try:
-                td = datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+                td = datetime.strptime(to_date, "%Y-%m-%d").replace(
+                    hour=23, minute=59, second=59
+                )
                 records = [r for r in records if r.sold_at and r.sold_at <= td]
             except ValueError:
                 pass
@@ -1616,7 +1928,11 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
         skus = list({r.sku for r in records if r.sku})
         image_map = {}
         if skus:
-            listings = db.query(Listing.sku, Listing.image_urls_json).filter(Listing.sku.in_(skus)).all()
+            listings = (
+                db.query(Listing.sku, Listing.image_urls_json)
+                .filter(Listing.sku.in_(skus))
+                .all()
+            )
             for l in listings:
                 try:
                     urls = json.loads(l.image_urls_json) if l.image_urls_json else []
@@ -1628,16 +1944,24 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
         # SKU→仕入情報マップ（一括取得）
         proc_map = {}
         if skus:
-            procs = db.query(Procurement).filter(Procurement.sku.in_(skus)).order_by(Procurement.created_at.desc()).all()
+            procs = (
+                db.query(Procurement)
+                .filter(Procurement.sku.in_(skus))
+                .order_by(Procurement.created_at.desc())
+                .all()
+            )
             for p in procs:
                 if p.sku not in proc_map:
                     proc_map[p.sku] = p
 
         # SKU→仕入れ台帳マップ（一括取得）
         from database.models import InventoryItem
+
         inv_map = {}
         if skus:
-            inv_items = db.query(InventoryItem).filter(InventoryItem.sku.in_(skus)).all()
+            inv_items = (
+                db.query(InventoryItem).filter(InventoryItem.sku.in_(skus)).all()
+            )
             for inv in inv_items:
                 if inv.sku not in inv_map:
                     inv_map[inv.sku] = inv
@@ -1653,7 +1977,9 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
             if p:
                 proc_info = {
                     "id": p.id,
-                    "purchase_date": p.purchase_date.strftime("%Y-%m-%d") if p.purchase_date else "",
+                    "purchase_date": p.purchase_date.strftime("%Y-%m-%d")
+                    if p.purchase_date
+                    else "",
                     "purchase_price_jpy": p.purchase_price_jpy,
                     "consumption_tax_jpy": p.consumption_tax_jpy,
                     "shipping_cost_jpy": p.shipping_cost_jpy,
@@ -1663,41 +1989,50 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
                     "status": p.status,
                 }
 
-            result.append({
-                "id": r.id, "order_id": r.order_id, "item_id": getattr(r, 'item_id', ''),
-                "sku": r.sku, "title": r.title,
-                "image_url": image_map.get(r.sku, ""),
-                "buyer_name": getattr(r, 'buyer_name', ''),
-                "buyer_country": getattr(r, 'buyer_country', ''),
-                "sale_price_usd": r.sale_price_usd,
-                "sale_price_jpy": sale_jpy,
-                "source_cost_jpy": r.source_cost_jpy,
-                "consumption_tax_jpy": r.consumption_tax_jpy,
-                "shipping_cost_jpy": r.shipping_cost_jpy,
-                "intl_shipping_cost_jpy": r.intl_shipping_cost_jpy,
-                "shipping_method": r.shipping_method,
-                "ebay_fees_usd": r.ebay_fees_usd,
-                "payoneer_fee_usd": r.payoneer_fee_usd,
-                "fees_jpy": fees_jpy,
-                "payoneer_rate": r.payoneer_rate,
-                "received_jpy": r.received_jpy,
-                "customs_duty_jpy": getattr(r, 'customs_duty_jpy', 0) or 0,
-                "other_cost_jpy": r.other_cost_jpy,
-                "cost_note": r.cost_note or "",
-                "tracking_number": r.tracking_number or "",
-                "exchange_rate": r.exchange_rate,
-                "total_cost_jpy": r.total_cost_jpy,
-                "net_profit_usd": r.net_profit_usd,
-                "net_profit_jpy": r.net_profit_jpy,
-                "profit_margin_pct": r.profit_margin_pct,
-                "sold_at": r.sold_at.strftime("%Y-%m-%d") if r.sold_at else "",
-                "progress": getattr(r, 'progress', '') or '',
-                "marketplace": getattr(r, 'marketplace', '') or '',
-                "listing_site": getattr(r, 'listing_site', '') or '',
-                "ship_by_date": r.ship_by_date.strftime("%Y-%m-%d") if getattr(r, 'ship_by_date', None) else '',
-                "procurement": proc_info,
-                "inventory_item_id": inv_map[r.sku].id if r.sku in inv_map else None,
-            })
+            result.append(
+                {
+                    "id": r.id,
+                    "order_id": r.order_id,
+                    "item_id": getattr(r, "item_id", ""),
+                    "sku": r.sku,
+                    "title": r.title,
+                    "image_url": image_map.get(r.sku, ""),
+                    "buyer_name": getattr(r, "buyer_name", ""),
+                    "buyer_country": getattr(r, "buyer_country", ""),
+                    "sale_price_usd": r.sale_price_usd,
+                    "sale_price_jpy": sale_jpy,
+                    "source_cost_jpy": r.source_cost_jpy,
+                    "consumption_tax_jpy": r.consumption_tax_jpy,
+                    "shipping_cost_jpy": r.shipping_cost_jpy,
+                    "intl_shipping_cost_jpy": r.intl_shipping_cost_jpy,
+                    "shipping_method": r.shipping_method,
+                    "ebay_fees_usd": r.ebay_fees_usd,
+                    "payoneer_fee_usd": r.payoneer_fee_usd,
+                    "fees_jpy": fees_jpy,
+                    "payoneer_rate": r.payoneer_rate,
+                    "received_jpy": r.received_jpy,
+                    "customs_duty_jpy": getattr(r, "customs_duty_jpy", 0) or 0,
+                    "other_cost_jpy": r.other_cost_jpy,
+                    "cost_note": r.cost_note or "",
+                    "tracking_number": r.tracking_number or "",
+                    "exchange_rate": r.exchange_rate,
+                    "total_cost_jpy": r.total_cost_jpy,
+                    "net_profit_usd": r.net_profit_usd,
+                    "net_profit_jpy": r.net_profit_jpy,
+                    "profit_margin_pct": r.profit_margin_pct,
+                    "sold_at": r.sold_at.strftime("%Y-%m-%d") if r.sold_at else "",
+                    "progress": getattr(r, "progress", "") or "",
+                    "marketplace": getattr(r, "marketplace", "") or "",
+                    "listing_site": getattr(r, "listing_site", "") or "",
+                    "ship_by_date": r.ship_by_date.strftime("%Y-%m-%d")
+                    if getattr(r, "ship_by_date", None)
+                    else "",
+                    "procurement": proc_info,
+                    "inventory_item_id": inv_map[r.sku].id
+                    if r.sku in inv_map
+                    else None,
+                }
+            )
         return JSONResponse(result)
     finally:
         db.close()
@@ -1711,11 +2046,15 @@ async def update_sales_record_api(record_id: int, request: Request):
         record = crud.update_sales_record(db, record_id, **body)
         if not record:
             raise HTTPException(404, "Sales record not found")
-        return JSONResponse({
-            "id": record.id, "net_profit_usd": record.net_profit_usd,
-            "net_profit_jpy": record.net_profit_jpy, "profit_margin_pct": record.profit_margin_pct,
-            "total_cost_jpy": record.total_cost_jpy,
-        })
+        return JSONResponse(
+            {
+                "id": record.id,
+                "net_profit_usd": record.net_profit_usd,
+                "net_profit_jpy": record.net_profit_jpy,
+                "profit_margin_pct": record.profit_margin_pct,
+                "total_cost_jpy": record.total_cost_jpy,
+            }
+        )
     finally:
         db.close()
 
@@ -1725,14 +2064,20 @@ async def get_expenses_api(month: str = ""):
     db = get_db()
     try:
         expenses = crud.get_expenses(db, year_month=month)
-        return JSONResponse([
-            {
-                "id": e.id, "year_month": e.year_month, "category": e.category,
-                "description": e.description, "amount_jpy": e.amount_jpy,
-                "amount_usd": e.amount_usd, "is_recurring": bool(e.is_recurring),
-            }
-            for e in expenses
-        ])
+        return JSONResponse(
+            [
+                {
+                    "id": e.id,
+                    "year_month": e.year_month,
+                    "category": e.category,
+                    "description": e.description,
+                    "amount_jpy": e.amount_jpy,
+                    "amount_usd": e.amount_usd,
+                    "is_recurring": bool(e.is_recurring),
+                }
+                for e in expenses
+            ]
+        )
     finally:
         db.close()
 
@@ -1760,7 +2105,9 @@ async def delete_expense_api(expense_id: int):
 
 
 @app.get("/api/export/tax-report")
-async def export_tax_report_api(type: str = "sales", year: str = "", from_month: str = "", to_month: str = ""):
+async def export_tax_report_api(
+    type: str = "sales", year: str = "", from_month: str = "", to_month: str = ""
+):
     """税務エクスポート CSV"""
     import csv
     import io
@@ -1771,21 +2118,43 @@ async def export_tax_report_api(type: str = "sales", year: str = "", from_month:
     try:
         output = io.StringIO()
         # BOM for Excel
-        output.write('\ufeff')
+        output.write("\ufeff")
 
         if type == "sales":
             # 売上明細（税理士メイン資料）
             writer = csv.writer(output)
-            writer.writerow([
-                "日付", "注文ID", "SKU", "商品名", "売上(USD)", "為替レート", "売上(JPY)",
-                "仕入原価(JPY)", "消費税(JPY)", "国内送料(JPY)", "国際送料(JPY)",
-                "発送方法", "eBay手数料(USD)", "eBay手数料(JPY)",
-                "Payoneer手数料(USD)", "Payoneer手数料(JPY)",
-                "その他経費(JPY)", "経費メモ", "全コスト(JPY)", "純利益(JPY)", "利益率(%)",
-                "Payoneerレート", "実着金額(JPY)", "為替差損益(JPY)",
-            ])
+            writer.writerow(
+                [
+                    "日付",
+                    "注文ID",
+                    "SKU",
+                    "商品名",
+                    "売上(USD)",
+                    "為替レート",
+                    "売上(JPY)",
+                    "仕入原価(JPY)",
+                    "消費税(JPY)",
+                    "国内送料(JPY)",
+                    "国際送料(JPY)",
+                    "発送方法",
+                    "eBay手数料(USD)",
+                    "eBay手数料(JPY)",
+                    "Payoneer手数料(USD)",
+                    "Payoneer手数料(JPY)",
+                    "その他経費(JPY)",
+                    "経費メモ",
+                    "全コスト(JPY)",
+                    "純利益(JPY)",
+                    "利益率(%)",
+                    "Payoneerレート",
+                    "実着金額(JPY)",
+                    "為替差損益(JPY)",
+                ]
+            )
             # 期間フィルタ
-            records = db.query(crud.SalesRecord).order_by(crud.SalesRecord.sold_at).all()
+            records = (
+                db.query(crud.SalesRecord).order_by(crud.SalesRecord.sold_at).all()
+            )
             for r in records:
                 sold_ym = r.sold_at.strftime("%Y-%m") if r.sold_at else ""
                 if from_month and sold_ym < from_month:
@@ -1799,75 +2168,143 @@ async def export_tax_report_api(type: str = "sales", year: str = "", from_month:
                 ebay_fees_jpy = round(r.ebay_fees_usd * rate)
                 payoneer_fees_jpy = round(r.payoneer_fee_usd * rate)
                 # 為替差損益 = Payoneer実着金 - TTM換算売上×(1-手数料率)
-                ttm_net_jpy = round((r.sale_price_usd - r.ebay_fees_usd - r.payoneer_fee_usd) * rate)
+                ttm_net_jpy = round(
+                    (r.sale_price_usd - r.ebay_fees_usd - r.payoneer_fee_usd) * rate
+                )
                 forex_diff = (r.received_jpy - ttm_net_jpy) if r.received_jpy else 0
-                writer.writerow([
-                    r.sold_at.strftime("%Y-%m-%d") if r.sold_at else "",
-                    r.order_id, r.sku, r.title,
-                    f"{r.sale_price_usd:.2f}", f"{rate:.2f}", revenue_jpy,
-                    r.source_cost_jpy, r.consumption_tax_jpy,
-                    r.shipping_cost_jpy, r.intl_shipping_cost_jpy,
-                    r.shipping_method,
-                    f"{r.ebay_fees_usd:.2f}", ebay_fees_jpy,
-                    f"{r.payoneer_fee_usd:.2f}", payoneer_fees_jpy,
-                    r.other_cost_jpy, r.cost_note or "",
-                    r.total_cost_jpy, r.net_profit_jpy, f"{r.profit_margin_pct:.1f}",
-                    f"{r.payoneer_rate:.2f}" if r.payoneer_rate else "",
-                    r.received_jpy or "", forex_diff if r.received_jpy else "",
-                ])
+                writer.writerow(
+                    [
+                        r.sold_at.strftime("%Y-%m-%d") if r.sold_at else "",
+                        r.order_id,
+                        r.sku,
+                        r.title,
+                        f"{r.sale_price_usd:.2f}",
+                        f"{rate:.2f}",
+                        revenue_jpy,
+                        r.source_cost_jpy,
+                        r.consumption_tax_jpy,
+                        r.shipping_cost_jpy,
+                        r.intl_shipping_cost_jpy,
+                        r.shipping_method,
+                        f"{r.ebay_fees_usd:.2f}",
+                        ebay_fees_jpy,
+                        f"{r.payoneer_fee_usd:.2f}",
+                        payoneer_fees_jpy,
+                        r.other_cost_jpy,
+                        r.cost_note or "",
+                        r.total_cost_jpy,
+                        r.net_profit_jpy,
+                        f"{r.profit_margin_pct:.1f}",
+                        f"{r.payoneer_rate:.2f}" if r.payoneer_rate else "",
+                        r.received_jpy or "",
+                        forex_diff if r.received_jpy else "",
+                    ]
+                )
             filename = f"ebay_sales_{from_month or year or 'all'}_{to_month or ''}.csv"
 
         elif type == "monthly":
             # 月次集計（確定申告用）
             writer = csv.writer(output)
-            writer.writerow([
-                "年月", "売上件数", "売上合計(USD)", "売上合計(JPY)",
-                "仕入原価(JPY)", "消費税還付対象(JPY)",
-                "国内送料(JPY)", "国際送料(JPY)",
-                "eBay手数料(USD)", "Payoneer手数料(USD)",
-                "その他経費(JPY)", "固定費(JPY)", "経費合計(JPY)",
-                "純利益(JPY)",
-            ])
+            writer.writerow(
+                [
+                    "年月",
+                    "売上件数",
+                    "売上合計(USD)",
+                    "売上合計(JPY)",
+                    "仕入原価(JPY)",
+                    "消費税還付対象(JPY)",
+                    "国内送料(JPY)",
+                    "国際送料(JPY)",
+                    "eBay手数料(USD)",
+                    "Payoneer手数料(USD)",
+                    "その他経費(JPY)",
+                    "固定費(JPY)",
+                    "経費合計(JPY)",
+                    "純利益(JPY)",
+                ]
+            )
             summary = crud.get_profit_summary(db, months=24)
             for m in sorted(summary, key=lambda x: x["year_month"]):
                 if year and not m["year_month"].startswith(year):
                     continue
-                total_fees_jpy = round(
-                    (m["ebay_fees_usd"] + m["payoneer_fees_usd"]) * (m.get("avg_rate", 150))
-                ) if m.get("revenue_usd") else 0
-                expense_total = (
-                    m["source_cost_jpy"] + m["shipping_jpy"] + m["intl_shipping_jpy"]
-                    + m["other_cost_jpy"] + m.get("fixed_cost_jpy", 0) + total_fees_jpy
+                total_fees_jpy = (
+                    round(
+                        (m["ebay_fees_usd"] + m["payoneer_fees_usd"])
+                        * (m.get("avg_rate", 150))
+                    )
+                    if m.get("revenue_usd")
+                    else 0
                 )
-                writer.writerow([
-                    m["year_month"], m["sales_count"],
-                    f"{m['revenue_usd']:.2f}", m["revenue_jpy"],
-                    m["source_cost_jpy"], m["consumption_tax_jpy"],
-                    m["shipping_jpy"], m["intl_shipping_jpy"],
-                    f"{m['ebay_fees_usd']:.2f}", f"{m['payoneer_fees_usd']:.2f}",
-                    m["other_cost_jpy"], m.get("fixed_cost_jpy", 0),
-                    expense_total, m["net_profit_jpy"],
-                ])
+                expense_total = (
+                    m["source_cost_jpy"]
+                    + m["shipping_jpy"]
+                    + m["intl_shipping_jpy"]
+                    + m["other_cost_jpy"]
+                    + m.get("fixed_cost_jpy", 0)
+                    + total_fees_jpy
+                )
+                writer.writerow(
+                    [
+                        m["year_month"],
+                        m["sales_count"],
+                        f"{m['revenue_usd']:.2f}",
+                        m["revenue_jpy"],
+                        m["source_cost_jpy"],
+                        m["consumption_tax_jpy"],
+                        m["shipping_jpy"],
+                        m["intl_shipping_jpy"],
+                        f"{m['ebay_fees_usd']:.2f}",
+                        f"{m['payoneer_fees_usd']:.2f}",
+                        m["other_cost_jpy"],
+                        m.get("fixed_cost_jpy", 0),
+                        expense_total,
+                        m["net_profit_jpy"],
+                    ]
+                )
             filename = f"ebay_monthly_{year or 'all'}.csv"
 
         elif type == "procurement":
             # 仕入明細（消費税還付用）
             writer = csv.writer(output)
-            writer.writerow([
-                "日付", "仕入先", "商品名", "仕入額(JPY)", "消費税額(JPY)",
-                "送料(JPY)", "その他(JPY)", "合計(JPY)", "SKU", "ステータス",
-            ])
-            procs = db.query(crud.Procurement).order_by(crud.Procurement.purchase_date).all()
+            writer.writerow(
+                [
+                    "日付",
+                    "仕入先",
+                    "商品名",
+                    "仕入額(JPY)",
+                    "消費税額(JPY)",
+                    "送料(JPY)",
+                    "その他(JPY)",
+                    "合計(JPY)",
+                    "SKU",
+                    "ステータス",
+                ]
+            )
+            procs = (
+                db.query(crud.Procurement)
+                .order_by(crud.Procurement.purchase_date)
+                .all()
+            )
             for p in procs:
-                purchase_ym = p.purchase_date.strftime("%Y-%m") if p.purchase_date else ""
+                purchase_ym = (
+                    p.purchase_date.strftime("%Y-%m") if p.purchase_date else ""
+                )
                 if year and not purchase_ym.startswith(year):
                     continue
-                writer.writerow([
-                    p.purchase_date.strftime("%Y-%m-%d") if p.purchase_date else "",
-                    p.platform, p.title, p.purchase_price_jpy,
-                    p.consumption_tax_jpy, p.shipping_cost_jpy,
-                    p.other_cost_jpy, p.total_cost_jpy, p.sku, p.status,
-                ])
+                writer.writerow(
+                    [
+                        p.purchase_date.strftime("%Y-%m-%d") if p.purchase_date else "",
+                        p.platform,
+                        p.title,
+                        p.purchase_price_jpy,
+                        p.consumption_tax_jpy,
+                        p.shipping_cost_jpy,
+                        p.other_cost_jpy,
+                        p.total_cost_jpy,
+                        p.sku,
+                        p.status,
+                    ]
+                )
             filename = f"ebay_procurement_{year or 'all'}.csv"
         else:
             raise HTTPException(400, f"Unknown export type: {type}")
@@ -1883,6 +2320,7 @@ async def export_tax_report_api(type: str = "sales", year: str = "", from_month:
 
 
 # ── CPaaS送料CSVインポート ────────────────────────────────
+
 
 @app.post("/api/shipping/import")
 async def import_shipping_csv(request: Request):
@@ -1946,6 +2384,7 @@ async def import_shipping_csv(request: Request):
             # 2) フォールバック: タイトル類似度マッチ（まだ送料未入力のもの）
             if not record and product_name:
                 from difflib import SequenceMatcher
+
                 candidates = (
                     db.query(crud.SalesRecord)
                     .filter(crud.SalesRecord.intl_shipping_cost_jpy == 0)
@@ -1956,7 +2395,9 @@ async def import_shipping_csv(request: Request):
                 best_candidate = None
                 cp_lower = product_name[:60].lower()
                 for c in candidates:
-                    ratio = SequenceMatcher(None, cp_lower, c.title[:60].lower()).ratio()
+                    ratio = SequenceMatcher(
+                        None, cp_lower, c.title[:60].lower()
+                    ).ratio()
                     if ratio > best_ratio:
                         best_ratio = ratio
                         best_candidate = c
@@ -1964,12 +2405,14 @@ async def import_shipping_csv(request: Request):
                     record = best_candidate
 
             if not record:
-                not_found.append({
-                    "tracking": tracking,
-                    "carrier": carrier,
-                    "product": product_name[:60],
-                    "total": total,
-                })
+                not_found.append(
+                    {
+                        "tracking": tracking,
+                        "carrier": carrier,
+                        "product": product_name[:60],
+                        "total": total,
+                    }
+                )
                 continue
 
             # 送料・キャリアを更新
@@ -1989,13 +2432,15 @@ async def import_shipping_csv(request: Request):
             db.commit()
             matched += 1
 
-        return JSONResponse({
-            "status": "ok",
-            "matched": matched,
-            "skipped": skipped,
-            "not_found_count": len(not_found),
-            "not_found": not_found[:20],  # 最大20件表示
-        })
+        return JSONResponse(
+            {
+                "status": "ok",
+                "matched": matched,
+                "skipped": skipped,
+                "not_found_count": len(not_found),
+                "not_found": not_found[:20],  # 最大20件表示
+            }
+        )
     finally:
         db.close()
 
@@ -2006,13 +2451,24 @@ async def sync_all_sales(request: Request):
     from ebay_core.client import get_all_orders
     from ebay_core.exchange_rate import get_usd_to_jpy
 
-    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    body = (
+        await request.json()
+        if request.headers.get("content-type", "").startswith("application/json")
+        else {}
+    )
     from_date = body.get("from_date", "")  # "YYYY-MM-DD"
     to_date = body.get("to_date", "")
 
     orders = get_all_orders(from_date=from_date, to_date=to_date)
     if not orders:
-        return JSONResponse({"status": "ok", "orders_fetched": 0, "new_records": 0, "skipped_existing": 0})
+        return JSONResponse(
+            {
+                "status": "ok",
+                "orders_fetched": 0,
+                "new_records": 0,
+                "skipped_existing": 0,
+            }
+        )
 
     rate = get_usd_to_jpy()
     db = get_db()
@@ -2034,13 +2490,17 @@ async def sync_all_sales(request: Request):
 
                 # 重複チェック: order_id + item_id
                 existing = (
-                    db.query(crud.SalesRecord)
-                    .filter(
-                        crud.SalesRecord.order_id == order_id,
-                        crud.SalesRecord.item_id == item.get("item_id", ""),
+                    (
+                        db.query(crud.SalesRecord)
+                        .filter(
+                            crud.SalesRecord.order_id == order_id,
+                            crud.SalesRecord.item_id == item.get("item_id", ""),
+                        )
+                        .first()
                     )
-                    .first()
-                ) if order_id else None
+                    if order_id
+                    else None
+                )
 
                 # order_id未設定の旧レコードも SKU + 価格 でチェック
                 if not existing:
@@ -2079,7 +2539,9 @@ async def sync_all_sales(request: Request):
                     # sold_at修正
                     if created_time:
                         try:
-                            correct_date = datetime.strptime(created_time[:19], "%Y-%m-%dT%H:%M:%S")
+                            correct_date = datetime.strptime(
+                                created_time[:19], "%Y-%m-%dT%H:%M:%S"
+                            )
                             if existing.sold_at != correct_date:
                                 existing.sold_at = correct_date
                                 changed = True
@@ -2095,7 +2557,9 @@ async def sync_all_sales(request: Request):
                 sold_at = None
                 if created_time:
                     try:
-                        sold_at = datetime.strptime(created_time[:19], "%Y-%m-%dT%H:%M:%S")
+                        sold_at = datetime.strptime(
+                            created_time[:19], "%Y-%m-%dT%H:%M:%S"
+                        )
                     except ValueError:
                         pass
 
@@ -2105,7 +2569,9 @@ async def sync_all_sales(request: Request):
                 shipping_cost = shipping_cost or 0
 
                 # eBay手数料（Fulfillment APIから実額、なければ概算）
-                ebay_fees = order.get("ebay_fees_usd") or round(sale_price * EBAY_FEE_RATE, 2)
+                ebay_fees = order.get("ebay_fees_usd") or round(
+                    sale_price * EBAY_FEE_RATE, 2
+                )
                 payoneer_fee = round(sale_price * PAYONEER_FEE_RATE, 2)
 
                 crud.add_sales_record(
@@ -2130,12 +2596,14 @@ async def sync_all_sales(request: Request):
     finally:
         db.close()
 
-    return JSONResponse({
-        "status": "ok",
-        "orders_fetched": len(orders),
-        "new_records": new_count,
-        "skipped_existing": skipped,
-    })
+    return JSONResponse(
+        {
+            "status": "ok",
+            "orders_fetched": len(orders),
+            "new_records": new_count,
+            "skipped_existing": skipped,
+        }
+    )
 
 
 @app.post("/api/shipping/backfill-tracking")
@@ -2156,7 +2624,13 @@ async def backfill_tracking_numbers():
             .all()
         )
         if not empty_records:
-            return JSONResponse({"status": "ok", "message": "All records already up to date", "updated": 0})
+            return JSONResponse(
+                {
+                    "status": "ok",
+                    "message": "All records already up to date",
+                    "updated": 0,
+                }
+            )
 
         # eBayから直近90日の注文を取得
         orders = get_recent_orders(days=90)
@@ -2173,8 +2647,10 @@ async def backfill_tracking_numbers():
         # 既にDBにあるorder_idセット
         existing_oids = {r.order_id for r in empty_records if r.order_id}
         existing_oids.update(
-            oid for (oid,) in db.query(crud.SalesRecord.order_id)
-            .filter(crud.SalesRecord.order_id != "").all()
+            oid
+            for (oid,) in db.query(crud.SalesRecord.order_id)
+            .filter(crud.SalesRecord.order_id != "")
+            .all()
         )
 
         for order in orders:
@@ -2186,8 +2662,11 @@ async def backfill_tracking_numbers():
             created_time = order.get("created_time", "")
 
             info = {
-                "order_id": oid, "tracking": tn, "carrier": carrier,
-                "buyer_name": buyer_name, "buyer_country": buyer_country,
+                "order_id": oid,
+                "tracking": tn,
+                "carrier": carrier,
+                "buyer_name": buyer_name,
+                "buyer_country": buyer_country,
                 "created_time": created_time,
             }
 
@@ -2195,7 +2674,11 @@ async def backfill_tracking_numbers():
                 order_by_id[oid] = info
 
             for item in order.get("items", []):
-                info_with_item = {**info, "item_id": item.get("item_id", ""), "sku": item.get("sku", "")}
+                info_with_item = {
+                    **info,
+                    "item_id": item.get("item_id", ""),
+                    "sku": item.get("sku", ""),
+                }
                 key = (item.get("title", ""), item.get("price_usd", 0))
                 order_by_item[key] = info_with_item
 
@@ -2244,13 +2727,13 @@ async def backfill_tracking_numbers():
             if not record.shipping_method and info.get("carrier"):
                 record.shipping_method = info["carrier"]
                 changed = True
-            if not getattr(record, 'buyer_name', '') and info.get("buyer_name"):
+            if not getattr(record, "buyer_name", "") and info.get("buyer_name"):
                 record.buyer_name = info["buyer_name"]
                 changed = True
-            if not getattr(record, 'buyer_country', '') and info.get("buyer_country"):
+            if not getattr(record, "buyer_country", "") and info.get("buyer_country"):
                 record.buyer_country = info["buyer_country"]
                 changed = True
-            if not getattr(record, 'item_id', '') and info.get("item_id"):
+            if not getattr(record, "item_id", "") and info.get("item_id"):
                 record.item_id = info["item_id"]
                 changed = True
 
@@ -2258,7 +2741,7 @@ async def backfill_tracking_numbers():
             created_time = info.get("created_time", "")
             if created_time:
                 try:
-                    correct_date = __import__('datetime').datetime.strptime(
+                    correct_date = __import__("datetime").datetime.strptime(
                         created_time[:19], "%Y-%m-%dT%H:%M:%S"
                     )
                     if record.sold_at and record.sold_at != correct_date:
@@ -2271,17 +2754,20 @@ async def backfill_tracking_numbers():
                 updated += 1
 
         db.commit()
-        return JSONResponse({
-            "status": "ok",
-            "updated": updated,
-            "total_empty": len(empty_records),
-            "orders_fetched": len(orders),
-        })
+        return JSONResponse(
+            {
+                "status": "ok",
+                "updated": updated,
+                "total_empty": len(empty_records),
+                "orders_fetched": len(orders),
+            }
+        )
     finally:
         db.close()
 
 
 # ── 有在庫管理 ─────────────────────────────────────────────
+
 
 @app.get("/stock", response_class=HTMLResponse)
 async def stock_redirect():
@@ -2294,7 +2780,10 @@ async def list_stock(status: str = "", date_from: str = "", date_to: str = ""):
     db = get_db()
     try:
         from database.models import SalesRecord
-        items = crud.get_all_inventory_items(db, status=status, date_from=date_from, date_to=date_to)
+
+        items = crud.get_all_inventory_items(
+            db, status=status, date_from=date_from, date_to=date_to
+        )
 
         # SKU→SalesRecord マップ（一括取得）
         skus = list({i.sku for i in items if i.sku})
@@ -2319,41 +2808,55 @@ async def list_stock(status: str = "", date_from: str = "", date_to: str = ""):
                     "profit_margin_pct": sr.profit_margin_pct,
                     "consumption_tax_jpy": sr.consumption_tax_jpy,
                     "sold_at": sr.sold_at.strftime("%Y-%m-%d") if sr.sold_at else "",
-                    "buyer_name": getattr(sr, 'buyer_name', '') or '',
-                    "progress": getattr(sr, 'progress', '') or '',
+                    "buyer_name": getattr(sr, "buyer_name", "") or "",
+                    "progress": getattr(sr, "progress", "") or "",
                 }
-            result.append({
-                "id": i.id,
-                "stock_number": getattr(i, "stock_number", "") or "",
-                "sku": i.sku,
-                "title": i.title,
-                "purchase_price_jpy": i.purchase_price_jpy,
-                "consumption_tax_jpy": i.consumption_tax_jpy,
-                "shipping_cost_jpy": getattr(i, "shipping_cost_jpy", 0) or 0,
-                "purchase_date": i.purchase_date.strftime("%Y-%m-%d") if i.purchase_date else "",
-                "purchase_source": i.purchase_source,
-                "purchase_url": i.purchase_url,
-                "seller_id": getattr(i, "seller_id", "") or "",
-                "seller_url": getattr(i, "seller_url", "") or "",
-                "quantity": i.quantity,
-                "location": i.location,
-                "condition": i.condition,
-                "status": i.status,
-                "ebay_item_id": i.ebay_item_id,
-                "ebay_order_id": getattr(i, "ebay_order_id", "") or "",
-                "ebay_price_usd": i.ebay_price_usd,
-                "listed_at": i.listed_at.strftime("%Y-%m-%d") if i.listed_at else "",
-                "sold_at": i.sold_at.strftime("%Y-%m-%d") if i.sold_at else "",
-                "shipped_at": (i.shipped_at.strftime("%Y-%m-%d") if getattr(i, "shipped_at", None) else ""),
-                "sale_record_id": i.sale_record_id,
-                "notes": i.notes or "",
-                "image_url": i.image_url,
-                "screenshot_path": getattr(i, "screenshot_path", "") or "",
-                "days_in_stock": (datetime.utcnow() - i.purchase_date).days if i.purchase_date else 0,
-                "total_cost_jpy": i.purchase_price_jpy + i.consumption_tax_jpy + (getattr(i, "shipping_cost_jpy", 0) or 0),
-                "created_at": i.created_at.isoformat(),
-                "sale": sale_info,
-            })
+            result.append(
+                {
+                    "id": i.id,
+                    "stock_number": getattr(i, "stock_number", "") or "",
+                    "sku": i.sku,
+                    "title": i.title,
+                    "purchase_price_jpy": i.purchase_price_jpy,
+                    "consumption_tax_jpy": i.consumption_tax_jpy,
+                    "shipping_cost_jpy": getattr(i, "shipping_cost_jpy", 0) or 0,
+                    "purchase_date": i.purchase_date.strftime("%Y-%m-%d")
+                    if i.purchase_date
+                    else "",
+                    "purchase_source": i.purchase_source,
+                    "purchase_url": i.purchase_url,
+                    "seller_id": getattr(i, "seller_id", "") or "",
+                    "seller_url": getattr(i, "seller_url", "") or "",
+                    "quantity": i.quantity,
+                    "location": i.location,
+                    "condition": i.condition,
+                    "status": i.status,
+                    "ebay_item_id": i.ebay_item_id,
+                    "ebay_order_id": getattr(i, "ebay_order_id", "") or "",
+                    "ebay_price_usd": i.ebay_price_usd,
+                    "listed_at": i.listed_at.strftime("%Y-%m-%d")
+                    if i.listed_at
+                    else "",
+                    "sold_at": i.sold_at.strftime("%Y-%m-%d") if i.sold_at else "",
+                    "shipped_at": (
+                        i.shipped_at.strftime("%Y-%m-%d")
+                        if getattr(i, "shipped_at", None)
+                        else ""
+                    ),
+                    "sale_record_id": i.sale_record_id,
+                    "notes": i.notes or "",
+                    "image_url": i.image_url,
+                    "screenshot_path": getattr(i, "screenshot_path", "") or "",
+                    "days_in_stock": (datetime.utcnow() - i.purchase_date).days
+                    if i.purchase_date
+                    else 0,
+                    "total_cost_jpy": i.purchase_price_jpy
+                    + i.consumption_tax_jpy
+                    + (getattr(i, "shipping_cost_jpy", 0) or 0),
+                    "created_at": i.created_at.isoformat(),
+                    "sale": sale_info,
+                }
+            )
         return JSONResponse(result)
     finally:
         db.close()
@@ -2376,11 +2879,29 @@ async def add_stock(request: Request):
     db = get_db()
     try:
         kwargs = {}
-        for key in ["sku", "title", "purchase_source", "purchase_url", "seller_id", "seller_url",
-                     "location", "condition", "status", "ebay_item_id", "ebay_order_id", "notes", "image_url"]:
+        for key in [
+            "sku",
+            "title",
+            "purchase_source",
+            "purchase_url",
+            "seller_id",
+            "seller_url",
+            "location",
+            "condition",
+            "status",
+            "ebay_item_id",
+            "ebay_order_id",
+            "notes",
+            "image_url",
+        ]:
             if key in body:
                 kwargs[key] = body[key]
-        for key in ["purchase_price_jpy", "consumption_tax_jpy", "shipping_cost_jpy", "quantity"]:
+        for key in [
+            "purchase_price_jpy",
+            "consumption_tax_jpy",
+            "shipping_cost_jpy",
+            "quantity",
+        ]:
             if key in body:
                 kwargs[key] = int(body[key])
         if body.get("ebay_price_usd"):
@@ -2405,17 +2926,37 @@ async def update_stock(item_id: int, request: Request):
     db = get_db()
     try:
         kwargs = {}
-        for key in ["sku", "title", "purchase_source", "purchase_url", "seller_id", "seller_url",
-                     "location", "condition", "status", "ebay_item_id", "ebay_order_id",
-                     "notes", "image_url", "screenshot_path"]:
+        for key in [
+            "sku",
+            "title",
+            "purchase_source",
+            "purchase_url",
+            "seller_id",
+            "seller_url",
+            "location",
+            "condition",
+            "status",
+            "ebay_item_id",
+            "ebay_order_id",
+            "notes",
+            "image_url",
+            "screenshot_path",
+        ]:
             if key in body:
                 kwargs[key] = body[key]
-        for key in ["purchase_price_jpy", "consumption_tax_jpy", "shipping_cost_jpy",
-                     "quantity", "sale_record_id"]:
+        for key in [
+            "purchase_price_jpy",
+            "consumption_tax_jpy",
+            "shipping_cost_jpy",
+            "quantity",
+            "sale_record_id",
+        ]:
             if key in body:
                 kwargs[key] = int(body[key]) if body[key] else 0
         if "ebay_price_usd" in body:
-            kwargs["ebay_price_usd"] = float(body["ebay_price_usd"]) if body["ebay_price_usd"] else 0
+            kwargs["ebay_price_usd"] = (
+                float(body["ebay_price_usd"]) if body["ebay_price_usd"] else 0
+            )
         for date_key in ["purchase_date", "listed_at", "sold_at", "shipped_at"]:
             if body.get(date_key):
                 try:
@@ -2452,48 +2993,60 @@ async def auto_assign_sku():
         models = []
         # ブランド+型番
         brand_pats = re.findall(
-            r'(?:TASCAM|YAMAHA|SONY|DENON|PIONEER|ROLAND|BOSS|KORG|TECHNICS|CASIO|TEAC|ZOOM|AKAI|MICRO|NAKAMICHI|ACCUPHASE|LUXMAN|MARANTZ|SANSUI|ONKYO|JBL|BOSE|SHURE)'
-            r'\s+([A-Za-z0-9][\w\-]+)',
-            title, re.IGNORECASE,
+            r"(?:TASCAM|YAMAHA|SONY|DENON|PIONEER|ROLAND|BOSS|KORG|TECHNICS|CASIO|TEAC|ZOOM|AKAI|MICRO|NAKAMICHI|ACCUPHASE|LUXMAN|MARANTZ|SANSUI|ONKYO|JBL|BOSE|SHURE)"
+            r"\s+([A-Za-z0-9][\w\-]+)",
+            title,
+            re.IGNORECASE,
         )
         for m in brand_pats:
             if len(m) >= 3:
                 models.append(m)
 
         # 英字+ハイフン+英数字 (DP-2500, GT-PRO, MDS-SD1, SE-A5)
-        hyphen = _re.findall(r'[A-Za-z]{1,10}[\-][A-Za-z0-9]{1,10}(?:[\-][A-Za-z0-9]+)*', title)
+        hyphen = _re.findall(
+            r"[A-Za-z]{1,10}[\-][A-Za-z0-9]{1,10}(?:[\-][A-Za-z0-9]+)*", title
+        )
         for m in hyphen:
             if len(m) >= 4 and m not in models:
                 models.append(m)
 
         # 英字+数字 (MT4X, SU7700, 424MKII)
-        alnum = _re.findall(r'[A-Za-z]{1,6}\d{2,5}[A-Za-z]*', title)
+        alnum = _re.findall(r"[A-Za-z]{1,6}\d{2,5}[A-Za-z]*", title)
         for m in alnum:
             if len(m) >= 4 and m not in models:
                 models.append(m)
 
         # 数字+英字 (424MK, 688)
-        numalpha = _re.findall(r'\d{3,5}[A-Za-z]{2,}', title)
+        numalpha = _re.findall(r"\d{3,5}[A-Za-z]{2,}", title)
         for m in numalpha:
             if len(m) >= 4 and m not in models:
                 models.append(m)
 
         # ゴミ除去
-        junk = {'JUNK', 'CD-ROM', 'USB-', 'OK', 'ver', 'No'}
-        models = [m for m in models if m not in junk and not m.startswith('N1') and not m.startswith('w2')]
+        junk = {"JUNK", "CD-ROM", "USB-", "OK", "ver", "No"}
+        models = [
+            m
+            for m in models
+            if m not in junk and not m.startswith("N1") and not m.startswith("w2")
+        ]
 
         return models
 
     import re
+
     db = get_db()
     try:
-        items = db.query(InventoryItem).filter(
-            (InventoryItem.sku == "") | (InventoryItem.sku == None)
-        ).all()
+        items = (
+            db.query(InventoryItem)
+            .filter((InventoryItem.sku == "") | (InventoryItem.sku == None))
+            .all()
+        )
         listings = db.query(Listing).all()
 
         # eBayタイトルのインデックス
-        listing_map = [(l.sku, l.title.lower(), l.listing_id, l.price_usd) for l in listings]
+        listing_map = [
+            (l.sku, l.title.lower(), l.listing_id, l.price_usd) for l in listings
+        ]
 
         assigned = 0
         skipped = 0
@@ -2524,22 +3077,26 @@ async def auto_assign_sku():
                 inv.ebay_item_id = best[1] or ""
                 inv.ebay_price_usd = best[2] or 0
                 assigned += 1
-                results.append({
-                    "stock_number": inv.stock_number,
-                    "title": inv.title[:50],
-                    "matched_model": best[3],
-                    "sku": best[0],
-                })
+                results.append(
+                    {
+                        "stock_number": inv.stock_number,
+                        "title": inv.title[:50],
+                        "matched_model": best[3],
+                        "sku": best[0],
+                    }
+                )
             else:
                 skipped += 1
 
         db.commit()
-        return JSONResponse({
-            "assigned": assigned,
-            "skipped": skipped,
-            "total": len(items),
-            "matches": results[:20],
-        })
+        return JSONResponse(
+            {
+                "assigned": assigned,
+                "skipped": skipped,
+                "total": len(items),
+                "matches": results[:20],
+            }
+        )
     finally:
         db.close()
 
@@ -2554,9 +3111,11 @@ async def bulk_delete_stock(request: Request):
 
     db = get_db()
     try:
-        items = db.query(InventoryItem).filter(
-            InventoryItem.title.contains(title_contains)
-        ).all()
+        items = (
+            db.query(InventoryItem)
+            .filter(InventoryItem.title.contains(title_contains))
+            .all()
+        )
         count = len(items)
         for item in items:
             db.delete(item)
@@ -2576,9 +3135,11 @@ async def bulk_delete_stock_by_ids(request: Request):
 
     db = get_db()
     try:
-        count = db.query(InventoryItem).filter(
-            InventoryItem.id.in_(ids)
-        ).delete(synchronize_session="fetch")
+        count = (
+            db.query(InventoryItem)
+            .filter(InventoryItem.id.in_(ids))
+            .delete(synchronize_session="fetch")
+        )
         db.commit()
         return JSONResponse({"status": "deleted", "count": count})
     finally:
@@ -2605,6 +3166,7 @@ async def update_stock_number(item_id: int, request: Request):
 
 # ── スクリーンショットアップロード ─────────────────────────
 
+
 @app.post("/api/stock/{item_id}/screenshot")
 async def upload_screenshot(item_id: int, request: Request):
     """仕入元スクリーンショットをアップロード（プラットフォーム別フォルダに保存）"""
@@ -2625,12 +3187,16 @@ async def upload_screenshot(item_id: int, request: Request):
         # 年/プラットフォーム別フォルダ
         year = str(datetime.now().year)
         platform = item.purchase_source or "other"
-        platform_dir = SCREENSHOT_DIR / year / platform.replace("/", "_").replace(" ", "_")
+        platform_dir = (
+            SCREENSHOT_DIR / year / platform.replace("/", "_").replace(" ", "_")
+        )
         platform_dir.mkdir(parents=True, exist_ok=True)
 
         # ファイル名: ID_日付_商品名(短縮).拡張子
         ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "png"
-        safe_title = "".join(c for c in (item.title or "item")[:30] if c.isalnum() or c in "-_ ").strip()
+        safe_title = "".join(
+            c for c in (item.title or "item")[:30] if c.isalnum() or c in "-_ "
+        ).strip()
         filename = f"{item.id}_{datetime.now().strftime('%Y%m%d')}_{safe_title}.{ext}"
         filepath = platform_dir / filename
 
@@ -2642,11 +3208,13 @@ async def upload_screenshot(item_id: int, request: Request):
         item.screenshot_path = str(filepath)
         db.commit()
 
-        return JSONResponse({
-            "status": "uploaded",
-            "path": str(filepath),
-            "platform_dir": str(platform_dir),
-        })
+        return JSONResponse(
+            {
+                "status": "uploaded",
+                "path": str(filepath),
+                "platform_dir": str(platform_dir),
+            }
+        )
     finally:
         db.close()
 
@@ -2677,6 +3245,7 @@ async def get_screenshot(item_id: int):
             try:
                 from PIL import Image
                 import io
+
                 img = Image.open(filepath)
                 # 幅1200pxに縮小（アスペクト比維持）
                 max_width = 800
@@ -2703,6 +3272,7 @@ async def get_screenshot(item_id: int):
 async def get_screenshot_dir():
     """スクリーンショット保存先を返す"""
     from config import SCREENSHOT_DIR
+
     return JSONResponse({"path": str(SCREENSHOT_DIR)})
 
 
@@ -2734,27 +3304,43 @@ async def set_screenshot_dir(request: Request):
 
 # ── 仕入れ→台帳連携 ──────────────────────────────────────
 
+
 @app.post("/api/stock/from-procurement/{proc_id}")
 async def stock_from_procurement(proc_id: int):
     """仕入れ記録から台帳にワンクリック登録"""
     from database.models import Procurement, InventoryItem
+
     db = get_db()
     try:
         proc = db.query(Procurement).filter(Procurement.id == proc_id).first()
         if not proc:
             raise HTTPException(404, "Procurement not found")
 
-        existing = db.query(InventoryItem).filter(
-            InventoryItem.title == proc.title,
-            InventoryItem.purchase_price_jpy == proc.purchase_price_jpy,
-            InventoryItem.purchase_source == proc.platform,
-        ).first()
+        existing = (
+            db.query(InventoryItem)
+            .filter(
+                InventoryItem.title == proc.title,
+                InventoryItem.purchase_price_jpy == proc.purchase_price_jpy,
+                InventoryItem.purchase_source == proc.platform,
+            )
+            .first()
+        )
         if existing:
-            return JSONResponse({"status": "already_exists", "id": existing.id,
-                                 "message": "この仕入れは既に台帳登録済みです"})
+            return JSONResponse(
+                {
+                    "status": "already_exists",
+                    "id": existing.id,
+                    "message": "この仕入れは既に台帳登録済みです",
+                }
+            )
 
         # ステータスは仕入れの状態に合わせる
-        status_map = {"purchased": "ordered", "shipped": "ordered", "received": "received", "listed": "listed"}
+        status_map = {
+            "purchased": "ordered",
+            "shipped": "ordered",
+            "received": "received",
+            "listed": "listed",
+        }
         mapped_status = status_map.get(proc.status, "ordered")
 
         item = crud.add_inventory_item(
@@ -2776,6 +3362,7 @@ async def stock_from_procurement(proc_id: int):
 
 
 # ── 一括インポート ────────────────────────────────────────
+
 
 @app.post("/api/stock/bulk-import")
 async def bulk_import_stock(request: Request):
@@ -2802,11 +3389,15 @@ async def bulk_import_stock(request: Request):
             # 重複チェック（タイトル+価格+仕入先）
             price = int(row.get("price", 0) or 0)
             source = row.get("source") or platform or ""
-            existing = db.query(InventoryItem).filter(
-                InventoryItem.title == title,
-                InventoryItem.purchase_price_jpy == price,
-                InventoryItem.purchase_source == source,
-            ).first()
+            existing = (
+                db.query(InventoryItem)
+                .filter(
+                    InventoryItem.title == title,
+                    InventoryItem.purchase_price_jpy == price,
+                    InventoryItem.purchase_source == source,
+                )
+                .first()
+            )
             if existing:
                 skipped += 1
                 continue
@@ -2833,12 +3424,14 @@ async def bulk_import_stock(request: Request):
             crud.add_inventory_item(db, **kwargs)
             created += 1
 
-        return JSONResponse({
-            "status": "imported",
-            "created": created,
-            "skipped": skipped,
-            "total": len(rows),
-        })
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(rows),
+            }
+        )
     finally:
         db.close()
 
@@ -2848,10 +3441,39 @@ async def bulk_import_stock(request: Request):
 # スクレイプジョブの状態管理
 _scrape_jobs: dict = {}  # job_id -> {status, message, current, total, results, error}
 
+# VPSなどX serverのない環境では SCRAPER_HEADLESS=true を設定
+# cookieが既にあれば headless でも動作する（各scraperが has_cookies をチェック）
+SCRAPER_HEADLESS = os.getenv("SCRAPER_HEADLESS", "false").lower() == "true"
+
+# cookie期限切れ通知の重複抑制（site_key → 最終通知日）
+_login_required_notified: dict[str, str] = {}
+
+
+def _notify_login_required(site_key: str, site_label: str):
+    """cookie期限切れをLINEに通知（1サイト1日1回まで）"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    if _login_required_notified.get(site_key) == today:
+        return
+    _login_required_notified[site_key] = today
+    try:
+        from comms.line_notify import send_line_message
+
+        send_line_message(
+            f"🔐 {site_label} のcookie期限切れ\n"
+            f"ローカルMacで再ログインしてください:\n"
+            f"  cd products/ebay-agent\n"
+            f"  python scripts/login_and_save_cookies.py {site_key}\n"
+            f"  bash scripts/sync_cookies_to_vps.sh"
+        )
+    except Exception as e:
+        logging.getLogger(__name__).error(f"LINE通知失敗: {e}")
+
+
 @app.post("/api/stock/scrape/yahoo")
 async def start_yahoo_scrape(request: Request):
     """ヤフオク落札一覧のスクレイピングを開始"""
     import uuid
+
     try:
         body = await request.json()
     except Exception:
@@ -2870,8 +3492,10 @@ async def start_yahoo_scrape(request: Request):
 
     async def run_scrape():
         from scrapers.yahoo_auctions import scrape_yahoo_won
+
         job = _scrape_jobs[job_id]
         try:
+
             def on_progress(msg, cur, total):
                 job["message"] = msg
                 job["current"] = cur
@@ -2880,7 +3504,7 @@ async def start_yahoo_scrape(request: Request):
             results = await scrape_yahoo_won(
                 on_progress=on_progress,
                 max_pages=max_pages,
-                headless=False,  # 初回ログイン用にheadless=False
+                headless=SCRAPER_HEADLESS,
             )
             job["results"] = results
             job["status"] = "done"
@@ -2888,7 +3512,10 @@ async def start_yahoo_scrape(request: Request):
         except RuntimeError as e:
             if str(e) == "LOGIN_REQUIRED":
                 job["status"] = "login_required"
-                job["message"] = "Yahooログインが必要です。headless=Falseで再実行してください。"
+                job["message"] = (
+                    "Yahooログインが必要です。ローカルで再ログイン→同期してください。"
+                )
+                _notify_login_required("yahoo", "Yahoo!オークション")
             elif str(e) == "LOGIN_TIMEOUT":
                 job["status"] = "error"
                 job["message"] = "ログインがタイムアウトしました。"
@@ -2914,14 +3541,18 @@ async def start_mercari_scrape():
     _scrape_jobs[job_id] = {
         "status": "running",
         "message": "初期化中...",
-        "current": 0, "total": 0,
-        "results": [], "error": None,
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
     }
 
     async def run_scrape():
         from scrapers.mercari import scrape_mercari_purchases
+
         job = _scrape_jobs[job_id]
         try:
+
             def on_progress(msg, cur, total):
                 job["message"] = msg
                 job["current"] = cur
@@ -2929,7 +3560,7 @@ async def start_mercari_scrape():
 
             results = await scrape_mercari_purchases(
                 on_progress=on_progress,
-                headless=False,
+                headless=SCRAPER_HEADLESS,
             )
             job["results"] = results
             job["status"] = "done"
@@ -2937,7 +3568,10 @@ async def start_mercari_scrape():
         except RuntimeError as e:
             if str(e) == "LOGIN_REQUIRED":
                 job["status"] = "login_required"
-                job["message"] = "メルカリログインが必要です。"
+                job["message"] = (
+                    "メルカリログインが必要です。ローカルで再ログイン→同期してください。"
+                )
+                _notify_login_required("mercari", "メルカリ")
             elif str(e) == "LOGIN_TIMEOUT":
                 job["status"] = "error"
                 job["message"] = "ログインがタイムアウトしました。"
@@ -2982,11 +3616,15 @@ async def import_mercari_results(job_id: str):
 
             price = int(row.get("price", 0) or 0)
             # 重複チェック
-            existing = db.query(InventoryItem).filter(
-                InventoryItem.title == title,
-                InventoryItem.purchase_price_jpy == price,
-                InventoryItem.purchase_source == "メルカリ",
-            ).first()
+            existing = (
+                db.query(InventoryItem)
+                .filter(
+                    InventoryItem.title == title,
+                    InventoryItem.purchase_price_jpy == price,
+                    InventoryItem.purchase_source == "メルカリ",
+                )
+                .first()
+            )
             if existing:
                 skipped += 1
                 continue
@@ -2996,7 +3634,8 @@ async def import_mercari_results(job_id: str):
                 "purchase_price_jpy": price,
                 "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
                 "purchase_source": "メルカリ",
-                "purchase_url": row.get("item_url", "") or row.get("transaction_url", ""),
+                "purchase_url": row.get("item_url", "")
+                or row.get("transaction_url", ""),
                 "image_url": row.get("image_url", ""),
                 "screenshot_path": row.get("screenshot_path", ""),
                 "status": "ordered",
@@ -3012,17 +3651,20 @@ async def import_mercari_results(job_id: str):
 
         _scrape_jobs.pop(job_id, None)
 
-        return JSONResponse({
-            "status": "imported",
-            "created": created,
-            "skipped": skipped,
-            "total": len(results),
-        })
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
     finally:
         db.close()
 
 
 # ── Yahoo!フリマ一括取込 ─────────────────────────────────
+
 
 @app.post("/api/stock/scrape/yahoo-flea")
 async def start_yahoo_flea_scrape():
@@ -3033,14 +3675,18 @@ async def start_yahoo_flea_scrape():
     _scrape_jobs[job_id] = {
         "status": "running",
         "message": "初期化中...",
-        "current": 0, "total": 0,
-        "results": [], "error": None,
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
     }
 
     async def run_scrape():
         from scrapers.yahoo_flea_purchases import scrape_yahoo_flea_purchases
+
         job = _scrape_jobs[job_id]
         try:
+
             def on_progress(msg, cur, total):
                 job["message"] = msg
                 job["current"] = cur
@@ -3048,7 +3694,7 @@ async def start_yahoo_flea_scrape():
 
             results = await scrape_yahoo_flea_purchases(
                 on_progress=on_progress,
-                headless=False,
+                headless=SCRAPER_HEADLESS,
             )
             job["results"] = results
             job["status"] = "done"
@@ -3056,7 +3702,10 @@ async def start_yahoo_flea_scrape():
         except RuntimeError as e:
             if str(e) == "LOGIN_REQUIRED":
                 job["status"] = "login_required"
-                job["message"] = "Yahoo!ログインが必要です。"
+                job["message"] = (
+                    "Yahoo!フリマログインが必要です。ローカルで再ログイン→同期してください。"
+                )
+                _notify_login_required("yahoo_flea", "Yahoo!フリマ")
             elif str(e) == "LOGIN_TIMEOUT":
                 job["status"] = "error"
                 job["message"] = "ログインがタイムアウトしました。"
@@ -3089,7 +3738,9 @@ async def import_yahoo_flea_results(job_id: str):
 
     # デバッグ: 最初の3件のデータを出力
     for i, r in enumerate(results[:3]):
-        logger.info(f"[Yahoo!フリマimport] sample[{i}]: title='{r.get('title','')[:40]}' price={r.get('price')} date={r.get('date')}")
+        logger.info(
+            f"[Yahoo!フリマimport] sample[{i}]: title='{r.get('title', '')[:40]}' price={r.get('price')} date={r.get('date')}"
+        )
 
     results = sorted(results, key=lambda r: r.get("date", "") or "9999")
 
@@ -3106,11 +3757,15 @@ async def import_yahoo_flea_results(job_id: str):
                 continue
 
             price = int(row.get("price", 0) or 0)
-            existing = db.query(InventoryItem).filter(
-                InventoryItem.title == title,
-                InventoryItem.purchase_price_jpy == price,
-                InventoryItem.purchase_source == "Yahooフリマ",
-            ).first()
+            existing = (
+                db.query(InventoryItem)
+                .filter(
+                    InventoryItem.title == title,
+                    InventoryItem.purchase_price_jpy == price,
+                    InventoryItem.purchase_source == "Yahooフリマ",
+                )
+                .first()
+            )
             if existing:
                 skipped += 1
                 skip_reasons["duplicate"] += 1
@@ -3140,14 +3795,24 @@ async def import_yahoo_flea_results(job_id: str):
                 skip_reasons["error"] += 1
                 skipped += 1
 
-        logger.info(f"[Yahoo!フリマimport] 結果: created={created} skipped={skipped} reasons={skip_reasons}")
+        logger.info(
+            f"[Yahoo!フリマimport] 結果: created={created} skipped={skipped} reasons={skip_reasons}"
+        )
         _scrape_jobs.pop(job_id, None)
-        return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
     finally:
         db.close()
 
 
 # ── ラクマ一括取込 ─────────────────────────────────────────
+
 
 @app.post("/api/stock/scrape/rakuma")
 async def start_rakuma_scrape():
@@ -3158,14 +3823,18 @@ async def start_rakuma_scrape():
     _scrape_jobs[job_id] = {
         "status": "running",
         "message": "初期化中...",
-        "current": 0, "total": 0,
-        "results": [], "error": None,
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
     }
 
     async def run_scrape():
         from scrapers.rakuma_purchases import scrape_rakuma_purchases
+
         job = _scrape_jobs[job_id]
         try:
+
             def on_progress(msg, cur, total):
                 job["message"] = msg
                 job["current"] = cur
@@ -3173,7 +3842,7 @@ async def start_rakuma_scrape():
 
             results = await scrape_rakuma_purchases(
                 on_progress=on_progress,
-                headless=False,
+                headless=SCRAPER_HEADLESS,
             )
             job["results"] = results
             job["status"] = "done"
@@ -3181,7 +3850,10 @@ async def start_rakuma_scrape():
         except RuntimeError as e:
             if str(e) == "LOGIN_REQUIRED":
                 job["status"] = "login_required"
-                job["message"] = "楽天ログインが必要です。"
+                job["message"] = (
+                    "ラクマログインが必要です。ローカルで再ログイン→同期してください。"
+                )
+                _notify_login_required("rakuma", "ラクマ")
             elif str(e) == "LOGIN_TIMEOUT":
                 job["status"] = "error"
                 job["message"] = "ログインがタイムアウトしました。"
@@ -3224,11 +3896,15 @@ async def import_rakuma_results(job_id: str):
                 continue
 
             price = int(row.get("price", 0) or 0)
-            existing = db.query(InventoryItem).filter(
-                InventoryItem.title == title,
-                InventoryItem.purchase_price_jpy == price,
-                InventoryItem.purchase_source == "ラクマ",
-            ).first()
+            existing = (
+                db.query(InventoryItem)
+                .filter(
+                    InventoryItem.title == title,
+                    InventoryItem.purchase_price_jpy == price,
+                    InventoryItem.purchase_source == "ラクマ",
+                )
+                .first()
+            )
             if existing:
                 skipped += 1
                 continue
@@ -3253,33 +3929,62 @@ async def import_rakuma_results(job_id: str):
             created += 1
 
         _scrape_jobs.pop(job_id, None)
-        return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
     finally:
         db.close()
 
 
 # ── ハードオフ一括取込 ─────────────────────────────────────
 
+
 @app.post("/api/stock/scrape/hardoff")
 async def start_hardoff_scrape():
     """ハードオフ ネットモール注文履歴のスクレイピングを開始"""
     import uuid
+
     job_id = str(uuid.uuid4())[:8]
-    _scrape_jobs[job_id] = {"status": "running", "message": "初期化中...", "current": 0, "total": 0, "results": [], "error": None}
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
+    }
 
     async def run_scrape():
         from scrapers.hardoff_purchases import scrape_hardoff_purchases
+
         job = _scrape_jobs[job_id]
         try:
+
             def on_progress(msg, cur, total):
-                job["message"] = msg; job["current"] = cur; job["total"] = total
-            results = await scrape_hardoff_purchases(on_progress=on_progress, headless=False)
-            job["results"] = results; job["status"] = "done"; job["message"] = f"完了: {len(results)}件取得"
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_hardoff_purchases(
+                on_progress=on_progress, headless=SCRAPER_HEADLESS
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
         except RuntimeError as e:
             job["status"] = "login_required" if str(e) == "LOGIN_REQUIRED" else "error"
             job["message"] = str(e)
+            if str(e) == "LOGIN_REQUIRED":
+                _notify_login_required("hardoff", "ハードオフ")
         except Exception as e:
-            job["status"] = "error"; job["error"] = str(e); job["message"] = f"エラー: {e}"
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
 
     asyncio.create_task(run_scrape())
     return JSONResponse({"job_id": job_id, "status": "started"})
@@ -3289,53 +3994,110 @@ async def start_hardoff_scrape():
 async def import_hardoff_results(job_id: str):
     """ハードオフスクレイプ結果を仕入れ台帳に登録"""
     job = _scrape_jobs.get(job_id)
-    if not job: raise HTTPException(404, "Job not found")
-    if job["status"] != "done": raise HTTPException(400, f"Job not ready: {job['status']}")
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
     results = job.get("results", [])
-    if not results: return JSONResponse({"created": 0, "skipped": 0, "total": 0})
+    if not results:
+        return JSONResponse({"created": 0, "skipped": 0, "total": 0})
     results = sorted(results, key=lambda r: r.get("date", "") or "9999")
     db = get_db()
     try:
-        created = 0; skipped = 0
+        created = 0
+        skipped = 0
         for row in results:
             title = (row.get("title") or "").strip()
-            if not title: skipped += 1; continue
+            if not title:
+                skipped += 1
+                continue
             price = int(row.get("price", 0) or 0)
-            existing = db.query(InventoryItem).filter(InventoryItem.title == title, InventoryItem.purchase_price_jpy == price, InventoryItem.purchase_source == "ネットモール(OFFモール)").first()
-            if existing: skipped += 1; continue
-            kwargs = {"title": title, "purchase_price_jpy": price, "shipping_cost_jpy": int(row.get("shipping", 0) or 0), "purchase_source": "ネットモール(OFFモール)", "purchase_url": row.get("item_url", ""), "image_url": row.get("image_url", ""), "screenshot_path": row.get("screenshot_path", ""), "status": "ordered"}
+            existing = (
+                db.query(InventoryItem)
+                .filter(
+                    InventoryItem.title == title,
+                    InventoryItem.purchase_price_jpy == price,
+                    InventoryItem.purchase_source == "ネットモール(OFFモール)",
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
+                "purchase_source": "ネットモール(OFFモール)",
+                "purchase_url": row.get("item_url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "ordered",
+            }
             if row.get("date"):
-                try: kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
-                except ValueError: pass
-            crud.add_inventory_item(db, **kwargs); created += 1
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_inventory_item(db, **kwargs)
+            created += 1
         _scrape_jobs.pop(job_id, None)
-        return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
     finally:
         db.close()
 
 
 # ── 駿河屋一括取込 ─────────────────────────────────────────
 
+
 @app.post("/api/stock/scrape/surugaya")
 async def start_surugaya_scrape():
     """駿河屋注文履歴のスクレイピングを開始"""
     import uuid
+
     job_id = str(uuid.uuid4())[:8]
-    _scrape_jobs[job_id] = {"status": "running", "message": "初期化中...", "current": 0, "total": 0, "results": [], "error": None}
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
+    }
 
     async def run_scrape():
         from scrapers.surugaya_purchases import scrape_surugaya_purchases
+
         job = _scrape_jobs[job_id]
         try:
+
             def on_progress(msg, cur, total):
-                job["message"] = msg; job["current"] = cur; job["total"] = total
-            results = await scrape_surugaya_purchases(on_progress=on_progress, headless=False)
-            job["results"] = results; job["status"] = "done"; job["message"] = f"完了: {len(results)}件取得"
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_surugaya_purchases(
+                on_progress=on_progress, headless=SCRAPER_HEADLESS
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
         except RuntimeError as e:
             job["status"] = "login_required" if str(e) == "LOGIN_REQUIRED" else "error"
+            if str(e) == "LOGIN_REQUIRED":
+                _notify_login_required("surugaya", "駿河屋")
             job["message"] = str(e)
         except Exception as e:
-            job["status"] = "error"; job["error"] = str(e); job["message"] = f"エラー: {e}"
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
 
     asyncio.create_task(run_scrape())
     return JSONResponse({"job_id": job_id, "status": "started"})
@@ -3345,27 +4107,62 @@ async def start_surugaya_scrape():
 async def import_surugaya_results(job_id: str):
     """駿河屋スクレイプ結果を仕入れ台帳に登録"""
     job = _scrape_jobs.get(job_id)
-    if not job: raise HTTPException(404, "Job not found")
-    if job["status"] != "done": raise HTTPException(400, f"Job not ready: {job['status']}")
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
     results = job.get("results", [])
-    if not results: return JSONResponse({"created": 0, "skipped": 0, "total": 0})
+    if not results:
+        return JSONResponse({"created": 0, "skipped": 0, "total": 0})
     results = sorted(results, key=lambda r: r.get("date", "") or "9999")
     db = get_db()
     try:
-        created = 0; skipped = 0
+        created = 0
+        skipped = 0
         for row in results:
             title = (row.get("title") or "").strip()
-            if not title: skipped += 1; continue
+            if not title:
+                skipped += 1
+                continue
             price = int(row.get("price", 0) or 0)
-            existing = db.query(InventoryItem).filter(InventoryItem.title == title, InventoryItem.purchase_price_jpy == price, InventoryItem.purchase_source == "駿河屋").first()
-            if existing: skipped += 1; continue
-            kwargs = {"title": title, "purchase_price_jpy": price, "shipping_cost_jpy": int(row.get("shipping", 0) or 0), "purchase_source": "駿河屋", "purchase_url": row.get("item_url", ""), "image_url": row.get("image_url", ""), "screenshot_path": row.get("screenshot_path", ""), "status": "ordered"}
+            existing = (
+                db.query(InventoryItem)
+                .filter(
+                    InventoryItem.title == title,
+                    InventoryItem.purchase_price_jpy == price,
+                    InventoryItem.purchase_source == "駿河屋",
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
+                "purchase_source": "駿河屋",
+                "purchase_url": row.get("item_url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "ordered",
+            }
             if row.get("date"):
-                try: kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
-                except ValueError: pass
-            crud.add_inventory_item(db, **kwargs); created += 1
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_inventory_item(db, **kwargs)
+            created += 1
         _scrape_jobs.pop(job_id, None)
-        return JSONResponse({"status": "imported", "created": created, "skipped": skipped, "total": len(results)})
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
     finally:
         db.close()
 
@@ -3379,7 +4176,10 @@ async def retake_screenshots():
     _scrape_jobs[job_id] = {
         "status": "running",
         "message": "スクリーンショット再撮影中...",
-        "current": 0, "total": 0, "results": [], "error": None,
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
     }
 
     async def run_retake():
@@ -3387,15 +4187,21 @@ async def retake_screenshots():
         from playwright.async_api import async_playwright
         from scrapers.yahoo_auctions import _load_cookies, _save_cookies, COOKIE_DIR
 
-        ss_base = Path("/Users/Mac_air/Library/CloudStorage/GoogleDrive-otsuka@trustlink-tk.com/マイドライブ/総務関連/TrustLink/確定申告資料/輸出業/仕入れ履歴スクリーンショット")
+        ss_base = Path(
+            "/Users/Mac_air/Library/CloudStorage/GoogleDrive-otsuka@trustlink-tk.com/マイドライブ/総務関連/TrustLink/確定申告資料/輸出業/仕入れ履歴スクリーンショット"
+        )
 
         job = _scrape_jobs[job_id]
         db = get_db()
         try:
-            items = db.query(InventoryItem).filter(
-                InventoryItem.purchase_source == "ヤフオク",
-                InventoryItem.purchase_url != "",
-            ).all()
+            items = (
+                db.query(InventoryItem)
+                .filter(
+                    InventoryItem.purchase_source == "ヤフオク",
+                    InventoryItem.purchase_url != "",
+                )
+                .all()
+            )
 
             # auction_idを抽出
             targets = []
@@ -3420,7 +4226,11 @@ async def retake_screenshots():
                 for idx, t in enumerate(targets):
                     aid = t["aid"]
                     # 仕入日から年を取得
-                    year = str(t["item"].purchase_date.year) if t["item"].purchase_date else str(datetime.utcnow().year)
+                    year = (
+                        str(t["item"].purchase_date.year)
+                        if t["item"].purchase_date
+                        else str(datetime.utcnow().year)
+                    )
                     platform = t["item"].purchase_source or "その他"
                     ss_dir = ss_base / year / platform
                     ss_dir.mkdir(parents=True, exist_ok=True)
@@ -3429,7 +4239,8 @@ async def retake_screenshots():
                     try:
                         await page.goto(
                             f"https://auctions.yahoo.co.jp/jp/auction/{aid}",
-                            wait_until="domcontentloaded", timeout=20000,
+                            wait_until="domcontentloaded",
+                            timeout=20000,
                         )
                         await asyncio.sleep(2)
                         await page.screenshot(path=str(ss_path), full_page=True)
@@ -3438,7 +4249,7 @@ async def retake_screenshots():
                         logger.warning(f"Retake SS error ({aid}): {e}")
 
                     job["current"] = idx + 1
-                    job["message"] = f"{idx+1}/{len(targets)} 撮影中..."
+                    job["message"] = f"{idx + 1}/{len(targets)} 撮影中..."
                     await asyncio.sleep(0.5)
 
                 await _save_cookies(context)
@@ -3464,14 +4275,16 @@ async def get_scrape_status(job_id: str):
     job = _scrape_jobs.get(job_id)
     if not job:
         raise HTTPException(404, "Job not found")
-    return JSONResponse({
-        "status": job["status"],
-        "message": job["message"],
-        "current": job["current"],
-        "total": job["total"],
-        "result_count": len(job.get("results", [])),
-        "error": job.get("error"),
-    })
+    return JSONResponse(
+        {
+            "status": job["status"],
+            "message": job["message"],
+            "current": job["current"],
+            "total": job["total"],
+            "result_count": len(job.get("results", [])),
+            "error": job.get("error"),
+        }
+    )
 
 
 @app.post("/api/stock/scrape/import/{job_id}")
@@ -3502,11 +4315,15 @@ async def import_scrape_results(job_id: str):
 
             price = int(row.get("price", 0) or 0)
             # 重複チェック
-            existing = db.query(InventoryItem).filter(
-                InventoryItem.title == title,
-                InventoryItem.purchase_price_jpy == price,
-                InventoryItem.purchase_source == "ヤフオク",
-            ).first()
+            existing = (
+                db.query(InventoryItem)
+                .filter(
+                    InventoryItem.title == title,
+                    InventoryItem.purchase_price_jpy == price,
+                    InventoryItem.purchase_source == "ヤフオク",
+                )
+                .first()
+            )
             if existing:
                 skipped += 1
                 continue
@@ -3535,17 +4352,20 @@ async def import_scrape_results(job_id: str):
         # ジョブデータをクリーンアップ
         _scrape_jobs.pop(job_id, None)
 
-        return JSONResponse({
-            "status": "imported",
-            "created": created,
-            "skipped": skipped,
-            "total": len(results),
-        })
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
     finally:
         db.close()
 
 
 # ── eBayディスカバリー ──────────────────────────────────────
+
 
 @app.get("/discover", response_class=HTMLResponse)
 async def discover_redirect():
@@ -3587,10 +4407,19 @@ async def discover_search(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
     if not items:
-        return JSONResponse({"results": [], "keyword": keyword, "total": 0, "market_total": 0, "message": "検索結果なし"})
+        return JSONResponse(
+            {
+                "results": [],
+                "keyword": keyword,
+                "total": 0,
+                "market_total": 0,
+                "message": "検索結果なし",
+            }
+        )
 
     # 過去の自分の売上タイトルを取得（既知商品フィルタ用）
     from database.models import SalesRecord, Listing
+
     db = get_db()
     try:
         all_sales = db.query(SalesRecord).all()
@@ -3622,10 +4451,10 @@ async def discover_search(request: Request):
             title_lower = item["title"].lower()
 
             # 既知商品判定
-            title_words = set(re.findall(r'[a-z0-9]+', title_lower))
+            title_words = set(re.findall(r"[a-z0-9]+", title_lower))
             is_known = False
             for known in known_titles:
-                known_words = set(re.findall(r'[a-z0-9]+', known))
+                known_words = set(re.findall(r"[a-z0-9]+", known))
                 overlap = title_words & known_words
                 if len(overlap) >= 4 and len(overlap) >= len(title_words) * 0.5:
                     is_known = True
@@ -3652,34 +4481,38 @@ async def discover_search(request: Request):
             s_score = min(10, sold_qty * 2)
             score = round(d_score + p_score + n_score + s_score)
 
-            results.append({
-                "title": item["title"],
-                "price_usd": price_usd,
-                "price_jpy": round(price_usd * rate),
-                "sold_quantity": sold_qty,
-                "condition": item["condition"],
-                "image_url": item["image_url"],
-                "item_url": item["item_url"],
-                "seller": item["seller"],
-                "seller_feedback": item.get("seller_feedback", 0),
-                "category_id": item["category_id"],
-                "item_location": item.get("item_location", ""),
-                "is_known": is_known,
-                "score": score,
-            })
+            results.append(
+                {
+                    "title": item["title"],
+                    "price_usd": price_usd,
+                    "price_jpy": round(price_usd * rate),
+                    "sold_quantity": sold_qty,
+                    "condition": item["condition"],
+                    "image_url": item["image_url"],
+                    "item_url": item["item_url"],
+                    "seller": item["seller"],
+                    "seller_feedback": item.get("seller_feedback", 0),
+                    "category_id": item["category_id"],
+                    "item_location": item.get("item_location", ""),
+                    "is_known": is_known,
+                    "score": score,
+                }
+            )
 
         # スコア順
         results.sort(key=lambda x: x["score"], reverse=True)
 
-        return JSONResponse({
-            "results": results,
-            "keyword": keyword,
-            "total": len(results),
-            "market_total": market_total,
-            "demand_level": demand_level,
-            "new_items": sum(1 for r in results if not r["is_known"]),
-            "exchange_rate": rate,
-        })
+        return JSONResponse(
+            {
+                "results": results,
+                "keyword": keyword,
+                "total": len(results),
+                "market_total": market_total,
+                "demand_level": demand_level,
+                "new_items": sum(1 for r in results if not r["is_known"]),
+                "exchange_rate": rate,
+            }
+        )
     finally:
         db.close()
 
@@ -3706,21 +4539,24 @@ async def discover_estimate(request: Request):
     profit_jpy = round(profit_usd * rate)
     margin = round((profit_usd / sell_price_usd * 100) if sell_price_usd > 0 else 0, 1)
 
-    return JSONResponse({
-        "sell_price_usd": sell_price_usd,
-        "source_cost_jpy": source_cost_jpy,
-        "source_cost_usd": round(cost_usd, 2),
-        "ebay_fee_usd": round(ebay_fee, 2),
-        "payoneer_fee_usd": round(payoneer_fee, 2),
-        "shipping_usd": shipping_usd,
-        "profit_usd": round(profit_usd, 2),
-        "profit_jpy": profit_jpy,
-        "margin_pct": margin,
-        "exchange_rate": rate,
-    })
+    return JSONResponse(
+        {
+            "sell_price_usd": sell_price_usd,
+            "source_cost_jpy": source_cost_jpy,
+            "source_cost_usd": round(cost_usd, 2),
+            "ebay_fee_usd": round(ebay_fee, 2),
+            "payoneer_fee_usd": round(payoneer_fee, 2),
+            "shipping_usd": shipping_usd,
+            "profit_usd": round(profit_usd, 2),
+            "profit_jpy": profit_jpy,
+            "margin_pct": margin,
+            "exchange_rate": rate,
+        }
+    )
 
 
 # ── セラー分析 ──────────────────────────────────────────
+
 
 @app.post("/api/discover/seller-analysis")
 async def seller_analysis(request: Request):
@@ -3739,6 +4575,7 @@ async def seller_analysis(request: Request):
     try:
         from ebay_core.client import _browse_headers, EBAY_API_BASE
         import requests as req
+
         headers = _browse_headers()
         url = f"{EBAY_API_BASE}/buy/browse/v1/item_summary/search"
 
@@ -3750,7 +4587,11 @@ async def seller_analysis(request: Request):
         }
         resp = req.get(url, headers=headers, params=params, timeout=20)
         if resp.status_code != 200:
-            err_msg = resp.json().get("errors", [{}])[0].get("message", f"HTTP {resp.status_code}")
+            err_msg = (
+                resp.json()
+                .get("errors", [{}])[0]
+                .get("message", f"HTTP {resp.status_code}")
+            )
             return JSONResponse({"error": err_msg}, status_code=502)
         data = resp.json()
         items_raw = data.get("itemSummaries", [])
@@ -3764,7 +4605,9 @@ async def seller_analysis(request: Request):
         total_listings = len(items_raw)
 
     if not items_raw:
-        return JSONResponse({"error": f"No listings found for seller '{seller_name}'"}, status_code=404)
+        return JSONResponse(
+            {"error": f"No listings found for seller '{seller_name}'"}, status_code=404
+        )
 
     rate = get_usd_to_jpy()
 
@@ -3797,39 +4640,68 @@ async def seller_analysis(request: Request):
 
         # タイトルキーワード（英語3文字以上、ストップワード除外）
         title = item.get("title", "")
-        stop_words = {"the", "and", "for", "with", "from", "new", "used", "vintage",
-                      "rare", "japan", "japanese", "free", "shipping", "tested", "working"}
-        words = re.findall(r'[a-zA-Z]{3,}', title.lower())
+        stop_words = {
+            "the",
+            "and",
+            "for",
+            "with",
+            "from",
+            "new",
+            "used",
+            "vintage",
+            "rare",
+            "japan",
+            "japanese",
+            "free",
+            "shipping",
+            "tested",
+            "working",
+        }
+        words = re.findall(r"[a-zA-Z]{3,}", title.lower())
         for w in words:
             if w not in stop_words:
                 keywords[w] += 1
 
-        items_out.append({
-            "title": title,
-            "price_usd": price,
-            "price_jpy": round(price * rate),
-            "condition": cond,
-            "category": cat_label,
-            "category_id": cat_id,
-            "image_url": item.get("image", {}).get("imageUrl", ""),
-            "item_url": item.get("itemWebUrl", ""),
-        })
+        items_out.append(
+            {
+                "title": title,
+                "price_usd": price,
+                "price_jpy": round(price * rate),
+                "condition": cond,
+                "category": cat_label,
+                "category_id": cat_id,
+                "image_url": item.get("image", {}).get("imageUrl", ""),
+                "item_url": item.get("itemWebUrl", ""),
+            }
+        )
 
     prices.sort()
     avg_price = round(sum(prices) / len(prices), 2) if prices else 0
     median_price = round(prices[len(prices) // 2], 2) if prices else 0
 
     # 価格帯分布
-    price_ranges = {"$0-50": 0, "$50-200": 0, "$200-500": 0, "$500-1000": 0, "$1000+": 0}
+    price_ranges = {
+        "$0-50": 0,
+        "$50-200": 0,
+        "$200-500": 0,
+        "$500-1000": 0,
+        "$1000+": 0,
+    }
     for p in prices:
-        if p < 50: price_ranges["$0-50"] += 1
-        elif p < 200: price_ranges["$50-200"] += 1
-        elif p < 500: price_ranges["$200-500"] += 1
-        elif p < 1000: price_ranges["$500-1000"] += 1
-        else: price_ranges["$1000+"] += 1
+        if p < 50:
+            price_ranges["$0-50"] += 1
+        elif p < 200:
+            price_ranges["$50-200"] += 1
+        elif p < 500:
+            price_ranges["$200-500"] += 1
+        elif p < 1000:
+            price_ranges["$500-1000"] += 1
+        else:
+            price_ranges["$1000+"] += 1
 
     # 自分の出品と比較（Gap Analysis）
     from database.models import Listing
+
     db = get_db()
     try:
         my_listings = db.query(Listing).all()
@@ -3847,34 +4719,47 @@ async def seller_analysis(request: Request):
                 if cat.lower() in str(my_cat).lower():
                     my_count = my_cnt
                     break
-            gaps.append({
-                "category": cat,
-                "seller_count": count,
-                "seller_pct": pct,
-                "my_count": my_count,
-            })
+            gaps.append(
+                {
+                    "category": cat,
+                    "seller_count": count,
+                    "seller_pct": pct,
+                    "my_count": my_count,
+                }
+            )
     finally:
         db.close()
 
-    return JSONResponse({
-        "seller": seller_name,
-        "total_listings": total_listings,
-        "fetched": len(items_raw),
-        "avg_price_usd": avg_price,
-        "median_price_usd": median_price,
-        "min_price_usd": round(prices[0], 2) if prices else 0,
-        "max_price_usd": round(prices[-1], 2) if prices else 0,
-        "categories": [{"name": k, "count": v, "pct": round(v / len(items_raw) * 100)} for k, v in categories.most_common(15)],
-        "conditions": [{"name": k, "count": v, "pct": round(v / len(items_raw) * 100)} for k, v in conditions.most_common()],
-        "price_ranges": price_ranges,
-        "top_keywords": [{"word": k, "count": v} for k, v in keywords.most_common(25)],
-        "gap_analysis": gaps,
-        "items": items_out[:50],  # 上位50件のみUIに返す
-        "exchange_rate": rate,
-    })
+    return JSONResponse(
+        {
+            "seller": seller_name,
+            "total_listings": total_listings,
+            "fetched": len(items_raw),
+            "avg_price_usd": avg_price,
+            "median_price_usd": median_price,
+            "min_price_usd": round(prices[0], 2) if prices else 0,
+            "max_price_usd": round(prices[-1], 2) if prices else 0,
+            "categories": [
+                {"name": k, "count": v, "pct": round(v / len(items_raw) * 100)}
+                for k, v in categories.most_common(15)
+            ],
+            "conditions": [
+                {"name": k, "count": v, "pct": round(v / len(items_raw) * 100)}
+                for k, v in conditions.most_common()
+            ],
+            "price_ranges": price_ranges,
+            "top_keywords": [
+                {"word": k, "count": v} for k, v in keywords.most_common(25)
+            ],
+            "gap_analysis": gaps,
+            "items": items_out[:50],  # 上位50件のみUIに返す
+            "exchange_rate": rate,
+        }
+    )
 
 
 # ── 仕入れサイト巡回 ──────────────────────────────────────
+
 
 @app.post("/api/discover/source-search")
 async def source_search(request: Request):
@@ -3889,12 +4774,36 @@ async def source_search(request: Request):
 
     # タイトルから検索キーワード抽出
     # 型番・ブランド名（英数字メイン）を優先的に抽出
-    words = re.findall(r'[A-Za-z0-9][\w\-]*[A-Za-z0-9]', title)
+    words = re.findall(r"[A-Za-z0-9][\w\-]*[A-Za-z0-9]", title)
     # ストップワード除外
-    stop = {"the", "and", "for", "with", "from", "new", "used", "vintage",
-            "rare", "japan", "japanese", "free", "shipping", "tested", "working",
-            "pre", "owned", "excellent", "good", "condition", "great", "oem",
-            "genuine", "authentic", "original", "box"}
+    stop = {
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "new",
+        "used",
+        "vintage",
+        "rare",
+        "japan",
+        "japanese",
+        "free",
+        "shipping",
+        "tested",
+        "working",
+        "pre",
+        "owned",
+        "excellent",
+        "good",
+        "condition",
+        "great",
+        "oem",
+        "genuine",
+        "authentic",
+        "original",
+        "box",
+    }
     filtered = [w for w in words if w.lower() not in stop and len(w) >= 2]
 
     # 最大5語を検索クエリに
@@ -3935,14 +4844,17 @@ async def source_search(request: Request):
         },
     ]
 
-    return JSONResponse({
-        "title": title,
-        "search_query": query,
-        "sources": sources,
-    })
+    return JSONResponse(
+        {
+            "title": title,
+            "search_query": query,
+            "sources": sources,
+        }
+    )
 
 
 # ── Shopify Webhook ───────────────────────────────────────
+
 
 def verify_shopify_webhook(body: bytes, signature: str, secret: str) -> bool:
     """Shopify webhookのHMAC-SHA256署名を検証する"""
@@ -3977,6 +4889,7 @@ async def shopify_order_created(request: Request):
             # Shopify商品も削除
             if listing.shopify_product_id:
                 from shopify.client import ShopifyClient
+
                 client = ShopifyClient()
                 try:
                     await client.delete_product(listing.shopify_product_id)
@@ -3994,6 +4907,7 @@ async def shopify_order_created(request: Request):
 
 # ── ヘルスチェック ────────────────────────────────────────
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "ebay-agent-hub"}
@@ -4001,10 +4915,12 @@ async def health():
 
 # ── Overview ダッシュボード API ──────────────────────────
 
+
 @app.get("/api/overview/achievement")
 async def overview_achievement():
     """当月の達成状況（目標 vs 実績・ペース予測）"""
     from database.crud import get_monthly_achievement
+
     db = get_db()
     try:
         today = datetime.now()
@@ -4017,6 +4933,7 @@ async def overview_achievement():
 async def overview_calendar():
     """当月の日別売上データ（カレンダーヒートマップ用）"""
     from database.crud import get_monthly_calendar
+
     db = get_db()
     try:
         today = datetime.now()
@@ -4030,6 +4947,7 @@ async def overview_calendar_prev():
     """前月の日別売上データ（月別累計チャート用）"""
     from database.crud import get_monthly_calendar
     from datetime import timedelta
+
     db = get_db()
     try:
         first_of_month = datetime.now().replace(day=1)
@@ -4043,6 +4961,7 @@ async def overview_calendar_prev():
 async def overview_alerts():
     """要対応件数サマリー（在庫切れ・未読・価格アラート）"""
     from database.crud import get_overview_alerts
+
     db = get_db()
     try:
         return JSONResponse(get_overview_alerts(db))
@@ -4054,6 +4973,7 @@ async def overview_alerts():
 async def overview_pace():
     """今日の売上・前月同日比・日次平均"""
     from database.crud import get_overview_pace
+
     db = get_db()
     try:
         return JSONResponse(get_overview_pace(db))
@@ -4065,6 +4985,7 @@ async def overview_pace():
 async def overview_out_of_stock():
     """在庫切れ出品リスト（ダッシュボードOOSカード用）"""
     from database.crud import get_out_of_stock_items
+
     db = get_db()
     try:
         return JSONResponse(get_out_of_stock_items(db, limit=10))
@@ -4076,6 +4997,7 @@ async def overview_out_of_stock():
 async def overview_category_profit():
     """カテゴリ別利益内訳（モーダル用）"""
     from database.crud import get_category_profit
+
     db = get_db()
     try:
         today = datetime.now()
@@ -4087,19 +5009,22 @@ async def overview_category_profit():
 @app.get("/api/fx/usdjpy")
 async def fx_usdjpy():
     """USD/JPY レート（現在は静的値、後でリアルAPI連携予定）"""
-    return JSONResponse({
-        "rate": 152.40,
-        "change": 0.82,
-        "direction": "up",
-        "source": "static",
-        "updated_at": datetime.now().isoformat(),
-    })
+    return JSONResponse(
+        {
+            "rate": 152.40,
+            "change": 0.82,
+            "direction": "up",
+            "source": "static",
+            "updated_at": datetime.now().isoformat(),
+        }
+    )
 
 
 @app.get("/api/overview/recent_sales")
 async def overview_recent_sales():
     """最近の売上明細（ダッシュボード売上テーブル用）"""
     from database.crud import get_recent_sales
+
     db = get_db()
     try:
         today = datetime.now()

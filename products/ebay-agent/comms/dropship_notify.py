@@ -6,6 +6,7 @@
 
 既存 @bmanager_trustlink_bot（Chat ID: 323107833）を流用する想定。
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +22,9 @@ from config import (
     TELEGRAM_CHAT_ID,
 )
 from database.models import DropshipCandidate
+
+# 候補一覧ページ（eBay+eShip 同時出品ボタン）
+DROPSHIP_CANDIDATES_URL = "https://ebay.trustlink-tk.com/dropship/candidates"
 
 
 logger = logging.getLogger(__name__)
@@ -80,18 +84,22 @@ def _format_candidate_line(idx: int, c: DropshipCandidate) -> str:
 async def send_dropship_digest(db: Session, limit: int = DROPSHIP_DIGEST_TOP_N) -> dict:
     """過去24時間の pending 候補を利益順に上位Nを Telegram 送信。"""
     cutoff = datetime.utcnow() - timedelta(hours=24)
-    rows = list(db.execute(
-        select(DropshipCandidate)
-        .where(
-            DropshipCandidate.status == "pending",
-            DropshipCandidate.created_at >= cutoff,
+    rows = list(
+        db.execute(
+            select(DropshipCandidate)
+            .where(
+                DropshipCandidate.status == "pending",
+                DropshipCandidate.created_at >= cutoff,
+            )
+            .order_by(
+                DropshipCandidate.projected_profit_usd.desc(),
+                DropshipCandidate.projected_margin_pct.desc(),
+            )
+            .limit(limit)
         )
-        .order_by(
-            DropshipCandidate.projected_profit_usd.desc(),
-            DropshipCandidate.projected_margin_pct.desc(),
-        )
-        .limit(limit)
-    ).scalars().all())
+        .scalars()
+        .all()
+    )
 
     if not rows:
         msg = "📦 <b>無在庫候補スキャン完了</b>\n\n今日の新規候補はありませんでした。"
@@ -109,12 +117,15 @@ async def send_dropship_digest(db: Session, limit: int = DROPSHIP_DIGEST_TOP_N) 
         lines.append("")  # 空行で区切り
 
     lines.append(
-        "承認するには候補IDを指定して "
-        "<code>/approve &lt;ID&gt;</code> または Agent Hub の "
-        "<code>POST /api/dropship/approve</code> を実行してください。"
+        f'🚀 <b><a href="{DROPSHIP_CANDIDATES_URL}">候補一覧ページを開く</a></b>'
     )
+    lines.append("ボタンから eBay ドラフト + eShip 在庫に同時登録できます。")
 
-    sent = await send_telegram("\n".join(lines))
+    sent = await send_telegram("\n".join(lines), disable_preview=True)
     # 通知送信フラグはテーブル設計通り telegram_message_id に保存できるが、
     # sendMessage のレスポンスから取得する実装は /approve 実装時に追加する。
-    return {"sent": sent, "count": len(rows), "profit_total_usd": round(total_profit, 2)}
+    return {
+        "sent": sent,
+        "count": len(rows),
+        "profit_total_usd": round(total_profit, 2),
+    }
