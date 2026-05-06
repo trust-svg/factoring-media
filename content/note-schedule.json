@@ -230,7 +230,9 @@
     {
       "date": "2026-05-06",
       "slug": "paytner-yabai",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/ne98525633f65",
+      "published_at": "2026-05-06"
     },
     {
       "date": "2026-05-07",
