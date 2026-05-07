@@ -58,9 +58,41 @@ _VIDEO_URL_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Tighter pattern: matches only single-video page URLs. Account / channel URLs
+# (youtube.com/@x, tiktok.com/@x, instagram.com/<user>) intentionally don't
+# match — those are routed to sns-research instead.
+_VIDEO_PAGE_RE = re.compile(
+    r"(?:"
+    r"youtube\.com/(?:watch\?|shorts/|embed/|live/)"
+    r"|youtu\.be/[\w-]+"
+    r"|tiktok\.com/[^/\s]+/video/[\w-]+"
+    r"|vt\.tiktok\.com/[\w-]+"
+    r"|tiktok\.com/[tv]/[\w-]+"
+    r"|instagram\.com/(?:p|reel|reels|tv)/[\w-]+"
+    r")",
+    re.IGNORECASE,
+)
+
 
 def _extract_video_urls(text: str) -> list[str]:
     return _VIDEO_URL_RE.findall(text or "")
+
+
+def _classify_video_research_input(text: str) -> tuple[str, str | None]:
+    """動画分析-video-research チャンネル入力の振り分け。
+
+    Returns:
+        ("video", url)        — 動画ページ URL → 既存の構造化分析を実行
+        ("sns_research", txt) — それ以外（アカウントURL・キーワード等）→ sns-research フロー
+        ("empty", None)       — 空メッセージ
+    """
+    text = (text or "").strip()
+    if not text:
+        return ("empty", None)
+    for url in _VIDEO_URL_RE.findall(text):
+        if _VIDEO_PAGE_RE.search(url):
+            return ("video", url)
+    return ("sns_research", text)
 
 
 # Channel -> AI character mapping
@@ -355,16 +387,36 @@ async def on_message(message: discord.Message):
 
     logger.info(f"PROCESSING: {message.content[:50]} in #{channel_name}")
 
-    # Video analyzer channel: bypass Steve, run pipeline directly
+    # Video analyzer channel: 2モード対応 (動画分析 / SNSバズリサーチ)
     if channel_name == VIDEO_ANALYZER_CHANNEL:
-        urls = _extract_video_urls(message.content)
-        if urls:
-            asyncio.create_task(_run_video_analysis(message.channel, urls[0]))
+        kind, payload = _classify_video_research_input(message.content)
+        if kind == "video":
+            asyncio.create_task(_run_video_analysis(message.channel, payload))
+            return
+        if kind == "sns_research":
+            from flows import run_flow
+
+            asyncio.create_task(
+                run_flow(
+                    "sns-research",
+                    {"genre": payload},
+                    send_to_channel,
+                    channel_override=channel_name,
+                )
+            )
+            preview = payload[:80] + ("…" if len(payload) > 80 else "")
+            await send_as_character_with_avatar(
+                message.channel,
+                f"🔍 SNSバズリサーチを開始します: 「{preview}」\n"
+                "Elon が sns-research スキルで実行中…",
+                channel_name,
+            )
             return
         await send_as_character_with_avatar(
             message.channel,
-            "🎬 YouTube / TikTok / Instagram の URL を貼ってください。"
-            "貼られた URL を順番に構造化分析します。",
+            "🎬 このチャンネルは2モード対応です。\n"
+            "- **動画分析**: YouTube / TikTok / Instagram の動画ページ URL を貼る → 構造化分析\n"
+            "- **SNSバズリサーチ**: ジャンル名・キーワード・アカウントURL を貼る → Elon が sns-research スキルで実行",
             channel_name,
         )
         return
