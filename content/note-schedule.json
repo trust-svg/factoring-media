@@ -237,7 +237,9 @@
     {
       "date": "2026-05-07",
       "slug": "betrading-ayashii",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n9dc50fdfe3fe",
+      "published_at": "2026-05-07"
     },
     {
       "date": "2026-05-08",
