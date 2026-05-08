@@ -5,6 +5,7 @@ import asyncio
 from pathlib import Path
 
 import discord
+import httpx
 
 import config
 from departments import get_department_for_channel
@@ -653,9 +654,19 @@ async def _run_video_analysis(channel: discord.TextChannel, url: str) -> None:
         notice = await channel.send(f"🎬 分析開始: {url[:120]}")
         try:
             data = await video_analyzer.analyze(url, force=False)
+        except httpx.ReadTimeout:
+            logger.exception("video analyze timed out")
+            await notice.edit(
+                content=(
+                    "⚠️ 分析タイムアウト（10 分）— 動画が長すぎる可能性があります。\n"
+                    "目安: 13 分以内なら通る想定。それ以上は分割をご検討ください。"
+                )
+            )
+            return
         except Exception as e:
             logger.exception("video analyze failed")
-            await notice.edit(content=f"⚠️ 分析失敗: {e}")
+            msg = str(e) or type(e).__name__
+            await notice.edit(content=f"⚠️ 分析失敗: {msg}")
             return
 
         if data.get("error"):

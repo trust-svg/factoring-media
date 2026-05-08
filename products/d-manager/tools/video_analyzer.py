@@ -35,13 +35,17 @@ def _headers() -> dict[str, str]:
 
 
 async def analyze(
-    url: str, force: bool = False, timeout: float = 180.0
+    url: str, force: bool = False, timeout: float = 600.0
 ) -> dict[str, Any]:
     """Run the full pipeline. Returns the AnalyzeResponse dict.
 
     On HTTP 429 (daily budget exceeded) the caller should surface a friendly
     message rather than retry — re-raising httpx.HTTPStatusError preserves the
     detail for the caller to read.
+
+    timeout=600s (10 min) covers up to ~15 min videos. 9-min videos take
+    ~120s; 13-min videos hit the old 180s ceiling and surfaced as bare
+    `httpx.ReadTimeout` (empty `str(e)`) on the caller side.
     """
     payload = {"url": url, "force": force}
     async with httpx.AsyncClient(timeout=timeout) as client:
