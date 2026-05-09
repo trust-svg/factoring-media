@@ -83,6 +83,10 @@ _load_cli_sessions()
 
 # Engine mode: "cli" (subscription) or "api" (pay-per-use fallback)
 ENGINE_MODE = os.getenv("ENGINE_MODE", "cli")
+logger.warning(
+    f"d-manager engine mode at startup: ENGINE_MODE={ENGINE_MODE!r} "
+    f"(cli=subscription, api=pay-per-use)"
+)
 
 # Company data directory for CLI mode file access instructions
 COMPANY_DIR = config.COMPANY_DIR
@@ -914,7 +918,18 @@ def _ensure_api():
 
 def _process_api(user_message: str, department: str, channel_id: str) -> str:
     """Process message using Anthropic API (fallback mode)."""
+    import traceback
+
     from anthropic import APIStatusError
+
+    # API mode 発火は本来異常系（CLIフォールバック or ENGINE_MODE!=cli のみ）
+    # 課金が発生するため、呼び出し経路をスタックトレース付きで残す
+    stack = "".join(traceback.format_stack()[-6:-1])
+    logger.error(
+        f"💰 API MODE FIRED (paid call): dept={department} channel={channel_id} "
+        f"ENGINE_MODE={ENGINE_MODE!r} msg_len={len(user_message)}\n"
+        f"Stack trace (most recent last):\n{stack}"
+    )
 
     _ensure_api()
     system_prompt = _build_system_prompt(department)
