@@ -5,7 +5,7 @@
 {% block page_title %}<span data-en="Buyer Messages" data-ja="バイヤーメッセージ">Buyer Messages</span>{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/chat.css?v=20260418f">
+<link rel="stylesheet" href="/static/css/chat.css?v=20260421a">
 {% endblock %}
 
 {% block content %}
@@ -17,12 +17,23 @@
                 <svg class="conv-search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
                 <input type="text" id="searchInput" placeholder="Search..." data-placeholder-en="Search..." data-placeholder-ja="検索..." oninput="searchConversations()">
             </div>
-            <div class="conv-actions">
+            <div class="conv-actions" style="align-items:center;">
+                <select id="productSortSelect" onchange="setProductSort(this.value)" style="font-size:11px;border:1px solid var(--border);border-radius:6px;padding:2px 4px;background:var(--bg-primary);color:var(--text-secondary);cursor:pointer;flex:1;">
+                    <option value="date" data-ja="新着順">新着順</option>
+                    <option value="unread" data-ja="未読優先">未読優先</option>
+                    <option value="purchased" data-ja="購入済み">購入済み</option>
+                    <option value="trouble" data-ja="トラブル">トラブル</option>
+                    <option value="repeat" data-ja="リピーター">リピーター</option>
+                </select>
                 <button onclick="syncMessages()" id="syncBtn" aria-label="Sync">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M2.985 19.644l3.181-3.18"/></svg>
                 </button>
                 <button onclick="markAllRead()" aria-label="Mark all read">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                </button>
+                <button onclick="openNoReplyPanel()" id="noReplyBtn" aria-label="Approval queue" title="未返信自動返信 承認待ち" style="position:relative;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/></svg>
+                    <span id="noReplyBadge" class="no-reply-badge" style="display:none;">0</span>
                 </button>
             </div>
         </div>
@@ -176,8 +187,29 @@
         </div>
     </div>
 </div>
+<!-- 未返信自動返信 承認パネル (スライドイン) -->
+<div class="no-reply-overlay" id="noReplyOverlay" onclick="closeNoReplyPanel()"></div>
+<div class="no-reply-panel" id="noReplyPanel">
+    <div class="no-reply-panel-header">
+        <div>
+            <h3 style="margin:0 0 2px;" data-en="No-Reply Auto Follow-up" data-ja="未返信自動返信">未返信自動返信</h3>
+            <div style="font-size:11px;color:var(--text-muted);" data-en="Approval queue" data-ja="承認待ち候補">承認待ち候補 <span id="noReplyCount">0</span></div>
+        </div>
+        <button class="close-btn" onclick="closeNoReplyPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="no-reply-panel-body" id="noReplyPanelBody">
+        <div style="text-align:center;color:var(--text-muted);padding:40px 20px;font-size:12px;">
+            <span data-en="Loading..." data-ja="読み込み中...">読み込み中...</span>
+        </div>
+    </div>
+    <div class="no-reply-panel-footer" id="noReplyPanelFooter" style="display:none;">
+        <button class="btn-bulk-send" onclick="bulkSendNoReply()">
+            <span data-en="Send All" data-ja="全て送信">全て送信</span>
+        </button>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/chat.js?v=20260418f"></script>
+<script src="/static/js/chat.js?v=20260421a"></script>
 {% endblock %}

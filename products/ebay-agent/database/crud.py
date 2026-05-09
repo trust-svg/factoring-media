@@ -257,6 +257,29 @@ def get_sales_summary(db: Session, days: int = 30) -> dict:
     }
 
 
+def get_sales_summary_range(db: Session, start_dt, end_dt) -> dict:
+    """日付範囲指定の売上サマリー"""
+    records = db.query(SalesRecord).filter(
+        SalesRecord.sold_at >= start_dt,
+        SalesRecord.sold_at <= end_dt,
+    ).all()
+
+    total_revenue = sum(r.sale_price_usd for r in records)
+    total_profit = sum(r.net_profit_usd for r in records)
+    total_cost_jpy = sum(r.total_cost_jpy for r in records)
+    actual_days = (end_dt - start_dt).days + 1
+
+    return {
+        "period_days": actual_days,
+        "total_sales": len(records),
+        "total_revenue_usd": round(total_revenue, 2),
+        "total_profit_usd": round(total_profit, 2),
+        "total_source_cost_jpy": total_cost_jpy,
+        "avg_profit_per_sale_usd": round(total_profit / len(records), 2) if records else 0,
+        "avg_margin_pct": round((total_profit / total_revenue * 100), 1) if total_revenue else 0,
+    }
+
+
 def get_profit_summary(db: Session, months: int = 6) -> list[dict]:
     """月別利益サマリー"""
     cutoff = datetime.utcnow() - timedelta(days=months * 31)

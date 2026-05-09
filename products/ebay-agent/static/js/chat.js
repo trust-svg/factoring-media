@@ -12,6 +12,11 @@ let currentThread = [];
 let uploadedImageUrls = [];
 let lastMessageId = null;
 let currentBuyerSort = 'date';
+let currentProductSort = 'date';
+let currentDaysFilter = null; // 日付範囲フィルタ（null=全期間）
+let currentOffset = 0;
+let hasMoreItems = false;
+let isLoadingMore = false;
 let _knownConvKeys = new Set(); // for new message detection
 let _audioCtx = null;
 
@@ -90,61 +95,131 @@ function cacheInvalidate(store, key) {
     else Object.keys(store).forEach(k => delete store[k]);
 }
 
+// ── SSE（リアルタイム更新）────────────────────────────
+let _eventSource = null;
+
+function _connectSSE() {
+    if (_eventSource) _eventSource.close();
+    _eventSource = new EventSource('/api/chat/events');
+
+    _eventSource.addEventListener('sync', (e) => {
+        // サーバー側でsync完了 → 会話一覧を自動更新
+        const data = JSON.parse(e.data || '{}');
+        if ((data.new || 0) > 0 || (data.updated || 0) > 0) {
+            loadConversations();
+            // 現在のスレッドも更新
+            if (currentBuyer && currentItemId) {
+                cacheInvalidate(_cache.threads, `${currentBuyer}|${currentItemId}`);
+                openThread(currentBuyer, currentItemId);
+            }
+            const status = document.getElementById('syncStatus');
+            if (status) {
+                const msg = getLang() === 'ja'
+                    ? `自動更新: 新規${data.new || 0}件`
+                    : `Auto-sync: ${data.new || 0} new`;
+                status.textContent = msg;
+                setTimeout(() => { status.textContent = ''; }, 5000);
+            }
+        }
+    });
+
+    _eventSource.addEventListener('connected', () => {
+        console.log('SSE connected');
+    });
+
+    _eventSource.onerror = () => {
+        console.log('SSE reconnecting...');
+    };
+}
+
 // ── Init ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
     // Restore seller avatar from localStorage
     const savedAvatar = getSellerAvatar();
     if (savedAvatar) _updateAvatarPreviews(savedAvatar);
+    // デスクトップ通知許可リクエスト
+    _requestNotificationPermission();
+    // SSE接続（リアルタイム更新）
+    _connectSSE();
     // DBから即座に表示
     await loadConversations();
-    // 初回sync: ページ表示完了から30秒後に実行（UIをブロックしない）
-    setTimeout(() => syncMessages(true), 30000);
-    // 以降は5分毎
+    // 初回sync: ページ表示完了から10秒後に実行
+    setTimeout(() => syncMessages(true), 10000);
+    // バックグラウンド同期: 5分毎（SSEは通知のみ、定期syncは引き続き必要）
     setInterval(() => syncMessages(true), 5 * 60 * 1000);
 });
 
 // ── Conversations ───────────────────────────────────
-async function loadConversations() {
+async function loadConversations(append = false) {
+    if (isLoadingMore) return;
     try {
+        if (!append) currentOffset = 0;
         const params = new URLSearchParams({
             status: currentFilter,
             search: document.getElementById('searchInput')?.value || '',
+            offset: currentOffset,
         });
+        if (currentDaysFilter) params.set('days', currentDaysFilter);
         const resp = await fetch(`/api/chat/conversations?${params}`);
         const data = await resp.json();
 
-        // Detect new unread messages → play sound
-        const newKeys = new Set();
-        (data.conversations || []).forEach(c => {
-            if (c.unread_count > 0) newKeys.add(`${c.buyer}|${c.item_id}`);
-        });
-        if (_knownConvKeys.size > 0) {
-            for (const k of newKeys) {
-                if (!_knownConvKeys.has(k)) { playNewMessageSound(); break; }
-            }
-        }
-        _knownConvKeys = newKeys;
+        hasMoreItems = data.has_more || false;
 
-        conversations = data.conversations || [];
-        itemsList = data.items || [];
-        renderProductList();
-        updateUnreadBadge(data.unread_total || 0);
+        // Detect new unread messages → play sound (only on fresh load)
+        if (!append) {
+            const newKeys = new Set();
+            (data.conversations || []).forEach(c => {
+                if (c.unread_count > 0) newKeys.add(`${c.buyer}|${c.item_id}`);
+            });
+            if (_knownConvKeys.size > 0) {
+                const newBuyers = [];
+                for (const k of newKeys) {
+                    if (!_knownConvKeys.has(k)) newBuyers.push(k.split('|')[0]);
+                }
+                if (newBuyers.length > 0) {
+                    playNewMessageSound();
+                    _showDesktopNotification(newBuyers);
+                }
+            }
+            _knownConvKeys = newKeys;
+        }
+
+        if (append) {
+            conversations = conversations.concat(data.conversations || []);
+            itemsList = itemsList.concat(data.items || []);
+        } else {
+            conversations = data.conversations || [];
+            itemsList = data.items || [];
+        }
+        if (currentProductSort !== 'date') _sortItemsList();
+        renderProductList(append);
+        if (!append) updateUnreadBadge(data.unread_total || 0);
     } catch (e) {
         console.error('Failed to load conversations:', e);
     }
 }
 
+async function loadMoreConversations() {
+    if (!hasMoreItems || isLoadingMore) return;
+    isLoadingMore = true;
+    currentOffset += 50;
+    await loadConversations(true);
+    isLoadingMore = false;
+}
+
 // ── Product List (left column) ──────────────────────
-function renderProductList() {
+let _scrollObserver = null;
+
+function renderProductList(append = false) {
     const container = document.getElementById('productList');
     if (!container) { renderConversations(); return; }
 
-    if (!itemsList.length) {
+    if (!itemsList.length && !append) {
         container.innerHTML = `<div class="thread-empty"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/></svg><span>${getLang() === 'ja' ? '同期してください' : 'Click Sync'}</span></div>`;
         return;
     }
 
-    container.innerHTML = itemsList.map((item, i) => {
+    const html = itemsList.map((item, i) => {
         const isActive = item.item_id === currentItemId;
         const thumbHtml = item.thumbnail
             ? `<img class="product-thumb" src="${escapeHtml(item.thumbnail)}" alt="" loading="lazy">`
@@ -153,7 +228,8 @@ function renderProductList() {
             ? `<span class="product-unread-badge">${item.unread_count}</span>`
             : '';
 
-        return `<div class="product-item ${isActive ? 'active' : ''}" onclick="selectProduct('${escapeHtml(item.item_id)}')" style="animation-delay:${i*30}ms" title="${escapeHtml(item.title)}">
+        const isUnread = item.unread_count > 0;
+        return `<div class="product-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" onclick="selectProduct('${escapeHtml(item.item_id)}')" style="animation-delay:${i*30}ms" title="${escapeHtml(item.title)}">
             <div class="product-thumb-wrap">${thumbHtml}${unreadHtml}</div>
             <div class="product-info">
                 <div class="product-title">${escapeHtml((item.title || '#' + item.item_id).substring(0, 40))}</div>
@@ -161,6 +237,31 @@ function renderProductList() {
             </div>
         </div>`;
     }).join('');
+
+    // Remove old sentinel
+    const oldSentinel = container.querySelector('.scroll-sentinel');
+    if (oldSentinel) oldSentinel.remove();
+
+    if (append) {
+        container.insertAdjacentHTML('beforeend', html);
+    } else {
+        container.innerHTML = html;
+    }
+
+    // Infinite scroll sentinel
+    if (hasMoreItems) {
+        const sentinel = document.createElement('div');
+        sentinel.className = 'scroll-sentinel';
+        sentinel.style.cssText = 'height:40px;display:flex;align-items:center;justify-content:center;';
+        sentinel.innerHTML = '<span class="loading-spinner"></span>';
+        container.appendChild(sentinel);
+
+        if (_scrollObserver) _scrollObserver.disconnect();
+        _scrollObserver = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) loadMoreConversations();
+        }, { root: container, threshold: 0.1 });
+        _scrollObserver.observe(sentinel);
+    }
 
     // Lazy-load missing thumbnails from item API
     const missingThumbs = container.querySelectorAll('.product-thumb-placeholder[data-item-id]');
@@ -198,6 +299,10 @@ function selectProduct(itemId) {
         // Auto-select first buyer
         if (item.buyers?.length === 1) {
             openThread(item.buyers[0].buyer, itemId);
+        } else if (window.innerWidth <= 768) {
+            // モバイル: 商品選択 → バイヤーリスト表示
+            document.getElementById('productCol')?.classList.add('hidden');
+            document.getElementById('buyerCol')?.classList.add('active');
         }
     }
 }
@@ -226,6 +331,50 @@ function _sortBuyers(buyers) {
     return arr;
 }
 
+// ── Product Sort ────────────────────────────────────
+function setProductSort(val) {
+    currentProductSort = val;
+    _sortItemsList();
+    renderProductList();
+}
+
+function _sortItemsList() {
+    if (currentProductSort === 'date') return; // API default order
+
+    itemsList.sort((a, b) => {
+        if (currentProductSort === 'unread') {
+            return (b.unread_count || 0) - (a.unread_count || 0);
+        }
+        if (currentProductSort === 'purchased') {
+            const aPurchased = _itemHasStatus(a, 'purchased');
+            const bPurchased = _itemHasStatus(b, 'purchased');
+            return bPurchased - aPurchased;
+        }
+        if (currentProductSort === 'trouble') {
+            const aTrouble = _itemHasTrouble(a);
+            const bTrouble = _itemHasTrouble(b);
+            return bTrouble - aTrouble;
+        }
+        if (currentProductSort === 'repeat') {
+            const aRepeat = _itemHasStatus(a, 'repeat');
+            const bRepeat = _itemHasStatus(b, 'repeat');
+            return bRepeat - aRepeat;
+        }
+        return 0;
+    });
+}
+
+function _itemHasStatus(item, status) {
+    return (item.buyers || []).some(b => (b.status || []).includes(status)) ? 1 : 0;
+}
+
+function _itemHasTrouble(item) {
+    const troubleStatuses = ['return', 'cancel', 'refund', 'dispute'];
+    return (item.buyers || []).some(b =>
+        (b.status || []).some(s => troubleStatuses.includes(s))
+    ) ? 1 : 0;
+}
+
 // ── Sound Notification ───────────────────────────────
 function _getAudioCtx() {
     if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -251,6 +400,27 @@ function playNewMessageSound() {
     } catch (e) { /* ignore if AudioContext not available */ }
 }
 
+// ── Desktop Notifications ──────────────────────────
+function _requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+}
+
+function _showDesktopNotification(buyers) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (document.hasFocus()) return; // タブがアクティブなら不要
+    const title = getLang() === 'ja' ? 'eBay 新着メッセージ' : 'eBay New Message';
+    const body = buyers.length === 1
+        ? `${buyers[0]}`
+        : getLang() === 'ja'
+            ? `${buyers[0]} 他${buyers.length - 1}件`
+            : `${buyers[0]} +${buyers.length - 1} more`;
+    const n = new Notification(title, { body, icon: '/static/img/favicon.png', tag: 'ebay-chat' });
+    n.onclick = () => { window.focus(); n.close(); };
+    setTimeout(() => n.close(), 8000);
+}
+
 // ── Buyer List (second column) ──────────────────────
 function renderBuyerList(buyers) {
     const container = document.getElementById('buyerList');
@@ -268,31 +438,23 @@ function renderBuyerList(buyers) {
         const dateStr = b.last_date ? formatRelativeDate(b.last_date) : '';
 
         const ja = getLang() === 'ja';
-        // SVG icon paths (16x16 viewBox)
-        const _ico = {
-            check: '<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" transform="scale(0.67) translate(0,-1)"/>',
-            star2: '<path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" transform="scale(0.67) translate(0,-1)"/>',
-            truck: '<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25" transform="scale(0.67) translate(0,-1)"/>',
-            home:  '<path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" transform="scale(0.67) translate(0,-1)"/>',
-            tag:   '<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" transform="scale(0.67) translate(0,-1)"/>',
-            msg:   '<path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" transform="scale(0.67) translate(0,-1)"/>',
-            warn:  '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" transform="scale(0.67) translate(0,-1)"/>',
-            undo:  '<path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" transform="scale(0.67) translate(0,-1)"/>',
-            x:     '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" transform="scale(0.67) translate(0,-1)"/>',
-        };
-        const _svg = (path, fill=false) => `<svg width="11" height="11" viewBox="0 0 16 16" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">${path}</svg>`;
+        // SVG icon paths (24x24 Heroicons, scaled to chip size)
+        const _svg = (d, fill=false) => `<svg width="12" height="12" viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
         const statusChips = {
-            purchased: { cls: 'chip-purchased',  icon: _svg(_ico.check),   label: ja ? '購入済' : 'Bought' },
-            repeat:    { cls: 'chip-repeat',     icon: _svg(_ico.star2),   label: ja ? 'リピーター' : 'Repeat' },
-            shipped:   { cls: 'chip-shipped',    icon: _svg(_ico.truck),   label: ja ? '発送済' : 'Shipped' },
-            delivered: { cls: 'chip-delivered',  icon: _svg(_ico.home),    label: ja ? '配達済' : 'Delivered' },
-            offer:     { cls: 'chip-offer',      icon: _svg(_ico.tag),     label: ja ? 'オファー' : 'Offer' },
-            feedback:  { cls: 'chip-feedback',   icon: _svg(_ico.star2),   label: ja ? 'FB済' : 'FB' },
-            message:   { cls: 'chip-message',    icon: _svg(_ico.msg),     label: ja ? '問い合わせ' : 'Inquiry' },
-            'return':  { cls: 'chip-return',     icon: _svg(_ico.undo),    label: ja ? '返品' : 'Return' },
-            cancel:    { cls: 'chip-cancel',     icon: _svg(_ico.x),       label: ja ? 'キャンセル' : 'Cancel' },
-            refund:    { cls: 'chip-refund',     icon: _svg(_ico.warn),    label: ja ? '返金' : 'Refund' },
-            dispute:   { cls: 'chip-dispute',    icon: _svg(_ico.warn),    label: ja ? 'ディスプート' : 'Dispute' },
+            purchased:         { cls: 'chip-purchased',  icon: _svg('<path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>'),   label: ja ? '購入済' : 'Bought' },
+            repeat:            { cls: 'chip-repeat',     icon: _svg('<path d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"/>'),   label: ja ? 'リピーター' : 'Repeat' },
+            shipped:           { cls: 'chip-shipped',    icon: _svg('<path d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859"/>'),   label: ja ? '発送済' : 'Shipped' },
+            delivered:         { cls: 'chip-delivered',  icon: _svg('<path d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>'),   label: ja ? '配達済' : 'Delivered' },
+            awaiting_shipment: { cls: 'chip-awaiting',   icon: _svg('<path d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>'),   label: ja ? '発送待' : 'Awaiting' },
+            awaiting_payment:  { cls: 'chip-payment',    icon: _svg('<path d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"/>'),   label: ja ? '支払待' : 'Payment' },
+            offer:             { cls: 'chip-offer',      icon: _svg('<path d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path d="M6 6h.008v.008H6V6Z"/>'),   label: ja ? 'オファー' : 'Offer' },
+            feedback:          { cls: 'chip-feedback',   icon: _svg('<path d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"/>'),   label: ja ? 'FB済' : 'Feedback' },
+            message:           { cls: 'chip-message',    icon: _svg('<path d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/>'),   label: ja ? '問い合わせ' : 'Inquiry' },
+            'case':            { cls: 'chip-case',       icon: _svg('<path d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/>'),   label: ja ? 'ケース' : 'Case' },
+            'return':          { cls: 'chip-return',     icon: _svg('<path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/>'),   label: ja ? '返品' : 'Return' },
+            cancel:            { cls: 'chip-cancel',     icon: _svg('<path d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>'),   label: ja ? 'キャンセル' : 'Cancel' },
+            refund:            { cls: 'chip-refund',     icon: _svg('<path d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"/><path d="M4 4l16 16" stroke-width="2.5"/>'),   label: ja ? '返金' : 'Refund' },
+            dispute:           { cls: 'chip-dispute',    icon: _svg('<path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>'),   label: ja ? 'ディスプート' : 'Dispute' },
         };
         const chips = (b.status || []).map(s => {
             const c = statusChips[s];
@@ -417,8 +579,11 @@ async function openThread(buyer, itemId) {
         // Load smart replies for last inbound
         if (lastMessageId) loadSmartReplies(lastMessageId);
 
-        // Mobile: show thread
-        document.getElementById('convList')?.classList.add('hidden');
+        // Mobile: show thread (hide product/buyer columns)
+        if (window.innerWidth <= 768) {
+            document.getElementById('productCol')?.classList.add('hidden');
+            document.getElementById('buyerCol')?.classList.remove('active');
+        }
         document.getElementById('threadView')?.classList.add('active');
 
         // 翻訳バックグラウンド処理（既に表示済みのメッセージを差し込み更新）
@@ -902,6 +1067,41 @@ async function submitOfferAction(itemId, msgId) {
     }
 }
 
+const _returnTimelineSteps = [
+    { key: 'RETURN_REQUESTED', ja: 'リクエスト', en: 'Requested' },
+    { key: 'WAITING_FOR_SELLER_RESPONSE', ja: '対応待ち', en: 'Awaiting Response' },
+    { key: 'WAITING_FOR_RETURN_SHIPMENT', ja: '返送待ち', en: 'Awaiting Shipment' },
+    { key: 'RETURN_SHIPPED', ja: '返送済み', en: 'Shipped Back' },
+    { key: 'DELIVERED', ja: '返品到着', en: 'Delivered' },
+    { key: 'REFUND_ISSUED', ja: '返金完了', en: 'Refunded' },
+];
+
+function _renderReturnTimeline(status) {
+    const ja = getLang() === 'ja';
+    // Find current step index
+    const currentIdx = _returnTimelineSteps.findIndex(s => s.key === status);
+    const isEscalated = status === 'ESCALATED';
+    const isClosed = status === 'CLOSED';
+
+    if (isEscalated) {
+        return `<div class="return-timeline-alert">${ja ? 'エスカレート中' : 'Escalated'}</div>`;
+    }
+    if (isClosed) {
+        return `<div class="return-timeline-done">${ja ? 'クローズ済み' : 'Closed'}</div>`;
+    }
+
+    return `<div class="return-timeline">${_returnTimelineSteps.map((step, i) => {
+        const done = i <= currentIdx;
+        const active = i === currentIdx;
+        const cls = active ? 'step-active' : done ? 'step-done' : 'step-pending';
+        return `<div class="timeline-step ${cls}">
+            <div class="timeline-dot"></div>
+            ${i < _returnTimelineSteps.length - 1 ? '<div class="timeline-line"></div>' : ''}
+            <div class="timeline-label">${ja ? step.ja : step.en}</div>
+        </div>`;
+    }).join('')}</div>`;
+}
+
 async function loadReturnsForCard(msgId) {
     const el = document.getElementById(`returnList-${msgId}`);
     if (!el) return;
@@ -913,11 +1113,14 @@ async function loadReturnsForCard(msgId) {
         _returnCardData[msgId] = returns;
         if (!returns.length) { el.textContent = getLang() === 'ja' ? 'アクティブなリターンなし' : 'No active returns'; return; }
         el.innerHTML = returns.map((r, i) =>
-            `<label style="cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                <input type="radio" name="return-${msgId}" value="${escapeHtml(r.return_id||String(i))}" ${i===0?'checked':''}>
-                <span>${r.icon} ${getLang()==='ja' ? r.status_ja : r.status}</span>
-                ${r.is_urgent ? '<span style="color:var(--error-600);font-size:11px;font-weight:700;">要対応</span>' : ''}
-            </label>`
+            `<div style="margin-bottom:8px;">
+                <label style="cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                    <input type="radio" name="return-${msgId}" value="${escapeHtml(r.return_id||String(i))}" ${i===0?'checked':''}>
+                    <span style="font-weight:600;">${r.icon} ${r.return_id || ''}</span>
+                    ${r.is_urgent ? '<span style="color:var(--error-600);font-size:11px;font-weight:700;">要対応</span>' : ''}
+                </label>
+                ${_renderReturnTimeline(r.status)}
+            </div>`
         ).join('');
     } catch(e) { el.textContent = 'Error: ' + e.message; }
 }
@@ -1204,10 +1407,12 @@ async function syncMessages(silent = false) {
             ? `同期完了: 新規${data.new || 0}件`
             : `Synced: ${data.new || 0} new`;
         status.textContent = msg;
-        // Clear all caches on sync
-        cacheInvalidate(_cache.threads);
-        cacheInvalidate(_cache.scores);
-        cacheInvalidate(_cache.histories);
+        // 新規/更新がある場合のみキャッシュクリア（不要な再フェッチ回避）
+        if ((data.new || 0) > 0 || (data.updated || 0) > 0) {
+            cacheInvalidate(_cache.threads);
+            cacheInvalidate(_cache.scores);
+            cacheInvalidate(_cache.histories);
+        }
         await loadConversations();
 
         // Refresh current thread if open
@@ -1235,6 +1440,14 @@ function setFilter(filter) {
 }
 
 function searchConversations() {
+    loadConversations();
+}
+
+function setDateFilter(days) {
+    currentDaysFilter = days;
+    document.querySelectorAll('.date-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.days === (days ? String(days) : ''));
+    });
     loadConversations();
 }
 
@@ -1503,10 +1716,10 @@ async function loadBuyerScore(buyer) {
         }
 
         const tierConfig = {
-            vip:     { label: 'VIP',    color: '#7C3AED', bg: '#7C3AED15', icon: '⭐' },
-            good:    { label: 'Good',   color: '#12B76A', bg: '#12B76A15', icon: '👍' },
-            normal:  { label: 'Normal', color: '#667085', bg: '#66708515', icon: '👤' },
-            caution: { label: 'Caution',color: '#F04438', bg: '#F0443815', icon: '⚠️' },
+            vip:     { label: 'VIP',                      color: '#7C3AED', bg: '#7C3AED15', icon: '⭐' },
+            good:    { label: ja ? '良好' : 'Good',       color: '#12B76A', bg: '#12B76A15', icon: '👍' },
+            normal:  { label: ja ? '普通' : 'Normal',     color: '#667085', bg: '#66708515', icon: '👤' },
+            caution: { label: ja ? '注意' : 'Caution',    color: '#F04438', bg: '#F0443815', icon: '⚠️' },
         };
         const tier = tierConfig[data.tier] || tierConfig.normal;
 
@@ -1600,7 +1813,7 @@ async function loadBuyerFullHistory(buyer) {
                     <div><span style="color:var(--text-muted);">${ja ? '利益' : 'Profit'}</span><br><strong style="color:${(stats.total_profit_usd || 0) >= 0 ? 'var(--success-600)' : 'var(--error-500)'};">$${(stats.total_profit_usd || 0).toFixed(0)}</strong></div>
                 </div>
                 ${ordersHtml}
-                ${data.orders.length > 8 ? `<div style="text-align:center;padding:8px;font-size:11px;color:var(--text-muted);">+${data.orders.length - 8} more</div>` : ''}
+                ${data.orders.length > 8 ? `<div style="text-align:center;padding:8px;font-size:11px;color:var(--text-muted);">+${data.orders.length - 8} ${ja ? '件' : 'more'}</div>` : ''}
             </div>`;
     } catch (e) {
         console.error('Failed to load buyer history:', e);
@@ -1646,8 +1859,8 @@ async function loadBuyerTroubles(buyer) {
                         <span>${c.icon} ${ja ? c.status_ja : c.status}</span>
                         ${c.is_urgent ? `
                         <div style="display:flex;gap:4px;">
-                            <button onclick="handleCancel('${c.order_id}', true)" style="padding:3px 8px;border:1px solid var(--success-500);border-radius:4px;background:var(--success-50);color:var(--success-700);font-size:10px;font-weight:600;">Accept</button>
-                            <button onclick="handleCancel('${c.order_id}', false)" style="padding:3px 8px;border:1px solid var(--error-500);border-radius:4px;background:var(--error-50);color:var(--error-700);font-size:10px;font-weight:600;">Decline</button>
+                            <button onclick="handleCancel('${c.order_id}', true)" style="padding:3px 8px;border:1px solid var(--success-500);border-radius:4px;background:var(--success-50);color:var(--success-700);font-size:10px;font-weight:600;">${ja ? '承認' : 'Accept'}</button>
+                            <button onclick="handleCancel('${c.order_id}', false)" style="padding:3px 8px;border:1px solid var(--error-500);border-radius:4px;background:var(--error-50);color:var(--error-700);font-size:10px;font-weight:600;">${ja ? '拒否' : 'Decline'}</button>
                         </div>` : ''}
                     </div>
                     <div style="color:var(--text-muted);margin-top:2px;">${escapeHtml(c.reason || '')}</div>
@@ -1852,16 +2065,31 @@ function getTrackingUrl(trackingNumber, shippingMethod) {
     const method = (shippingMethod || '').toLowerCase();
     const num = trackingNumber || '';
 
-    if (method.includes('dhl') || /^\d{10}$/.test(num))
-        return `https://www.dhl.com/en/express/tracking.html?AWB=${num}`;
-    if (method.includes('fedex') || /^\d{12,15}$/.test(num))
-        return `https://www.fedex.com/fedextrack/?trknbr=${num}`;
-    if (method.includes('speedpak') || method.includes('speed pak') || method.includes('orangeconnex'))
+    // パターン優先（eBayのshipping_methodが実際と異なる場合がある）
+    if (/^E[MX]\d{10,}/.test(num))
         return `https://www.orangeconnex.com/tracking?language=en&trackingnumber=${num}`;
-    if (method.includes('ups') || /^1Z/.test(num))
-        return `https://www.ups.com/track?tracknum=${num}`;
-    if (method.includes('ems') || method.includes('japan post') || /^E[A-Z]\d{9}JP$/.test(num) || /^\d{13}$/.test(num))
+    if (/^E[A-Z]\d{9}JP$/.test(num))
         return `https://trackings.post.japanpost.jp/services/srv/search/?requestNo1=${num}&locale=en`;
+    if (/^1Z/.test(num))
+        return `https://www.ups.com/track?tracknum=${num}`;
+    if (/^\d{10}$/.test(num))
+        return `https://www.dhl.com/en/express/tracking.html?AWB=${num}`;
+    if (/^\d{13}$/.test(num))
+        return `https://trackings.post.japanpost.jp/services/srv/search/?requestNo1=${num}&locale=en`;
+
+    // 名前フォールバック
+    if (method.includes('speedpak') || method.includes('orangeconnex'))
+        return `https://www.orangeconnex.com/tracking?language=en&trackingnumber=${num}`;
+    if (method.includes('dhl'))
+        return `https://www.dhl.com/en/express/tracking.html?AWB=${num}`;
+    if (method.includes('fedex'))
+        return `https://www.fedex.com/fedextrack/?trknbr=${num}`;
+    if (method.includes('ups'))
+        return `https://www.ups.com/track?tracknum=${num}`;
+    if (method.includes('ems') || method.includes('japan post'))
+        return `https://trackings.post.japanpost.jp/services/srv/search/?requestNo1=${num}&locale=en`;
+    if (/^\d{12,15}$/.test(num))
+        return `https://www.fedex.com/fedextrack/?trknbr=${num}`;
 
     return null;
 }
@@ -1892,8 +2120,26 @@ document.addEventListener('DOMContentLoaded', initScrollDetection);
 
 // ── Mobile ──────────────────────────────────────────
 function backToList() {
-    document.getElementById('convList')?.classList.remove('hidden');
-    document.getElementById('threadView')?.classList.remove('active');
+    const threadView = document.getElementById('threadView');
+    const buyerCol = document.getElementById('buyerCol');
+    const productCol = document.getElementById('productCol');
+
+    if (threadView?.classList.contains('active')) {
+        // スレッド → バイヤーリストに戻る
+        threadView.classList.remove('active');
+        if (window.innerWidth <= 768 && buyerCol) {
+            buyerCol.classList.add('active');
+            productCol?.classList.add('hidden');
+        }
+    } else if (buyerCol?.classList.contains('active')) {
+        // バイヤーリスト → 商品リストに戻る
+        buyerCol.classList.remove('active');
+        productCol?.classList.remove('hidden');
+    } else {
+        // フォールバック
+        document.getElementById('convList')?.classList.remove('hidden');
+        threadView?.classList.remove('active');
+    }
 }
 
 function showBuyerPanel() {
@@ -1910,9 +2156,10 @@ function updateUnreadBadge(count) {
     }
 }
 
+
 // ── Utils ───────────────────────────────────────────
 function getLang() {
-    return localStorage.getItem('ebay-hub-lang') || 'en';
+    return localStorage.getItem('ebay-hub-lang') || 'ja';
 }
 
 function escapeHtml(text) {
@@ -1921,6 +2168,7 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
 
 function formatRelativeDate(isoStr) {
     try {
@@ -1951,4 +2199,167 @@ function formatDateTime(isoStr) {
     } catch {
         return '';
     }
+}
+
+// ── 未返信自動返信 承認キュー ───────────────────────────
+let _noReplyCandidates = [];
+
+async function refreshNoReplyBadge() {
+    try {
+        const res = await fetch('/api/chat/no-reply/candidates');
+        if (!res.ok) return;
+        const data = await res.json();
+        const count = data.count || 0;
+        const badge = document.getElementById('noReplyBadge');
+        if (!badge) return;
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch (e) {
+        console.warn('No-reply badge refresh failed:', e);
+    }
+}
+
+async function openNoReplyPanel() {
+    const panel = document.getElementById('noReplyPanel');
+    const overlay = document.getElementById('noReplyOverlay');
+    panel.classList.add('active');
+    overlay.classList.add('active');
+    await loadNoReplyCandidates();
+}
+
+function closeNoReplyPanel() {
+    document.getElementById('noReplyPanel').classList.remove('active');
+    document.getElementById('noReplyOverlay').classList.remove('active');
+}
+
+async function loadNoReplyCandidates() {
+    const body = document.getElementById('noReplyPanelBody');
+    const footer = document.getElementById('noReplyPanelFooter');
+    const countEl = document.getElementById('noReplyCount');
+    body.innerHTML = '<div class="nr-empty">読み込み中...</div>';
+    try {
+        const res = await fetch('/api/chat/no-reply/candidates');
+        const data = await res.json();
+        _noReplyCandidates = data.candidates || [];
+        countEl.textContent = data.count || 0;
+
+        if (_noReplyCandidates.length === 0) {
+            body.innerHTML = `
+                <div class="nr-empty">
+                    <div style="font-size:32px;margin-bottom:8px;">✓</div>
+                    <div>承認待ちの候補はありません</div>
+                </div>`;
+            footer.style.display = 'none';
+            return;
+        }
+
+        footer.style.display = 'flex';
+        body.innerHTML = _noReplyCandidates.map(renderNoReplyCandidate).join('');
+    } catch (e) {
+        console.error('Load no-reply candidates failed:', e);
+        body.innerHTML = '<div class="nr-empty">エラーが発生しました</div>';
+    }
+}
+
+function renderNoReplyCandidate(c) {
+    const received = formatDateTime(c.received_at);
+    const repeat = c.is_repeat_buyer
+        ? '<span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;">REPEAT</span>'
+        : '';
+    return `
+        <div class="nr-candidate" data-id="${c.id}">
+            <div class="nr-candidate-header">
+                <div>
+                    <span class="nr-buyer">${escapeHtml(c.buyer_username)}</span>
+                    ${repeat}
+                </div>
+                <span class="nr-meta">${received}</span>
+            </div>
+            <div class="nr-meta" style="margin-bottom:4px;">Item: ${escapeHtml(c.item_id)}</div>
+            ${c.subject ? `<div class="nr-meta" style="margin-bottom:6px;">${escapeHtml(c.subject.slice(0, 80))}</div>` : ''}
+            <div class="nr-section-label">元メッセージ</div>
+            <div class="nr-original">${escapeHtml(c.original_body)}</div>
+            <div class="nr-section-label">送信予定メッセージ</div>
+            <div class="nr-preview">${escapeHtml(c.message_body_to_send)}</div>
+            <div class="nr-actions">
+                <button class="nr-btn nr-btn-send" onclick="approveNoReply(${c.id})">✉ 送信</button>
+                <button class="nr-btn nr-btn-skip" onclick="skipNoReply(${c.id}, 'skip')">⏭ スキップ</button>
+                <button class="nr-btn nr-btn-exclude" onclick="skipNoReply(${c.id}, 'excluded')" title="このバイヤーを今後の自動メッセ対象外に登録">🚫</button>
+            </div>
+        </div>
+    `;
+}
+
+async function approveNoReply(messageId) {
+    const card = document.querySelector(`.nr-candidate[data-id="${messageId}"]`);
+    if (card) card.style.opacity = '0.5';
+    try {
+        const res = await fetch(`/api/chat/no-reply/approve/${messageId}`, {
+            method: 'POST',
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (card) card.remove();
+            await loadNoReplyCandidates();
+            refreshNoReplyBadge();
+        } else {
+            alert('送信失敗: ' + (data.error || 'Unknown'));
+            if (card) card.style.opacity = '1';
+        }
+    } catch (e) {
+        alert('送信エラー: ' + e.message);
+        if (card) card.style.opacity = '1';
+    }
+}
+
+async function skipNoReply(messageId, action) {
+    if (action === 'excluded') {
+        if (!confirm('このバイヤーを今後の全自動メッセージ対象外にします。よろしいですか？')) return;
+    }
+    const card = document.querySelector(`.nr-candidate[data-id="${messageId}"]`);
+    if (card) card.style.opacity = '0.5';
+    try {
+        const res = await fetch(`/api/chat/no-reply/skip/${messageId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (card) card.remove();
+            await loadNoReplyCandidates();
+            refreshNoReplyBadge();
+        } else {
+            alert('失敗: ' + (data.error || 'Unknown'));
+        }
+    } catch (e) {
+        alert('エラー: ' + e.message);
+    }
+}
+
+async function bulkSendNoReply() {
+    const n = _noReplyCandidates.length;
+    if (n === 0) return;
+    if (!confirm(`承認待ち ${n}件すべて送信しますか？`)) return;
+    const ids = _noReplyCandidates.map(c => c.id);
+    for (const id of ids) {
+        try {
+            await fetch(`/api/chat/no-reply/approve/${id}`, { method: 'POST' });
+        } catch (e) { console.warn('Bulk send failed for', id, e); }
+    }
+    await loadNoReplyCandidates();
+    refreshNoReplyBadge();
+}
+
+// ページロード時にバッジ更新
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(refreshNoReplyBadge, 500);
+        // 5分毎にバッジ更新
+        setInterval(refreshNoReplyBadge, 5 * 60 * 1000);
+    });
 }

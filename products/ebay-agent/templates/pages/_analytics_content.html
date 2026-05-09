@@ -1,8 +1,18 @@
-<!-- 期間フィルタ -->
-<div class="filter-pills" style="margin-bottom:16px;">
-    <button class="pill active" data-days="7" onclick="loadAnalytics(7)">7日</button>
-    <button class="pill" data-days="30" onclick="loadAnalytics(30)">30日</button>
-    <button class="pill" data-days="90" onclick="loadAnalytics(90)">90日</button>
+<!-- 期間フィルタ: ピルボタン + 日付範囲 -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <div class="filter-pills">
+            <button class="pill active" data-days="7" onclick="loadAnalytics(7)">7日</button>
+            <button class="pill" data-days="30" onclick="loadAnalytics(30)">30日</button>
+            <button class="pill" data-days="90" onclick="loadAnalytics(90)">90日</button>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;font-size:12px;">
+            <input type="date" id="analyticsDateFrom" class="form-input" style="padding:4px 8px;font-size:11px;width:130px;">
+            <span style="color:var(--text-secondary);">~</span>
+            <input type="date" id="analyticsDateTo" class="form-input" style="padding:4px 8px;font-size:11px;width:130px;">
+            <button class="pill" onclick="loadAnalyticsByDateRange()" style="padding:4px 10px;">適用</button>
+        </div>
+    </div>
 </div>
 
 <!-- KPIカード -->
@@ -15,25 +25,64 @@
     <div class="proc-kpi-card"><div class="proc-kpi-label">仕入れ原価</div><div class="proc-kpi-val">--</div></div>
 </div>
 
-<!-- チャート + トップ商品 -->
+<!-- チャート -->
+<div class="card" style="margin-bottom:16px;">
+    <div class="card-h">日次売上・利益</div>
+    <div style="position:relative;height:220px;"><canvas id="analyticsChart"></canvas></div>
+</div>
+
+<!-- 費用内訳 + トップ商品 -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
     <div class="card">
-        <div class="card-h">日次売上・利益</div>
-        <div style="position:relative;height:200px;"><canvas id="analyticsChart"></canvas></div>
+        <div class="card-h">費用内訳</div>
+        <div class="chart-container"><div id="analyticsBreakdownChart"></div></div>
+        <div id="analyticsCostList" style="margin-top:8px;"></div>
     </div>
     <div class="card">
         <div class="card-h">トップ商品</div>
-        <div id="analyticsTopProducts" style="max-height:220px;overflow-y:auto;"><div style="color:#94A3B8;text-align:center;padding:20px;font-size:12px;">読み込み中...</div></div>
+        <div id="analyticsTopProducts" style="max-height:380px;overflow-y:auto;"><div style="color:#94A3B8;text-align:center;padding:20px;font-size:12px;">読み込み中...</div></div>
     </div>
 </div>
 
 <script>
 let analyticsChartInstance = null;
+let analyticsBreakdownInstance = null;
 
-async function loadAnalytics(days) {
-    document.querySelectorAll('[data-days]').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days) === days));
+// 日付ピッカー初期値
+(function initAnalyticsDatePickers() {
+    const now = new Date();
+    const sevenAgo = new Date(now);
+    sevenAgo.setDate(sevenAgo.getDate() - 7);
+    const fmt = d => d.toISOString().slice(0, 10);
+    const fromEl = document.getElementById('analyticsDateFrom');
+    const toEl = document.getElementById('analyticsDateTo');
+    if (fromEl) fromEl.value = fmt(sevenAgo);
+    if (toEl) toEl.value = fmt(now);
+})();
+
+function loadAnalyticsByDateRange() {
+    const from = document.getElementById('analyticsDateFrom').value;
+    const to = document.getElementById('analyticsDateTo').value;
+    if (!from || !to) return;
+    document.querySelectorAll('#panelAnalytics [data-days]').forEach(b => b.classList.remove('active'));
+    loadAnalyticsData(`/api/sales/analytics?start_date=${from}&end_date=${to}`, from + ' ~ ' + to);
+}
+
+function loadAnalytics(days) {
+    document.querySelectorAll('#panelAnalytics [data-days]').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days) === days));
+    // 日付ピッカーも連動更新
+    const now = new Date();
+    const ago = new Date(now);
+    ago.setDate(ago.getDate() - days);
+    const fmt = d => d.toISOString().slice(0, 10);
+    document.getElementById('analyticsDateFrom').value = fmt(ago);
+    document.getElementById('analyticsDateTo').value = fmt(now);
+    loadAnalyticsData(`/api/sales/analytics?days=${days}`, days + '日間');
+}
+
+async function loadAnalyticsData(url, periodLabel) {
     try {
-        const data = await apiFetch(`/api/sales/analytics?days=${days}`);
+        const data = await apiFetch(url);
         const s = data.summary;
 
         // KPIカード
@@ -41,7 +90,7 @@ async function loadAnalytics(days) {
             <div class="proc-kpi-card">
                 <div class="proc-kpi-label">総売上件数</div>
                 <div class="proc-kpi-val">${s.total_sales}</div>
-                <div class="proc-kpi-sub">${days}日間</div>
+                <div class="proc-kpi-sub">${periodLabel}</div>
             </div>
             <div class="proc-kpi-card">
                 <div class="proc-kpi-label">売上</div>
@@ -70,7 +119,7 @@ async function loadAnalytics(days) {
             </div>
         `;
 
-        // チャート
+        // 日次チャート
         const trend = data.daily_trend || [];
         if (analyticsChartInstance) analyticsChartInstance.destroy();
         if (trend.length > 0) {
@@ -96,23 +145,101 @@ async function loadAnalytics(days) {
 
         // トップ商品
         const tp = data.top_products || [];
+        const tpContainer = document.getElementById('analyticsTopProducts');
         if (tp.length) {
-            let html = '<table class="proc-table"><thead><tr><th>商品</th><th>売上</th><th>利益</th><th>数量</th></tr></thead><tbody>';
+            let html = '<table class="proc-table"><thead><tr><th style="width:44px;"></th><th>商品</th><th>売上</th><th>利益</th><th>数</th></tr></thead><tbody>';
             for (const p of tp.slice(0, 10)) {
+                const thumb = p.image_url
+                    ? `<img src="${escapeHtml(p.image_url)}" class="proc-thumb" style="width:36px;height:36px;border-radius:5px;" onerror="this.style.display='none'">`
+                    : `<div style="width:36px;height:36px;border-radius:5px;background:#F1F5F9;"></div>`;
                 html += `<tr class="proc-row">
-                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.title)}">${p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" class="proc-thumb" onerror="this.style.display=\'none\'">' : ''}${escapeHtml(p.title.slice(0, 25))}</td>
+                    <td style="padding:6px 8px;">${thumb}</td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</td>
                     <td class="proc-td-num">${formatUSD(p.revenue_usd)}</td>
                     <td class="proc-td-num" style="color:${p.profit_usd >= 0 ? '#10B981' : '#EF4444'};font-weight:600;">${formatUSD(p.profit_usd)}</td>
                     <td class="proc-td-num">${p.sales_count}</td>
                 </tr>`;
             }
             html += '</tbody></table>';
-            document.getElementById('analyticsTopProducts').innerHTML = html;
+            tpContainer.innerHTML = html;
         } else {
-            document.getElementById('analyticsTopProducts').innerHTML = '<div style="color:#94A3B8;text-align:center;padding:20px;font-size:12px;">データなし</div>';
+            tpContainer.innerHTML = '<div style="color:#94A3B8;text-align:center;padding:20px;font-size:12px;">データなし</div>';
         }
+
+        // 費用内訳（最新月）— 期間に基づく月を取得
+        loadAnalyticsBreakdown();
+
     } catch (e) {
         document.getElementById('summaryCards').innerHTML = '<div style="color:#94A3B8;text-align:center;padding:20px;font-size:12px;">読み込みエラー</div>';
+    }
+}
+
+async function loadAnalyticsBreakdown() {
+    try {
+        const now = new Date();
+        const month = now.toISOString().slice(0, 7);
+        const resp = await fetch(`/api/profit/breakdown?month=${month}`);
+        const data = await resp.json();
+        renderAnalyticsBreakdown(data);
+    } catch (e) {
+        console.error('Breakdown error:', e);
+    }
+}
+
+function renderAnalyticsBreakdown(data) {
+    const c = data.costs;
+    const avgRate = data.avg_exchange_rate || 150;
+    const labels = ['仕入原価', '国内送料', '国際送料', 'eBay手数料', 'Payoneer', 'その他', '固定費'];
+    const values = [
+        c.source_cost_jpy,
+        c.domestic_shipping_jpy,
+        c.intl_shipping_jpy,
+        Math.round(c.ebay_fees_usd * avgRate),
+        Math.round(c.payoneer_fees_usd * avgRate),
+        c.other_cost_jpy,
+        c.fixed_cost_jpy,
+    ];
+    const colors = ['#2563EB','#7C3AED','#F59E0B','#EF4444','#6366F1','#94A3B8','#64748B'];
+
+    if (analyticsBreakdownInstance) analyticsBreakdownInstance.destroy();
+
+    analyticsBreakdownInstance = new ApexCharts(document.getElementById('analyticsBreakdownChart'), {
+        chart: { type: 'donut', height: 200, fontFamily: 'Inter, sans-serif' },
+        colors: colors,
+        series: values,
+        labels: labels,
+        legend: { position: 'right', fontSize: '11px', labels: { colors: '#64748B' } },
+        dataLabels: { enabled: false },
+        plotOptions: {
+            pie: { donut: { size: '65%', labels: {
+                show: true,
+                total: { show: true, label: '合計', fontSize: '13px', color: '#64748B',
+                    formatter: w => '\u00a5' + w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString() }
+            } } }
+        },
+        stroke: { width: 0 },
+        tooltip: { y: { formatter: v => '\u00a5' + v.toLocaleString() } },
+    });
+    analyticsBreakdownInstance.render();
+
+    // 費用一覧テーブル
+    const listEl = document.getElementById('analyticsCostList');
+    if (listEl) {
+        const total = values.reduce((a, b) => a + b, 0);
+        listEl.innerHTML = '<table style="width:100%;border-collapse:collapse;">' +
+            values.map((v, i) => {
+                if (v === 0) return '';
+                const pct = total > 0 ? (v / total * 100).toFixed(1) : '0';
+                return `<tr style="border-bottom:1px solid #F1F5F9;">
+                    <td style="padding:4px 0;font-size:12px;color:#1e293b;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[i]};margin-right:6px;vertical-align:middle;"></span>${labels[i]}</td>
+                    <td style="padding:4px 0;font-size:13px;font-weight:700;color:#1e293b;text-align:right;">¥${v.toLocaleString()}</td>
+                    <td style="padding:4px 0;font-size:11px;color:#94A3B8;text-align:right;width:40px;">${pct}%</td>
+                </tr>`;
+            }).join('') +
+            `<tr><td style="padding:5px 0;font-size:12px;font-weight:700;color:#64748B;">合計</td>
+                 <td style="padding:5px 0;font-size:13px;font-weight:800;color:#0F172A;text-align:right;">¥${total.toLocaleString()}</td>
+                 <td style="padding:5px 0;font-size:11px;color:#94A3B8;text-align:right;">100%</td></tr>` +
+            '</table>';
     }
 }
 </script>

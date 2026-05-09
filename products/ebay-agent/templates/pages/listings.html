@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}在庫・価格 — eBay Agent Hub{% endblock %}
+{% block page_title %}<span data-en="Listings" data-ja="在庫・価格">Listings</span> ({{ listings|length }} <span data-en="items" data-ja="件">items</span>){% endblock %}
+{% block breadcrumb %}Listings{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    .tab-nav { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+    .tab-btn {
+        padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+        border: none; background: none; color: var(--text-secondary);
+        border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tab-nav">
+    <button class="tab-btn active" onclick="switchListTab('inventory')" id="tabInventory" data-en="Inventory" data-ja="在庫一覧">Inventory</button>
+    <button class="tab-btn" onclick="switchListTab('pricing')" id="tabPricing" data-en="Price Intelligence" data-ja="価格分析">Price Intelligence</button>
+</div>
+
+<!-- ========== Inventory Tab ========== -->
+<div class="tab-panel active" id="panelInventory">
+<div class="section">
+    <div class="filter-bar">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search by title or SKU..." data-placeholder-en="Search by title or SKU..." data-placeholder-ja="タイトルまたはSKUで検索..." oninput="filterTable()">
+        <div class="filter-buttons">
+            <button class="btn btn-sm btn-outline" data-filter="all" onclick="setFilter('all')" data-en="All" data-ja="すべて">All</button>
+            <button class="btn btn-sm btn-outline" data-filter="in_stock" onclick="setFilter('in_stock')" data-en="In Stock" data-ja="在庫あり">In Stock</button>
+            <button class="btn btn-sm btn-outline" data-filter="oos" onclick="setFilter('oos')" data-en="Out of Stock" data-ja="在庫切れ">Out of Stock</button>
+        </div>
+    </div>
+    {% if listings %}
+    <div style="overflow-x: auto;">
+        <table class="data-table" id="listingsTable">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th data-en="Title" data-ja="タイトル">Title</th>
+                    <th data-en="Price" data-ja="価格">Price</th>
+                    <th data-en="Stock" data-ja="在庫">Stock</th>
+                    <th>SEO</th>
+                    <th data-en="Category" data-ja="カテゴリ">Category</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in listings %}
+                <tr data-stock="{{ 'in_stock' if l.quantity > 0 else 'oos' }}">
+                    <td style="font-family: monospace; font-size: 11px;">{{ l.sku[:20] }}</td>
+                    <td>{{ l.title[:55] }}{% if l.title|length > 55 %}...{% endif %}</td>
+                    <td>${{ "%.2f"|format(l.price_usd) }}</td>
+                    <td>
+                        {% if l.quantity > 0 %}
+                        <span class="badge stock">{{ l.quantity }}</span>
+                        {% else %}
+                        <span class="badge oos">OOS</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ l.seo_score }}/100</td>
+                    <td style="font-size:12px;color:#94a3b8;">{{ l.category_name[:25] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state" data-en="No inventory data yet. Use the AI Agent to sync inventory." data-ja="在庫データがありません。AIエージェントで同期してください。">No inventory data yet. Use the AI Agent to sync inventory.</div>
+    {% endif %}
+</div>
+</div>
+
+<!-- ========== Pricing Tab ========== -->
+<div class="tab-panel" id="panelPricing">
+<div class="section">
+    <div class="section-header">
+        <h2 data-en="Price Alerts" data-ja="価格アラート">Price Alerts</h2>
+        <button class="btn btn-sm" onclick="loadAlerts()" data-en="Refresh" data-ja="更新">Refresh</button>
+    </div>
+    <div id="alertsContent"><div class="empty-state">Loading alerts...</div></div>
+</div>
+
+<div class="section" id="historySection" style="display:none;">
+    <div class="section-header">
+        <h2><span data-en="Price History" data-ja="価格履歴">Price History</span>: <span id="historySku"></span></h2>
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('historySection').style.display='none'" data-en="Close" data-ja="閉じる">Close</button>
+    </div>
+    <div class="chart-container" style="max-height:300px;">
+        <canvas id="historyChart"></canvas>
+    </div>
+</div>
+</div>
+
+<script>
+// === Tab switching ===
+function switchListTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    if (tab === 'inventory') {
+        document.getElementById('tabInventory').classList.add('active');
+        document.getElementById('panelInventory').classList.add('active');
+    } else {
+        document.getElementById('tabPricing').classList.add('active');
+        document.getElementById('panelPricing').classList.add('active');
+        loadAlerts();
+    }
+    history.replaceState(null, '', tab === 'pricing' ? '/listings?tab=pricing' : '/listings');
+}
+if (new URLSearchParams(location.search).get('tab') === 'pricing') switchListTab('pricing');
+
+// === Inventory filter ===
+let currentFilter = 'all';
+function setFilter(f) {
+    currentFilter = f;
+    document.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+    filterTable();
+}
+function filterTable() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('#listingsTable tbody tr').forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const stockMatch = currentFilter === 'all' || row.dataset.stock === currentFilter;
+        const searchMatch = !query || text.includes(query);
+        row.style.display = stockMatch && searchMatch ? '' : 'none';
+    });
+}
+setFilter('all');
+
+// === Pricing ===
+let historyChartInstance = null;
+
+async function loadAlerts() {
+    const container = document.getElementById('alertsContent');
+    try {
+        const alerts = await apiFetch('/api/pricing/alerts');
+        if (!alerts.length) {
+            container.innerHTML = `<div class="empty-state">${t('No price alerts. Run price monitor via AI Agent first.','価格アラートがありません。AIエージェントで価格モニターを実行してください。')}</div>`;
+            return;
+        }
+        let html = '<div class="alert-grid">';
+        for (const a of alerts) {
+            const isHigh = a.diff_pct > 0;
+            html += `
+            <div class="alert-card ${isHigh ? 'lower' : 'raise'}">
+                <div class="alert-title" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</div>
+                <div class="alert-prices">
+                    <div><small>${t('Ours','自社')}</small><br><span class="price-val">${formatUSD(a.our_price)}</span></div>
+                    <div><small>${t('Avg','平均')}</small><br><span class="price-val">${formatUSD(a.avg_competitor)}</span></div>
+                    <div><small>${t('Low','最安')}</small><br><span class="price-val">${formatUSD(a.lowest_competitor)}</span></div>
+                </div>
+                <div class="alert-action">
+                    <span class="diff ${isHigh ? 'down' : 'up'}">${a.diff_pct > 0 ? '+' : ''}${a.diff_pct}%</span>
+                    <div>
+                        <button class="btn btn-sm btn-outline" onclick="showHistory('${a.sku}')">${t('History','履歴')}</button>
+                        <button class="btn btn-sm" onclick="window.location='/agent'">${t('AI Advice','AI提案')}</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="empty-state">Error loading alerts</div>';
+    }
+}
+
+async function showHistory(sku) {
+    document.getElementById('historySection').style.display = 'block';
+    document.getElementById('historySku').textContent = sku;
+    try {
+        const data = await apiFetch(`/api/pricing/history/${sku}?days=30`);
+        if (historyChartInstance) historyChartInstance.destroy();
+        historyChartInstance = new Chart(document.getElementById('historyChart'), {
+            type: 'line',
+            data: {
+                labels: data.map(d => d.recorded_at.slice(5, 10)),
+                datasets: [
+                    { label: t('Our Price','自社価格'), data: data.map(d => d.our_price), borderColor: '#38bdf8', tension: 0.3 },
+                    { label: t('Competitor Avg','競合平均'), data: data.map(d => d.avg_competitor), borderColor: '#fbbf24', tension: 0.3 },
+                    { label: t('Competitor Low','競合最安'), data: data.map(d => d.lowest_competitor), borderColor: '#f87171', borderDash: [5,5], tension: 0.3 },
+                ],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8' } } },
+                scales: {
+                    x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                    y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                },
+            },
+        });
+    } catch (e) {
+        document.getElementById('historyChart').parentElement.innerHTML = '<div class="empty-state">No history data</div>';
+    }
+}
+</script>
+{% endblock %}

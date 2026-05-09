@@ -1,6 +1,6 @@
 /* profit.js — 利益管理ページ (ApexCharts版) */
 
-let trendChart = null, breakdownChart = null, dailyChartInstance = null;
+let trendChart = null, dailyChartInstance = null;
 let summaryData = [];
 let txSortCol = 'sold_at', txSortDir = 'desc';
 let txRawRecords = [];
@@ -75,9 +75,6 @@ async function loadSummary(months) {
         summaryData = await resp.json();
         updateKPI(summaryData);
         _profitSummaryData = summaryData;
-        if (summaryData.length > 0) {
-            loadBreakdown(summaryData[0].year_month);
-        }
     } catch (e) {
         console.error('Failed to load summary:', e);
     }
@@ -272,95 +269,6 @@ function renderProfitMonthlyChart(trend, summary) {
     }
 }
 
-async function loadBreakdown(month) {
-    try {
-        const resp = await fetch(`/api/profit/breakdown?month=${month}`);
-        const data = await resp.json();
-        renderBreakdownChart(data);
-    } catch (e) { console.error(e); }
-}
-
-function renderBreakdownChart(data) {
-    const c = data.costs;
-    const avgRate = data.avg_exchange_rate || 150;
-    const labels = ['仕入原価', '国内送料', '国際送料', 'eBay手数料', 'Payoneer', 'その他', '固定費'];
-    const values = [
-        c.source_cost_jpy,
-        c.domestic_shipping_jpy,
-        c.intl_shipping_jpy,
-        Math.round(c.ebay_fees_usd * avgRate),
-        Math.round(c.payoneer_fees_usd * avgRate),
-        c.other_cost_jpy,
-        c.fixed_cost_jpy,
-    ];
-
-    if (breakdownChart) breakdownChart.destroy();
-
-    const options = {
-        chart: {
-            type: 'donut',
-            height: 200,
-            fontFamily: chartFont,
-        },
-        colors: [chartColors.brand, chartColors.purple, chartColors.warning, chartColors.error, chartColors.indigo, chartColors.gray400, chartColors.gray500],
-        series: values,
-        labels: labels,
-        legend: {
-            position: 'right',
-            fontFamily: chartFont,
-            fontSize: '12px',
-            labels: { colors: chartColors.gray500 },
-        },
-        dataLabels: { enabled: false },
-        plotOptions: {
-            pie: {
-                donut: {
-                    size: '65%',
-                    labels: {
-                        show: true,
-                        total: {
-                            show: true,
-                            label: '合計',
-                            fontFamily: chartFont,
-                            fontSize: '14px',
-                            color: chartColors.gray500,
-                            formatter: w => '\u00a5' + w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
-                        },
-                    },
-                },
-            },
-        },
-        stroke: { width: 0 },
-        tooltip: {
-            style: { fontFamily: chartFont },
-            y: { formatter: v => '\u00a5' + v.toLocaleString() },
-        },
-    };
-
-    breakdownChart = new ApexCharts(document.getElementById('breakdownChart'), options);
-    breakdownChart.render();
-
-    // 費用一覧テーブル
-    const listEl = document.getElementById('costBreakdownList');
-    if (listEl) {
-        const total = values.reduce((a, b) => a + b, 0);
-        const colors = ['#2563EB','#7C3AED','#F59E0B','#EF4444','#6366F1','#94A3B8','#64748B'];
-        listEl.innerHTML = '<table style="width:100%;border-collapse:collapse;">' +
-            values.map((v, i) => {
-                if (v === 0) return '';
-                const pct = total > 0 ? (v / total * 100).toFixed(1) : '0';
-                return `<tr style="border-bottom:1px solid #F1F5F9;">
-                    <td style="padding:4px 0;font-size:12px;color:#1e293b;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[i]};margin-right:6px;vertical-align:middle;"></span>${labels[i]}</td>
-                    <td style="padding:4px 0;font-size:13px;font-weight:700;color:#1e293b;text-align:right;">¥${v.toLocaleString()}</td>
-                    <td style="padding:4px 0;font-size:11px;color:#94A3B8;text-align:right;width:40px;">${pct}%</td>
-                </tr>`;
-            }).join('') +
-            `<tr><td style="padding:5px 0;font-size:12px;font-weight:700;color:#64748B;">合計</td>
-                 <td style="padding:5px 0;font-size:13px;font-weight:800;color:#0F172A;text-align:right;">¥${total.toLocaleString()}</td>
-                 <td style="padding:5px 0;font-size:11px;color:#94A3B8;text-align:right;">100%</td></tr>` +
-            '</table>';
-    }
-}
 
 // ── 取引一覧 ──────────────────────────────────────────
 function sortTransactions(col) {
@@ -951,29 +859,6 @@ async function loadDailyAnalytics(days) {
         _profitTrendData = data.daily_trend || [];
         renderProfitDailyChart(_profitTrendData);
         renderProfitMonthlyChart(_profitTrendData, _profitSummaryData);
-
-        // Top Products
-        const tp = data.top_products || [];
-        const container = document.getElementById('topProducts');
-        if (tp.length) {
-            let html = '<table class="proc-table"><thead><tr><th style="width:44px;"></th><th>商品</th><th>売上</th><th>利益</th><th>数</th></tr></thead><tbody>';
-            for (const p of tp.slice(0, 10)) {
-                const thumb = p.image_url
-                    ? `<img src="${esc(p.image_url)}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;display:block;" onerror="this.style.display='none'">`
-                    : `<div style="width:36px;height:36px;border-radius:5px;background:#F1F5F9;"></div>`;
-                html += `<tr class="proc-row">
-                    <td style="padding:6px 8px;">${thumb}</td>
-                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.title)}</td>
-                    <td>$${(p.revenue_usd||0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                    <td style="color:${(p.profit_usd||0)>=0?'#10B981':'#EF4444'};">$${(p.profit_usd||0).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                    <td>${p.sales_count}</td>
-                </tr>`;
-            }
-            html += '</tbody></table>';
-            container.innerHTML = html;
-        } else {
-            container.innerHTML = '<div class="empty-state">データなし</div>';
-        }
     } catch (e) {
         console.error('Daily analytics error:', e);
     }

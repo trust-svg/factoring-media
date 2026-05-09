@@ -142,7 +142,7 @@ def sync_sales_data(days: int = 30) -> dict:
     }
 
 
-def get_sales_analytics(days: int = 30) -> dict:
+def get_sales_analytics(days: int = 30, start_date: str = "", end_date: str = "") -> dict:
     """
     包括的な売上分析データを返す。
 
@@ -151,17 +151,29 @@ def get_sales_analytics(days: int = 30) -> dict:
     """
     db = get_db()
     try:
-        # 基本サマリー
-        summary = crud.get_sales_summary(db, days=days)
-
-        # 全レコード取得
         from datetime import timedelta
-        cutoff = datetime.utcnow() - timedelta(days=days)
-        records = (
-            db.query(crud.SalesRecord)
-            .filter(crud.SalesRecord.sold_at >= cutoff)
-            .all()
-        )
+
+        # 日付範囲が指定されていればそちらを優先
+        if start_date and end_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            actual_days = (end_dt - start_dt).days + 1
+            summary = crud.get_sales_summary_range(db, start_dt, end_dt)
+            records = (
+                db.query(crud.SalesRecord)
+                .filter(crud.SalesRecord.sold_at >= start_dt,
+                        crud.SalesRecord.sold_at <= end_dt)
+                .all()
+            )
+        else:
+            actual_days = days
+            summary = crud.get_sales_summary(db, days=days)
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            records = (
+                db.query(crud.SalesRecord)
+                .filter(crud.SalesRecord.sold_at >= cutoff)
+                .all()
+            )
 
         # 日次推移
         daily: dict[str, dict] = defaultdict(lambda: {"revenue": 0, "profit": 0, "count": 0})
@@ -222,7 +234,7 @@ def get_sales_analytics(days: int = 30) -> dict:
         )[:20]
 
         return {
-            "period_days": days,
+            "period_days": actual_days,
             "summary": summary,
             "daily_trend": daily_trend,
             "top_products": top_products,

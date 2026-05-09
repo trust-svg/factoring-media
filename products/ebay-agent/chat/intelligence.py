@@ -121,21 +121,10 @@ def get_buyer_score(db: Session, buyer_username: str) -> dict:
             "details": str  # 日本語の説明
         }
     """
-    # SalesRecordを検索: buyer_name直接 OR item_id経由
+    # SalesRecordをbuyer_nameで直接検索のみ（item_idフォールバックは他バイヤーの注文を混入させるため廃止）
     orders = db.query(SalesRecord).filter(
         SalesRecord.buyer_name == buyer_username
     ).all()
-    if not orders:
-        buyer_item_ids = [
-            m.item_id for m in db.query(BuyerMessage.item_id).filter(
-                BuyerMessage.sender == buyer_username,
-                BuyerMessage.item_id != "",
-            ).distinct().all()
-        ]
-        if buyer_item_ids:
-            orders = db.query(SalesRecord).filter(
-                SalesRecord.item_id.in_(buyer_item_ids)
-            ).all()
 
     total_orders = len(orders)
     total_spent = sum(o.sale_price_usd for o in orders)

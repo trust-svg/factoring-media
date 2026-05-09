@@ -4,6 +4,7 @@ eBay Trading API で受信したバイヤーメッセージに対して
 Claude で返信ドラフトを生成する。
 送信前に人間確認を必須とする。
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,12 +61,12 @@ async def generate_reply_draft(message: dict) -> dict:
 
     prompt = f"""以下のeBayバイヤーメッセージに対する返信ドラフトを作成してください。
 
-FROM: {message.get('sender', 'unknown')}
-SUBJECT: {message.get('subject', 'No subject')}
-ITEM ID: {message.get('item_id', 'N/A')}
+FROM: {message.get("sender", "unknown")}
+SUBJECT: {message.get("subject", "No subject")}
+ITEM ID: {message.get("item_id", "N/A")}
 
 MESSAGE:
-{message.get('body', '')}
+{message.get("body", "")}
 
 ---
 返信ドラフトを英語で作成し、以下のJSON形式で返してください:
@@ -75,13 +76,21 @@ MESSAGE:
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=1000,
-        system=REPLY_SYSTEM_PROMPT,
+        system=[
+            {
+                "type": "text",
+                "text": REPLY_SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            }
+        ],
         messages=[{"role": "user", "content": prompt}],
+        extra_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"},
     )
 
     reply_text = response.content[0].text
     # JSONパース試行
     import json
+
     try:
         parsed = json.loads(reply_text)
         draft_reply = parsed.get("reply", reply_text)
@@ -126,7 +135,9 @@ async def process_unread_messages(days: int = 7) -> dict:
             draft = await generate_reply_draft(msg)
             drafts.append(draft)
         except Exception as e:
-            logger.warning(f"Draft generation failed for msg {msg.get('message_id')}: {e}")
+            logger.warning(
+                f"Draft generation failed for msg {msg.get('message_id')}: {e}"
+            )
 
     return {
         "total_messages": len(messages),

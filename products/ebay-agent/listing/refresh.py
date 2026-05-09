@@ -10,6 +10,7 @@
 - 全変更をlisting_refresh_backupsに保存 → ロールバック可能
 - ドライラン → 確認 → 自動実行ON の段階的展開
 """
+
 from __future__ import annotations
 
 import json
@@ -34,26 +35,48 @@ from database.models import (
 logger = logging.getLogger("refresh")
 
 # ── 定数 ──────────────────────────────────────────────────
-TITLE_MAX = 80                 # eBayタイトル上限
-PRICE_DROP_USD = 1.0           # Cassiniシグナル用の微値下げ
-DEAD_THRESHOLD_DAYS = 180      # 死に筒判定: 最終販売からN日
-MIN_REFRESH_GAP_DAYS = 60      # 最低でも N日経ってから再Refresh
-MIN_TOKEN_OVERLAP = 0.7        # 新タイトルは元タイトルのトークン70%以上を保持
-MAX_TITLE_DIFF_RATIO = 0.4     # 文字変更率40%以内
+TITLE_MAX = 80  # eBayタイトル上限
+PRICE_DROP_USD = 1.0  # Cassiniシグナル用の微値下げ
+DEAD_THRESHOLD_DAYS = 180  # 死に筒判定: 最終販売からN日
+MIN_REFRESH_GAP_DAYS = 60  # 最低でも N日経ってから再Refresh
+MIN_TOKEN_OVERLAP = 0.7  # 新タイトルは元タイトルのトークン70%以上を保持
+MAX_TITLE_DIFF_RATIO = 0.4  # 文字変更率40%以内
 DEFAULT_DAILY_TARGET = 30
 DEFAULT_HOUR_START = 6
 DEFAULT_HOUR_END = 23
-SKIP_PROB = 0.15               # スロット実行のランダムスキップ率
+SKIP_PROB = 0.15  # スロット実行のランダムスキップ率
 
 
 # ── 型番・ブランド抽出 ─────────────────────────────────────
 MODEL_NUM_RE = re.compile(r"\b[A-Z0-9]{2,}-?[A-Z0-9]+\b|\b[A-Z]{2,}\d+[A-Z0-9]*\b")
 
 COMMON_BRANDS = {
-    "TASCAM", "Technics", "Mamiya", "Yamaha", "YAMAHA", "Korg", "KORG",
-    "Roland", "Pioneer", "Nakamichi", "Micro", "Seiki", "Sony", "SONY",
-    "Canon", "Nikon", "Rolleicord", "Allen", "Heath", "Denon", "Bandai",
-    "Xiaomi", "Accuphase", "Marantz", "Fender", "Gibson",
+    "TASCAM",
+    "Technics",
+    "Mamiya",
+    "Yamaha",
+    "YAMAHA",
+    "Korg",
+    "KORG",
+    "Roland",
+    "Pioneer",
+    "Nakamichi",
+    "Micro",
+    "Seiki",
+    "Sony",
+    "SONY",
+    "Canon",
+    "Nikon",
+    "Rolleicord",
+    "Allen",
+    "Heath",
+    "Denon",
+    "Bandai",
+    "Xiaomi",
+    "Accuphase",
+    "Marantz",
+    "Fender",
+    "Gibson",
 }
 
 
@@ -115,13 +138,17 @@ def validate_new_title(old_title: str, new_title: str) -> QualityCheck:
         overlap = len(old_tokens & new_tokens) / len(old_tokens)
         details["token_overlap"] = round(overlap, 3)
         if overlap < MIN_TOKEN_OVERLAP:
-            return QualityCheck(False, f"token_overlap_{overlap:.2f}_<_{MIN_TOKEN_OVERLAP}", details)
+            return QualityCheck(
+                False, f"token_overlap_{overlap:.2f}_<_{MIN_TOKEN_OVERLAP}", details
+            )
 
     # 大幅な文字変更はCassini ranking resetのリスク → 抑制
     diff_ratio = _char_diff_ratio(old_title, new_title)
     details["char_diff_ratio"] = round(diff_ratio, 3)
     if diff_ratio > MAX_TITLE_DIFF_RATIO:
-        return QualityCheck(False, f"char_diff_{diff_ratio:.2f}_>_{MAX_TITLE_DIFF_RATIO}", details)
+        return QualityCheck(
+            False, f"char_diff_{diff_ratio:.2f}_>_{MAX_TITLE_DIFF_RATIO}", details
+        )
 
     return QualityCheck(True, "ok", details)
 
@@ -129,6 +156,7 @@ def validate_new_title(old_title: str, new_title: str) -> QualityCheck:
 def _char_diff_ratio(a: str, b: str) -> float:
     """2つのタイトルの文字列類似度から差分率を計算（0.0=同一, 1.0=完全別物）"""
     import difflib
+
     ratio = difflib.SequenceMatcher(None, a.lower(), b.lower()).ratio()
     return 1.0 - ratio
 
@@ -222,8 +250,15 @@ async def regenerate_title(
     resp = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=200,
-        system=system,
+        system=[
+            {
+                "type": "text",
+                "text": system,
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            }
+        ],
         messages=[{"role": "user", "content": user}],
+        extra_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"},
     )
     new_title = resp.content[0].text.strip().strip('"').strip("'")
     # 一行に強制
@@ -254,24 +289,28 @@ async def dry_run_refresh(
                 category=listing.category_name,
             )
             check = validate_new_title(listing.title, new_title)
-            results.append({
-                "sku": listing.sku,
-                "old_title": listing.title,
-                "new_title": new_title,
-                "old_price_usd": listing.price_usd,
-                "new_price_usd": round(listing.price_usd - PRICE_DROP_USD, 2),
-                "passed": check.passed,
-                "reason": check.reason,
-                "details": check.details,
-            })
+            results.append(
+                {
+                    "sku": listing.sku,
+                    "old_title": listing.title,
+                    "new_title": new_title,
+                    "old_price_usd": listing.price_usd,
+                    "new_price_usd": round(listing.price_usd - PRICE_DROP_USD, 2),
+                    "passed": check.passed,
+                    "reason": check.reason,
+                    "details": check.details,
+                }
+            )
         except Exception as e:
             logger.exception(f"dry-run失敗 sku={listing.sku}")
-            results.append({
-                "sku": listing.sku,
-                "old_title": listing.title,
-                "error": str(e)[:200],
-                "passed": False,
-            })
+            results.append(
+                {
+                    "sku": listing.sku,
+                    "old_title": listing.title,
+                    "error": str(e)[:200],
+                    "passed": False,
+                }
+            )
     return results
 
 
@@ -281,14 +320,16 @@ def _log_run(
 ) -> None:
     now = datetime.utcnow()
     jst_hour = (now.hour + 9) % 24
-    db.add(ListingRefreshRun(
-        scheduled_date=now.strftime("%Y-%m-%d"),
-        hour_jst=jst_hour,
-        sku=sku,
-        backup_id=backup_id,
-        outcome=outcome,
-        note=note[:500] if note else None,
-    ))
+    db.add(
+        ListingRefreshRun(
+            scheduled_date=now.strftime("%Y-%m-%d"),
+            hour_jst=jst_hour,
+            sku=sku,
+            backup_id=backup_id,
+            outcome=outcome,
+            note=note[:500] if note else None,
+        )
+    )
     db.commit()
 
 
@@ -340,32 +381,48 @@ async def refresh_single(
     if not check.passed:
         _log_run(db, listing.sku, "skipped_quality", backup.id, check.reason)
         return {
-            "sku": listing.sku, "success": False, "skipped": True,
-            "reason": check.reason, "backup_id": backup.id,
+            "sku": listing.sku,
+            "success": False,
+            "skipped": True,
+            "reason": check.reason,
+            "backup_id": backup.id,
         }
 
     if dry_run:
         _log_run(db, listing.sku, "dry_run", backup.id)
         return {
-            "sku": listing.sku, "success": True, "dry_run": True,
-            "old_title": listing.title, "new_title": new_title,
-            "old_price": listing.price_usd, "new_price": new_price,
+            "sku": listing.sku,
+            "success": True,
+            "dry_run": True,
+            "old_title": listing.title,
+            "new_title": new_title,
+            "old_price": listing.price_usd,
+            "new_price": new_price,
             "backup_id": backup.id,
         }
 
     # 実更新
     from ebay_core.client import update_listing
+
     try:
-        result = update_listing(listing.sku, {
-            "title": new_title,
-            "price_usd": new_price,
-        })
+        result = update_listing(
+            listing.sku,
+            {
+                "title": new_title,
+                "price_usd": new_price,
+            },
+        )
         if not result.get("success"):
             backup.status = "failed"
             backup.error_message = result.get("error", "unknown")[:500]
             db.commit()
             _log_run(db, listing.sku, "error", backup.id, backup.error_message)
-            return {"sku": listing.sku, "success": False, "error": result.get("error"), "backup_id": backup.id}
+            return {
+                "sku": listing.sku,
+                "success": False,
+                "error": result.get("error"),
+                "backup_id": backup.id,
+            }
 
         # DB側を更新
         listing.title = new_title
@@ -375,7 +432,9 @@ async def refresh_single(
         db.commit()
         _log_run(db, listing.sku, "applied", backup.id)
         return {
-            "sku": listing.sku, "success": True, "backup_id": backup.id,
+            "sku": listing.sku,
+            "success": True,
+            "backup_id": backup.id,
             "changes": result.get("changes", []),
         }
     except Exception as e:
@@ -384,16 +443,25 @@ async def refresh_single(
         backup.error_message = str(e)[:500]
         db.commit()
         _log_run(db, listing.sku, "error", backup.id, str(e))
-        return {"sku": listing.sku, "success": False, "error": str(e), "backup_id": backup.id}
+        return {
+            "sku": listing.sku,
+            "success": False,
+            "error": str(e),
+            "backup_id": backup.id,
+        }
 
 
 # ── スケジューラ呼び出し用（スロット実行） ─────────────────
 def _today_applied_count(db: Session) -> int:
     today = datetime.utcnow().strftime("%Y-%m-%d")
-    return db.query(ListingRefreshRun).filter(
-        ListingRefreshRun.scheduled_date == today,
-        ListingRefreshRun.outcome == "applied",
-    ).count()
+    return (
+        db.query(ListingRefreshRun)
+        .filter(
+            ListingRefreshRun.scheduled_date == today,
+            ListingRefreshRun.outcome == "applied",
+        )
+        .count()
+    )
 
 
 def is_in_window(hour_jst: Optional[int] = None) -> bool:
@@ -447,7 +515,8 @@ async def run_refresh_slot(
             "skipped": False,
             "hour_jst": hour_jst,
             "processed": len(results),
-            "daily_applied": already + sum(1 for r in results if r.get("success") and not r.get("dry_run")),
+            "daily_applied": already
+            + sum(1 for r in results if r.get("success") and not r.get("dry_run")),
             "results": results,
         }
     finally:
@@ -464,10 +533,14 @@ def rollback(db: Session, backup_id: int) -> dict:
         return {"success": False, "error": f"cannot rollback status={backup.status}"}
 
     from ebay_core.client import update_listing
-    result = update_listing(backup.sku, {
-        "title": backup.old_title,
-        "price_usd": backup.old_price_usd,
-    })
+
+    result = update_listing(
+        backup.sku,
+        {
+            "title": backup.old_title,
+            "price_usd": backup.old_price_usd,
+        },
+    )
     if not result.get("success"):
         return {"success": False, "error": result.get("error")}
 

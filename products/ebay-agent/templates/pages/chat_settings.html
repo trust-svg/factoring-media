@@ -10,302 +10,351 @@
 
 {% block head %}
 <style>
-.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-@media (max-width: 1024px) { .settings-grid { grid-template-columns: 1fr; } }
-.rule-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
-    transition: box-shadow var(--transition);
-}
-.rule-card:hover { box-shadow: var(--shadow-sm); }
-.rule-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-.rule-card-header h3 { font-size: 15px; font-weight: 600; margin: 0; }
-.event-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-}
-.event-badge.feedback { background: var(--success-50); color: var(--success-700); }
-.event-badge.transaction { background: var(--brand-50); color: var(--brand-700); }
-.event-badge.shipped { background: var(--warning-50); color: var(--warning-700); }
-.event-badge.offer { background: var(--error-50); color: var(--error-700); }
-.toggle-switch {
-    position: relative;
-    width: 44px;
-    height: 24px;
-    background: var(--gray-200);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: background var(--transition-fast);
-    border: none;
-    padding: 0;
-}
-.toggle-switch.active { background: var(--success-500); }
-.toggle-switch::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 20px;
-    height: 20px;
-    background: white;
-    border-radius: 50%;
-    transition: transform var(--transition-fast);
-    box-shadow: var(--shadow-xs);
-}
-.toggle-switch.active::after { transform: translateX(20px); }
-.rule-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--gray-100);
-    font-size: 12px;
-}
-.rule-stats .stat-label { color: var(--text-muted); }
-.rule-stats .stat-value { font-weight: 600; color: var(--text-primary); }
-.form-row { margin-bottom: 14px; }
-.form-row label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-}
-.form-row select, .form-row input {
-    width: 100%;
-    padding: 9px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    font-family: inherit;
-    background: var(--bg-primary);
-    transition: border-color var(--transition-fast);
-}
-.form-row select:focus, .form-row input:focus {
-    outline: none;
-    border-color: var(--brand-500);
-    box-shadow: var(--shadow-focus);
-}
-.exclude-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 14px;
-    border: 1px solid var(--gray-100);
-    border-radius: var(--radius-sm);
-    margin-bottom: 8px;
-    font-size: 13px;
-}
-.exclude-item .buyer-name { font-weight: 600; }
-.exclude-item .reason { color: var(--text-muted); font-size: 12px; }
-.exclude-item button {
-    padding: 4px 10px;
-    border: 1px solid var(--error-500);
-    border-radius: var(--radius-xs);
-    background: var(--error-50);
-    color: var(--error-600);
-    font-size: 11px;
-    font-weight: 500;
-    transition: all var(--transition-fast);
-}
-.exclude-item button:hover { background: var(--error-100); }
-.log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.log-table th {
-    background: var(--gray-50);
-    padding: 8px 12px;
-    text-align: left;
-    font-weight: 600;
-    color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
-}
-.log-table td {
-    padding: 8px 12px;
+/* ── Layout ──────────────────────────────────── */
+.am-page { max-width: 860px; }
+.am-section { margin-bottom: 32px; }
+.am-section-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; padding-bottom: 10px;
     border-bottom: 1px solid var(--gray-100);
+}
+.am-section-header h2 { font-size: 15px; font-weight: 700; margin: 0; color: var(--text-primary); }
+
+/* ── Rule cards ──────────────────────────────── */
+.am-rules { display: flex; flex-direction: column; gap: 12px; }
+.am-rule {
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+    transition: box-shadow 0.15s;
+}
+.am-rule:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.am-rule-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 12px; margin-bottom: 10px;
+}
+.am-rule-info { flex: 1; min-width: 0; }
+.am-rule-name { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.am-rule-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.am-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.am-badge.trigger { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+.am-badge.delay { background: #FFF7ED; color: #C2410C; border: 1px solid #FED7AA; }
+.am-badge.stats { background: #F8FAFC; color: #475569; border: 1px solid #E2E8F0; }
+.am-rule-body {
+    background: var(--gray-50); border-radius: 8px; padding: 10px 14px;
+    font-size: 12px; color: var(--text-secondary); line-height: 1.6;
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 80px; overflow: hidden; position: relative;
+}
+.am-rule-body.has-repeat { max-height: none; }
+.am-rule-body-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 2px;
+}
+.am-rule-actions {
+    display: flex; gap: 6px; margin-top: 12px;
+    justify-content: flex-end;
+}
+.am-rule-actions button {
+    padding: 5px 14px; border-radius: 6px; font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all 0.12s;
+}
+.am-btn-edit { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-secondary); }
+.am-btn-edit:hover { border-color: var(--brand-400); color: var(--brand-600); }
+.am-btn-del { background: var(--error-50); border: 1px solid var(--error-200); color: var(--error-600); }
+.am-btn-del:hover { background: var(--error-100); }
+
+/* ── Toggle ──────────────────────────────────── */
+.am-toggle {
+    position: relative; width: 44px; height: 24px;
+    background: var(--gray-200); border-radius: 12px;
+    cursor: pointer; border: none; padding: 0; flex-shrink: 0;
+    transition: background 0.2s;
+}
+.am-toggle.on { background: #22C55E; }
+.am-toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 20px; height: 20px; background: #fff;
+    border-radius: 50%; transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.am-toggle.on::after { transform: translateX(20px); }
+
+/* ── Add button ──────────────────────────────── */
+.am-add-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px; background: var(--brand-500); color: #fff;
+    border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+}
+.am-add-btn:hover { background: var(--brand-600); transform: translateY(-1px); }
+.am-add-btn svg { width: 14px; height: 14px; }
+
+/* ── Modal ───────────────────────────────────── */
+.am-modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.45); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.am-modal {
+    background: var(--bg-secondary); border-radius: 16px;
+    padding: 28px; width: 520px; max-width: 100%;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.am-modal h3 {
+    font-size: 17px; font-weight: 700; margin: 0 0 20px;
     color: var(--text-primary);
 }
-.log-table tr:hover td { background: var(--gray-50); }
-.status-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 4px;
+.am-field { margin-bottom: 16px; }
+.am-field-label {
+    display: block; font-size: 12px; font-weight: 700;
+    color: var(--text-secondary); margin-bottom: 5px;
+    letter-spacing: 0.2px;
 }
-.status-dot.success { background: var(--success-500); }
-.status-dot.failed { background: var(--error-500); }
-.section { margin-bottom: 24px; }
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
+.am-field-hint {
+    font-size: 11px; color: var(--text-muted);
+    margin-top: 4px; line-height: 1.4;
 }
-.section-header h2 { font-size: 16px; font-weight: 600; margin: 0; }
-.btn-primary {
-    padding: 8px 16px;
-    background: var(--brand-500);
-    color: white;
-    border: none;
-    border-radius: var(--radius-sm);
+.am-field input, .am-field select {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-family: inherit;
+    background: var(--bg-primary);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.am-field input:focus, .am-field select:focus, .am-field textarea:focus {
+    outline: none; border-color: var(--brand-400);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+.am-field textarea {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 13px; font-family: inherit;
+    background: var(--bg-primary); resize: vertical;
+    min-height: 80px; line-height: 1.6;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.am-vars {
+    display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;
+}
+.am-var-tag {
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-family: 'SF Mono', 'Menlo', monospace;
+    background: var(--brand-50); color: var(--brand-700);
+    cursor: pointer; transition: background 0.12s;
+    border: 1px solid var(--brand-100);
+}
+.am-var-tag:hover { background: var(--brand-100); }
+.am-trigger-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+@media (max-width: 480px) { .am-trigger-grid { grid-template-columns: 1fr; } }
+.am-trigger-option {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; border: 2px solid var(--border);
+    border-radius: 10px; cursor: pointer;
+    transition: all 0.15s; background: var(--bg-primary);
+}
+.am-trigger-option:hover { border-color: var(--brand-300); }
+.am-trigger-option.selected { border-color: var(--brand-500); background: var(--brand-25); }
+.am-trigger-option input { display: none; }
+.am-trigger-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.am-trigger-icon svg { width: 16px; height: 16px; }
+.am-trigger-label { font-size: 12px; font-weight: 600; line-height: 1.3; }
+.am-trigger-desc { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.am-modal-footer {
+    display: flex; gap: 8px; justify-content: flex-end;
+    margin-top: 24px; padding-top: 16px;
+    border-top: 1px solid var(--gray-100);
+}
+.am-modal-footer button {
+    padding: 9px 20px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: all 0.15s;
+}
+.am-btn-cancel { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-secondary); }
+.am-btn-cancel:hover { background: var(--gray-50); }
+.am-btn-save { background: var(--brand-500); border: none; color: #fff; }
+.am-btn-save:hover { background: var(--brand-600); }
+
+/* ── Exclude list ────────────────────────────── */
+.am-exclude-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 14px; border: 1px solid var(--gray-100);
+    border-radius: 8px; margin-bottom: 6px; font-size: 13px;
+}
+.am-exclude-add { display: flex; gap: 8px; }
+.am-exclude-add input {
+    padding: 7px 12px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 13px; width: 200px;
+}
+
+/* ── Log table ───────────────────────────────── */
+.am-log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.am-log-table th {
+    background: var(--gray-50); padding: 8px 12px; text-align: left;
+    font-weight: 600; color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+}
+.am-log-table td {
+    padding: 8px 12px; border-bottom: 1px solid var(--gray-100);
+}
+.am-log-table tr:hover td { background: var(--gray-50); }
+.am-dot {
+    display: inline-block; width: 7px; height: 7px;
+    border-radius: 50%; margin-right: 5px;
+}
+.am-dot.ok { background: #22C55E; }
+.am-dot.fail { background: #EF4444; }
+
+.am-empty {
+    text-align: center; padding: 32px; color: var(--text-muted);
     font-size: 13px;
-    font-weight: 600;
-    transition: all var(--transition-fast);
-}
-.btn-primary:hover { background: var(--brand-600); transform: translateY(-1px); }
-.btn-primary:active { transform: scale(0.97); }
-.variable-hint {
-    padding: 12px 14px;
-    background: var(--brand-25);
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 16px;
-    line-height: 1.6;
-}
-.variable-hint code {
-    background: var(--brand-50);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-family: 'SF Mono', monospace;
-    font-size: 11px;
-    color: var(--brand-700);
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Variable hint -->
-<div class="variable-hint">
-    <strong data-en="Available template variables:" data-ja="使用可能なテンプレート変数:">Available template variables:</strong><br>
-    <code>{buyer_name}</code> <code>{item_title}</code> <code>{item_id}</code> <code>{order_id}</code>
-    <code>{tracking_number}</code> <code>{tracking_url}</code> <code>{edd}</code>
-    <code>{price}</code> <code>{carrier}</code> <code>{sku}</code> <code>{marketplace}</code>
-</div>
+<div class="am-page">
 
-<!-- Auto Message Rules -->
-<div class="section">
-    <div class="section-header">
-        <h2 data-en="Auto Message Rules" data-ja="自動メッセージルール">Auto Message Rules</h2>
-        <button class="btn-primary" onclick="showAddRule()">
-            <span data-en="+ Add Rule" data-ja="+ ルール追加">+ Add Rule</span>
+<!-- ── Auto Message Rules ────────────────── -->
+<div class="am-section">
+    <div class="am-section-header">
+        <h2 data-en="Auto Message Rules" data-ja="自動メッセージルール">自動メッセージルール</h2>
+        <button class="am-add-btn" onclick="openRuleModal()">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            <span data-en="Add Rule" data-ja="ルール追加">ルール追加</span>
         </button>
     </div>
-    <div class="settings-grid" id="rulesGrid">
-        <div style="color:var(--text-muted);padding:20px;text-align:center;grid-column:1/-1;">
-            <span data-en="Loading rules..." data-ja="ルール読み込み中...">Loading rules...</span>
-        </div>
+    <div class="am-rules" id="rulesContainer">
+        <div class="am-empty">読み込み中...</div>
     </div>
 </div>
 
-<!-- Exclude List -->
-<div class="section">
-    <div class="section-header">
-        <h2 data-en="Excluded Buyers" data-ja="除外バイヤー">Excluded Buyers</h2>
-        <div style="display:flex;gap:8px;">
-            <input type="text" id="excludeBuyerInput" placeholder="Buyer username" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;width:200px;">
-            <button class="btn-primary" onclick="addExclude()">
-                <span data-en="Add" data-ja="追加">Add</span>
+<!-- ── Exclude List ──────────────────────── -->
+<div class="am-section">
+    <div class="am-section-header">
+        <h2 data-en="Excluded Buyers" data-ja="除外バイヤー">除外バイヤー</h2>
+        <div class="am-exclude-add">
+            <input type="text" id="excludeInput" placeholder="eBayユーザー名">
+            <button class="am-add-btn" onclick="addExclude()" style="padding:7px 14px;">
+                <span data-en="Add" data-ja="追加">追加</span>
             </button>
         </div>
     </div>
     <div id="excludeList"></div>
 </div>
 
-<!-- Auto Message Logs -->
-<div class="section">
-    <div class="section-header">
-        <h2 data-en="Send Log" data-ja="送信ログ">Send Log</h2>
+<!-- ── Send Log ──────────────────────────── -->
+<div class="am-section">
+    <div class="am-section-header">
+        <h2 data-en="Send Log" data-ja="送信ログ">送信ログ</h2>
     </div>
     <div style="overflow-x:auto;">
-        <table class="log-table">
+        <table class="am-log-table">
             <thead>
                 <tr>
-                    <th data-en="Status" data-ja="状態">Status</th>
-                    <th data-en="Event" data-ja="イベント">Event</th>
-                    <th data-en="Buyer" data-ja="バイヤー">Buyer</th>
-                    <th data-en="Repeat" data-ja="リピーター">Repeat</th>
-                    <th data-en="Message" data-ja="メッセージ">Message</th>
-                    <th data-en="Sent" data-ja="送信日時">Sent</th>
+                    <th>状態</th><th>トリガー</th><th>バイヤー</th>
+                    <th>メッセージ</th><th>送信日時</th>
                 </tr>
             </thead>
             <tbody id="logsBody">
-                <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">
-                    <span data-en="Loading..." data-ja="読み込み中...">Loading...</span>
-                </td></tr>
+                <tr><td colspan="5" class="am-empty">読み込み中...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
+
+</div><!-- .am-page -->
 {% endblock %}
 
 {% block scripts %}
 <script>
-const EVENT_TYPES = {
-    best_offer_received: { label: 'Offer Received', labelJa: 'オファー受信', css: 'offer' },
-    best_offer_declined: { label: 'Offer Declined', labelJa: 'オファー拒否', css: 'offer' },
-    fixed_price_transaction: { label: 'Item Purchased', labelJa: '商品購入', css: 'transaction' },
-    item_shipped: { label: 'Item Shipped', labelJa: '商品発送', css: 'shipped' },
-    item_delivered: { label: 'Item Delivered', labelJa: '配達完了', css: 'shipped' },
-    after_delivery_n_days: { label: 'N Days After Delivery', labelJa: '配達後N日', css: 'shipped' },
-    feedback_received: { label: 'Feedback Received', labelJa: 'フィードバック受領', css: 'feedback' },
-    outside_business_hours: { label: 'Outside Business Hours', labelJa: '営業時間外', css: 'transaction' },
+const TRIGGERS = {
+    no_reply_timeout:       { label: '未返信タイムアウト', en: 'No Reply Timeout',    desc: '指定時間内に返信がない場合', icon: 'clock',    color: '#C2410C', bg: '#FFF7ED' },
+    fixed_price_transaction:{ label: '商品購入',          en: 'Item Purchased',       desc: 'バイヤーが購入した時',       icon: 'cart',     color: '#1D4ED8', bg: '#EFF6FF' },
+    item_shipped:           { label: '商品発送',          en: 'Item Shipped',         desc: '商品を発送した時',           icon: 'truck',    color: '#0E7490', bg: '#ECFEFF' },
+    item_delivered:         { label: '配達完了',          en: 'Item Delivered',       desc: '商品が届いた時',             icon: 'home',     color: '#047857', bg: '#ECFDF5' },
+    feedback_received:      { label: 'フィードバック',    en: 'Feedback Received',    desc: 'フィードバックを受け取った時', icon: 'star',     color: '#B45309', bg: '#FFFBEB' },
+    best_offer_received:    { label: 'オファー受信',      en: 'Offer Received',       desc: 'オファーを受け取った時',      icon: 'tag',      color: '#7C3AED', bg: '#F5F3FF' },
+    best_offer_declined:    { label: 'オファー拒否',      en: 'Offer Declined',       desc: 'オファーを拒否した時',        icon: 'x',        color: '#BE123C', bg: '#FFF1F2' },
+    outside_business_hours: { label: '営業時間外',        en: 'Outside Hours',        desc: '営業時間外に問い合わせが来た時',icon: 'moon',     color: '#475569', bg: '#F8FAFC' },
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadRules();
-    loadExcludes();
-    loadLogs();
-});
+const TRIGGER_ICONS = {
+    clock: '<path d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>',
+    cart:  '<path d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"/>',
+    truck: '<path d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25"/>',
+    home:  '<path d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"/>',
+    star:  '<path d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"/>',
+    tag:   '<path d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path d="M6 6h.008v.008H6V6Z"/>',
+    x:     '<path d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>',
+    moon:  '<path d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/>',
+};
 
-// ── Rules ───────────────────────────────
+let _allRules = [];
+
+document.addEventListener('DOMContentLoaded', () => { loadRules(); loadExcludes(); loadLogs(); });
+
+// ── Rules ────────────────────────────────────
 async function loadRules() {
     const resp = await fetch('/api/chat/auto-rules');
     const data = await resp.json();
-    renderRules(data.rules || []);
+    _allRules = data.rules || [];
+    renderRules(_allRules);
 }
 
 function renderRules(rules) {
-    const grid = document.getElementById('rulesGrid');
+    const c = document.getElementById('rulesContainer');
     if (!rules.length) {
-        grid.innerHTML = '<div style="color:var(--text-muted);padding:40px;text-align:center;grid-column:1/-1;">No rules configured yet. Click "+ Add Rule" to create one.</div>';
+        c.innerHTML = '<div class="am-empty">ルールがありません。「ルール追加」をクリックして作成してください。</div>';
         return;
     }
-    grid.innerHTML = rules.map(r => {
-        const evt = EVENT_TYPES[r.event_type] || { label: r.event_type, css: 'feedback' };
-        return `
-        <div class="rule-card">
-            <div class="rule-card-header">
-                <div>
-                    <h3>${esc(r.name)}</h3>
-                    <span class="event-badge ${evt.css}">${evt.label}</span>
+    c.innerHTML = rules.map(r => {
+        const t = TRIGGERS[r.event_type] || { label: r.event_type, color: '#475569', bg: '#F8FAFC' };
+        const delayLabel = r.delay_minutes >= 1440
+            ? `${Math.floor(r.delay_minutes/1440)}日`
+            : r.delay_minutes >= 60
+                ? `${Math.floor(r.delay_minutes/60)}時間`
+                : `${r.delay_minutes}分`;
+
+        const bodyPreview = r.message_body
+            ? escNl(r.message_body.substring(0, 120)) + (r.message_body.length > 120 ? '...' : '')
+            : '<span style="color:var(--text-muted);">(メッセージ未設定)</span>';
+
+        return `<div class="am-rule">
+            <div class="am-rule-top">
+                <div class="am-rule-info">
+                    <div class="am-rule-name">${esc(r.name)}</div>
+                    <div class="am-rule-meta">
+                        <span class="am-badge trigger" style="background:${t.bg};color:${t.color};border-color:${t.color}22;">${t.label}</span>
+                        ${r.delay_minutes ? `<span class="am-badge delay">${delayLabel}後</span>` : ''}
+                        <span class="am-badge stats">送信 ${r.send_count}件</span>
+                        ${r.last_sent_at ? `<span class="am-badge stats">最終: ${new Date(r.last_sent_at).toLocaleDateString('ja-JP')}</span>` : ''}
+                    </div>
                 </div>
-                <button class="toggle-switch ${r.is_active ? 'active' : ''}" onclick="toggleRule(${r.id})" aria-label="Toggle rule"></button>
+                <button class="am-toggle ${r.is_active ? 'on' : ''}" onclick="toggleRule(${r.id})" title="${r.is_active ? 'ON' : 'OFF'}"></button>
             </div>
-            <div style="font-size:12px;color:var(--text-secondary);">
-                Template: <strong>${esc(r.template_name || 'Not set')}</strong>
-                ${r.repeat_buyer_template_name ? `<br>Repeat: <strong>${esc(r.repeat_buyer_template_name)}</strong>` : ''}
-                ${r.delay_minutes ? `<br>Delay: ${r.delay_minutes}min` : ''}
+            <div class="am-rule-body">
+                <div class="am-rule-body-label">送信メッセージ</div>
+                ${bodyPreview}
             </div>
-            <div class="rule-stats">
-                <div><span class="stat-label">Sent</span><br><span class="stat-value">${r.send_count}</span></div>
-                <div><span class="stat-label">Last sent</span><br><span class="stat-value">${r.last_sent_at ? new Date(r.last_sent_at).toLocaleDateString() : '-'}</span></div>
-            </div>
-            <div style="margin-top:12px;display:flex;gap:6px;">
-                <button onclick="editRule(${r.id})" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:11px;background:var(--bg-primary);transition:all 150ms;">Edit</button>
-                <button onclick="deleteRule(${r.id})" style="padding:6px 10px;border:1px solid var(--error-500);border-radius:var(--radius-xs);font-size:11px;background:var(--error-50);color:var(--error-600);transition:all 150ms;">Delete</button>
+            ${r.message_body_repeat ? `<div class="am-rule-body has-repeat" style="margin-top:6px;">
+                <div class="am-rule-body-label">リピーター用</div>
+                ${escNl(r.message_body_repeat.substring(0, 120))}${r.message_body_repeat.length > 120 ? '...' : ''}
+            </div>` : ''}
+            <div class="am-rule-actions">
+                <button class="am-btn-edit" onclick="openRuleModal(${r.id})">編集</button>
+                <button class="am-btn-del" onclick="deleteRule(${r.id})">削除</button>
             </div>
         </div>`;
     }).join('');
@@ -317,106 +366,198 @@ async function toggleRule(id) {
 }
 
 async function deleteRule(id) {
-    if (!confirm('Delete this rule?')) return;
+    if (!confirm('このルールを削除しますか？')) return;
     await fetch(`/api/chat/auto-rules/${id}`, { method: 'DELETE' });
     loadRules();
 }
 
-function showAddRule() {
-    const ja = document.documentElement.lang === 'ja';
-    const eventOptions = Object.entries(EVENT_TYPES).map(([k, v]) =>
-        `<option value="${k}">${ja ? v.labelJa : v.label}</option>`
-    ).join('');
+// ── Add / Edit Modal ─────────────────────────
+function openRuleModal(editId) {
+    const existing = editId ? _allRules.find(r => r.id === editId) : null;
+    const isEdit = !!existing;
+
+    const triggerOptions = Object.entries(TRIGGERS).map(([key, t]) => {
+        const iconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${TRIGGER_ICONS[t.icon] || ''}</svg>`;
+        const selected = existing?.event_type === key ? 'selected' : '';
+        return `<label class="am-trigger-option ${selected}" onclick="selectTrigger(this, '${key}')">
+            <input type="radio" name="trigger" value="${key}" ${selected ? 'checked' : ''}>
+            <div class="am-trigger-icon" style="background:${t.bg};">${iconSvg}</div>
+            <div>
+                <div class="am-trigger-label">${t.label}</div>
+                <div class="am-trigger-desc">${t.desc}</div>
+            </div>
+        </label>`;
+    }).join('');
 
     const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;';
+    modal.className = 'am-modal-overlay';
+    modal.onclick = e => { if (e.target === modal) modal.remove(); };
     modal.innerHTML = `
-        <div style="background:var(--bg-secondary);border-radius:12px;padding:24px;width:420px;max-width:90vw;">
-            <h3 style="margin:0 0 16px;">${ja ? '自動メッセージルール追加' : 'Add Auto-Message Rule'}</h3>
-            <div style="display:flex;flex-direction:column;gap:12px;">
-                <label style="font-size:13px;font-weight:600;">${ja ? 'ルール名' : 'Rule Name'}
-                    <input type="text" id="addRuleName" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;" placeholder="${ja ? '例: 購入感謝メッセージ' : 'e.g. Purchase thank you'}">
-                </label>
-                <label style="font-size:13px;font-weight:600;">${ja ? 'トリガー' : 'Trigger Event'}
-                    <select id="addRuleEvent" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;">${eventOptions}</select>
-                </label>
-                <label style="font-size:13px;font-weight:600;">${ja ? '遅延（分）' : 'Delay (minutes)'}
-                    <input type="number" id="addRuleDelay" value="0" min="0" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;" placeholder="0">
-                    <span style="font-size:11px;color:var(--text-muted);">${ja ? '0=即時送信。配達後N日の場合は1440(=1日)の倍数で入力' : '0=immediate. For N days after delivery, use multiples of 1440'}</span>
-                </label>
-                <label style="font-size:13px;font-weight:600;">${ja ? 'テンプレートID（新規バイヤー用）' : 'Template ID (New Buyer)'}
-                    <input type="number" id="addRuleTemplate" value="0" min="0" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;">
-                </label>
-                <label style="font-size:13px;font-weight:600;">${ja ? 'テンプレートID（リピーター用・空欄可）' : 'Template ID (Repeat Buyer, optional)'}
-                    <input type="number" id="addRuleRepeatTemplate" value="" min="0" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-top:4px;" placeholder="${ja ? '未設定=新規と同じ' : 'Empty=same as new'}">
-                </label>
+    <div class="am-modal">
+        <h3>${isEdit ? 'ルールを編集' : '自動メッセージルールを追加'}</h3>
+
+        <div class="am-field">
+            <label class="am-field-label">ルール名</label>
+            <input type="text" id="mRuleName" value="${esc(existing?.name || '')}" placeholder="例: 購入ありがとうメッセージ">
+        </div>
+
+        <div class="am-field">
+            <label class="am-field-label">トリガー（いつ送信するか）</label>
+            <div class="am-trigger-grid" id="mTriggerGrid">${triggerOptions}</div>
+        </div>
+
+        <div class="am-field" id="mDelayField">
+            <label class="am-field-label">待ち時間</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="number" id="mDelay" value="${existing?.delay_minutes || 60}" min="1" style="width:100px;">
+                <select id="mDelayUnit" style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+                    <option value="1" ${(existing?.delay_minutes || 0) < 60 ? 'selected' : ''}>分</option>
+                    <option value="60" ${(existing?.delay_minutes || 60) >= 60 && (existing?.delay_minutes || 0) < 1440 ? 'selected' : ''}>時間</option>
+                    <option value="1440" ${(existing?.delay_minutes || 0) >= 1440 ? 'selected' : ''}>日</option>
+                </select>
             </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
-                <button onclick="this.closest('div[style]').remove()" style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);font-size:13px;">${ja ? 'キャンセル' : 'Cancel'}</button>
-                <button onclick="submitAddRule(this)" style="padding:8px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-size:13px;font-weight:600;">${ja ? '追加' : 'Add'}</button>
+            <div class="am-field-hint" id="mDelayHint">未返信タイムアウト: バイヤーからのメッセージ受信後、この時間内に返信が無い場合に自動送信します</div>
+        </div>
+
+        <div class="am-field">
+            <label class="am-field-label">送信メッセージ（英語）</label>
+            <textarea id="mBody" placeholder="Thank you for your purchase! Your item will be shipped within 1-2 business days.&#10;&#10;Best regards">${esc(existing?.message_body || '')}</textarea>
+            <div class="am-field-hint">
+                使用可能な変数（クリックで挿入）:
+                <div class="am-vars">
+                    <span class="am-var-tag" onclick="insertVar('mBody','{buyer_name}')">{buyer_name}</span>
+                    <span class="am-var-tag" onclick="insertVar('mBody','{item_title}')">{item_title}</span>
+                    <span class="am-var-tag" onclick="insertVar('mBody','{tracking_number}')">{tracking_number}</span>
+                    <span class="am-var-tag" onclick="insertVar('mBody','{tracking_url}')">{tracking_url}</span>
+                    <span class="am-var-tag" onclick="insertVar('mBody','{order_id}')">{order_id}</span>
+                    <span class="am-var-tag" onclick="insertVar('mBody','{item_id}')">{item_id}</span>
+                    <span class="am-var-tag" onclick="insertVar('mBody','{price}')">{price}</span>
+                    <span class="am-var-tag" onclick="insertVar('mBody','{edd}')">{edd}</span>
+                </div>
             </div>
-        </div>`;
+        </div>
+
+        <div class="am-field">
+            <label class="am-field-label">リピーター用メッセージ（任意）</label>
+            <textarea id="mBodyRepeat" placeholder="空欄の場合、通常メッセージと同じ内容が送信されます" style="min-height:60px;">${esc(existing?.message_body_repeat || '')}</textarea>
+            <div class="am-field-hint">リピーター（2回以上購入）のバイヤーに別のメッセージを送りたい場合に設定</div>
+        </div>
+
+        <div class="am-modal-footer">
+            <button class="am-btn-cancel" onclick="this.closest('.am-modal-overlay').remove()">キャンセル</button>
+            <button class="am-btn-save" onclick="saveRule(${editId || 'null'})">${isEdit ? '更新' : '追加'}</button>
+        </div>
+    </div>`;
+
     document.body.appendChild(modal);
+
+    // Set delay value for edit
+    if (existing?.delay_minutes) {
+        const unit = document.getElementById('mDelayUnit');
+        const input = document.getElementById('mDelay');
+        if (existing.delay_minutes >= 1440 && existing.delay_minutes % 1440 === 0) {
+            unit.value = '1440'; input.value = existing.delay_minutes / 1440;
+        } else if (existing.delay_minutes >= 60 && existing.delay_minutes % 60 === 0) {
+            unit.value = '60'; input.value = existing.delay_minutes / 60;
+        } else {
+            unit.value = '1'; input.value = existing.delay_minutes;
+        }
+    }
+
+    updateDelayVisibility();
 }
 
-async function submitAddRule(btn) {
-    const name = document.getElementById('addRuleName')?.value?.trim();
-    const eventType = document.getElementById('addRuleEvent')?.value;
-    const delay = parseInt(document.getElementById('addRuleDelay')?.value || '0');
-    const templateId = parseInt(document.getElementById('addRuleTemplate')?.value || '0');
-    const repeatTemplateId = document.getElementById('addRuleRepeatTemplate')?.value?.trim();
-    if (!name || !eventType) return;
+function selectTrigger(el, key) {
+    el.closest('.am-trigger-grid').querySelectorAll('.am-trigger-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    el.querySelector('input').checked = true;
+    updateDelayVisibility();
+}
 
-    await fetch('/api/chat/auto-rules', {
-        method: 'POST',
+function updateDelayVisibility() {
+    const selected = document.querySelector('input[name="trigger"]:checked')?.value;
+    const delayField = document.getElementById('mDelayField');
+    const hint = document.getElementById('mDelayHint');
+    if (!delayField) return;
+
+    delayField.style.display = '';
+    if (selected === 'no_reply_timeout') {
+        hint.textContent = 'バイヤーからのメッセージ受信後、この時間内に返信が無い場合に自動送信します';
+    } else if (selected === 'after_delivery_n_days') {
+        hint.textContent = '配達完了後、指定した日数が経過したら自動送信します';
+    } else {
+        hint.textContent = 'トリガー発生後の待ち時間。0 = 即時送信';
+    }
+}
+
+function insertVar(textareaId, varText) {
+    const ta = document.getElementById(textareaId);
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    ta.value = ta.value.substring(0, start) + varText + ta.value.substring(end);
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = start + varText.length;
+}
+
+async function saveRule(editId) {
+    const name = document.getElementById('mRuleName')?.value?.trim();
+    const trigger = document.querySelector('input[name="trigger"]:checked')?.value;
+    const delayVal = parseInt(document.getElementById('mDelay')?.value || '0');
+    const delayUnit = parseInt(document.getElementById('mDelayUnit')?.value || '1');
+    const body = document.getElementById('mBody')?.value?.trim();
+    const bodyRepeat = document.getElementById('mBodyRepeat')?.value?.trim();
+
+    if (!name) { alert('ルール名を入力してください'); return; }
+    if (!trigger) { alert('トリガーを選択してください'); return; }
+    if (!body) { alert('送信メッセージを入力してください'); return; }
+
+    const delayMinutes = delayVal * delayUnit;
+    const url = editId ? `/api/chat/auto-rules/${editId}` : '/api/chat/auto-rules';
+    const method = editId ? 'PUT' : 'POST';
+
+    await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             name,
-            event_type: eventType,
-            template_id: templateId,
-            repeat_buyer_template_id: repeatTemplateId ? parseInt(repeatTemplateId) : null,
-            delay_minutes: delay,
+            event_type: trigger,
+            delay_minutes: delayMinutes,
+            message_body: body,
+            message_body_repeat: bodyRepeat || null,
         }),
     });
-    btn.closest('div[style*="position:fixed"]').remove();
+
+    document.querySelector('.am-modal-overlay')?.remove();
     loadRules();
 }
 
-function editRule(id) { showAddRule(); }
-
-// ── Excludes ────────────────────────────
+// ── Excludes ─────────────────────────────────
 async function loadExcludes() {
     const resp = await fetch('/api/chat/exclude-list');
     const data = await resp.json();
-    renderExcludes(data.excludes || []);
-}
-
-function renderExcludes(excludes) {
-    const container = document.getElementById('excludeList');
-    if (!excludes.length) {
-        container.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center;">No excluded buyers</div>';
+    const list = data.excludes || [];
+    const c = document.getElementById('excludeList');
+    if (!list.length) {
+        c.innerHTML = '<div class="am-empty">除外バイヤーはいません</div>';
         return;
     }
-    container.innerHTML = excludes.map(e => `
-        <div class="exclude-item">
-            <div>
-                <span class="buyer-name">${esc(e.buyer_username)}</span>
-                ${e.reason ? `<span class="reason"> — ${esc(e.reason)}</span>` : ''}
-            </div>
-            <button onclick="removeExclude(${e.id})">Remove</button>
+    c.innerHTML = list.map(e => `
+        <div class="am-exclude-row">
+            <div><strong>${esc(e.buyer_username)}</strong> ${e.reason ? `<span style="color:var(--text-muted);font-size:12px;"> — ${esc(e.reason)}</span>` : ''}</div>
+            <button class="am-btn-del" onclick="removeExclude(${e.id})" style="padding:4px 10px;font-size:11px;">削除</button>
         </div>
     `).join('');
 }
 
 async function addExclude() {
-    const input = document.getElementById('excludeBuyerInput');
-    const username = input.value.trim();
-    if (!username) return;
-
+    const input = document.getElementById('excludeInput');
+    const v = input.value.trim();
+    if (!v) return;
     await fetch('/api/chat/exclude-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buyer_username: username }),
+        body: JSON.stringify({ buyer_username: v }),
     });
     input.value = '';
     loadExcludes();
@@ -427,32 +568,34 @@ async function removeExclude(id) {
     loadExcludes();
 }
 
-// ── Logs ─────────────────────────────────
+// ── Logs ─────────────────────────────────────
 async function loadLogs() {
     const resp = await fetch('/api/chat/auto-logs');
     const data = await resp.json();
-    renderLogs(data.logs || []);
-}
-
-function renderLogs(logs) {
+    const logs = data.logs || [];
     const tbody = document.getElementById('logsBody');
     if (!logs.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No logs yet</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="am-empty">送信ログはまだありません</td></tr>';
         return;
     }
     tbody.innerHTML = logs.map(l => {
-        const evt = EVENT_TYPES[l.event_type] || { label: l.event_type };
+        const t = TRIGGERS[l.event_type] || { label: l.event_type };
         return `<tr>
-            <td><span class="status-dot ${l.success ? 'success' : 'failed'}"></span>${l.success ? 'OK' : 'Fail'}</td>
-            <td>${evt.label}</td>
-            <td>${esc(l.buyer_username)}</td>
-            <td>${l.is_repeat_buyer ? 'Yes' : '-'}</td>
-            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.message_body)}</td>
+            <td><span class="am-dot ${l.success ? 'ok' : 'fail'}"></span>${l.success ? '成功' : '失敗'}</td>
+            <td>${t.label || l.event_type}</td>
+            <td><strong>${esc(l.buyer_username)}</strong></td>
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.message_body)}</td>
             <td style="font-variant-numeric:tabular-nums;">${l.sent_at ? new Date(l.sent_at).toLocaleString('ja-JP') : ''}</td>
         </tr>`;
     }).join('');
 }
 
-function esc(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+function esc(t) {
+    if (!t) return '';
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escNl(t) {
+    return esc(t).replace(/\n/g, '<br>');
+}
 </script>
 {% endblock %}

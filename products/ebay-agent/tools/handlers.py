@@ -3,6 +3,7 @@
 ツールレジストリで定義された各ツールの実装。
 既存プロダクトのコードをラップして呼び出す。
 """
+
 from __future__ import annotations
 
 import json
@@ -48,6 +49,7 @@ async def handle_tool_call(name: str, tool_input: dict[str, Any]) -> str:
 
 
 # ── 各ツール実装 ──────────────────────────────────────────
+
 
 async def _check_inventory(params: dict) -> dict:
     out_of_stock_only = params.get("out_of_stock_only", False)
@@ -136,13 +138,17 @@ async def _search_sources(params: dict) -> dict:
             module_path, class_name = scraper_class_path.rsplit(".", 1)
             module = importlib.import_module(module_path)
             scraper_cls = getattr(module, class_name)
-            results = await scraper_cls().search(keyword, max_price, junk_ok, limit=max_results)
+            results = await scraper_cls().search(
+                keyword, max_price, junk_ok, limit=max_results
+            )
             all_results.extend(results)
-            sites_searched.append({
-                "id": site_id,
-                "name": display_name,
-                "results_count": len(results),
-            })
+            sites_searched.append(
+                {
+                    "id": site_id,
+                    "name": display_name,
+                    "results_count": len(results),
+                }
+            )
             logger.info(f"  [{display_name}] {len(results)}件取得")
         except ImportError as e:
             errors.append(f"{display_name}: モジュール未実装 ({e})")
@@ -248,7 +254,11 @@ async def _analyze_seo(params: dict) -> dict:
         images = json.loads(listing.image_urls_json) if listing.image_urls_json else []
         photo_score = min(100, len(images) * 20)
 
-        specifics = json.loads(listing.item_specifics_json) if listing.item_specifics_json else {}
+        specifics = (
+            json.loads(listing.item_specifics_json)
+            if listing.item_specifics_json
+            else {}
+        )
         specifics_score = min(100, len(specifics) * 12)
 
         overall = int(
@@ -268,7 +278,9 @@ async def _analyze_seo(params: dict) -> dict:
         if len(images) < 5:
             issues.append(f"写真が少なすぎます ({len(images)}枚 / 推奨5枚以上)")
         if len(specifics) < 5:
-            issues.append(f"Item Specificsが少なすぎます ({len(specifics)}項目 / 推奨8項目以上)")
+            issues.append(
+                f"Item Specificsが少なすぎます ({len(specifics)}項目 / 推奨8項目以上)"
+            )
 
         return {
             "sku": sku,
@@ -307,9 +319,9 @@ CURRENT LISTING:
 - Title ({len(listing.title)} chars): "{listing.title}"
 - Price: ${listing.price_usd:.2f}
 - Condition: {listing.condition}
-- SEO Score: {seo_data['overall_score']}/100
+- SEO Score: {seo_data["overall_score"]}/100
 
-Issues: {', '.join(seo_data['issues'])}
+Issues: {", ".join(seo_data["issues"])}
 
 Please suggest optimized title (max 80 chars) and description improvements."""
 
@@ -343,9 +355,16 @@ Please suggest optimized title (max 80 chars) and description improvements."""
         response = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=2000,
-            system=SEO_OPTIMIZER_SYSTEM_PROMPT,
+            system=[
+                {
+                    "type": "text",
+                    "text": SEO_OPTIMIZER_SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ],
             tools=optimizer_tools,
             messages=[{"role": "user", "content": prompt}],
+            extra_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"},
         )
 
         result = {
@@ -360,10 +379,16 @@ Please suggest optimized title (max 80 chars) and description improvements."""
             if block.type == "tool_use":
                 if block.name == "suggest_title":
                     result["suggested_title"] = block.input.get("new_title", "")
-                    result["reasoning"] += f"Title: {block.input.get('reasoning', '')}\n"
+                    result["reasoning"] += (
+                        f"Title: {block.input.get('reasoning', '')}\n"
+                    )
                 elif block.name == "suggest_description":
-                    result["suggested_description"] = block.input.get("new_description", "")
-                    result["reasoning"] += f"Description: {block.input.get('reasoning', '')}\n"
+                    result["suggested_description"] = block.input.get(
+                        "new_description", ""
+                    )
+                    result["reasoning"] += (
+                        f"Description: {block.input.get('reasoning', '')}\n"
+                    )
 
         # DBに保存
         crud.add_optimization(
@@ -427,7 +452,9 @@ async def _analyze_pricing(params: dict) -> dict:
             exchange_rate=rate,
         )
 
-        diff_pct = ((listing.price_usd - avg_price) / avg_price * 100) if avg_price else 0
+        diff_pct = (
+            ((listing.price_usd - avg_price) / avg_price * 100) if avg_price else 0
+        )
 
         return {
             "sku": sku,
@@ -439,8 +466,10 @@ async def _analyze_pricing(params: dict) -> dict:
             "price_diff_pct": round(diff_pct, 1),
             "exchange_rate": rate,
             "recommendation": (
-                "価格は競合平均より安い — 値上げ余地あり" if diff_pct < -5
-                else "価格は競合平均より高い — 値下げ検討" if diff_pct > 10
+                "価格は競合平均より安い — 値上げ余地あり"
+                if diff_pct < -5
+                else "価格は競合平均より高い — 値下げ検討"
+                if diff_pct > 10
                 else "価格は競合と適正範囲内"
             ),
         }
@@ -504,14 +533,18 @@ async def _update_listing_handler(params: dict) -> dict:
         db_check = get_db()
         try:
             from database.models import Listing
+
             listing_obj = db_check.query(Listing).filter_by(sku=sku).first()
             if listing_obj and listing_obj.shopify_variant_id:
                 discount_rate = get_discount_rate(db_check)
                 shopify_price = get_shopify_price(new_price, discount_rate)
                 try:
                     from shopify.client import ShopifyClient
+
                     client = ShopifyClient()
-                    await client.update_variant_price(listing_obj.shopify_variant_id, shopify_price)
+                    await client.update_variant_price(
+                        listing_obj.shopify_variant_id, shopify_price
+                    )
                     logger.info(f"Synced Shopify price for {sku}: ${shopify_price:.2f}")
                 except Exception:
                     logger.warning(f"Failed to sync Shopify price for {sku}")
@@ -541,14 +574,17 @@ async def _get_dashboard_stats(params: dict) -> dict:
 
 # ── Phase 2: 価格インテリジェンス ────────────────────────
 
+
 async def _run_price_monitor(params: dict) -> dict:
     from pricing.monitor import run_price_monitor
+
     limit = params.get("limit", 20)
     return run_price_monitor(limit=limit)
 
 
 async def _get_price_advice(params: dict) -> dict:
     from pricing.advisor import get_price_advice
+
     sku = params["sku"]
     source_cost_jpy = params.get("source_cost_jpy")
     return await get_price_advice(sku, source_cost_jpy=source_cost_jpy)
@@ -556,6 +592,7 @@ async def _get_price_advice(params: dict) -> dict:
 
 async def _batch_price_advice(params: dict) -> dict:
     from pricing.advisor import batch_price_advice
+
     limit = params.get("limit", 10)
     return await batch_price_advice(limit=limit)
 
@@ -583,11 +620,20 @@ async def _apply_price_change(params: dict) -> dict:
                 "sku": sku,
                 "old_price": old_price,
                 "new_price": new_price,
-                "change_pct": round((new_price - old_price) / old_price * 100, 1) if old_price else 0,
+                "change_pct": round((new_price - old_price) / old_price * 100, 1)
+                if old_price
+                else 0,
             }
         else:
-            crud.log_change(db, sku, "price", f"${old_price:.2f}", f"${new_price:.2f}",
-                           success=False, error=result.get("error", ""))
+            crud.log_change(
+                db,
+                sku,
+                "price",
+                f"${old_price:.2f}",
+                f"${new_price:.2f}",
+                success=False,
+                error=result.get("error", ""),
+            )
             return result
     finally:
         db.close()
@@ -595,8 +641,10 @@ async def _apply_price_change(params: dict) -> dict:
 
 # ── Phase 3: 需要検知・リサーチ ──────────────────────────
 
+
 async def _research_demand(params: dict) -> dict:
     from research.demand import analyze_demand
+
     return analyze_demand(
         query=params["query"],
         max_source_price_jpy=params.get("max_source_price_jpy", 50000),
@@ -605,11 +653,13 @@ async def _research_demand(params: dict) -> dict:
 
 async def _compare_categories(params: dict) -> dict:
     from research.demand import compare_categories
+
     return compare_categories(queries=params["queries"])
 
 
 async def _run_research(params: dict) -> dict:
     from research.agent import run_research_agent
+
     return await run_research_agent(params["instruction"])
 
 
@@ -622,19 +672,23 @@ async def _generate_and_preview(params: dict) -> dict:
     category = params.get("category", "")
 
     # 1) 出品コンテンツ生成
-    listing_result = await _generate_listing({
-        "product_name": product_name,
-        "category": category,
-        "condition": condition,
-    })
+    listing_result = await _generate_listing(
+        {
+            "product_name": product_name,
+            "category": category,
+            "condition": condition,
+        }
+    )
 
     # 2) 利益率計算（仕入れ価格が指定された場合）
     margin_data = None
     if source_price and target_price:
-        margin_data = await _calculate_margin({
-            "source_price_jpy": source_price,
-            "sale_price_usd": target_price,
-        })
+        margin_data = await _calculate_margin(
+            {
+                "source_price_jpy": source_price,
+                "sale_price_usd": target_price,
+            }
+        )
 
     # 3) 競合価格チェック
     competitor_data = search_ebay(product_name, limit=10)
@@ -649,7 +703,9 @@ async def _generate_and_preview(params: dict) -> dict:
         "margin_analysis": margin_data,
         "competitor_prices": {
             "count": len(competitor_prices),
-            "avg": round(sum(competitor_prices) / len(competitor_prices), 2) if competitor_prices else 0,
+            "avg": round(sum(competitor_prices) / len(competitor_prices), 2)
+            if competitor_prices
+            else 0,
             "min": min(competitor_prices) if competitor_prices else 0,
             "max": max(competitor_prices) if competitor_prices else 0,
         },
@@ -660,18 +716,26 @@ async def _generate_and_preview(params: dict) -> dict:
 
 # ── Phase 4: コミュニケーション＆分析 ─────────────────────
 
+
 async def _sync_sales(params: dict) -> dict:
     from comms.sales_analytics import sync_sales_data
+
     return sync_sales_data(days=params.get("days", 30))
 
 
 async def _get_sales_analytics(params: dict) -> dict:
     from comms.sales_analytics import get_sales_analytics
-    return get_sales_analytics(days=params.get("days", 30))
+
+    return get_sales_analytics(
+        days=params.get("days", 30),
+        start_date=params.get("start_date", ""),
+        end_date=params.get("end_date", ""),
+    )
 
 
 async def _check_messages(params: dict) -> dict:
     from ebay_core.client import get_buyer_messages
+
     messages = get_buyer_messages(days=params.get("days", 7))
     unread = [m for m in messages if not m["is_read"]]
     return {
@@ -683,19 +747,23 @@ async def _check_messages(params: dict) -> dict:
 
 async def _draft_reply(params: dict) -> dict:
     from comms.buyer_messages import generate_reply_draft
+
     return await generate_reply_draft(params)
 
 
 async def _process_unread_messages(params: dict) -> dict:
     from comms.buyer_messages import process_unread_messages
+
     return await process_unread_messages(days=params.get("days", 7))
 
 
 # ── 仕入れ管理 ────────────────────────────────────────────
 
+
 async def _record_procurement(params: dict) -> dict:
     """仕入れ実績を記録"""
     from datetime import datetime as dt
+
     db = get_db()
     try:
         purchase_date = None
@@ -734,6 +802,7 @@ async def _record_procurement(params: dict) -> dict:
 async def _update_procurement(params: dict) -> dict:
     """仕入れ実績を更新"""
     from datetime import datetime as dt
+
     db = get_db()
     try:
         update_kwargs = {}
@@ -741,7 +810,9 @@ async def _update_procurement(params: dict) -> dict:
             if key in params:
                 update_kwargs[key] = params[key]
         if params.get("received_date"):
-            update_kwargs["received_date"] = dt.strptime(params["received_date"], "%Y-%m-%d")
+            update_kwargs["received_date"] = dt.strptime(
+                params["received_date"], "%Y-%m-%d"
+            )
 
         proc = crud.update_procurement(db, params["procurement_id"], **update_kwargs)
         if not proc:
@@ -760,8 +831,10 @@ async def _update_procurement(params: dict) -> dict:
 
 # ── Instagram ──────────────────────────────────────────────
 
+
 async def _generate_instagram_post(params: dict) -> dict:
     from instagram.content_generator import generate_instagram_content
+
     return await generate_instagram_content(
         sku=params["sku"],
         content_type=params.get("content_type", "carousel"),
@@ -870,7 +943,9 @@ async def _get_instagram_analytics(params: dict) -> dict:
             "total_comments": total_comments,
             "avg_engagement": round(
                 (total_likes + total_saves + total_comments) / published_count, 1
-            ) if published_count else 0,
+            )
+            if published_count
+            else 0,
             "posts": [
                 {
                     "id": p.id,
@@ -878,13 +953,17 @@ async def _get_instagram_analytics(params: dict) -> dict:
                     "content_type": p.content_type,
                     "tone": p.tone,
                     "status": p.status,
-                    "caption_preview": p.caption[:100] + "..." if len(p.caption) > 100 else p.caption,
+                    "caption_preview": p.caption[:100] + "..."
+                    if len(p.caption) > 100
+                    else p.caption,
                     "impressions": p.impressions,
                     "likes": p.likes,
                     "saves": p.saves,
                     "comments": p.comments,
                     "created_at": p.created_at.isoformat(),
-                    "published_at": p.published_at.isoformat() if p.published_at else None,
+                    "published_at": p.published_at.isoformat()
+                    if p.published_at
+                    else None,
                 }
                 for p in posts[:50]
             ],
@@ -895,6 +974,7 @@ async def _get_instagram_analytics(params: dict) -> dict:
 
 async def _generate_dm_reply_handler(params: dict) -> dict:
     from instagram.dm_handler import generate_dm_reply
+
     return await generate_dm_reply(
         dm_text=params["dm_text"],
         sender_name=params.get("sender_name", ""),
@@ -903,6 +983,7 @@ async def _generate_dm_reply_handler(params: dict) -> dict:
 
 
 # ── 出品作成（バッチ対応） ────────────────────────────────
+
 
 async def _get_category_aspects_handler(params: dict) -> dict:
     """カテゴリの必須/推奨 Item Specifics を取得"""
@@ -913,6 +994,7 @@ async def _get_category_aspects_handler(params: dict) -> dict:
 async def _read_listing_sheet(params: dict) -> dict:
     """スプレッドシート/CSVから出品データを読み取る"""
     from sheets.reader import read_listing_data
+
     source = params["source"]
     sheet_name = params.get("sheet_name", "")
 
@@ -961,24 +1043,31 @@ async def _create_draft_listing(params: dict) -> dict:
 
     # 1) AI生成が必要な場合
     if not description or not aspects:
-        listing_data = await _generate_listing({
-            "product_name": product_name,
-            "category": category_id,
-            "condition": condition,
-        })
+        listing_data = await _generate_listing(
+            {
+                "product_name": product_name,
+                "category": category_id,
+                "condition": condition,
+            }
+        )
         if not description:
             description = listing_data.get("description_html", "")
         if not aspects:
-            aspects = {k: [v] if isinstance(v, str) else v for k, v in listing_data.get("specs", {}).items()}
+            aspects = {
+                k: [v] if isinstance(v, str) else v
+                for k, v in listing_data.get("specs", {}).items()
+            }
 
     title = params.get("title", "")
     if not title:
         # AI生成タイトルを使用（最初のバリアント）
-        listing_data = await _generate_listing({
-            "product_name": product_name,
-            "category": category_id,
-            "condition": condition,
-        })
+        listing_data = await _generate_listing(
+            {
+                "product_name": product_name,
+                "category": category_id,
+                "condition": condition,
+            }
+        )
         titles = listing_data.get("titles", [])
         title = titles[0] if titles else product_name
 
@@ -995,7 +1084,11 @@ async def _create_draft_listing(params: dict) -> dict:
         quantity=1,
     )
     if not inv_result.get("success"):
-        return {"success": False, "sku": sku, "error": inv_result.get("error", "Inventory作成失敗")}
+        return {
+            "success": False,
+            "sku": sku,
+            "error": inv_result.get("error", "Inventory作成失敗"),
+        }
 
     # 3) Offer 作成（ビジネスポリシーを自動取得）
     fulfillment_policies = get_fulfillment_policies()
@@ -1007,13 +1100,19 @@ async def _create_draft_listing(params: dict) -> dict:
         category_id=category_id,
         price_usd=price_usd,
         condition=condition,
-        fulfillment_policy_id=fulfillment_policies[0]["id"] if fulfillment_policies else "",
+        fulfillment_policy_id=fulfillment_policies[0]["id"]
+        if fulfillment_policies
+        else "",
         return_policy_id=return_policies[0]["id"] if return_policies else "",
         payment_policy_id=payment_policies[0]["id"] if payment_policies else "",
         listing_description=description,
     )
     if not offer_result.get("success"):
-        return {"success": False, "sku": sku, "error": offer_result.get("error", "Offer作成失敗")}
+        return {
+            "success": False,
+            "sku": sku,
+            "error": offer_result.get("error", "Offer作成失敗"),
+        }
 
     # 4) DB に記録
     db = get_db()
@@ -1074,34 +1173,40 @@ async def _batch_create_drafts(params: dict) -> dict:
 
     for row in rows:
         try:
-            result = await _create_draft_listing({
-                "product_name": row.product_name,
-                "price_usd": row.price_usd,
-                "category_id": row.category_id,
-                "condition": row.condition,
-                "image_urls": row.image_urls,
-            })
-            results.append({
-                "row": row.row_number,
-                "product_name": row.product_name,
-                "price_usd": row.price_usd,
-                "sku": result.get("sku", ""),
-                "offer_id": result.get("offer_id", ""),
-                "success": result.get("success", False),
-                "error": result.get("error"),
-            })
+            result = await _create_draft_listing(
+                {
+                    "product_name": row.product_name,
+                    "price_usd": row.price_usd,
+                    "category_id": row.category_id,
+                    "condition": row.condition,
+                    "image_urls": row.image_urls,
+                }
+            )
+            results.append(
+                {
+                    "row": row.row_number,
+                    "product_name": row.product_name,
+                    "price_usd": row.price_usd,
+                    "sku": result.get("sku", ""),
+                    "offer_id": result.get("offer_id", ""),
+                    "success": result.get("success", False),
+                    "error": result.get("error"),
+                }
+            )
             if result.get("success"):
                 success_count += 1
             else:
                 error_count += 1
         except Exception as e:
-            results.append({
-                "row": row.row_number,
-                "product_name": row.product_name,
-                "price_usd": row.price_usd,
-                "success": False,
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "row": row.row_number,
+                    "product_name": row.product_name,
+                    "price_usd": row.price_usd,
+                    "success": False,
+                    "error": str(e),
+                }
+            )
             error_count += 1
 
     return {
@@ -1109,9 +1214,8 @@ async def _batch_create_drafts(params: dict) -> dict:
         "success": success_count,
         "errors": error_count,
         "results": results,
-        "message": f"全{success_count}件の下書き登録が完了しました。" + (
-            f"（{error_count}件エラー）" if error_count else ""
-        ),
+        "message": f"全{success_count}件の下書き登録が完了しました。"
+        + (f"（{error_count}件エラー）" if error_count else ""),
         "next_step": "eBay Seller Hub（スケジュール済みリスト）で内容をご確認ください。確認後「公開して」と指示いただければ順次出品を開始します。",
     }
 
@@ -1128,10 +1232,15 @@ async def _publish_draft_listings(params: dict) -> dict:
         db = get_db()
         try:
             from database.models import Listing
-            drafts = db.query(Listing).filter(
-                Listing.offer_id != "",
-                Listing.listing_id == "",
-            ).all()
+
+            drafts = (
+                db.query(Listing)
+                .filter(
+                    Listing.offer_id != "",
+                    Listing.listing_id == "",
+                )
+                .all()
+            )
             offer_ids = [d.offer_id for d in drafts if d.offer_id]
         finally:
             db.close()
@@ -1153,6 +1262,7 @@ async def _publish_draft_listings(params: dict) -> dict:
             db = get_db()
             try:
                 from database.models import Listing
+
                 listing = db.query(Listing).filter(Listing.offer_id == offer_id).first()
                 if listing:
                     listing.listing_id = listing_id
@@ -1160,12 +1270,14 @@ async def _publish_draft_listings(params: dict) -> dict:
             finally:
                 db.close()
 
-        results.append({
-            "offer_id": offer_id,
-            "listing_id": listing_id,
-            "success": success,
-            "error": pub_result.get("error") if not success else None,
-        })
+        results.append(
+            {
+                "offer_id": offer_id,
+                "listing_id": listing_id,
+                "success": success,
+                "error": pub_result.get("error") if not success else None,
+            }
+        )
 
     return {
         "total": len(results),
@@ -1176,6 +1288,7 @@ async def _publish_draft_listings(params: dict) -> dict:
 
 
 # ── 利益管理 ────────────────────────────────────────────
+
 
 async def _profit_summary(params: dict) -> dict:
     """月別利益サマリー"""
@@ -1207,6 +1320,7 @@ async def _export_tax_report(params: dict) -> dict:
 async def _expand_categories(params: dict) -> dict:
     """カテゴリ自動拡張パイプラインを実行"""
     from research.category_expansion import run_category_expansion_pipeline
+
     return await run_category_expansion_pipeline(
         notify=params.get("notify", True),
         auto_source=params.get("auto_source", True),
@@ -1216,8 +1330,10 @@ async def _expand_categories(params: dict) -> dict:
 
 # ── Shopify連携 ──────────────────────────────────────────
 
+
 async def _sync_all_to_shopify(params: dict) -> dict:
     from shopify.sync import push_all_unsynced
+
     result = await push_all_unsynced()
     return {
         "message": f"Shopify同期完了: 成功 {result['success']}件、失敗 {result['failed']}件",
@@ -1236,28 +1352,44 @@ async def _set_shopify_discount(params: dict) -> dict:
             config.value = str(discount_rate)
             config.updated_at = datetime.utcnow()
         else:
-            db.add(ShopifyConfig(key="discount_rate", value=str(discount_rate), updated_at=datetime.utcnow()))
+            db.add(
+                ShopifyConfig(
+                    key="discount_rate",
+                    value=str(discount_rate),
+                    updated_at=datetime.utcnow(),
+                )
+            )
         db.commit()
-        return {"message": f"Shopify割引率を {discount_rate*100:.1f}% に変更しました", "discount_rate": discount_rate}
+        return {
+            "message": f"Shopify割引率を {discount_rate * 100:.1f}% に変更しました",
+            "discount_rate": discount_rate,
+        }
     finally:
         db.close()
 
 
 async def _get_shopify_status(params: dict) -> dict:
     from database.models import Listing
+
     db = get_db()
     try:
-        synced = db.query(Listing).filter(Listing.shopify_product_id.isnot(None)).count()
-        unsynced = db.query(Listing).filter(
-            Listing.shopify_product_id.is_(None),
-            Listing.quantity > 0,
-        ).count()
+        synced = (
+            db.query(Listing).filter(Listing.shopify_product_id.isnot(None)).count()
+        )
+        unsynced = (
+            db.query(Listing)
+            .filter(
+                Listing.shopify_product_id.is_(None),
+                Listing.quantity > 0,
+            )
+            .count()
+        )
         discount_rate = get_discount_rate(db)
         return {
             "synced": synced,
             "unsynced": unsynced,
             "discount_rate": discount_rate,
-            "discount_pct": f"{discount_rate*100:.1f}%",
+            "discount_pct": f"{discount_rate * 100:.1f}%",
         }
     finally:
         db.close()
@@ -1267,6 +1399,7 @@ async def _remove_from_shopify(params: dict) -> dict:
     sku = params["sku"]
     from database.models import Listing
     from shopify.client import ShopifyClient
+
     db = get_db()
     try:
         listing = db.query(Listing).filter_by(sku=sku).first()

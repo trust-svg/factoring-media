@@ -192,25 +192,31 @@
 .buyer-item.unread .buyer-name { font-weight: 700; }
 
 /* ── Buyer Status Chips ────────────────────────────── */
-.buyer-chips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+.buyer-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .buyer-chip {
-    display: inline-flex; align-items: center; gap: 3px;
-    padding: 2px 7px 2px 5px; border-radius: 20px;
-    font-size: 10px; font-weight: 600; letter-spacing: 0.1px;
-    line-height: 1.4; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px 3px 6px; border-radius: 6px;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.2px;
+    line-height: 1.3; white-space: nowrap;
+    border: 1px solid transparent;
+    transition: opacity 0.15s;
 }
-.buyer-chip svg { flex-shrink: 0; }
-.chip-purchased  { background: #D1FAE5; color: #065F46; }
-.chip-repeat     { background: #EDE9FE; color: #5B21B6; }
-.chip-shipped    { background: #DBEAFE; color: #1E40AF; }
-.chip-delivered  { background: #CFFAFE; color: #155E75; }
-.chip-offer      { background: #FEF3C7; color: #92400E; }
-.chip-feedback   { background: #FEF9C3; color: #713F12; }
-.chip-message    { background: #F3F4F6; color: #374151; }
-.chip-return     { background: #FFEDD5; color: #9A3412; }
-.chip-cancel     { background: #FEE2E2; color: #991B1B; }
-.chip-refund     { background: #FEE2E2; color: #991B1B; }
-.chip-dispute    { background: #FEE2E2; color: #991B1B; }
+.buyer-chip:hover { opacity: 0.85; }
+.buyer-chip svg { flex-shrink: 0; opacity: 0.9; }
+.chip-purchased  { background: #ECFDF5; color: #047857; border-color: #A7F3D0; }
+.chip-repeat     { background: #F5F3FF; color: #6D28D9; border-color: #DDD6FE; }
+.chip-shipped    { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+.chip-delivered  { background: #ECFEFF; color: #0E7490; border-color: #A5F3FC; }
+.chip-awaiting   { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
+.chip-payment    { background: #FFFBEB; color: #B45309; border-color: #FDE68A; }
+.chip-offer      { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+.chip-feedback   { background: #FEF9C3; color: #854D0E; border-color: #FEF08A; }
+.chip-message    { background: #F8FAFC; color: #475569; border-color: #E2E8F0; }
+.chip-case       { background: #FFF1F2; color: #BE123C; border-color: #FECDD3; }
+.chip-return     { background: #FFF7ED; color: #C2410C; border-color: #FDBA74; }
+.chip-cancel     { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+.chip-refund     { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+.chip-dispute    { background: #FEF2F2; color: #9F1239; border-color: #FECDD3; }
 .buyer-top-row {
     display: flex;
     justify-content: space-between;
@@ -1272,13 +1278,14 @@
 
 /* ── Responsive: Mobile ──────────────────────────── */
 @media (max-width: 768px) {
-    /* ページヘッダーを隠してスペース確保 */
+    /* トップヘッダー＋ページヘッダーを隠してスペース最大化 */
+    .top-header { display: none !important; }
     .page-header { display: none; }
     .main-content-inner { padding: 0 !important; }
 
-    /* レイアウト高さ: viewport - top header(56px) - bottom nav(60px) */
+    /* レイアウト高さ: viewport - bottom nav(safe-area含む) */
     .chat-layout {
-        height: calc(100dvh - 56px - 60px);
+        height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px));
         min-height: 300px;
         border-radius: 0;
         box-shadow: none;
@@ -1436,9 +1443,222 @@
 
 /* ── Ultra-small screens (iPhone SE etc) ─────────── */
 @media (max-width: 375px) {
-    .chat-layout { height: calc(100dvh - 50px - 56px); }
+    .chat-layout { height: calc(100dvh - 56px); }
     .thread-header-info .thread-subject { max-width: 140px; }
     .msg-content { font-size: 13px; padding: 8px 10px; }
     .compose-toolbar .btn-ai span,
     .compose-toolbar .btn-style span { display: none; }
+}
+
+/* ── 未返信自動返信 承認パネル ─────────────────────────── */
+.no-reply-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    min-width: 14px;
+    height: 14px;
+    line-height: 14px;
+    border-radius: 7px;
+    padding: 0 3px;
+    text-align: center;
+    box-shadow: 0 0 0 2px var(--bg-primary, #fff);
+}
+
+.no-reply-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 998;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.no-reply-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+.no-reply-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 460px;
+    max-width: 92vw;
+    background: var(--bg-primary, #fff);
+    box-shadow: -4px 0 20px rgba(0,0,0,0.12);
+    z-index: 999;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+}
+.no-reply-panel.active {
+    transform: translateX(0);
+}
+
+.no-reply-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+    flex-shrink: 0;
+}
+.no-reply-panel-header .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-muted, #9ca3af);
+    padding: 0;
+    line-height: 1;
+}
+
+.no-reply-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+}
+
+.no-reply-panel-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border, #e5e7eb);
+    flex-shrink: 0;
+    display: flex;
+    gap: 8px;
+}
+
+.nr-candidate {
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: var(--bg-primary, #fff);
+}
+.nr-candidate-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.nr-buyer {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary, #111827);
+}
+.nr-meta {
+    font-size: 10px;
+    color: var(--text-muted, #9ca3af);
+}
+.nr-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted, #9ca3af);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 8px 0 4px;
+}
+.nr-original {
+    background: #f9fafb;
+    border-left: 3px solid #9ca3af;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text-secondary, #4b5563);
+    border-radius: 0 6px 6px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 160px;
+    overflow-y: auto;
+}
+.nr-preview {
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #1e40af;
+    border-radius: 0 6px 6px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 140px;
+    overflow-y: auto;
+}
+.nr-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+.nr-btn {
+    flex: 1;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.15s;
+}
+.nr-btn-send {
+    background: #2563eb;
+    color: #fff;
+}
+.nr-btn-send:hover {
+    background: #1d4ed8;
+}
+.nr-btn-skip {
+    background: #f3f4f6;
+    color: #4b5563;
+    border-color: #e5e7eb;
+}
+.nr-btn-skip:hover {
+    background: #e5e7eb;
+}
+.nr-btn-exclude {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+    flex: 0.7;
+}
+.nr-btn-exclude:hover {
+    background: #fee2e2;
+}
+.btn-bulk-send {
+    flex: 1;
+    background: #2563eb;
+    color: #fff;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+}
+.btn-bulk-send:hover {
+    background: #1d4ed8;
+}
+.btn-bulk-send:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.nr-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted, #9ca3af);
+    font-size: 13px;
+}
+
+@media (max-width: 480px) {
+    .no-reply-panel {
+        width: 100%;
+        max-width: 100%;
+    }
 }

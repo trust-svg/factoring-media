@@ -1,4 +1,5 @@
 """チャットビジネスロジック — sync, draft, send"""
+
 from __future__ import annotations
 
 import json
@@ -52,6 +53,7 @@ def _get_anthropic() -> anthropic.AsyncAnthropic:
 
 # ── メッセージ同期 ───────────────────────────────────────
 
+
 async def sync_messages(db: Session, days: int = 30) -> dict:
     """eBay APIからメッセージを取得してDBに同期する。
 
@@ -59,6 +61,7 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
     長時間のDBロック保持を防ぐ。
     """
     from database.models import SessionLocal as _SessionLocal
+
     # ① DBセッションを使い捨て（eBay API呼び出し前に完結）
     with _SessionLocal() as check_db:
         existing_count = check_db.query(BuyerMessage).count()
@@ -84,12 +87,14 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
 
         if ebay_id in existing_ids:
             # 既読/返信済みステータス + 本文更新（改行修正）
-            update_ids.append((
-                ebay_id,
-                msg["is_read"],
-                msg["responded"],
-                msg.get("body", ""),
-            ))
+            update_ids.append(
+                (
+                    ebay_id,
+                    msg["is_read"],
+                    msg["responded"],
+                    msg.get("body", ""),
+                )
+            )
         else:
             # 新規メッセージ
             body = msg.get("body", "")
@@ -102,27 +107,33 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
             attachment_urls = msg.get("attachment_urls", [])
             # 24時間以上前のメッセージは既読扱い（他インターフェースで読済みの可能性大）
             received_dt = _parse_date(msg.get("received_date", ""))
-            is_old = received_dt and received_dt < datetime.utcnow() - timedelta(hours=24)
+            is_old = received_dt and received_dt < datetime.utcnow() - timedelta(
+                hours=24
+            )
             msg_is_read = msg["is_read"] or is_old
-            new_msgs.append(BuyerMessage(
-                ebay_message_id=ebay_id,
-                item_id=msg.get("item_id", ""),
-                sender=sender,
-                recipient=recipient,
-                direction=direction,
-                subject=msg.get("subject", ""),
-                body=body,
-                body_translated="",
-                is_read=1 if msg_is_read else 0,
-                responded=1 if msg["responded"] else 0,
-                has_attachment=1 if attachment_urls else 0,
-                attachment_urls_json=json.dumps(attachment_urls) if attachment_urls else "[]",
-                sentiment="",
-                urgency="",
-                sentiment_note="",
-                received_at=_parse_date(msg.get("received_date", "")),
-                synced_at=datetime.utcnow(),
-            ))
+            new_msgs.append(
+                BuyerMessage(
+                    ebay_message_id=ebay_id,
+                    item_id=msg.get("item_id", ""),
+                    sender=sender,
+                    recipient=recipient,
+                    direction=direction,
+                    subject=msg.get("subject", ""),
+                    body=body,
+                    body_translated="",
+                    is_read=1 if msg_is_read else 0,
+                    responded=1 if msg["responded"] else 0,
+                    has_attachment=1 if attachment_urls else 0,
+                    attachment_urls_json=json.dumps(attachment_urls)
+                    if attachment_urls
+                    else "[]",
+                    sentiment="",
+                    urgency="",
+                    sentiment_note="",
+                    received_at=_parse_date(msg.get("received_date", "")),
+                    synced_at=datetime.utcnow(),
+                )
+            )
             new_count += 1
 
     # ③ 最短DBセッションで書き込み（eBay API完了後）
@@ -132,18 +143,23 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
                 write_db.add(m)
             if update_ids:
                 for ebay_id, is_read, responded, body in update_ids:
-                    row = write_db.query(BuyerMessage).filter(
-                        BuyerMessage.ebay_message_id == ebay_id
-                    ).first()
+                    row = (
+                        write_db.query(BuyerMessage)
+                        .filter(BuyerMessage.ebay_message_id == ebay_id)
+                        .first()
+                    )
                     if row:
                         changed = False
                         if is_read and not row.is_read:
-                            row.is_read = 1; changed = True
+                            row.is_read = 1
+                            changed = True
                         if responded and not row.responded:
-                            row.responded = 1; changed = True
+                            row.responded = 1
+                            changed = True
                         # 本文更新（改行が消えていた既存メッセージを修正）
                         if body and body != row.body:
-                            row.body = body; changed = True
+                            row.body = body
+                            changed = True
                         if changed:
                             row.synced_at = datetime.utcnow()
                             updated_count += 1
@@ -154,10 +170,15 @@ async def sync_messages(db: Session, days: int = 30) -> dict:
         _cache_invalidate("convos:")
 
     logger.info(f"メッセージ同期完了: 新規{new_count}件, 更新{updated_count}件")
-    return {"new": new_count, "updated": updated_count, "total_fetched": len(raw_messages)}
+    return {
+        "new": new_count,
+        "updated": updated_count,
+        "total_fetched": len(raw_messages),
+    }
 
 
 # ── 会話一覧 ─────────────────────────────────────────────
+
 
 def get_conversations(
     db: Session,
@@ -214,7 +235,9 @@ def get_conversations(
     # 1クエリ: 全Listingを一括取得
     listing_map: dict[str, Listing] = {}
     if unique_item_ids:
-        listings = db.query(Listing).filter(Listing.listing_id.in_(unique_item_ids)).all()
+        listings = (
+            db.query(Listing).filter(Listing.listing_id.in_(unique_item_ids)).all()
+        )
         listing_map = {l.listing_id: l for l in listings}
 
     # 1回: 全バイヤーのステータスを一括計算
@@ -235,7 +258,11 @@ def get_conversations(
                 listing = listing_map.get(iid)
                 if listing:
                     try:
-                        imgs = json.loads(listing.image_urls_json) if listing.image_urls_json else []
+                        imgs = (
+                            json.loads(listing.image_urls_json)
+                            if listing.image_urls_json
+                            else []
+                        )
                         thumbnail = imgs[0] if imgs else ""
                     except Exception:
                         pass
@@ -271,7 +298,7 @@ def get_conversations(
             }
 
         item_map[iid]["buyers"][buyer_key]["total_count"] += 1
-        if not msg.is_read:
+        if not msg.is_read and msg.sender != "eBay":
             item_map[iid]["buyers"][buyer_key]["unread_count"] += 1
             item_map[iid]["unread_count"] += 1
 
@@ -300,23 +327,31 @@ def get_conversations(
             conv_map[conv_key]["unread_count"] += 1
 
     items = []
-    for iid, item in sorted(item_map.items(), key=lambda x: x[1]["last_date"], reverse=True):
-        buyer_list = sorted(item["buyers"].values(), key=lambda b: b["last_date"], reverse=True)
-        items.append({
-            "item_id": item["item_id"],
-            "title": item["title"],
-            "thumbnail": item["thumbnail"],
-            "unread_count": item["unread_count"],
-            "last_date": item["last_date"],
-            "buyers": buyer_list,
-        })
+    for iid, item in sorted(
+        item_map.items(), key=lambda x: x[1]["last_date"], reverse=True
+    ):
+        buyer_list = sorted(
+            item["buyers"].values(), key=lambda b: b["last_date"], reverse=True
+        )
+        items.append(
+            {
+                "item_id": item["item_id"],
+                "title": item["title"],
+                "thumbnail": item["thumbnail"],
+                "unread_count": item["unread_count"],
+                "last_date": item["last_date"],
+                "buyers": buyer_list,
+            }
+        )
 
-    conversations = sorted(conv_map.values(), key=lambda c: c["last_date"], reverse=True)
+    conversations = sorted(
+        conv_map.values(), key=lambda c: c["last_date"], reverse=True
+    )
     total_items = len(items)
-    paginated_items = items[offset:offset + limit]
+    paginated_items = items[offset : offset + limit]
     result = {
         "items": paginated_items,
-        "conversations": conversations[offset:offset + limit],
+        "conversations": conversations[offset : offset + limit],
         "total_items": total_items,
         "has_more": offset + limit < total_items,
     }
@@ -327,10 +362,18 @@ def get_conversations(
 async def translate_untranslated(db: Session, message_ids: list[int]):
     """未翻訳メッセージを並列バッチ翻訳する（最大5件同時）。"""
     import asyncio as _asyncio
-    msgs = db.query(BuyerMessage).filter(
-        BuyerMessage.id.in_(message_ids),
-        (BuyerMessage.body_translated.is_(None)) | (BuyerMessage.body_translated == ""),
-    ).filter(BuyerMessage.sender != "eBay").filter(BuyerMessage.body != "").all()
+
+    msgs = (
+        db.query(BuyerMessage)
+        .filter(
+            BuyerMessage.id.in_(message_ids),
+            (BuyerMessage.body_translated.is_(None))
+            | (BuyerMessage.body_translated == ""),
+        )
+        .filter(BuyerMessage.sender != "eBay")
+        .filter(BuyerMessage.body != "")
+        .all()
+    )
 
     if not msgs:
         return 0
@@ -361,7 +404,9 @@ def get_thread(db: Session, buyer: str, item_id: str = "") -> list[dict]:
 
     if item_id:
         # バイヤーメッセージ + 同item_idのeBayシステム通知を両方含める
-        ebay_system_filter = (BuyerMessage.sender == "eBay") & (BuyerMessage.item_id == item_id)
+        ebay_system_filter = (BuyerMessage.sender == "eBay") & (
+            BuyerMessage.item_id == item_id
+        )
         query = db.query(BuyerMessage).filter(
             (buyer_filter | ebay_system_filter) & (BuyerMessage.item_id == item_id)
         )
@@ -376,25 +421,29 @@ def get_thread(db: Session, buyer: str, item_id: str = "") -> list[dict]:
         is_system = msg.sender == "eBay" and msg.direction == "inbound"
         direction = "system" if is_system else msg.direction
 
-        result.append({
-            "id": msg.id,
-            "ebay_message_id": msg.ebay_message_id,
-            "direction": direction,
-            "sender": msg.sender,
-            "subject": msg.subject,
-            "body": msg.body,
-            "body_translated": msg.body_translated or "",
-            "is_read": bool(msg.is_read),
-            "has_attachment": bool(msg.has_attachment),
-            "attachment_urls": json.loads(msg.attachment_urls_json) if msg.attachment_urls_json else [],
-            "draft_reply": msg.draft_reply or "",
-            "sentiment": msg.sentiment or "",
-            "urgency": msg.urgency or "",
-            "sentiment_note": msg.sentiment_note or "",
-            "response_time_min": msg.response_time_min,
-            "received_at": msg.received_at.isoformat() if msg.received_at else "",
-            "item_id": msg.item_id,
-        })
+        result.append(
+            {
+                "id": msg.id,
+                "ebay_message_id": msg.ebay_message_id,
+                "direction": direction,
+                "sender": msg.sender,
+                "subject": msg.subject,
+                "body": msg.body,
+                "body_translated": msg.body_translated or "",
+                "is_read": bool(msg.is_read),
+                "has_attachment": bool(msg.has_attachment),
+                "attachment_urls": json.loads(msg.attachment_urls_json)
+                if msg.attachment_urls_json
+                else [],
+                "draft_reply": msg.draft_reply or "",
+                "sentiment": msg.sentiment or "",
+                "urgency": msg.urgency or "",
+                "sentiment_note": msg.sentiment_note or "",
+                "response_time_min": msg.response_time_min,
+                "received_at": msg.received_at.isoformat() if msg.received_at else "",
+                "item_id": msg.item_id,
+            }
+        )
     return result
 
 
@@ -571,10 +620,19 @@ async def generate_draft(
         return {"error": "Message not found"}
 
     # 同じバイヤーの過去メッセージを文脈として取得
-    history = db.query(BuyerMessage).filter(
-        ((BuyerMessage.sender == msg.sender) | (BuyerMessage.recipient == msg.sender)),
-        BuyerMessage.id != message_id,
-    ).order_by(BuyerMessage.received_at.desc()).limit(5).all()
+    history = (
+        db.query(BuyerMessage)
+        .filter(
+            (
+                (BuyerMessage.sender == msg.sender)
+                | (BuyerMessage.recipient == msg.sender)
+            ),
+            BuyerMessage.id != message_id,
+        )
+        .order_by(BuyerMessage.received_at.desc())
+        .limit(5)
+        .all()
+    )
 
     context = ""
     if history:
@@ -592,6 +650,7 @@ async def generate_draft(
 
     # バイヤースコア情報
     from chat.intelligence import get_buyer_score
+
     score = get_buyer_score(db, msg.sender)
     buyer_info = f"\nBUYER: {msg.sender} | Tier: {score['tier']} | Orders: {score['total_orders']} | Spent: ${score['total_spent_usd']} | Troubles: {score['trouble_count']}"
 
@@ -630,8 +689,15 @@ MESSAGE:
             analysis_resp = await _get_anthropic().messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=500,
-                system=ANALYSIS_SYSTEM_PROMPT,
+                system=[
+                    {
+                        "type": "text",
+                        "text": ANALYSIS_SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                    }
+                ],
                 messages=[{"role": "user", "content": analysis_prompt}],
+                extra_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"},
             )
             analysis = analysis_resp.content[0].text.strip()
         except Exception as e:
@@ -641,8 +707,15 @@ MESSAGE:
         resp = await _get_anthropic().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=2000,
-            system=REPLY_SYSTEM_PROMPT,
+            system=[
+                {
+                    "type": "text",
+                    "text": REPLY_SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ],
             messages=[{"role": "user", "content": prompt}],
+            extra_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"},
         )
         raw_output = resp.content[0].text.strip()
 
@@ -675,6 +748,7 @@ MESSAGE:
 
 # ── メッセージ送信 ───────────────────────────────────────
 
+
 async def send_reply(
     db: Session,
     buyer: str,
@@ -696,6 +770,7 @@ async def send_reply(
         # 返信時間をトラッキング
         try:
             from chat.intelligence import track_response_time
+
             track_response_time(db, buyer, item_id)
         except Exception as e:
             logger.warning(f"返信時間トラッキングエラー: {e}")
@@ -719,11 +794,16 @@ async def send_reply(
         db.add(outbound)
 
         # 元メッセージをresponded = 1に
-        last_inbound = db.query(BuyerMessage).filter(
-            BuyerMessage.sender == buyer,
-            BuyerMessage.item_id == item_id,
-            BuyerMessage.direction == "inbound",
-        ).order_by(BuyerMessage.received_at.desc()).first()
+        last_inbound = (
+            db.query(BuyerMessage)
+            .filter(
+                BuyerMessage.sender == buyer,
+                BuyerMessage.item_id == item_id,
+                BuyerMessage.direction == "inbound",
+            )
+            .order_by(BuyerMessage.received_at.desc())
+            .first()
+        )
         if last_inbound:
             last_inbound.responded = 1
 
@@ -736,10 +816,15 @@ async def send_reply(
 
 # ── 既読管理 ─────────────────────────────────────────────
 
+
 def mark_read(db: Session, message_ids: list[int]) -> dict:
     """メッセージを既読にする（eBay API + ローカルDB）。"""
     messages = db.query(BuyerMessage).filter(BuyerMessage.id.in_(message_ids)).all()
-    ebay_ids = [m.ebay_message_id for m in messages if m.ebay_message_id and not m.ebay_message_id.startswith("out_")]
+    ebay_ids = [
+        m.ebay_message_id
+        for m in messages
+        if m.ebay_message_id and not m.ebay_message_id.startswith("out_")
+    ]
 
     # eBay API
     if ebay_ids:
@@ -756,16 +841,20 @@ def mark_read(db: Session, message_ids: list[int]) -> dict:
 
 def mark_all_read(db: Session) -> dict:
     """全未読メッセージを既読にする。"""
-    unread = db.query(BuyerMessage).filter(
-        BuyerMessage.is_read == 0,
-        BuyerMessage.direction == "inbound",
-    ).all()
+    unread = (
+        db.query(BuyerMessage)
+        .filter(
+            BuyerMessage.is_read == 0,
+            BuyerMessage.direction == "inbound",
+        )
+        .all()
+    )
 
     ebay_ids = [m.ebay_message_id for m in unread if m.ebay_message_id]
     if ebay_ids:
         # バッチ処理（最大25件ずつ）
         for i in range(0, len(ebay_ids), 25):
-            mark_messages_read(ebay_ids[i:i+25], read=True)
+            mark_messages_read(ebay_ids[i : i + 25], read=True)
 
     for msg in unread:
         msg.is_read = 1
@@ -778,7 +867,11 @@ def mark_all_read(db: Session) -> dict:
 def mark_unread(db: Session, message_ids: list[int]) -> dict:
     """メッセージを未読に戻す。"""
     messages = db.query(BuyerMessage).filter(BuyerMessage.id.in_(message_ids)).all()
-    ebay_ids = [m.ebay_message_id for m in messages if m.ebay_message_id and not m.ebay_message_id.startswith("out_")]
+    ebay_ids = [
+        m.ebay_message_id
+        for m in messages
+        if m.ebay_message_id and not m.ebay_message_id.startswith("out_")
+    ]
 
     if ebay_ids:
         mark_messages_read(ebay_ids, read=False)
@@ -792,6 +885,7 @@ def mark_unread(db: Session, message_ids: list[int]) -> dict:
 
 
 # ── テンプレート ─────────────────────────────────────────
+
 
 def get_templates(db: Session, search: str = "", category: str = "") -> list[dict]:
     """テンプレート一覧を取得する。"""
@@ -820,7 +914,9 @@ def save_template(db: Session, data: dict) -> dict:
     """テンプレートを作成/更新する。"""
     template_id = data.get("id")
     if template_id:
-        tmpl = db.query(MessageTemplate).filter(MessageTemplate.id == template_id).first()
+        tmpl = (
+            db.query(MessageTemplate).filter(MessageTemplate.id == template_id).first()
+        )
         if not tmpl:
             return {"error": "Template not found"}
     else:
@@ -861,12 +957,19 @@ def use_template(db: Session, template_id: int) -> dict:
 
 # ── ユーティリティ ───────────────────────────────────────
 
+
 def get_unread_count(db: Session) -> int:
-    """未読メッセージ数を取得する。"""
-    return db.query(func.count(BuyerMessage.id)).filter(
-        BuyerMessage.is_read == 0,
-        BuyerMessage.direction == "inbound",
-    ).scalar() or 0
+    """未読メッセージ数を取得する（eBayシステム通知は除外）。"""
+    return (
+        db.query(func.count(BuyerMessage.id))
+        .filter(
+            BuyerMessage.is_read == 0,
+            BuyerMessage.direction == "inbound",
+            BuyerMessage.sender != "eBay",
+        )
+        .scalar()
+        or 0
+    )
 
 
 def _get_buyer_statuses_batch(db: Session, buyers: list[str]) -> dict[str, list[str]]:
@@ -884,20 +987,26 @@ def _get_buyer_statuses_batch(db: Session, buyers: list[str]) -> dict[str, list[
 
     # ── Q1: 全バイヤーの item_id を一括取得（inbound + outbound両方）──
     # inbound: sender=buyer_username
-    inbound_rows = db.query(
-        BuyerMessage.sender, BuyerMessage.item_id
-    ).filter(
-        BuyerMessage.sender.in_(buyers),
-        BuyerMessage.item_id != "",
-    ).distinct().all()
+    inbound_rows = (
+        db.query(BuyerMessage.sender, BuyerMessage.item_id)
+        .filter(
+            BuyerMessage.sender.in_(buyers),
+            BuyerMessage.item_id != "",
+        )
+        .distinct()
+        .all()
+    )
 
     # outbound: recipient=buyer_username（sender="me"なので recipientで取得）
-    outbound_rows = db.query(
-        BuyerMessage.recipient, BuyerMessage.item_id
-    ).filter(
-        BuyerMessage.recipient.in_(buyers),
-        BuyerMessage.item_id != "",
-    ).distinct().all()
+    outbound_rows = (
+        db.query(BuyerMessage.recipient, BuyerMessage.item_id)
+        .filter(
+            BuyerMessage.recipient.in_(buyers),
+            BuyerMessage.item_id != "",
+        )
+        .distinct()
+        .all()
+    )
 
     # buyer → {item_ids} マッピング
     buyer_item_map: dict[str, set[str]] = {}
@@ -909,10 +1018,14 @@ def _get_buyer_statuses_batch(db: Session, buyers: list[str]) -> dict[str, list[
     # ── Q2: SalesRecord を一括取得（buyer_name直接 + item_id経由）──
     all_orders: list[SalesRecord] = []
     if buyers or all_item_ids:
-        all_orders = db.query(SalesRecord).filter(
-            (SalesRecord.buyer_name.in_(buyers))
-            | (SalesRecord.item_id.in_(all_item_ids) if all_item_ids else False)
-        ).all()
+        all_orders = (
+            db.query(SalesRecord)
+            .filter(
+                (SalesRecord.buyer_name.in_(buyers))
+                | (SalesRecord.item_id.in_(all_item_ids) if all_item_ids else False)
+            )
+            .all()
+        )
 
     # buyer → orders マッピング（buyer_name直接 or item_id経由）
     # item_id → SalesRecord マッピング（フォールバック用）
@@ -927,51 +1040,98 @@ def _get_buyer_statuses_batch(db: Session, buyers: list[str]) -> dict[str, list[
             orders_by_item.setdefault(o.item_id, []).append(o)
 
     # ── Q3: オファー関連メッセージ（subjectにofferを含む）──
-    offer_buyers_rows = db.query(
-        BuyerMessage.sender
-    ).filter(
-        BuyerMessage.sender.in_(buyers),
-        BuyerMessage.subject.ilike("%offer%"),
-    ).distinct().all()
+    offer_buyers_rows = (
+        db.query(BuyerMessage.sender)
+        .filter(
+            BuyerMessage.sender.in_(buyers),
+            BuyerMessage.subject.ilike("%offer%"),
+        )
+        .distinct()
+        .all()
+    )
     offer_buyers = {r[0] for r in offer_buyers_rows}
 
     # ── Q4: フィードバックメッセージ（sender=eBay, subjectにfeedback）──
     feedback_items: set[str] = set()
     if all_item_ids:
-        feedback_rows = db.query(
-            BuyerMessage.item_id
-        ).filter(
-            BuyerMessage.sender == "eBay",
-            BuyerMessage.subject.ilike("%feedback%"),
-            BuyerMessage.item_id.in_(all_item_ids),
-        ).distinct().all()
+        feedback_rows = (
+            db.query(BuyerMessage.item_id)
+            .filter(
+                BuyerMessage.sender == "eBay",
+                BuyerMessage.subject.ilike("%feedback%"),
+                BuyerMessage.item_id.in_(all_item_ids),
+            )
+            .distinct()
+            .all()
+        )
         feedback_items = {r[0] for r in feedback_rows}
+
+    # ── Q5: ケース関連メッセージ（sender=eBay, subjectに"case"を含む、closedは除く）──
+    case_items: set[str] = set()
+    if all_item_ids:
+        case_rows = (
+            db.query(BuyerMessage.item_id)
+            .filter(
+                BuyerMessage.sender == "eBay",
+                BuyerMessage.subject.ilike("%case%"),
+                ~BuyerMessage.subject.ilike("%closed%"),
+                BuyerMessage.item_id.in_(all_item_ids),
+            )
+            .distinct()
+            .all()
+        )
+        case_items = {r[0] for r in case_rows}
 
     # ── Python側で各バイヤーのステータスを組み立て ──
     progress_map = {
-        "発送済": "shipped", "shipped": "shipped", "発送済み": "shipped",
-        "納品済": "delivered", "delivered": "delivered", "納品済み": "delivered",
-        "返品": "return", "returned": "return", "return": "return",
-        "キャンセル": "cancel", "cancelled": "cancel", "cancel": "cancel",
-        "返金": "refund", "refunded": "refund", "refund": "refund",
-        "dispute": "dispute", "ディスプート": "dispute",
+        "発送済": "shipped",
+        "shipped": "shipped",
+        "発送済み": "shipped",
+        "納品済": "delivered",
+        "delivered": "delivered",
+        "納品済み": "delivered",
+        "発送待ち": "awaiting_shipment",
+        "awaiting shipment": "awaiting_shipment",
+        "支払い待ち": "awaiting_payment",
+        "awaiting payment": "awaiting_payment",
+        "unpaid": "awaiting_payment",
+        "返品": "return",
+        "returned": "return",
+        "return": "return",
+        "キャンセル": "cancel",
+        "cancelled": "cancel",
+        "cancel": "cancel",
+        "返金": "refund",
+        "refunded": "refund",
+        "refund": "refund",
+        "dispute": "dispute",
+        "ディスプート": "dispute",
+        "case": "case",
+        "ケース": "case",
     }
 
     for buyer in buyers:
         statuses: list[str] = []
 
-        # SalesRecord: buyer_name直接 → 大文字小文字無視 → item_id経由フォールバック
+        # SalesRecord: buyer_name直接 → 大文字小文字無視
         orders = orders_by_buyer.get(buyer, [])
         if not orders:
             orders = orders_by_buyer_lower.get(buyer.lower(), [])
+
+        # buyer_name直接マッチの注文数で repeat 判定
+        direct_match_count = len(orders)
+
+        # item_id経由フォールバック（purchasedのみ、repeat判定には使わない）
         if not orders:
             buyer_iids = buyer_item_map.get(buyer, set())
             for iid in buyer_iids:
-                orders.extend(orders_by_item.get(iid, []))
+                for o in orders_by_item.get(iid, []):
+                    if o not in orders:
+                        orders.append(o)
 
         if orders:
             statuses.append("purchased")
-            if len(orders) >= 2:
+            if direct_match_count >= 2:
                 statuses.append("repeat")
 
             seen: set[str] = set()
@@ -991,6 +1151,10 @@ def _get_buyer_statuses_batch(db: Session, buyers: list[str]) -> dict[str, list[
         if buyer_iids & feedback_items:
             statuses.append("feedback")
 
+        # ケース
+        if buyer_iids & case_items:
+            statuses.append("case")
+
         # デフォルト: メッセージのやり取りがある
         if not statuses:
             statuses.append("message")
@@ -1002,18 +1166,21 @@ def _get_buyer_statuses_batch(db: Session, buyers: list[str]) -> dict[str, list[
 
 def _get_buyer_status(db: Session, buyer_username: str) -> list:
     """バイヤーのステータスアイコン用リストを返す（単体版、後方互換）。"""
-    return _get_buyer_statuses_batch(db, [buyer_username]).get(buyer_username, ["message"])
+    return _get_buyer_statuses_batch(db, [buyer_username]).get(
+        buyer_username, ["message"]
+    )
 
 
 def _parse_draft_sections(raw: str) -> tuple:
     """AI出力を REPLY / JA / STRATEGY の3セクションに分割する。"""
     import re
+
     reply = ""
     ja = ""
     strategy = ""
 
     # セクションヘッダーで分割
-    sections = re.split(r'\*\*(?:REPLY|JA|STRATEGY)\*\*\s*\n?', raw)
+    sections = re.split(r"\*\*(?:REPLY|JA|STRATEGY)\*\*\s*\n?", raw)
     if len(sections) >= 4:
         reply = sections[1].strip()
         ja = sections[2].strip()
@@ -1033,13 +1200,16 @@ def _parse_draft_sections(raw: str) -> tuple:
 def _clean_draft(draft: str) -> str:
     """AIドラフトから不要なヘッダー/フッターを除去する。"""
     import re
+
     lines = draft.split("\n")
     clean = []
     skip = False
     for line in lines:
         stripped = line.strip()
         # 不要な行をスキップ
-        if re.match(r"^(Subject:|Re:|---+$|Here is|Below is|Draft:)", stripped, re.IGNORECASE):
+        if re.match(
+            r"^(Subject:|Re:|---+$|Here is|Below is|Draft:)", stripped, re.IGNORECASE
+        ):
             continue
         if re.match(r"^\*\*Your eBay Store\*\*", stripped):
             continue
@@ -1088,8 +1258,15 @@ Output ONLY the updated message body. Sign off as "Roki". No subject lines, no "
         resp = await _get_anthropic().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
-            system=REPLY_SYSTEM_PROMPT,
+            system=[
+                {
+                    "type": "text",
+                    "text": REPLY_SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ],
             messages=[{"role": "user", "content": prompt}],
+            extra_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"},
         )
         refined = _clean_draft(resp.content[0].text.strip())
 

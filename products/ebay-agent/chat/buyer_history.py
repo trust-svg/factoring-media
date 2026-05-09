@@ -33,14 +33,17 @@ def get_buyer_full_history(db: Session, buyer_username: str) -> dict:
             "message_threads": [{item_id, message_count, last_date}],
         }
     """
-    # SalesRecordを検索: buyer_name直接 OR item_id経由
+    # Step 1: buyer_nameで直接検索
     sales = db.query(SalesRecord).filter(
         SalesRecord.buyer_name == buyer_username
     ).order_by(SalesRecord.sold_at.desc()).all()
+
+    # Step 2: 直接マッチ0件 → このバイヤーのメッセージitem_id経由で検索
+    # （buyer_name=フルネーム, sender=eBayユーザーIDの不一致を救済）
     if not sales:
         buyer_item_ids = [
-            m.item_id for m in db.query(BuyerMessage.item_id).filter(
-                BuyerMessage.sender == buyer_username,
+            r[0] for r in db.query(BuyerMessage.item_id).filter(
+                ((BuyerMessage.sender == buyer_username) | (BuyerMessage.recipient == buyer_username)),
                 BuyerMessage.item_id != "",
             ).distinct().all()
         ]
@@ -66,11 +69,24 @@ def get_buyer_full_history(db: Session, buyer_username: str) -> dict:
         # トラブル判定
         trouble_type = _detect_trouble(s.progress)
 
+        # サムネイル取得（Listingテーブルから）
+        thumbnail = ""
+        if s.item_id:
+            listing = db.query(Listing).filter(Listing.listing_id == s.item_id).first()
+            if listing and listing.image_urls_json:
+                import json as _json
+                try:
+                    imgs = _json.loads(listing.image_urls_json)
+                    thumbnail = imgs[0] if imgs else ""
+                except Exception:
+                    pass
+
         orders.append({
             "order_id": s.order_id,
             "item_id": s.item_id,
             "sku": s.sku,
             "title": s.title,
+            "thumbnail": thumbnail,
             "sale_price_usd": s.sale_price_usd,
             "source_cost_jpy": s.source_cost_jpy,
             "net_profit_usd": s.net_profit_usd,
@@ -201,41 +217,46 @@ def _build_tracking_info(tracking_number: str, shipping_method: str) -> dict:
 
 
 def _detect_carrier(tracking_number: str, shipping_method: str = "") -> str:
-    """追跡番号パターンとキャリア名からキャリアを判定する。"""
+    """追跡番号パターンとキャリア名からキャリアを判定する。
+
+    番号パターンを優先する（eBayのshipping_methodが実際のキャリアと
+    異なる場合がある。例: SpeedPAK発送でも"FedEx"と表示される）。
+    """
     method = (shipping_method or "").lower()
     num = tracking_number.strip()
 
-    # 名前ベース判定
+    # ── パターンベース判定（優先: 番号形式は嘘をつかない）──
+    # SpeedPAK: EM/EX始まりの長い番号（OrangeConnex形式）
+    if re.match(r"^E[MX]\d{10,}", num):
+        return "SpeedPAK"
+    if re.match(r"^E[A-Z]\d{9}JP$", num):
+        return "EMS"
+    if re.match(r"^1Z", num):
+        return "UPS"
+    if re.match(r"^\d{10}$", num):
+        return "DHL"
+    if re.match(r"^\d{13}$", num):
+        return "Japan Post"
+
+    # ── 名前ベース判定（パターンで判定できない場合のフォールバック）──
+    if any(k in method for k in ("speedpak", "speed pak", "orangeconnex", "sppeedpak", "sppedpak")):
+        return "SpeedPAK"
     if "dhl" in method:
         return "DHL"
     if "fedex" in method:
         return "FedEx"
-    if any(k in method for k in ("speedpak", "speed pak", "orangeconnex", "sppeedpak", "sppedpak")):
-        return "SpeedPAK"
     if "ups" in method:
         return "UPS"
     if "ems" in method:
         return "EMS"
     if "japan post" in method or "jp post" in method:
         return "Japan Post"
-    # eBay固有のshipping method名にSpeedPAKが隠れているケース
     if "expedited" in method and ("outside" in method or "international" in method):
         return "SpeedPAK"
 
-    # パターンベース判定
-    if re.match(r"^\d{10}$", num):
-        return "DHL"
+    # 12-15桁数字はFedEx（パターン確認済み）
     if re.match(r"^\d{12,15}$", num):
         return "FedEx"
-    if re.match(r"^1Z", num):
-        return "UPS"
-    if re.match(r"^E[A-Z]\d{9}JP$", num):
-        return "EMS"
-    if re.match(r"^\d{13}$", num):
-        return "Japan Post"
-    # SpeedPAK: EX/EM始まりの長い番号（OrangeConnex形式）
-    if re.match(r"^E[MX]\d{10,}", num):
-        return "SpeedPAK"
 
     return ""
 

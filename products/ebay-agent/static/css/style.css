@@ -197,6 +197,7 @@ button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
 }
 
 .nav-links li { margin-bottom: 2px; }
+.nav-label-short { display: none; }
 
 .nav-links a {
     display: flex;
@@ -1202,31 +1203,39 @@ input:focus-visible {
         border-top: 1px solid #E2E8F0;
         flex-direction: row;
         background: #FFFFFF;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
     }
     .sidebar-logo { display: none; }
     .sidebar-footer { display: none; }
     .nav-section-label { display: none; }
+    /* プレースホルダー項目をモバイルで非表示 */
+    .nav-links li:has(a[href="#"]) { display: none; }
     .nav-links {
         display: flex;
-        padding: 6px 8px;
+        padding: 4px 4px;
         overflow-x: auto;
         gap: 0;
         flex: 1;
+        justify-content: space-around;
     }
     .nav-links::-webkit-scrollbar { display: none; }
-    .nav-links li { margin-bottom: 0; flex-shrink: 0; }
+    .nav-links li { margin-bottom: 0; flex-shrink: 0; flex: 1; min-width: 0; }
     .nav-links a {
-        padding: 8px 12px;
+        padding: 6px 4px;
         font-size: 12px;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
         text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
     }
-    .nav-links a span:last-child { font-size: 10px; }
-    .nav-icon svg { width: 18px; height: 18px; }
+    .nav-label-full { display: none !important; }
+    .nav-label-short { display: inline !important; font-size: 9px; }
+    .nav-icon svg { width: 20px; height: 20px; }
+    .nav-badge { display: none !important; }
     .main-content {
         margin-left: 0;
-        padding-bottom: 80px;
+        padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
     }
     .main-content-inner { padding: 16px; }
     .top-header { padding: 0 16px; height: 56px; }

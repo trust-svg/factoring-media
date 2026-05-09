@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import json as _json
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -21,6 +24,52 @@ from ebay_core.client import mark_messages_read, get_best_offers, respond_to_bes
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+# ── SSE（Server-Sent Events）────────────────────────────
+_sse_clients: list[asyncio.Queue] = []
+
+
+def _sse_broadcast(event: str, data: dict | None = None):
+    """全SSEクライアントにイベントを送信する。"""
+    msg = f"event: {event}\ndata: {_json.dumps(data or {})}\n\n"
+    dead = []
+    for q in _sse_clients:
+        try:
+            q.put_nowait(msg)
+        except asyncio.QueueFull:
+            dead.append(q)
+    for q in dead:
+        _sse_clients.remove(q)
+
+
+@router.get("/events")
+async def sse_events():
+    """SSEストリーム — クライアントはEventSourceで接続。"""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=50)
+    _sse_clients.append(queue)
+
+    async def event_generator():
+        try:
+            # 初回接続通知
+            yield f"event: connected\ndata: {{}}\n\n"
+            while True:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=30)
+                    yield msg
+                except asyncio.TimeoutError:
+                    # Keep-alive
+                    yield ": heartbeat\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            if queue in _sse_clients:
+                _sse_clients.remove(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ── Request Models ───────────────────────────────────────
@@ -67,15 +116,19 @@ async def list_conversations(
     status: str = "all",
     search: str = "",
     limit: int = 50,
+    offset: int = 0,
+    days: int | None = None,
 ):
     db = get_db()
     try:
-        result = service.get_conversations(db, status=status, search=search, limit=limit)
+        result = service.get_conversations(db, status=status, search=search, limit=limit, offset=offset, days=days)
         unread = service.get_unread_count(db)
         return {
             "items": result["items"],
             "conversations": result["conversations"],
             "unread_total": unread,
+            "total_items": result.get("total_items", 0),
+            "has_more": result.get("has_more", False),
         }
     finally:
         db.close()
@@ -246,6 +299,11 @@ def _run_sync(days: int = 7):
 async def sync_messages():
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(_sync_executor, _run_sync)
+
+    # SSE: 新規メッセージがあればクライアントに通知
+    if (result.get("new", 0) > 0) or (result.get("updated", 0) > 0):
+        _sse_broadcast("sync", {"new": result.get("new", 0), "updated": result.get("updated", 0)})
+
     return result
 
 
@@ -408,6 +466,13 @@ class AutoRuleRequest(BaseModel):
     repeat_buyer_template_id: Optional[int] = None
     is_active: int = 1
     delay_minutes: int = 0
+    mode: Optional[str] = None                  # "manual" | "auto"
+    message_body: Optional[str] = None          # inline message content
+    message_body_repeat: Optional[str] = None   # repeat buyer message content
+
+
+class NoReplyActionRequest(BaseModel):
+    action: str = "skip"  # skip | excluded
 
 
 class ExcludeRequest(BaseModel):
@@ -503,6 +568,44 @@ async def list_auto_logs(limit: int = 50):
     db = get_db()
     try:
         return {"logs": get_auto_message_logs(db, limit)}
+    finally:
+        db.close()
+
+
+# ── 未返信自動返信 承認キュー ────────────────────────────
+
+@router.get("/no-reply/candidates")
+async def list_no_reply_candidates():
+    """Dフィルタで抽出した承認待ち候補一覧を返す。"""
+    from chat.auto_message import get_no_reply_candidates
+    db = get_db()
+    try:
+        candidates = get_no_reply_candidates(db)
+        return {"candidates": candidates, "count": len(candidates)}
+    finally:
+        db.close()
+
+
+@router.post("/no-reply/approve/{buyer_message_id}")
+async def approve_no_reply_candidate(buyer_message_id: int):
+    """候補を承認して送信する。"""
+    from chat.auto_message import send_no_reply_candidate
+    db = get_db()
+    try:
+        return send_no_reply_candidate(db, buyer_message_id)
+    finally:
+        db.close()
+
+
+@router.post("/no-reply/skip/{buyer_message_id}")
+async def skip_no_reply_candidate_endpoint(
+    buyer_message_id: int, req: NoReplyActionRequest
+):
+    """候補をスキップ or 対象外登録。"""
+    from chat.auto_message import skip_no_reply_candidate
+    db = get_db()
+    try:
+        return skip_no_reply_candidate(db, buyer_message_id, req.action)
     finally:
         db.close()
 
