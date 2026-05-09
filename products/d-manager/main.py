@@ -1,5 +1,7 @@
 """D-Manager — Discord AI Organization Bot."""
 
+from __future__ import annotations
+
 import logging
 import asyncio
 from pathlib import Path
