@@ -1,4 +1,11 @@
-"""TODO management tool — active.md file backend."""
+"""TODO management tool — active.md file backend.
+
+タスク状態（4値）:
+  [UN] Unassigned  — 未着手
+  [IN] In Progress — 着手中
+  [BL] Blocked     — 待ち（ブロック理由を末尾に追記）
+  [DN] Done        — 完了（完了日を末尾に追記）
+"""
 
 import re
 import logging
@@ -14,11 +21,16 @@ ACTIVE_PATH = config.COMPANY_DIR / "secretary" / "todos" / "active.md"
 INBOX_DIR = config.COMPANY_DIR / "secretary" / "inbox"
 JST = timezone(timedelta(hours=9))
 
-# Pattern for active tasks
+# 未完了タスク（UN/IN/BL）。スキップ欄はoptional。
 TASK_PATTERN = re.compile(
-    r'^- \[( |x)\] (.+?) \| 担当: (\S+) \| 期限: (\S+) \| 追加: (\S+) \| スキップ: (\d+)',
+    r"^- \[(UN|IN|BL)\] (.+?) \| 担当: (\S+) \| 期限: (\S+) \| 追加: (\d{4}-\d{2}-\d{2})(.*?)$",
     re.MULTILINE,
 )
+
+# 状態遷移用：未完了行先頭マッチ
+INCOMPLETE_PREFIX = re.compile(r"^- \[(UN|IN|BL)\] ")
+
+STATE_ICON = {"UN": "⚪", "IN": "🔵", "BL": "🟣"}
 
 
 def _read_active() -> str:
@@ -31,8 +43,12 @@ def _write_active(content: str):
     ACTIVE_PATH.write_text(content, encoding="utf-8")
 
 
+def _line_is_incomplete(line: str) -> bool:
+    return bool(INCOMPLETE_PREFIX.match(line.strip()))
+
+
 def get_today_todos() -> str:
-    """Get all incomplete tasks from active.md."""
+    """Get all incomplete tasks from active.md (UN/IN/BL)."""
     try:
         content = _read_active()
         if not content:
@@ -40,24 +56,32 @@ def get_today_todos() -> str:
 
         tasks = []
         for m in TASK_PATTERN.finditer(content):
-            if m.group(1) == " ":  # incomplete
-                name = m.group(2)
-                owner = m.group(3)
-                deadline = m.group(4)
-                added = m.group(5)
-                skip = int(m.group(6))
+            state = m.group(1)
+            name = m.group(2)
+            owner = m.group(3)
+            deadline = m.group(4)
+            added = m.group(5)
+            extra = m.group(6) or ""
+            skip_match = re.search(r"スキップ:\s*(\d+)", extra)
+            skip = int(skip_match.group(1)) if skip_match else 0
+            try:
                 age = (date.today() - date.fromisoformat(added)).days
+            except ValueError:
+                age = 0
 
-                priority_mark = ""
-                if skip >= 3:
-                    priority_mark = " 🔴要判断"
-                elif age >= 7:
-                    priority_mark = " 🟠放置"
-                elif age >= 3:
-                    priority_mark = " 🟡"
+            priority_mark = ""
+            if skip >= 3:
+                priority_mark = " 🔴要判断"
+            elif age >= 7:
+                priority_mark = " 🟠放置"
+            elif age >= 3:
+                priority_mark = " 🟡"
 
-                deadline_str = f" | 期限: {deadline}" if deadline != "なし" else ""
-                tasks.append(f"- [ ] {name} → {owner}{priority_mark}{deadline_str}")
+            deadline_str = f" | 期限: {deadline}" if deadline != "なし" else ""
+            icon = STATE_ICON.get(state, "⚪")
+            tasks.append(
+                f"- [{state}] {icon} {name} → {owner}{priority_mark}{deadline_str}"
+            )
 
         if not tasks:
             return f"今日（{date.today().isoformat()}）のTODOはありません。素晴らしい！"
@@ -71,31 +95,32 @@ def get_today_todos() -> str:
 
 
 def add_todo(text: str, priority: str = "通常") -> str:
-    """Add a new task to active.md."""
+    """Add a new task (state=UN) to active.md."""
     try:
         content = _read_active()
         today = date.today().isoformat()
 
-        # Determine section to add to
         if priority == "高":
             section = "## 高優先度"
         else:
             section = "## 通常"
 
-        new_line = f"- [ ] {text} | 担当: アイ | 期限: なし | 追加: {today} | スキップ: 0"
+        new_line = f"- [UN] {text} | 担当: アイ | 期限: なし | 追加: {today}"
 
         if section in content:
             content = content.replace(section, f"{section}\n{new_line}", 1)
         else:
-            # Add before ## ルーティン or at end
             if "## ルーティン" in content:
-                content = content.replace("## ルーティン", f"{section}\n{new_line}\n\n## ルーティン")
+                content = content.replace(
+                    "## ルーティン", f"{section}\n{new_line}\n\n## ルーティン"
+                )
             elif "## 完了" in content:
-                content = content.replace("## 完了", f"{section}\n{new_line}\n\n## 完了")
+                content = content.replace(
+                    "## 完了", f"{section}\n{new_line}\n\n## 完了"
+                )
             else:
                 content += f"\n{section}\n{new_line}\n"
 
-        # Update date
         content = re.sub(
             r'updated: "\d{4}-\d{2}-\d{2}"',
             f'updated: "{today}"',
@@ -109,33 +134,29 @@ def add_todo(text: str, priority: str = "通常") -> str:
 
 
 def complete_todo(keyword: str) -> str:
-    """Mark a task as completed by keyword match."""
+    """Mark a task as completed (state=DN) by keyword match."""
     try:
         content = _read_active()
         today = date.today().isoformat()
 
-        # Find and move task to completed section
         lines = content.split("\n")
         completed_task = None
         new_lines = []
 
         for line in lines:
-            if keyword in line and line.strip().startswith("- [ ]"):
-                # Extract task name
-                m = re.match(r'^- \[ \] (.+?) \|', line)
-                task_name = m.group(1) if m else keyword
+            if keyword in line and _line_is_incomplete(line):
+                m = re.match(r"^- \[(UN|IN|BL)\] (.+?) \|", line)
+                task_name = m.group(2) if m else keyword
                 completed_task = task_name
-                # Skip this line (will add to completed section)
                 continue
             new_lines.append(line)
 
         if not completed_task:
-            return f"「{keyword}」に一致するタスクが見つかりませんでした。"
+            return f"「{keyword}」に一致する未完了タスクが見つかりませんでした。"
 
         content = "\n".join(new_lines)
 
-        # Add to completed section
-        completed_line = f"- [x] {completed_task} | 完了: {today}"
+        completed_line = f"- [DN] {completed_task} | 完了: {today}"
         if "## 完了" in content:
             content = content.replace("## 完了", f"## 完了\n{completed_line}", 1)
         else:
@@ -164,9 +185,9 @@ def drop_todo(keyword: str) -> str:
         new_lines = []
 
         for line in lines:
-            if keyword in line and line.strip().startswith("- [ ]"):
-                m = re.match(r'^- \[ \] (.+?) \|', line)
-                dropped_task = m.group(1) if m else keyword
+            if keyword in line and _line_is_incomplete(line):
+                m = re.match(r"^- \[(UN|IN|BL)\] (.+?) \|", line)
+                dropped_task = m.group(2) if m else keyword
                 continue
             new_lines.append(line)
 
@@ -187,7 +208,7 @@ def drop_todo(keyword: str) -> str:
 
 
 def defer_todo(keyword: str) -> str:
-    """Reset skip count to 0 (defer/postpone)."""
+    """Reset skip count to 0 + 追加日を今日に更新（延期）。"""
     try:
         content = _read_active()
         today = date.today().isoformat()
@@ -196,12 +217,16 @@ def defer_todo(keyword: str) -> str:
         deferred_task = None
 
         for i, line in enumerate(lines):
-            if keyword in line and line.strip().startswith("- [ ]"):
-                m = re.match(r'^- \[ \] (.+?) \|', line)
-                deferred_task = m.group(1) if m else keyword
-                # Reset skip count and update added date
-                lines[i] = re.sub(r'スキップ: \d+', 'スキップ: 0', line)
-                lines[i] = re.sub(r'追加: \S+', f'追加: {today}', lines[i])
+            if keyword in line and _line_is_incomplete(line):
+                m = re.match(r"^- \[(UN|IN|BL)\] (.+?) \|", line)
+                deferred_task = m.group(2) if m else keyword
+                if "スキップ:" in line:
+                    lines[i] = re.sub(r"スキップ:\s*\d+", "スキップ: 0", line)
+                else:
+                    lines[i] = line  # スキップ欄なしならそのまま
+                lines[i] = re.sub(
+                    r"追加: \d{4}-\d{2}-\d{2}", f"追加: {today}", lines[i]
+                )
                 break
 
         if not deferred_task:
@@ -225,12 +250,11 @@ def update_todo(keyword: str, new_title: str) -> str:
     try:
         content = _read_active()
 
-        # Find the task line
         lines = content.split("\n")
         found = False
         for i, line in enumerate(lines):
-            if keyword in line and line.strip().startswith("- [ ]"):
-                old_match = re.match(r'^(- \[ \] ).+?( \| 担当:.*)', line)
+            if keyword in line and _line_is_incomplete(line):
+                old_match = re.match(r"^(- \[(?:UN|IN|BL)\] ).+?( \| 担当:.*)", line)
                 if old_match:
                     lines[i] = f"{old_match.group(1)}{new_title}{old_match.group(2)}"
                     found = True
@@ -252,6 +276,56 @@ def update_todo(keyword: str, new_title: str) -> str:
         return f"TODO更新に失敗しました: {e}"
 
 
+def set_state(keyword: str, new_state: str, block_reason: str = "") -> str:
+    """Change task state (UN/IN/BL) by keyword match.
+
+    BLにする場合は block_reason を末尾に追記する。
+    """
+    new_state = new_state.upper()
+    if new_state not in ("UN", "IN", "BL"):
+        return f"無効な状態: {new_state}（UN/IN/BL のいずれか）"
+
+    try:
+        content = _read_active()
+        lines = content.split("\n")
+        target = None
+
+        for i, line in enumerate(lines):
+            if keyword in line and _line_is_incomplete(line):
+                m = re.match(r"^- \[(UN|IN|BL)\] (.+?) \|", line)
+                target = m.group(2) if m else keyword
+                lines[i] = re.sub(
+                    r"^- \[(?:UN|IN|BL)\] ", f"- [{new_state}] ", lines[i]
+                )
+                # BL の場合、ブロック理由を末尾に追加（既存ブロック理由は上書き）
+                if new_state == "BL":
+                    lines[i] = re.sub(r"\s*\|\s*ブロック理由:.*$", "", lines[i])
+                    reason_text = block_reason or "理由未記入"
+                    lines[i] = f"{lines[i].rstrip()} | ブロック理由: {reason_text}"
+                else:
+                    # UN/IN に戻すときはブロック理由を削除
+                    lines[i] = re.sub(r"\s*\|\s*ブロック理由:.*$", "", lines[i])
+                break
+
+        if not target:
+            return f"「{keyword}」に一致する未完了タスクが見つかりませんでした。"
+
+        content = "\n".join(lines)
+        content = re.sub(
+            r'updated: "\d{4}-\d{2}-\d{2}"',
+            f'updated: "{date.today().isoformat()}"',
+            content,
+        )
+        _write_active(content)
+        suffix = (
+            f"（理由: {block_reason}）" if new_state == "BL" and block_reason else ""
+        )
+        return f"「{target}」を {new_state} にしました{suffix}"
+    except Exception as e:
+        logger.error(f"set_state error: {e}")
+        return f"状態変更に失敗しました: {e}"
+
+
 def capture_inbox(text: str) -> str:
     """Capture a quick memo to inbox."""
     try:
@@ -267,8 +341,8 @@ def capture_inbox(text: str) -> str:
         else:
             content = (
                 f'---\ndate: "{today}"\ntype: inbox\n---\n\n'
-                f'# Inbox - {today}\n\n## キャプチャ\n\n'
-                f'- **{now}** | {text}'
+                f"# Inbox - {today}\n\n## キャプチャ\n\n"
+                f"- **{now}** | {text}"
             )
 
         inbox_file.write_text(content, encoding="utf-8")
@@ -279,7 +353,7 @@ def capture_inbox(text: str) -> str:
 
 
 def get_pending_summary() -> dict:
-    """Get summary of pending tasks from active.md."""
+    """Get summary of pending tasks from active.md (UN/IN/BL)."""
     try:
         content = _read_active()
         tasks = []
@@ -288,19 +362,18 @@ def get_pending_summary() -> dict:
         today_str = date.today().isoformat()
 
         for m in TASK_PATTERN.finditer(content):
-            if m.group(1) == " ":  # incomplete
-                name = m.group(2)
-                deadline = m.group(4)
-                tasks.append(name)
+            name = m.group(2)
+            deadline = m.group(4)
+            tasks.append(name)
 
-                # Check if in high priority section
-                pos = m.start()
-                before = content[:pos]
-                if "## 緊急" in before.split("##")[-1] or "## 高優先度" in before.split("##")[-1]:
-                    high_priority.append(name)
+            pos = m.start()
+            before = content[:pos]
+            last_section = before.split("##")[-1] if "##" in before else ""
+            if "緊急" in last_section or "高優先度" in last_section:
+                high_priority.append(name)
 
-                if deadline == today_str:
-                    deadline_today.append(name)
+            if deadline == today_str:
+                deadline_today.append(name)
 
         return {
             "pending_count": len(tasks),
