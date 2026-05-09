@@ -50,8 +50,21 @@ channel_cache = {}
 # Webhook cache: channel_name -> discord.Webhook
 webhook_cache = {}
 
-# Video Analyzer: serialize concurrent analyses (one job at a time on the VPS)
-_VIDEO_ANALYZER_SEMA = asyncio.Semaphore(1)
+# Video Analyzer: serialize concurrent analyses (one job at a time on the VPS).
+# Lazy-init: Python 3.9 binds asyncio primitives to a loop at construction
+# time. Creating the Semaphore at module load (before discord.py starts its
+# loop) caused queued tasks to crash with "Future attached to a different
+# loop". Build it on first use, inside the running loop.
+_VIDEO_ANALYZER_SEMA: "asyncio.Semaphore | None" = None
+
+
+def _video_sema() -> asyncio.Semaphore:
+    global _VIDEO_ANALYZER_SEMA
+    if _VIDEO_ANALYZER_SEMA is None:
+        _VIDEO_ANALYZER_SEMA = asyncio.Semaphore(1)
+    return _VIDEO_ANALYZER_SEMA
+
+
 VIDEO_ANALYZER_CHANNEL = "動画分析-video-research"
 import re
 
@@ -646,13 +659,14 @@ async def _run_video_analysis(channel: discord.TextChannel, url: str) -> None:
     """
     from tools import video_analyzer, video_format
 
+    sema = _video_sema()
     queued_msg = None
-    if _VIDEO_ANALYZER_SEMA.locked():
+    if sema.locked():
         queued_msg = await channel.send(
             f"⏳ 既に分析中の動画があります。順番待ちで処理します: {url[:80]}"
         )
 
-    async with _VIDEO_ANALYZER_SEMA:
+    async with sema:
         notice = await channel.send(f"🎬 分析開始: {url[:120]}")
         try:
             data = await video_analyzer.analyze(url, force=False)
