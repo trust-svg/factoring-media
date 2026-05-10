@@ -2,7 +2,6 @@
 # TrustLink 月次レポート自動生成（毎月1日実行）
 
 cd "$(dirname "$0")"
-source venv/bin/activate
 
 # 前月の開始日・終了日を計算
 if [ "$(uname)" = "Darwin" ]; then
@@ -14,5 +13,7 @@ else
 fi
 
 echo "$(date): 月次レポート生成 ($SINCE 〜 $UNTIL)" >> exports/cron.log
-python report.py --since "$SINCE" --until "$UNTIL" --notify >> exports/cron.log 2>&1
-echo "$(date): 完了" >> exports/cron.log
+./venv/bin/python report.py --since "$SINCE" --until "$UNTIL" --notify >> exports/cron.log 2>&1
+RC=$?
+echo "$(date): 完了 (rc=$RC)" >> exports/cron.log
+exit $RC
