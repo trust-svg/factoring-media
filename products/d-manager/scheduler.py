@@ -804,6 +804,81 @@ async def nightly_token_expiry_check():
     )
 
 
+async def nightly_discord_webhook_check():
+    """Tier 3-G: 深夜5:30 — 主要 Discord Webhook の死活確認.
+
+    GET で 404/401 を返す webhook を検出し Larry に通知。
+    実体 URL は通知に出さず、ID と使用箇所のみ表示。
+    """
+    logger.info("Running nightly_discord_webhook_check...")
+    today_iso = date.today().isoformat()
+
+    d_manager_root = Path(__file__).resolve().parent
+    venv_python = d_manager_root / ".venv" / "bin" / "python"
+    python_bin = str(venv_python) if venv_python.exists() else sys.executable
+
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            [python_bin, "-m", "tools.discord_webhook_check"],
+            cwd=str(d_manager_root),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except Exception as e:
+        logger.error(f"nightly_discord_webhook_check exec failed: {e}")
+        return
+
+    try:
+        data = json.loads(result.stdout) if result.stdout.strip() else {}
+    except json.JSONDecodeError as e:
+        logger.warning(f"nightly_discord_webhook_check parse failed: {e}")
+        data = {}
+
+    results = data.get("results", [])
+    rows: list[str] = []
+    dead: list[dict] = []
+    for r in results:
+        status = r.get("status", "?")
+        wid = r.get("id", "?")
+        used = ", ".join(r.get("used_in", []))
+        if status == "ok":
+            rows.append(f"- ✅ **{wid}** ({r.get('name', '?')}) — {used}")
+        elif status == "dead":
+            dead.append(r)
+            rows.append(f"- 💀 **{wid}** {r.get('error', '')} — {used}")
+        else:
+            rows.append(f"- ⚠️ **{wid}** {r.get('error', '')} — {used}")
+
+    summary_block = (
+        f"\n## Discord Webhook 死活 (深夜5:30)\n\n"
+        f"checked: {len(results)} 件 / dead: {len(dead)} 件\n\n"
+    )
+    summary_block += "\n".join(rows) if rows else "(対象なし)\n"
+    summary_block += "\n"
+
+    NIGHTLY_QA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if NIGHTLY_QA_PATH.exists():
+        existing = NIGHTLY_QA_PATH.read_text(encoding="utf-8")
+    else:
+        existing = f"# 夜間QA サマリ ({today_iso})\n\n"
+    NIGHTLY_QA_PATH.write_text(existing + summary_block, encoding="utf-8")
+
+    if dead and _send_fn:
+        lines = [f"💀 **Discord Webhook 死活: 死んだ Webhook {len(dead)} 件**\n"]
+        for r in dead:
+            wid = r.get("id", "?")
+            err = r.get("error", "")
+            used = ", ".join(r.get("used_in", []))
+            lines.append(f"- **{wid}** {err}\n  使用箇所: {used}")
+        await _send_fn("運営-jack-operations", "\n".join(lines))
+
+    logger.info(
+        f"nightly_discord_webhook_check: {len(results)} checked, {len(dead)} dead"
+    )
+
+
 def _read_nightly_qa_summary() -> str:
     """Tier 3-C: 朝ブリーフィングで使う夜間QAサマリを読む。当日分のみ。"""
     if not NIGHTLY_QA_PATH.exists():
@@ -1597,6 +1672,14 @@ def setup_scheduler(send_fn, task_view_fn=None):
         hour=5,
         minute=0,
         name="夜間APIトークン期限確認",
+    )
+    # Tier 3-G: 深夜5:30 Discord Webhook 死活確認（404/401をJackに通知）
+    _scheduler.add_job(
+        nightly_discord_webhook_check,
+        "cron",
+        hour=5,
+        minute=30,
+        name="夜間Discord Webhook死活",
     )
 
     _scheduler.start()
