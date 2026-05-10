@@ -974,6 +974,84 @@ async def nightly_backup_integrity_check():
     )
 
 
+async def nightly_sns_posting_check():
+    """Tier 3-I: 深夜6:00 — SNS 0 投稿アラート (saimu-media Threads).
+
+    過去 24h で「✅ Threads投稿完了」が 0 件なら Discord 通知.
+    threads-auto / faxcel-x-auto は本実装ではスコープ外.
+    """
+    logger.info("Running nightly_sns_posting_check...")
+    today_iso = date.today().isoformat()
+
+    d_manager_root = Path(__file__).resolve().parent
+    venv_python = d_manager_root / ".venv" / "bin" / "python"
+    python_bin = str(venv_python) if venv_python.exists() else sys.executable
+
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            [python_bin, "-m", "tools.sns_posting_check"],
+            cwd=str(d_manager_root),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except Exception as e:
+        logger.error(f"nightly_sns_posting_check exec failed: {e}")
+        return
+
+    try:
+        data = json.loads(result.stdout) if result.stdout.strip() else {}
+    except json.JSONDecodeError as e:
+        logger.warning(f"nightly_sns_posting_check parse failed: {e}")
+        data = {}
+
+    results = data.get("results", [])
+    rows: list[str] = []
+    problems: list[dict] = []
+    for r in results:
+        label = r.get("label", r.get("name", "?"))
+        status = r.get("status")
+        if status == "ok":
+            count = r.get("posts_24h", 0)
+            rows.append(f"- ✅ **{label}** — 24h 投稿数: {count}")
+        elif status == "zero_posts":
+            problems.append(r)
+            count = r.get("posts_24h", 0)
+            rows.append(f"- 🚨 **{label}** — 24h 投稿数: {count}（0件アラート）")
+        else:
+            problems.append(r)
+            err = r.get("error", "")
+            rows.append(f"- 💥 **{label}** error: {err}")
+
+    summary_block = (
+        f"\n## SNS 0 投稿アラート (深夜6:00)\n\n"
+        f"checked: {len(results)} 件 / problems: {len(problems)} 件\n\n"
+    )
+    summary_block += "\n".join(rows) if rows else "(対象なし)\n"
+    summary_block += "\n"
+
+    NIGHTLY_QA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if NIGHTLY_QA_PATH.exists():
+        existing = NIGHTLY_QA_PATH.read_text(encoding="utf-8")
+    else:
+        existing = f"# 夜間QA サマリ ({today_iso})\n\n"
+    NIGHTLY_QA_PATH.write_text(existing + summary_block, encoding="utf-8")
+
+    if problems and _send_fn:
+        lines = [f"🚨 **SNS 0 投稿アラート: {len(problems)} 件**\n"]
+        for p in problems:
+            label = p.get("label", p.get("name", "?"))
+            status = p.get("status", "?")
+            err = p.get("error", "")
+            lines.append(f"- **{label}** [{status}] {err}")
+        await _send_fn("運営-jack-operations", "\n".join(lines))
+
+    logger.info(
+        f"nightly_sns_posting_check: {len(results)} checked, {len(problems)} problems"
+    )
+
+
 def _read_nightly_qa_summary() -> str:
     """Tier 3-C: 朝ブリーフィングで使う夜間QAサマリを読む。当日分のみ。"""
     if not NIGHTLY_QA_PATH.exists():
@@ -1783,6 +1861,14 @@ def setup_scheduler(send_fn, task_view_fn=None):
         hour=5,
         minute=45,
         name="夜間DBバックアップ整合性",
+    )
+    # Tier 3-I: 深夜6:00 SNS 0 投稿アラート (saimu-media Threads)
+    _scheduler.add_job(
+        nightly_sns_posting_check,
+        "cron",
+        hour=6,
+        minute=0,
+        name="夜間SNS投稿0件アラート",
     )
 
     _scheduler.start()
