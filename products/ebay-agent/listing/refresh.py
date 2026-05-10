@@ -87,6 +87,59 @@ COMMON_BRANDS = {
 }
 
 
+# 非ASCII Latin系（独/仏/西/伊のアクセント記号など）。これを含むタイトルは ebaymag 管理対象。
+_NON_ENGLISH_CHAR_RE = re.compile(r"[À-ÿœŒ]")
+
+# ASCII内に残った非英語頻出語の小辞書（アクセント剥落ケース対応）
+_NON_ENGLISH_TOKENS = {
+    "periode",
+    "rustung",
+    "antik",
+    "japanisch",
+    "gesichtsmaske",
+    "amplificateur",
+    "controleur",
+    "integre",
+    "noir",
+    "teste",
+    "japon",
+    "japonais",
+    "amplificador",
+    "integrado",
+    "negro",
+    "probado",
+    # Italian
+    "giapponese",
+    "giappone",
+    "armatura",
+    "grandezza",
+    "testato",
+    "testata",
+    "analogico",
+    "analogica",
+    "registratore",
+    "amplificatore",
+    "aggiornato",
+    "potenza",
+}
+
+
+def _is_english_title(title: str) -> bool:
+    """eBay US (英語) タイトルか判定。
+
+    非英語(独/仏/西/伊) は ebaymag 管理対象なので Refresh 対象外とする。
+    判定:
+      1. 非ASCII Latin文字を含む → 非英語
+      2. ASCII内でも頻出する非英語マーカー語を含む → 非英語
+    """
+    if _NON_ENGLISH_CHAR_RE.search(title):
+        return False
+    words = {w.lower() for w in re.findall(r"[A-Za-z]+", title)}
+    if words & _NON_ENGLISH_TOKENS:
+        return False
+    return True
+
+
 def _tokens(title: str) -> set[str]:
     """タイトルを単語トークン化（lowercase、記号除去）"""
     return {t.lower() for t in re.findall(r"[A-Za-z0-9\-]+", title) if len(t) >= 2}
@@ -202,8 +255,12 @@ def find_dead_listings(
         )
         q = q.where(~Listing.sku.in_(recently_refreshed))
 
-    q = q.order_by(Listing.price_usd.desc()).limit(limit)
-    return list(db.execute(q).scalars().all())
+    # ebaymag 管理の非英語マーケットプレイス分は除外。SQL側で全フィルタが難しいため
+    # 一旦多めに取得してから Python 側で英語タイトルだけ残す。
+    q = q.order_by(Listing.price_usd.desc()).limit(limit * 3)
+    candidates = list(db.execute(q).scalars().all())
+    english_only = [l for l in candidates if _is_english_title(l.title)]
+    return english_only[:limit]
 
 
 # ── タイトル再生成（AI） ──────────────────────────────────
@@ -346,6 +403,18 @@ async def refresh_single(
     dry_run: bool = False,
 ) -> dict:
     """1件のリスティングをRefresh（新タイトル生成 → 品質検証 → Revise）"""
+    # 防御的: find_dead_listings をバイパスして個別呼び出しされた時の保険。
+    # 非英語タイトルは ebaymag 管理対象なので Refresh しない。
+    if not _is_english_title(listing.title):
+        if not dry_run:
+            _log_run(db, listing.sku, "non_english_skip", note=listing.title[:200])
+        return {
+            "sku": listing.sku,
+            "success": False,
+            "skipped": True,
+            "reason": "non_english_title_ebaymag_managed",
+        }
+
     try:
         specifics = json.loads(listing.item_specifics_json or "{}")
     except Exception:
