@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 import re
+import sys
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone, timedelta, date
@@ -656,6 +657,97 @@ async def nightly_launchd_liveness_check():
 
     logger.info(
         f"nightly_launchd_liveness_check: healthy={healthy_count} silent={len(silent)} skipped={len(skipped)}"
+    )
+
+
+async def nightly_token_expiry_check():
+    """Tier 3-F: 深夜5:00 — 主要API トークンの期限・生存確認.
+
+    対象: Threads (saimu-media + threads-auto), Meta Ads, Google Ads.
+    残14日以下 or error なら Larry に通知。トークン値は外部に出さない.
+    """
+    import subprocess
+
+    logger.info("Running nightly_token_expiry_check...")
+    today_iso = date.today().isoformat()
+
+    d_manager_root = Path(__file__).resolve().parent
+    venv_python = d_manager_root / ".venv" / "bin" / "python"
+    python_bin = str(venv_python) if venv_python.exists() else sys.executable
+
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            [python_bin, "-m", "tools.token_expiry"],
+            cwd=str(d_manager_root),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except Exception as e:
+        output = f"⚠️ token_expiry 実行エラー: {type(e).__name__}: {e}"
+        results: list[dict] = []
+    else:
+        try:
+            data = json.loads(result.stdout) if result.stdout.strip() else {}
+            results = data.get("results", [])
+        except json.JSONDecodeError as e:
+            results = []
+            output = (
+                f"⚠️ token_expiry JSON parse 失敗: {e}\nstderr: {result.stderr[:300]}"
+            )
+        else:
+            output = ""
+
+    rows: list[str] = []
+    serious: list[dict] = []
+    for r in results:
+        name = r.get("name", "?")
+        status = r.get("status", "?")
+        if status == "ok":
+            note = r.get("note") or f"残 {r.get('days_left')}日 ({r.get('expires_at')})"
+            rows.append(f"- ✅ **{name}**: {note}")
+        elif status == "warn":
+            rows.append(
+                f"- ⚠️ **{name}**: 残 {r.get('days_left')}日 ({r.get('expires_at')})"
+            )
+            serious.append(r)
+        elif status == "error":
+            rows.append(f"- 🚨 **{name}**: {r.get('error', 'unknown error')[:200]}")
+            serious.append(r)
+        else:  # skip
+            rows.append(f"- ⏭️ **{name}**: {r.get('note', 'skipped')}")
+
+    summary_block = "\n## API トークン期限・生存確認 (深夜5:00)\n\n"
+    if rows:
+        summary_block += "\n".join(rows) + "\n"
+    elif output:
+        summary_block += f"```\n{output}\n```\n"
+    else:
+        summary_block += "(結果なし)\n"
+
+    NIGHTLY_QA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    existing = (
+        NIGHTLY_QA_PATH.read_text(encoding="utf-8")
+        if NIGHTLY_QA_PATH.exists()
+        else f"# 夜間QA サマリ ({today_iso})\n\n"
+    )
+    NIGHTLY_QA_PATH.write_text(existing + summary_block, encoding="utf-8")
+
+    if serious and _send_fn:
+        lines = [f"🔑 **APIトークン警告 ({len(serious)}件)**\n"]
+        for r in serious:
+            name = r.get("name", "?")
+            if r.get("status") == "warn":
+                lines.append(
+                    f"- **{name}**: 残 {r.get('days_left')}日 → {r.get('expires_at')} 切れ"
+                )
+            else:
+                lines.append(f"- **{name}**: {r.get('error', 'error')[:200]}")
+        await _send_fn("開発-larry-product", "\n".join(lines))
+
+    logger.info(
+        f"nightly_token_expiry_check: {len(results)} checked, {len(serious)} alerts"
     )
 
 
@@ -1444,6 +1536,14 @@ def setup_scheduler(send_fn, task_view_fn=None):
         hour=4,
         minute=0,
         name="夜間launchd生存確認",
+    )
+    # Tier 3-F: 深夜5:00 APIトークン期限・生存確認（残14日以下/エラーをLarryに通知）
+    _scheduler.add_job(
+        nightly_token_expiry_check,
+        "cron",
+        hour=5,
+        minute=0,
+        name="夜間APIトークン期限確認",
     )
 
     _scheduler.start()
