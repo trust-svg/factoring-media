@@ -379,7 +379,8 @@ async def nightly_commit_review():
                 continue
 
         try:
-            log_result = subprocess.run(
+            log_result = await asyncio.to_thread(
+                subprocess.run,
                 ["git", "log", "--since=24 hours ago", "--oneline", *path_args],
                 cwd=cwd,
                 capture_output=True,
@@ -400,7 +401,8 @@ async def nightly_commit_review():
         review_lines.append(f"- 📝 {repo_path.name}: {commit_count} commit")
 
         try:
-            diff_result = subprocess.run(
+            diff_result = await asyncio.to_thread(
+                subprocess.run,
                 ["git", "log", "--since=24 hours ago", "-p", "--no-color", *path_args],
                 cwd=cwd,
                 capture_output=True,
@@ -419,7 +421,8 @@ async def nightly_commit_review():
             f"{diff_text}"
         )
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 ["claude", "-p", "--output-format", "text"],
                 input=prompt,
                 capture_output=True,
@@ -664,7 +667,8 @@ async def nightly_launchd_liveness_check():
             continue
 
         # mtime は新しい = 最近実行された。次に exit code を確認.
-        exit_code = _get_launchctl_last_exit_code(label)
+        # to_thread で同期 subprocess を別スレッドへ — event loop を止めない。
+        exit_code = await asyncio.to_thread(_get_launchctl_last_exit_code, label)
         if exit_code is not None and exit_code != 0:
             failed.append((label, last_str, exit_code))
             rows.append(
