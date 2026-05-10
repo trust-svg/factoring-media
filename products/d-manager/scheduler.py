@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -558,10 +559,42 @@ def _expected_max_age_seconds(d: dict) -> Optional[int]:
     return None  # ondemand 等
 
 
-async def nightly_launchd_liveness_check():
-    """Tier 3-E: 深夜4:00 — launchd 各ジョブの生存確認（ログ mtime ベース）。
+def _get_launchctl_last_exit_code(label: str) -> Optional[int]:
+    """`launchctl print gui/<uid>/<label>` から `last exit code` を取得.
 
-    ジョブのログが期待される間隔より古ければ「沈黙」と判定し、Jack に通知。
+    取得不能なら None を返す（沈黙判定で別途扱う）。
+    """
+    try:
+        uid = os.getuid()
+        result = subprocess.run(
+            ["launchctl", "print", f"gui/{uid}/{label}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("last exit code = "):
+                val = line.split("=", 1)[1].strip()
+                # "(never exited)" の場合や数値以外は None
+                try:
+                    return int(val)
+                except ValueError:
+                    return None
+        return None
+    except Exception:
+        return None
+
+
+async def nightly_launchd_liveness_check():
+    """Tier 3-E: 深夜4:00 — launchd 各ジョブの生存確認（ログ mtime + last exit code）。
+
+    判定:
+    - ログ mtime が期待値より古い → 沈黙ジョブ
+    - last exit code != 0 → 失敗ジョブ（最近実行されたが異常終了）
+    どちらかに該当すれば Jack に通知。
     """
     import plistlib
 
@@ -572,6 +605,7 @@ async def nightly_launchd_liveness_check():
     now_ts = datetime.now().timestamp()
 
     silent: list[tuple[str, str, int]] = []  # (label, last_mtime_str, age_hours)
+    failed: list[tuple[str, str, int]] = []  # (label, last_mtime_str, exit_code)
     skipped: list[str] = []
     healthy_count = 0
     rows: list[str] = []
@@ -627,12 +661,22 @@ async def nightly_launchd_liveness_check():
             rows.append(
                 f"- 🚨 **{label}**: 最終 {last_str} ({age_h}h前 / 期待値 {max_h}h以内)"
             )
+            continue
+
+        # mtime は新しい = 最近実行された。次に exit code を確認.
+        exit_code = _get_launchctl_last_exit_code(label)
+        if exit_code is not None and exit_code != 0:
+            failed.append((label, last_str, exit_code))
+            rows.append(
+                f"- 💥 **{label}**: 最終 {last_str} だが exit code = {exit_code}"
+            )
         else:
             healthy_count += 1
 
     summary_block = (
         f"\n## launchd 生存確認 (深夜4:00)\n\n"
-        f"healthy: {healthy_count}件 / silent: {len(silent)}件 / skipped: {len(skipped)}件\n\n"
+        f"healthy: {healthy_count}件 / silent: {len(silent)}件 / "
+        f"failed: {len(failed)}件 / skipped: {len(skipped)}件\n\n"
     )
     if rows:
         summary_block += "\n".join(rows) + "\n"
@@ -646,17 +690,26 @@ async def nightly_launchd_liveness_check():
         existing = f"# 夜間QA サマリ ({today_iso})\n\n"
     NIGHTLY_QA_PATH.write_text(existing + summary_block, encoding="utf-8")
 
-    if silent and _send_fn:
-        lines = [f"🚨 **launchd 沈黙ジョブ検出 ({len(silent)}件)**\n"]
-        for label, last, age_h in silent:
-            if age_h < 0:
-                lines.append(f"- **{label}**: ログなし")
-            else:
-                lines.append(f"- **{label}**: 最終 {last} ({age_h}h前)")
-        await _send_fn("運営-jack-operations", "\n".join(lines))
+    if (silent or failed) and _send_fn:
+        parts: list[str] = []
+        if failed:
+            parts.append(f"💥 **launchd 失敗ジョブ検出 ({len(failed)}件)**")
+            for label, last, ec in failed:
+                parts.append(f"- **{label}**: 最終 {last} (exit={ec})")
+        if silent:
+            if parts:
+                parts.append("")
+            parts.append(f"🚨 **launchd 沈黙ジョブ検出 ({len(silent)}件)**")
+            for label, last, age_h in silent:
+                if age_h < 0:
+                    parts.append(f"- **{label}**: ログなし")
+                else:
+                    parts.append(f"- **{label}**: 最終 {last} ({age_h}h前)")
+        await _send_fn("運営-jack-operations", "\n".join(parts))
 
     logger.info(
-        f"nightly_launchd_liveness_check: healthy={healthy_count} silent={len(silent)} skipped={len(skipped)}"
+        f"nightly_launchd_liveness_check: healthy={healthy_count} "
+        f"silent={len(silent)} failed={len(failed)} skipped={len(skipped)}"
     )
 
 
