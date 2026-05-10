@@ -39,16 +39,23 @@ TITLE_MAX = 80  # eBayタイトル上限
 PRICE_DROP_USD = 1.0  # Cassiniシグナル用の微値下げ
 DEAD_THRESHOLD_DAYS = 180  # 死に筒判定: 最終販売からN日
 MIN_REFRESH_GAP_DAYS = 60  # 最低でも N日経ってから再Refresh
-MIN_TOKEN_OVERLAP = 0.7  # 新タイトルは元タイトルのトークン70%以上を保持
+MIN_TOKEN_OVERLAP = 0.5  # 新タイトルは元タイトルのトークン50%以上を保持（旧0.7→緩和）
 MAX_TITLE_DIFF_RATIO = 0.4  # 文字変更率40%以内
 DEFAULT_DAILY_TARGET = 30
 DEFAULT_HOUR_START = 6
 DEFAULT_HOUR_END = 23
 SKIP_PROB = 0.15  # スロット実行のランダムスキップ率
+ZERO_APPLIED_ALERT_HOUR_JST = 22  # この時刻以降に applied=0 なら Discord 通知
 
 
 # ── 型番・ブランド抽出 ─────────────────────────────────────
-MODEL_NUM_RE = re.compile(r"\b[A-Z0-9]{2,}-?[A-Z0-9]+\b|\b[A-Z]{2,}\d+[A-Z0-9]*\b")
+# 必ず数字を1個以上含むトークンのみモデル番号扱い
+# （"GIAPPONE" のような外国語名詞を誤検出させない）
+MODEL_NUM_RE = re.compile(
+    r"\b[A-Z]+\d[A-Z0-9]*-?[A-Z0-9]*\b"  # TASCAM112 / DR-100MK3 など
+    r"|\b\d+[A-Z]+\d*[A-Z0-9]*\b"  # 80B / 100MKII など
+    r"|\b[A-Z0-9]+-\d+[A-Z0-9]*\b"  # MZ-N10 など
+)
 
 COMMON_BRANDS = {
     "TASCAM",
@@ -413,15 +420,35 @@ async def refresh_single(
             },
         )
         if not result.get("success"):
-            backup.status = "failed"
-            backup.error_message = result.get("error", "unknown")[:500]
-            db.commit()
-            _log_run(db, listing.sku, "error", backup.id, backup.error_message)
+            err_msg = result.get("error", "unknown") or "unknown"
+            # eBay側で削除済みSKUは listings.quantity=0 にして次回以降の候補から除外
+            sku_missing = "見つかりません" in err_msg or "not found" in err_msg.lower()
+            if sku_missing:
+                listing.quantity = 0
+                backup.status = "skipped"
+                backup.error_message = err_msg[:500]
+                db.commit()
+                _log_run(
+                    db,
+                    listing.sku,
+                    "sku_missing",
+                    backup.id,
+                    f"marked_inactive: {err_msg}",
+                )
+                logger.warning(
+                    f"SKU {listing.sku} eBay側に存在せず → DB上で quantity=0 に変更"
+                )
+            else:
+                backup.status = "failed"
+                backup.error_message = err_msg[:500]
+                db.commit()
+                _log_run(db, listing.sku, "error", backup.id, backup.error_message)
             return {
                 "sku": listing.sku,
                 "success": False,
-                "error": result.get("error"),
+                "error": err_msg,
                 "backup_id": backup.id,
+                "sku_missing": sku_missing,
             }
 
         # DB側を更新
@@ -470,6 +497,60 @@ def is_in_window(hour_jst: Optional[int] = None) -> bool:
     return DEFAULT_HOUR_START <= hour_jst <= DEFAULT_HOUR_END
 
 
+def _maybe_alert_zero_applied(db: Session, hour_jst: int) -> Optional[str]:
+    """
+    22 JST 以降のスロットで本日 applied=0 のとき Discord 通知。
+    日次1回のみ送信（ListingRefreshRun に outcome='daily_zero_alert' を入れて重複検知）。
+    """
+    if hour_jst < ZERO_APPLIED_ALERT_HOUR_JST:
+        return None
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    applied = (
+        db.query(ListingRefreshRun)
+        .filter(
+            ListingRefreshRun.scheduled_date == today,
+            ListingRefreshRun.outcome == "applied",
+        )
+        .count()
+    )
+    if applied > 0:
+        return None
+    already_alerted = (
+        db.query(ListingRefreshRun)
+        .filter(
+            ListingRefreshRun.scheduled_date == today,
+            ListingRefreshRun.outcome == "daily_zero_alert",
+        )
+        .count()
+    )
+    if already_alerted:
+        return None
+
+    # 失敗内訳を簡易集計
+    breakdown_rows = (
+        db.query(ListingRefreshRun.outcome, func.count(ListingRefreshRun.id))
+        .filter(ListingRefreshRun.scheduled_date == today)
+        .group_by(ListingRefreshRun.outcome)
+        .all()
+    )
+    breakdown = ", ".join(f"{o}:{c}" for o, c in breakdown_rows) or "no_runs_today"
+
+    msg = (
+        f":warning: 死に筒Refresh 本日 applied=0 ({today})\n"
+        f"内訳: {breakdown}\n"
+        f"確認: `/api/refresh/status` または refresh.py のログ。"
+    )
+    try:
+        from comms.discord_notify import send_discord_webhook
+
+        send_discord_webhook(msg, username="eBay Refresh Watchdog")
+    except Exception as e:
+        logger.warning(f"zero-applied alert 送信失敗: {e}")
+
+    _log_run(db, "_watchdog_", "daily_zero_alert", note=breakdown)
+    return msg
+
+
 async def run_refresh_slot(
     daily_target: int = DEFAULT_DAILY_TARGET,
     items_per_slot: tuple[int, int] = (1, 2),
@@ -511,13 +592,18 @@ async def run_refresh_slot(
             result = await refresh_single(db, listing, dry_run=dry_run)
             results.append(result)
 
+        daily_applied = already + sum(
+            1 for r in results if r.get("success") and not r.get("dry_run")
+        )
+        alert = _maybe_alert_zero_applied(db, hour_jst)
+
         return {
             "skipped": False,
             "hour_jst": hour_jst,
             "processed": len(results),
-            "daily_applied": already
-            + sum(1 for r in results if r.get("success") and not r.get("dry_run")),
+            "daily_applied": daily_applied,
             "results": results,
+            "zero_applied_alert": alert,
         }
     finally:
         db.close()
