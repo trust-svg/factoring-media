@@ -1052,6 +1052,40 @@ async def nightly_sns_posting_check():
     )
 
 
+async def d_manager_heartbeat():
+    """Tier 3-J: d-manager 死亡検知用ハートビート (10分毎).
+
+    SSH 越しに VPS の /opt/heartbeat/d-manager.txt を touch する.
+    VPS 側 cron (*/15 min) がこのファイルの mtime を見て古ければ Telegram 警告.
+
+    SSH 失敗時もログだけ出して例外は飲む (このジョブの失敗で scheduler を止めない).
+    """
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=5",
+                "root@46.250.252.99",
+                "mkdir -p /opt/heartbeat && touch /opt/heartbeat/d-manager.txt",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            logger.warning(
+                "d_manager_heartbeat ssh failed: rc=%d stderr=%s",
+                result.returncode,
+                result.stderr.strip()[:200],
+            )
+    except Exception as e:
+        logger.warning("d_manager_heartbeat exception: %s: %s", type(e).__name__, e)
+
+
 def _read_nightly_qa_summary() -> str:
     """Tier 3-C: 朝ブリーフィングで使う夜間QAサマリを読む。当日分のみ。"""
     if not NIGHTLY_QA_PATH.exists():
@@ -1869,6 +1903,13 @@ def setup_scheduler(send_fn, task_view_fn=None):
         hour=6,
         minute=0,
         name="夜間SNS投稿0件アラート",
+    )
+    # Tier 3-J: 10分毎 d-manager 死亡検知ハートビート (VPS に SSH+touch)
+    _scheduler.add_job(
+        d_manager_heartbeat,
+        "cron",
+        minute="*/10",
+        name="d-manager死活ハートビート",
     )
 
     _scheduler.start()
