@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -56,10 +57,16 @@ ENV_TARGETS: list[tuple[str, list[str]]] = [
     ),
 ]
 
-# notify.py や他コード内ハードコード Webhook を抽出するソースファイル.
+# notify.py や他コード内ハードコード Webhook を抽出するソースファイル (ローカル).
 HARDCODED_SOURCES: list[str] = [
     "~/Claude-Workspace/marketing/google-ads/rotation/notify.py",
     "~/Claude-Workspace/products/ai-uranai/scripts/weekly_analysis.py",
+]
+
+# VPS 上のスクリプトに埋め込まれた Webhook を SSH 越しに読み取る.
+# (ssh_host, remote_path) のタプル.
+SSH_HARDCODED_SOURCES: list[tuple[str, str]] = [
+    ("root@46.250.252.99", "/opt/backups/backup.sh"),
 ]
 
 WEBHOOK_RE = re.compile(
@@ -98,6 +105,33 @@ def _collect_webhooks() -> dict[str, list[str]]:
         except Exception:
             continue
         location = f"{p.parent.name}/{p.name}"
+        for m in WEBHOOK_RE.finditer(text):
+            url = m.group(0)
+            found.setdefault(url, []).append(location)
+
+    for ssh_host, remote_path in SSH_HARDCODED_SOURCES:
+        try:
+            result = subprocess.run(
+                [
+                    "ssh",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ConnectTimeout=10",
+                    ssh_host,
+                    "cat",
+                    remote_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except Exception:
+            continue
+        if result.returncode != 0:
+            continue
+        text = result.stdout
+        location = f"{ssh_host}:{Path(remote_path).name}"
         for m in WEBHOOK_RE.finditer(text):
             url = m.group(0)
             found.setdefault(url, []).append(location)
