@@ -44,9 +44,9 @@ NIGHTLY_QA_SITES = [
     ("ebay-agent", "https://ebay.trustlink-tk.com"),
     ("FACCEL", "https://faccel.jp"),
     ("債務整理タイムズ", "https://saimu-times.com"),
-    ("Sion", "https://sion.trustlink-tk.com"),
+    ("Sion", "https://sion.trustlink-tk.com/health"),
     ("Threads-auto", "https://threads-sho.trustlink-tk.com"),
-    ("video-analyzer", "https://video.trustlink-tk.com"),
+    ("video-analyzer", "https://video.trustlink-tk.com/docs"),
 ]
 
 # Tier 3-B: 夜間コミットレビュー対象（24h以内のコミットがあれば diff レビュー）
@@ -428,6 +428,207 @@ async def nightly_commit_review():
         await _send_fn("開発-larry-product", "\n".join(lines))
 
     logger.info(f"nightly_commit_review: {len(serious_issues)} repos with issues")
+
+
+# Tier 3-D: VPS ヘルスチェック（healthcheck.sh の report-only 結果を集約）
+VPS_HOST = os.getenv("VPS_HOST", "root@46.250.252.99")
+VPS_HEALTHCHECK_CMD = "HEALTHCHECK_REPORT_ONLY=1 bash /opt/apps/healthcheck.sh"
+
+
+async def nightly_vps_health_check():
+    """Tier 3-D: 深夜2:30 — VPS healthcheck.sh を report-only で叩いて夜間QAに集約。
+
+    エラー（❌）があれば Jack に通知。警告（⚠️）のみなら通知せずサマリへ。
+    """
+    import subprocess
+
+    logger.info("Running nightly_vps_health_check...")
+    today_iso = date.today().isoformat()
+
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=15",
+                VPS_HOST,
+                VPS_HEALTHCHECK_CMD,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            output = f"⚠️ VPS healthcheck SSH失敗 (rc={result.returncode}): {result.stderr.strip()[:300]}"
+            has_errors = True
+        else:
+            output = result.stdout.strip()
+            has_errors = "❌" in output
+    except Exception as e:
+        output = f"⚠️ VPS healthcheck 実行エラー: {type(e).__name__}: {e}"
+        has_errors = True
+
+    # 夜間QAサマリへ追記（既存内容を保持）
+    NIGHTLY_QA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if NIGHTLY_QA_PATH.exists():
+        existing = NIGHTLY_QA_PATH.read_text(encoding="utf-8")
+    else:
+        existing = f"# 夜間QA サマリ ({today_iso})\n\n"
+
+    section = f"\n## VPS ヘルスチェック (深夜2:30)\n\n```\n{output}\n```\n"
+    NIGHTLY_QA_PATH.write_text(existing + section, encoding="utf-8")
+
+    # エラーがあれば Jack に通知（警告のみなら朝ブリーフィングまで待つ）
+    if has_errors and _send_fn:
+        await _send_fn(
+            "運営-jack-operations",
+            f"🚨 **VPS ヘルスチェック異常**\n\n```\n{output[:1500]}\n```",
+        )
+
+    logger.info(f"nightly_vps_health_check: errors={has_errors}")
+
+
+# Tier 3-E: launchd 生存確認 — ログ mtime とスケジュールから「沈黙ジョブ」検出
+LAUNCHD_PLIST_DIR = Path.home() / "Library" / "LaunchAgents"
+LAUNCHD_PLIST_PATTERN = "com.trustlink.*.plist"
+
+# label → (max_age_seconds, label_for_summary) 上書き。Noneで監視除外
+LAUNCHD_OVERRIDES: dict[str, Optional[int]] = {
+    # ondemand-only / WatchPaths系: 監視しない
+    "com.trustlink.wiki-daily-watch": None,
+    "com.trustlink.wiki-git-sync": None,
+    "com.trustlink.wiki-raw-watch": None,
+    # white-bg: KeepAlive 常駐の image watcher。新規画像が無いとログを書かないので
+    # mtime ベース判定不可（プロセス生存は launchctl 側で担保）。
+    "com.trustlink.white-bg": None,
+    # d-manager-dashboard: 月次更新でも問題ない用途
+    "com.trustlink.d-manager-dashboard": 86400 * 14,
+}
+
+
+def _expected_max_age_seconds(d: dict) -> Optional[int]:
+    """plist 定義から「ログがこの秒数より古かったら異常」の閾値を返す。Noneは判定不能=スキップ。"""
+    if d.get("KeepAlive") is True:
+        return 86400 * 7  # KeepAlive は厳密判定難しいので 7 日のみ
+    interval = d.get("StartInterval")
+    if interval:
+        return max(int(interval) * 5, 600)  # 5倍 grace、最低 10 分
+    cal = d.get("StartCalendarInterval")
+    if cal:
+        if isinstance(cal, list):
+            cal = cal[0] if cal else {}
+        if "Day" in cal:
+            return 86400 * 33  # 月次
+        if "Weekday" in cal:
+            return 86400 * 9  # 週次
+        if "Hour" in cal:
+            return int(86400 * 1.5)  # 日次（36h）
+    return None  # ondemand 等
+
+
+async def nightly_launchd_liveness_check():
+    """Tier 3-E: 深夜4:00 — launchd 各ジョブの生存確認（ログ mtime ベース）。
+
+    ジョブのログが期待される間隔より古ければ「沈黙」と判定し、Jack に通知。
+    """
+    import plistlib
+
+    logger.info("Running nightly_launchd_liveness_check...")
+    today_iso = date.today().isoformat()
+
+    plists = sorted(LAUNCHD_PLIST_DIR.glob(LAUNCHD_PLIST_PATTERN))
+    now_ts = datetime.now().timestamp()
+
+    silent: list[tuple[str, str, int]] = []  # (label, last_mtime_str, age_hours)
+    skipped: list[str] = []
+    healthy_count = 0
+    rows: list[str] = []
+
+    for plist_path in plists:
+        try:
+            with plist_path.open("rb") as f:
+                d = plistlib.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to parse {plist_path}: {e}")
+            continue
+
+        label = d.get("Label", plist_path.stem)
+        max_age = LAUNCHD_OVERRIDES.get(label, "USE_DEFAULT")
+        if max_age == "USE_DEFAULT":
+            max_age = _expected_max_age_seconds(d)
+        if max_age is None:
+            skipped.append(label)
+            continue
+
+        # 最新の StandardOutPath / StandardErrorPath のいずれか新しい方を採用
+        latest_mtime = 0
+        for key in ("StandardOutPath", "StandardErrorPath"):
+            p = d.get(key)
+            if p and os.path.exists(p):
+                latest_mtime = max(latest_mtime, os.path.getmtime(p))
+
+        if latest_mtime == 0:
+            # 月次/週次ジョブで初回実行前ならログがないのは正常
+            cal = d.get("StartCalendarInterval")
+            cal_first = cal[0] if isinstance(cal, list) and cal else cal
+            is_periodic_unfired = isinstance(cal_first, dict) and (
+                "Day" in cal_first or "Weekday" in cal_first
+            )
+            if is_periodic_unfired:
+                rows.append(
+                    f"- ⏳ **{label}**: ログなし（次回実行まで未起動・初回待ち）"
+                )
+                healthy_count += 1
+                continue
+            silent.append((label, "ログなし", -1))
+            rows.append(
+                f"- ❓ **{label}**: ログファイルなし（一度も実行されていない可能性）"
+            )
+            continue
+
+        age_sec = now_ts - latest_mtime
+        last_str = datetime.fromtimestamp(latest_mtime).strftime("%Y-%m-%d %H:%M")
+        if age_sec > max_age:
+            age_h = int(age_sec / 3600)
+            max_h = int(max_age / 3600)
+            silent.append((label, last_str, age_h))
+            rows.append(
+                f"- 🚨 **{label}**: 最終 {last_str} ({age_h}h前 / 期待値 {max_h}h以内)"
+            )
+        else:
+            healthy_count += 1
+
+    summary_block = (
+        f"\n## launchd 生存確認 (深夜4:00)\n\n"
+        f"healthy: {healthy_count}件 / silent: {len(silent)}件 / skipped: {len(skipped)}件\n\n"
+    )
+    if rows:
+        summary_block += "\n".join(rows) + "\n"
+    else:
+        summary_block += "全ジョブ正常稼働中 ✅\n"
+
+    NIGHTLY_QA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if NIGHTLY_QA_PATH.exists():
+        existing = NIGHTLY_QA_PATH.read_text(encoding="utf-8")
+    else:
+        existing = f"# 夜間QA サマリ ({today_iso})\n\n"
+    NIGHTLY_QA_PATH.write_text(existing + summary_block, encoding="utf-8")
+
+    if silent and _send_fn:
+        lines = [f"🚨 **launchd 沈黙ジョブ検出 ({len(silent)}件)**\n"]
+        for label, last, age_h in silent:
+            if age_h < 0:
+                lines.append(f"- **{label}**: ログなし")
+            else:
+                lines.append(f"- **{label}**: 最終 {last} ({age_h}h前)")
+        await _send_fn("運営-jack-operations", "\n".join(lines))
+
+    logger.info(
+        f"nightly_launchd_liveness_check: healthy={healthy_count} silent={len(silent)} skipped={len(skipped)}"
+    )
 
 
 def _read_nightly_qa_summary() -> str:
@@ -1192,6 +1393,14 @@ def setup_scheduler(send_fn, task_view_fn=None):
         minute=0,
         name="夜間サイト疎通チェック",
     )
+    # Tier 3-D: 深夜2:30 VPS ヘルスチェック（report-only結果を集約・エラー時のみJackに通知）
+    _scheduler.add_job(
+        nightly_vps_health_check,
+        "cron",
+        hour=2,
+        minute=30,
+        name="夜間VPSヘルスチェック",
+    )
     # Tier 3-B: 深夜3:00 直近24h commit を code-reviewer 風レビュー（重大指摘のみLarryに通知）
     _scheduler.add_job(
         nightly_commit_review,
@@ -1199,6 +1408,14 @@ def setup_scheduler(send_fn, task_view_fn=None):
         hour=3,
         minute=0,
         name="夜間コミットレビュー",
+    )
+    # Tier 3-E: 深夜4:00 launchd 生存確認（沈黙ジョブをJackに通知）
+    _scheduler.add_job(
+        nightly_launchd_liveness_check,
+        "cron",
+        hour=4,
+        minute=0,
+        name="夜間launchd生存確認",
     )
 
     _scheduler.start()
