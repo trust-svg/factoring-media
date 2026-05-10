@@ -50,13 +50,25 @@ NIGHTLY_QA_SITES = [
 ]
 
 # Tier 3-B: 夜間コミットレビュー対象（24h以内のコミットがあれば diff レビュー）
+# 独立 git repo / monorepo サブパス両対応（has_own_git で切り替え）
 NIGHTLY_COMMIT_TARGETS = [
+    # monorepo 配下（Claude-Workspace の git で管理）
     Path.home() / "Claude-Workspace" / "products" / "ebay-agent",
     Path.home() / "Claude-Workspace" / "products" / "d-manager",
+    Path.home() / "Claude-Workspace" / "products" / "threads-auto",
+    Path.home() / "Claude-Workspace" / "products" / "deal-watcher",
+    Path.home() / "Claude-Workspace" / "products" / "b-manager",
+    Path.home() / "Claude-Workspace" / "products" / "sukoyaka-assets",
+    # 独立 git repo
     Path.home() / "Claude-Workspace" / "products" / "saimu-media",
     Path.home() / "Claude-Workspace" / "products" / "messecoach",
-    Path.home() / "Claude-Workspace" / "products" / "threads-auto",
+    Path.home() / "Claude-Workspace" / "products" / "factoring-media",
+    Path.home() / "Claude-Workspace" / "products" / "ai-uranai",
+    Path.home() / "Claude-Workspace" / "products" / "video-analyzer",
+    Path.home() / "Claude-Workspace" / "products" / "ebay-inventory-tool",
+    Path.home() / "Claude-Workspace" / "products" / "ai-daily-digest",
 ]
+WORKSPACE_ROOT = Path.home() / "Claude-Workspace"
 
 
 def _pick_daily_teaching() -> str:
@@ -348,10 +360,26 @@ async def nightly_commit_review():
             review_lines.append(f"- ⚠️ {repo_path.name}: パス未存在（スキップ）")
             continue
 
+        # 独立 git repo か monorepo サブパスかで cwd と path 制限を切り替え
+        has_own_git = (repo_path / ".git").exists()
+        if has_own_git:
+            cwd = str(repo_path)
+            path_args: list[str] = []
+        else:
+            cwd = str(WORKSPACE_ROOT)
+            try:
+                rel = str(repo_path.relative_to(WORKSPACE_ROOT))
+                path_args = ["--", rel]
+            except ValueError:
+                review_lines.append(
+                    f"- ⚠️ {repo_path.name}: WORKSPACE_ROOT外（スキップ）"
+                )
+                continue
+
         try:
             log_result = subprocess.run(
-                ["git", "log", "--since=24 hours ago", "--oneline"],
-                cwd=str(repo_path),
+                ["git", "log", "--since=24 hours ago", "--oneline", *path_args],
+                cwd=cwd,
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -371,8 +399,8 @@ async def nightly_commit_review():
 
         try:
             diff_result = subprocess.run(
-                ["git", "log", "--since=24 hours ago", "-p", "--no-color"],
-                cwd=str(repo_path),
+                ["git", "log", "--since=24 hours ago", "-p", "--no-color", *path_args],
+                cwd=cwd,
                 capture_output=True,
                 text=True,
                 timeout=20,
