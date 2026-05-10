@@ -879,6 +879,101 @@ async def nightly_discord_webhook_check():
     )
 
 
+async def nightly_backup_integrity_check():
+    """Tier 3-H: 深夜5:45 — VPS DB バックアップ整合性確認.
+
+    /opt/backups/db/ 配下の REQUIRED ファイルが 24h 以内に更新されているか・
+    サイズが極端に減っていないかを SSH 越しに検証.
+    PENDING_SETUP（未バックアップ DB）も毎朝可視化のため記録する.
+    """
+    logger.info("Running nightly_backup_integrity_check...")
+    today_iso = date.today().isoformat()
+
+    d_manager_root = Path(__file__).resolve().parent
+    venv_python = d_manager_root / ".venv" / "bin" / "python"
+    python_bin = str(venv_python) if venv_python.exists() else sys.executable
+
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            [python_bin, "-m", "tools.backup_integrity_check"],
+            cwd=str(d_manager_root),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except Exception as e:
+        logger.error(f"nightly_backup_integrity_check exec failed: {e}")
+        return
+
+    try:
+        data = json.loads(result.stdout) if result.stdout.strip() else {}
+    except json.JSONDecodeError as e:
+        logger.warning(f"nightly_backup_integrity_check parse failed: {e}")
+        data = {}
+
+    ssh_error = data.get("ssh_error")
+    required = data.get("required", [])
+    pending = data.get("pending_setup", [])
+
+    rows: list[str] = []
+    problems: list[dict] = []
+    if ssh_error:
+        rows.append(f"- 💥 SSH 接続失敗: {ssh_error}")
+    else:
+        for r in required:
+            label = r.get("label", r.get("name", "?"))
+            status = r.get("status")
+            if status == "ok":
+                age = r.get("age_hours", "?")
+                size = r.get("size_bytes", 0)
+                rows.append(f"- ✅ **{label}** ({age}h前 / {size:,}B)")
+            else:
+                problems.append(r)
+                err = r.get("error", "")
+                marker = "💀" if status == "missing" else "⚠️"
+                rows.append(f"- {marker} **{label}** {status}: {err}")
+        for p in pending:
+            label = p.get("label", p.get("name", "?"))
+            status = p.get("status")
+            if status == "ok":
+                age = p.get("age_hours", "?")
+                rows.append(f"- ✅ **{label}** ({age}h前) — 整備済み")
+            else:
+                rows.append(f"- 🔧 **{label}** — backup.sh 未対応（要整備）")
+
+    summary_block = (
+        f"\n## DB バックアップ整合性 (深夜5:45)\n\n"
+        f"required: {len(required)} 件 / problems: {len(problems)} 件 / "
+        f"pending_setup: {len(pending)} 件\n\n"
+    )
+    summary_block += "\n".join(rows) if rows else "(対象なし)\n"
+    summary_block += "\n"
+
+    NIGHTLY_QA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if NIGHTLY_QA_PATH.exists():
+        existing = NIGHTLY_QA_PATH.read_text(encoding="utf-8")
+    else:
+        existing = f"# 夜間QA サマリ ({today_iso})\n\n"
+    NIGHTLY_QA_PATH.write_text(existing + summary_block, encoding="utf-8")
+
+    if (problems or ssh_error) and _send_fn:
+        lines = ["💀 **DB バックアップ整合性: 異常検知**\n"]
+        if ssh_error:
+            lines.append(f"- SSH error: {ssh_error}")
+        for p in problems:
+            label = p.get("label", p.get("name", "?"))
+            status = p.get("status", "?")
+            err = p.get("error", "")
+            lines.append(f"- **{label}** [{status}] {err}")
+        await _send_fn("運営-jack-operations", "\n".join(lines))
+
+    logger.info(
+        f"nightly_backup_integrity_check: required={len(required)} "
+        f"problems={len(problems)} pending={len(pending)} ssh_error={bool(ssh_error)}"
+    )
+
+
 def _read_nightly_qa_summary() -> str:
     """Tier 3-C: 朝ブリーフィングで使う夜間QAサマリを読む。当日分のみ。"""
     if not NIGHTLY_QA_PATH.exists():
@@ -1680,6 +1775,14 @@ def setup_scheduler(send_fn, task_view_fn=None):
         hour=5,
         minute=30,
         name="夜間Discord Webhook死活",
+    )
+    # Tier 3-H: 深夜5:45 VPS DB バックアップ整合性確認（古い/欠落をJackに通知）
+    _scheduler.add_job(
+        nightly_backup_integrity_check,
+        "cron",
+        hour=5,
+        minute=45,
+        name="夜間DBバックアップ整合性",
     )
 
     _scheduler.start()
