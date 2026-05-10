@@ -724,8 +724,15 @@ async def _run_video_analysis(channel: discord.TextChannel, url: str) -> None:
                 pass
 
 
-class TaskActionButton(discord.ui.Button):
-    """Button for a task action (complete/defer/drop)."""
+class TaskActionButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"(?P<action>complete|defer|drop):(?P<name>.+)",
+):
+    """Persistent button for a task action (complete/defer/drop).
+
+    DynamicItem dispatch matches custom_id by regex template, so buttons
+    survive bot restarts (no in-memory View instance required).
+    """
 
     def __init__(self, task_name: str, action: str, row: int = 0):
         short_name = task_name[:20] if len(task_name) > 20 else task_name
@@ -736,13 +743,25 @@ class TaskActionButton(discord.ui.Button):
         }
         style, label = styles[action]
         super().__init__(
-            style=style,
-            label=label,
-            custom_id=f"{action}:{task_name[:80]}",
-            row=row,
+            discord.ui.Button(
+                style=style,
+                label=label,
+                custom_id=f"{action}:{task_name[:80]}",
+                row=row,
+            )
         )
         self.task_name = task_name
         self.action = action
+
+    @classmethod
+    async def from_custom_id(
+        cls,
+        interaction: discord.Interaction,
+        item: discord.ui.Button,
+        match,
+        /,
+    ):
+        return cls(task_name=match["name"], action=match["action"])
 
     async def callback(self, interaction: discord.Interaction):
         actions = {
@@ -753,12 +772,23 @@ class TaskActionButton(discord.ui.Button):
         func, emoji = actions[self.action]
         result = func(self.task_name)
         await interaction.response.send_message(f"{emoji} {result}", ephemeral=False)
-        # Disable all buttons for this task
-        for item in self.view.children:
-            if isinstance(item, TaskActionButton) and item.task_name == self.task_name:
-                item.disabled = True
-                item.style = discord.ButtonStyle.secondary
-        await interaction.message.edit(view=self.view)
+        # Disable matching buttons. For stale messages after a bot restart
+        # self.view is a synthetic view — still iterable but may not contain
+        # other TaskActionButtons in the same message; that's fine, no-op then.
+        view = self.view
+        if view is None:
+            return
+        try:
+            for child in view.children:
+                if (
+                    isinstance(child, TaskActionButton)
+                    and child.task_name == self.task_name
+                ):
+                    child.item.disabled = True
+                    child.item.style = discord.ButtonStyle.secondary
+            await interaction.message.edit(view=view)
+        except Exception as e:
+            logger.warning(f"Could not edit view after task action: {e}")
 
 
 class TaskBoardView(discord.ui.View):
@@ -799,6 +829,8 @@ async def send_to_channel(channel_name: str, text: str, view: discord.ui.View = 
 
 
 def main():
+    # Register persistent dynamic items so task buttons survive bot restarts.
+    bot.add_dynamic_items(TaskActionButton)
     bot.run(config.DISCORD_BOT_TOKEN)
 
 
