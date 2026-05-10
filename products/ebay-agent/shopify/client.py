@@ -3,6 +3,7 @@
 レート制限: 2 req/秒（コール間に0.5秒スリープ）
 APIバージョン: 2024-01
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,8 +18,22 @@ logger = logging.getLogger("shopify.client")
 _API_VERSION = "2024-01"
 
 
+class ShopifyConfigError(RuntimeError):
+    """Shopify 環境変数が未設定の状態で ShopifyClient が呼ばれた"""
+
+
 class ShopifyClient:
     def __init__(self) -> None:
+        # フェイルファースト: SHOPIFY_SHOP_DOMAIN が空だと
+        # f"https:///admin/..." という不正URLが組まれ httpx が UnsupportedProtocol を投げる。
+        # 呼び出し元（特にスケジューラ）は env ガード必須。
+        if not SHOPIFY_SHOP_DOMAIN:
+            raise ShopifyConfigError(
+                "SHOPIFY_SHOP_DOMAIN is unset. "
+                "Set it in .env or guard the caller before instantiating ShopifyClient."
+            )
+        if not SHOPIFY_ACCESS_TOKEN:
+            raise ShopifyConfigError("SHOPIFY_ACCESS_TOKEN is unset.")
         self._base = f"https://{SHOPIFY_SHOP_DOMAIN}/admin/api/{_API_VERSION}"
         self._headers = {
             "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,

@@ -6,6 +6,7 @@
 - get_shopify_price: eBay価格 → Shopify割引価格
 - get_discount_rate: 現在の割引率をDB/configから取得
 """
+
 from __future__ import annotations
 
 import json
@@ -34,18 +35,23 @@ def get_shopify_price(ebay_price_usd: float, discount_rate: float) -> float:
     return round(ebay_price_usd * (1 - discount_rate), 2)
 
 
-async def push_listing_to_shopify(sku: str) -> None:
-    """1件のeBay出品をShopifyに同期する（すでに同期済みならスキップ）"""
+async def push_listing_to_shopify(sku: str) -> bool:
+    """1件のeBay出品をShopifyに同期する。
+
+    Returns:
+        True  — push 成功 or skip（既に同期済 / DBに存在しない）
+        False — Shopify API 呼び出しが例外で失敗
+    """
     client = ShopifyClient()
     db = get_db()
     try:
         listing = db.query(Listing).filter_by(sku=sku).first()
         if not listing:
             logger.warning(f"SKU {sku} not found in DB")
-            return
+            return True  # 不整合だが本ジョブの失敗ではない
         if listing.shopify_product_id:
             logger.debug(f"SKU {sku} already synced to Shopify")
-            return
+            return True
 
         discount_rate = get_discount_rate(db)
         shopify_price = get_shopify_price(listing.price_usd, discount_rate)
@@ -64,10 +70,12 @@ async def push_listing_to_shopify(sku: str) -> None:
         listing.shopify_synced_at = datetime.utcnow()
         db.commit()
         logger.info(f"Pushed {sku} to Shopify (product_id={product_id})")
+        return True
 
     except Exception:
         db.rollback()
         logger.exception(f"Failed to push {sku} to Shopify")
+        return False
     finally:
         db.close()
 
@@ -87,12 +95,18 @@ async def push_all_unsynced() -> dict[str, int]:
 
     success, failed = 0, 0
     for sku in skus:
+        # push_listing_to_shopify は内部で例外を握って bool を返す。
+        # ここでも try/except を残すのは想定外（ImportError 等）の保険。
         try:
-            await push_listing_to_shopify(sku)
-            success += 1
+            ok = await push_listing_to_shopify(sku)
         except Exception:
             failed += 1
-            logger.exception(f"push_all_unsynced: failed for {sku}")
+            logger.exception(f"push_all_unsynced: unexpected error for {sku}")
+            continue
+        if ok:
+            success += 1
+        else:
+            failed += 1
 
     logger.info(f"push_all_unsynced: success={success}, failed={failed}")
     return {"success": success, "failed": failed}

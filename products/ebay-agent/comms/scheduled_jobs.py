@@ -1,4 +1,5 @@
 """定期実行ジョブ — APScheduler CronTrigger 用"""
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +22,7 @@ def send_morning_digest():
         # 為替レート取得
         try:
             import requests
+
             resp = requests.get(
                 "https://api.exchangerate-api.com/v4/latest/USD", timeout=5
             )
@@ -44,11 +46,13 @@ def send_morning_digest():
         # 30日売上
         summary = crud.get_sales_summary(db, days=30)
         if summary.get("total_revenue"):
-            lines.extend([
-                "",
-                f"💰 30d Revenue: ${summary['total_revenue']:.2f}",
-                f"📊 30d Orders: {summary.get('total_orders', 0)}",
-            ])
+            lines.extend(
+                [
+                    "",
+                    f"💰 30d Revenue: ${summary['total_revenue']:.2f}",
+                    f"📊 30d Orders: {summary.get('total_orders', 0)}",
+                ]
+            )
 
         text = "\n".join(lines)
         send_line_message(text)
@@ -86,7 +90,9 @@ def send_weekly_report():
             lines.append("")
             lines.append("🏆 Top Items:")
             for i, item in enumerate(top[:5], 1):
-                lines.append(f"  {i}. {item.get('title', '?')[:30]} — ${item.get('revenue', 0):.2f}")
+                lines.append(
+                    f"  {i}. {item.get('title', '?')[:30]} — ${item.get('revenue', 0):.2f}"
+                )
 
         text = "\n".join(lines)
         send_line_message(text)
@@ -102,6 +108,7 @@ def auto_sync_sales():
     logger.info("Running auto sales sync...")
     try:
         from comms.sales_analytics import sync_sales_data
+
         result = sync_sales_data(days=3)
         new_count = result.get("new_sales_recorded", 0)
         fetched = result.get("orders_fetched", 0)
@@ -109,22 +116,34 @@ def auto_sync_sales():
 
         if new_count > 0:
             send_line_message(
-                f"🔄 eBay売上同期完了: {new_count}件の新規注文"
-                f" (取得: {fetched}件)"
+                f"🔄 eBay売上同期完了: {new_count}件の新規注文 (取得: {fetched}件)"
             )
     except Exception as e:
         logger.exception(f"Auto sales sync failed: {e}")
 
 
 def auto_sync_and_close_shopify() -> None:
-    """30分ごとに実行: 未同期出品のShopify同期 + 売れた商品のShopify削除"""
+    """30分ごとに実行: 未同期出品のShopify同期 + 売れた商品のShopify削除
+
+    Shopify未契約状態（SHOPIFY_SHOP_DOMAIN 未設定）では早期 return。
+    将来 .env に投入されれば自動で復活する。
+    """
+    from config import SHOPIFY_SHOP_DOMAIN
+
+    if not SHOPIFY_SHOP_DOMAIN:
+        # 1日1回だけ INFO 出して以降は黙る（debug にしておく）
+        logger.debug("Shopify sync skipped: SHOPIFY_SHOP_DOMAIN unset")
+        return
+
     import asyncio
     from shopify.sync import push_all_unsynced, close_shopify_for_sold_items
 
     logger.info("Starting Shopify sync job...")
     try:
         result = asyncio.run(push_all_unsynced())
-        logger.info(f"Shopify push: success={result['success']}, failed={result['failed']}")
+        logger.info(
+            f"Shopify push: success={result['success']}, failed={result['failed']}"
+        )
     except Exception:
         logger.exception("push_all_unsynced failed")
 
