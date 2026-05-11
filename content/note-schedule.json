@@ -258,7 +258,9 @@
     {
       "date": "2026-05-10",
       "slug": "labol-osoi",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n70c5b47b1810",
+      "published_at": "2026-05-11"
     },
     {
       "date": "2026-05-11",
