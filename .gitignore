@@ -75,6 +75,16 @@ products/ai-uranai/
 products/ebay-inventory-tool/
 products/ebay-listing-generator/
 products/video-text-remover/
+products/video-analyzer/
 products/lp-templates/matching-lp/
 resources/references/tmp/
 .superpowers/
+.npm-cache/
+.tools/
+
+# d-manager learning loop (会話ログ・一時ファイルはコミットしない)
+products/d-manager/learning/*.db
+products/d-manager/learning/*.db-wal
+products/d-manager/learning/*.db-shm
+products/d-manager/learning/skill_hits.jsonl
+.company/skills/.snapshots/
