@@ -125,6 +125,10 @@ CHANNELS = [
         "🎬 Elon — YouTube/TikTok/Instagram の URL を貼ると構造化分析",
     ),
     ("決裁-decisions", "📋 決裁案件の通知"),
+    (
+        "会議-councils",
+        '🗣️ Council 議事室 — `!run council topic="..."` でマルチエージェント議論を起動。Thread が自動作成されます。',
+    ),
     ("アラート-alerts", "🚨 システム・セキュリティアラート"),
     ("日報-daily-digest", "📰 AIニュース自動配信"),
     ("記録-backup-log", "💾 バックアップ完了通知"),
@@ -141,6 +145,7 @@ CHANNEL_CHARACTERS = {
     "戦略-reid-strategy": ("Reid", "nao.png"),
     "動画分析-video-research": ("Elon", "akira.png"),
     "決裁-decisions": ("Steve", "steve.png"),
+    "会議-councils": ("Steve", "steve.png"),
     "アラート-alerts": ("Steve", "steve.png"),
     "日報-daily-digest": ("Elon", "akira.png"),
     "記録-backup-log": ("Steve", "steve.png"),
@@ -566,6 +571,50 @@ async def on_message(message: discord.Message):
             if "=" in tok:
                 k, v = tok.split("=", 1)
                 flow_args[k.strip()] = v.strip()
+
+        # Council フローは Thread 作成のため bot 参照が必要。
+        # flows.py 経由ではなく main.py で直接 run_council を呼ぶ。
+        if flow_name == "council":
+            from tools.council import run_council
+
+            topic = flow_args.get("topic", "").strip()
+            preset = flow_args.get("preset")
+            members_arg = flow_args.get("members")
+
+            if not preset and not members_arg:
+                preset = (
+                    FLOWS.get("council", {})
+                    .get("defaults", {})
+                    .get("preset", "経営会議")
+                )
+
+            if not topic:
+                await send_as_character_with_avatar(
+                    message.channel,
+                    "⚠️ council には `topic=` が必要です。\n"
+                    '例: `!run council preset=経営会議 topic="FACCEL流入を3ヶ月で2倍にしたい"`',
+                    channel_name,
+                )
+                return
+
+            async def _council_progress(text: str) -> None:
+                await send_as_character_with_avatar(message.channel, text, channel_name)
+
+            asyncio.create_task(
+                run_council(
+                    topic=topic,
+                    preset=preset,
+                    members_arg=members_arg,
+                    bot=bot,
+                    progress_fn=_council_progress,
+                )
+            )
+            await send_as_character_with_avatar(
+                message.channel,
+                f"🟢 Council を起動中… Thread を作成します。",
+                channel_name,
+            )
+            return
 
         # Run in background so the Discord handler can return promptly
         asyncio.create_task(run_flow(flow_name, flow_args, send_to_channel))

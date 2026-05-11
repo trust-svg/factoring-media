@@ -1,0 +1,30 @@
+{% extends "_base.html" %}
+{% block title %}Flows — d-manager{% endblock %}
+{% block content %}
+<h1>Flows</h1>
+{% for f in flows %}
+<div class="panel">
+  <h2>{{ f.name }} <small class="mode-{{ f.mode }}">[{{ f.mode }}]</small></h2>
+  <p>{{ f.description }}</p>
+  <h3>Args</h3>
+  <p>{{ f.args|join(", ") if f.args else "(なし)" }}</p>
+  <h3>Steps</h3>
+  <ol>
+    {% for agent in f.steps %}
+    <li>{{ agent }}</li>
+    {% endfor %}
+  </ol>
+  {% if f.post %}
+  <h3>Post (統合ステップ)</h3>
+  <ol>
+    {% for agent in f.post %}
+    <li>{{ agent }}</li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+  <p><strong>Discord 起動:</strong>
+    <code>!run {{ f.name }} {% for a in f.args %}{{ a }}=… {% endfor %}</code>
+  </p>
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "_base.html" %}
+{% block title %}Memory — d-manager{% endblock %}
+{% block content %}
+<h1>Memory</h1>
+
+<div class="panel">
+  <h2>📋 Facts ({{ topics.facts|length }})</h2>
+  {% if topics.facts %}
+  <ul>
+    {% for t in topics.facts %}
+    <li><a href="{{ url_for('memory_topic', kind='facts', topic=t) }}">{{ t }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p>なし</p>{% endif %}
+</div>
+
+<div class="panel">
+  <h2>💡 Digest ({{ topics.digest|length }})</h2>
+  {% if topics.digest %}
+  <ul>
+    {% for t in topics.digest %}
+    <li><a href="{{ url_for('memory_topic', kind='digest', topic=t) }}">{{ t }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p>なし</p>{% endif %}
+</div>
+
+<div class="panel">
+  <h2>📜 Recent Raw (直近7日)</h2>
+  {% if recent_raw %}
+  <ul>
+    {% for path in recent_raw %}
+    {% set fname = path.split('/')[-1].replace('.md', '') %}
+    <li><a href="{{ url_for('memory_raw', date=fname) }}">{{ fname }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p>なし</p>{% endif %}
+</div>
+{% endblock %}

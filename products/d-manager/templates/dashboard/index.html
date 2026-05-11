@@ -1,0 +1,48 @@
+{% extends "_base.html" %}
+{% block title %}Overview — d-manager{% endblock %}
+{% block content %}
+<h1>Overview</h1>
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ active_count }}</div><div class="lbl">Active Tickets</div></div>
+  <div class="stat"><div class="num">{{ topics.facts|length }}</div><div class="lbl">Memory Facts</div></div>
+  <div class="stat"><div class="num">{{ topics.digest|length }}</div><div class="lbl">Memory Digest</div></div>
+  <div class="stat"><div class="num">{{ flows|length }}</div><div class="lbl">Flows</div></div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Tickets by Owner</h2>
+    {% if by_owner %}
+    <table>
+      <tr><th>Owner</th><th>Count</th></tr>
+      {% for owner, n in by_owner.items() %}
+      <tr><td>{{ owner }}</td><td>{{ n }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<p>アクティブチケットなし</p>{% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Tickets by Status</h2>
+    {% if by_status %}
+    <table>
+      <tr><th>Status</th><th>Count</th></tr>
+      {% for status, n in by_status.items() %}
+      <tr><td><span class="badge {{ status }}">{{ status }}</span></td><td>{{ n }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<p>—</p>{% endif %}
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Available Flows</h2>
+  <ul>
+    {% for name, desc in flows %}
+    <li><strong>{{ name }}</strong> — {{ desc }}</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('flows_index') }}">→ Flow 詳細</a></p>
+</div>
+{% endblock %}

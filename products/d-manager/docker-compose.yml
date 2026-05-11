@@ -7,8 +7,52 @@ services:
       - .env
     environment:
       - TZ=Asia/Tokyo
+      # video-analyzer is reached via the docker-compose service DNS name
+      - VIDEO_ANALYZER_URL=http://video-analyzer:8000
     volumes:
       - /root/.company:/root/.company
       - /root/marketing:/root/marketing:ro
       - ./token.json:/app/token.json
       - ./credentials.json:/app/credentials.json
+    depends_on:
+      - video-analyzer
+
+  video-analyzer:
+    build: /root/video-analyzer
+    container_name: video-analyzer
+    restart: unless-stopped
+    env_file:
+      - /root/video-analyzer/.env
+    environment:
+      - TZ=Asia/Tokyo
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8000
+      - WHISPER_BACKEND=api
+      # bgutil PoToken provider — required for YouTube web/mweb clients
+      - BGUTIL_POT_PROVIDER_URL=http://bgutil-pot-provider:4416
+    volumes:
+      - video-analyzer-data:/app/data
+    depends_on:
+      - bgutil-pot-provider
+    # No external port: only d-manager (and Caddy via host network) talk to it.
+    expose:
+      - "8000"
+    # Caddy on host:443 reverse-proxies video.trustlink-tk.com → 127.0.0.1:3500.
+    # We bind 3500 on the host loopback so Caddy can reach the container.
+    ports:
+      - "127.0.0.1:3500:8000"
+
+  # PoToken provider for yt-dlp (YouTube). Reachable only inside the compose
+  # network as http://bgutil-pot-provider:4416. No external ports exposed.
+  bgutil-pot-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: bgutil-pot-provider
+    restart: unless-stopped
+    init: true
+    environment:
+      - TZ=Asia/Tokyo
+    expose:
+      - "4416"
+
+volumes:
+  video-analyzer-data:

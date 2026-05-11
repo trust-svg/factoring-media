@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+{% block title %}Tickets — d-manager{% endblock %}
+{% block content %}
+<h1>Tickets</h1>
+<div class="panel">
+{% if tickets %}
+<table>
+  <tr><th>ID</th><th>Title</th><th>Owner</th><th>Status</th><th>Updated</th><th>Dir</th></tr>
+  {% for t in tickets %}
+  <tr>
+    <td><a href="{{ url_for('ticket_detail', ticket_id=t.id) }}">{{ t.id }}</a></td>
+    <td>{{ t.title }}</td>
+    <td>{{ t.owner }}</td>
+    <td><span class="badge {{ t.status }}">{{ t.status }}</span></td>
+    <td>{{ t.updated }}</td>
+    <td>{{ t.dir }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p>チケットなし</p>{% endif %}
+</div>
+{% endblock %}

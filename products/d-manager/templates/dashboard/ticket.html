@@ -1,0 +1,18 @@
+{% extends "_base.html" %}
+{% block title %}{{ t.id }} — d-manager{% endblock %}
+{% block content %}
+<h1>{{ t.id }} <span class="badge {{ t.status }}">{{ t.status }}</span></h1>
+<div class="panel">
+  <table>
+    <tr><th>Title</th><td>{{ t.title }}</td></tr>
+    <tr><th>Owner</th><td>{{ t.owner }}</td></tr>
+    <tr><th>Created</th><td>{{ t.created }}</td></tr>
+    <tr><th>Updated</th><td>{{ t.updated }}</td></tr>
+    {% if t.parent %}<tr><th>Parent</th><td>{{ t.parent }}</td></tr>{% endif %}
+    <tr><th>Path</th><td><code>{{ t.path }}</code></td></tr>
+  </table>
+</div>
+<h2>Body</h2>
+<pre>{{ body }}</pre>
+<p><a href="{{ url_for('tickets_index') }}">← back to tickets</a></p>
+{% endblock %}

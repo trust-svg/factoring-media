@@ -1,0 +1,7 @@
+{% extends "_base.html" %}
+{% block title %}{{ kind }}/{{ topic }} — d-manager{% endblock %}
+{% block content %}
+<h1>{{ kind }} / {{ topic }}</h1>
+<pre>{{ body }}</pre>
+<p><a href="{{ url_for('memory_index') }}">← back to memory</a></p>
+{% endblock %}

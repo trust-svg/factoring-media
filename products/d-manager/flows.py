@@ -121,6 +121,18 @@ FLOWS: dict[str, dict] = {
             ),
         ],
     },
+    "council": {
+        "description": (
+            "council: マルチエージェント議論。Thread作成→各員発言(最大2巡)→Steve要約→[→Agent]に分解。"
+            "実体は tools/council.py。main.py が直接ハンドル（mode='external'）。"
+        ),
+        "args": ["topic"],
+        "defaults": {"preset": "経営会議"},
+        "owner": "steve",
+        "channel": "ceo-steve-general",
+        "mode": "external",  # main.py で intercept される
+        "steps": [],
+    },
     "morning-parallel": {
         "description": "朝の並行ブリーフィング: Elon/Mark/Warren を同時実行 → Steve が統合",
         "args": [],
