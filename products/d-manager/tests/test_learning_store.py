@@ -187,3 +187,31 @@ def test_skill_metrics(db, tmp_path):
     assert m["count"] == 2  # a.md と b/SKILL.md
     # references は数えない
     assert m["concat_chars"] == 1500
+
+
+def test_search_handles_malformed_fts_query(db):
+    _record(db, content="復縁の相談をした", now=dt.datetime(2026, 5, 10, 9, 0))
+    # FTS5 構文エラーになる入力でも例外を投げない（LIKE フォールバック / 空リスト）
+    assert isinstance(store.search(db, '"unterminated'), list)
+    assert isinstance(store.search(db, "復縁 OR"), list)
+    # 通常の3文字以上クエリは引き続き動く
+    assert any("復縁" in h["content"] for h in store.search(db, "復縁の相談"))
+
+
+def test_search_like_escapes_wildcards(db):
+    _record(db, content="達成率100%です", now=dt.datetime(2026, 5, 10, 9, 0))
+    _record(db, content="ただの文章", now=dt.datetime(2026, 5, 10, 9, 5))
+    # 1文字 "%" は LIKE ワイルドカードでなくリテラルとして扱う（全件マッチしない）
+    contents = {h["content"] for h in store.search(db, "%")}
+    assert "ただの文章" not in contents
+    assert "達成率100%です" in contents
+
+
+def test_skill_metrics_skips_unreadable(tmp_path):
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    (skills_dir / "good.md").write_text("a" * 100, encoding="utf-8")
+    (skills_dir / "bad.md").write_bytes(b"\xff\xfe\x00\x01 not valid utf-8")
+    m = store.skill_metrics(skills_dir)
+    assert m["count"] == 2
+    assert m["concat_chars"] == 100  # bad.md は読めないので 0 扱い

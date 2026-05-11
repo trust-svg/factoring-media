@@ -302,26 +302,40 @@ def mark_short_skipped(
         conn.close()
 
 
+def _like_query(conn: sqlite3.Connection, query: str, limit: int) -> list:
+    # `%` `_` `\` はワイルドカードなのでエスケープ（ユーザー入力をそのまま LIKE に渡さない）。
+    escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return conn.execute(
+        "SELECT channel_name, department, ts, role, content, review_date "
+        "FROM turns WHERE content LIKE ? ESCAPE '\\' ORDER BY ts DESC LIMIT ?",
+        (f"%{escaped}%", limit),
+    ).fetchall()
+
+
 def search(db_path: Path, query: str, limit: int = 50) -> list[dict]:
-    """会話ログ全文検索。3文字以上は FTS5 trigram、2文字以下は LIKE フォールバック。"""
+    """会話ログ全文検索。3文字以上は FTS5 trigram、2文字以下は LIKE フォールバック。
+
+    Discord メッセージ由来の任意文字列が渡るので、FTS5 構文エラー（未閉じ引用符・
+    NOT/OR で終わる等）は捕まえて LIKE フォールバックに落とす。
+    """
     query = (query or "").strip()
     if not query:
         return []
     conn = _connect(db_path)
     try:
+        rows = None
         if len(query) >= 3:
-            rows = conn.execute(
-                "SELECT t.channel_name, t.department, t.ts, t.role, t.content, t.review_date "
-                "FROM turns_fts f JOIN turns t ON t.id = f.rowid "
-                "WHERE turns_fts MATCH ? ORDER BY t.ts DESC LIMIT ?",
-                (query, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT channel_name, department, ts, role, content, review_date "
-                "FROM turns WHERE content LIKE ? ORDER BY ts DESC LIMIT ?",
-                (f"%{query}%", limit),
-            ).fetchall()
+            try:
+                rows = conn.execute(
+                    "SELECT t.channel_name, t.department, t.ts, t.role, t.content, t.review_date "
+                    "FROM turns_fts f JOIN turns t ON t.id = f.rowid "
+                    "WHERE turns_fts MATCH ? ORDER BY t.ts DESC LIMIT ?",
+                    (query, limit),
+                ).fetchall()
+            except sqlite3.OperationalError:
+                rows = None  # FTS5 構文エラー → LIKE フォールバック
+        if rows is None:
+            rows = _like_query(conn, query, limit)
         return [dict(r) for r in rows]
     finally:
         conn.close()
@@ -357,15 +371,22 @@ def skill_metrics(skills_dir: Path) -> dict:
     concat_chars = 0
     if not skills_dir.exists():
         return {"count": 0, "concat_chars": 0}
+
+    def _len(p: Path) -> int:
+        try:
+            return len(p.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            return 0  # 読めないファイルはメトリクスではスキップ（監視用途なので落とさない）
+
     for entry in sorted(skills_dir.iterdir()):
         if entry.name.startswith("."):
             continue  # .archive / .snapshots を除外
         if entry.is_file() and entry.suffix == ".md":
             count += 1
-            concat_chars += len(entry.read_text(encoding="utf-8"))
+            concat_chars += _len(entry)
         elif entry.is_dir():
             skill_md = entry / "SKILL.md"
             if skill_md.exists():
                 count += 1
-                concat_chars += len(skill_md.read_text(encoding="utf-8"))
+                concat_chars += _len(skill_md)
     return {"count": count, "concat_chars": concat_chars}
