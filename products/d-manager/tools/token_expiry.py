@@ -165,7 +165,36 @@ def _check_meta_ads(env: dict[str, str]) -> dict[str, Any]:
             "expires_at": expires.strftime("%Y-%m-%d"),
         }
 
-    # APP credentials なし: /me で生存確認のみ
+    # APP credentials なし: debug_token をトークン自身で叩く (self-debug)。
+    # User token は input_token=access_token=自分自身 で expires_at を取得できる。
+    try:
+        r = requests.get(
+            "https://graph.facebook.com/v19.0/debug_token",
+            params={"input_token": token, "access_token": token},
+            timeout=15,
+        )
+        data = (r.json() or {}).get("data", {})
+        if not data.get("error") and data.get("is_valid", False):
+            expires_at = data.get("expires_at", 0)
+            if expires_at in (0, None):
+                return {
+                    "name": "Meta Ads",
+                    "status": "ok",
+                    "note": "no expiry / long-lived",
+                }
+            expires = datetime.fromtimestamp(expires_at, tz=timezone.utc)
+            days_left = (expires - datetime.now(timezone.utc)).days
+            status = "warn" if days_left <= WARN_THRESHOLD_DAYS else "ok"
+            return {
+                "name": "Meta Ads",
+                "status": status,
+                "days_left": days_left,
+                "expires_at": expires.strftime("%Y-%m-%d"),
+            }
+    except Exception:
+        pass  # self-debug 失敗 → /me フォールバックへ
+
+    # フォールバック: /me で生存確認のみ
     try:
         r = requests.get(
             "https://graph.facebook.com/v19.0/me",
