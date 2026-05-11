@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.events import EVENT_JOB_ERROR
 
 import config
 from ai_engine import process_message
@@ -1520,6 +1521,144 @@ async def weekly_review():
     if _send_fn:
         await _send_fn("戦略-reid-strategy", result)
 
+    # 学習ループ: スキル棚卸し + 会話ログのプルーニング
+    learning_prune()
+    try:
+        await learning_curate()
+    except Exception:  # noqa: BLE001
+        logger.exception("weekly_review: learning_curate failed")
+
+
+async def learning_review():
+    """夜間バッチ: 未レビューのセッション（チャンネル+日付）を振り返り、.company/ を更新する。"""
+    if not config.LEARNING_REVIEW_ENABLED:
+        logger.info("learning_review: disabled (LEARNING_REVIEW_ENABLED=false), skip")
+        return
+    logger.info("Running learning_review...")
+    from learning import reviewer, store
+
+    db = config.LEARNING_DB_PATH
+    company = config.COMPANY_DIR
+    store.init_db(db)
+    requeued = store.requeue_stuck(db, stuck_minutes=config.LEARNING_STUCK_MINUTES)
+    if requeued:
+        logger.info("learning_review: requeued %d stuck sessions", requeued)
+    skipped = store.mark_short_skipped(db, min_turns=config.LEARNING_MIN_TURNS)
+    pending = store.list_pending_reviews(
+        db,
+        min_turns=config.LEARNING_MIN_TURNS,
+        max_age_days=config.LEARNING_REVIEW_MAX_AGE_DAYS,
+    )[: config.LEARNING_MAX_PER_RUN]
+
+    results = []
+    for sess in pending:
+        try:
+            res = reviewer.run_review(
+                db_path=db,
+                company_dir=company,
+                channel_id=sess["channel_id"],
+                review_date=sess["review_date"],
+                channel_name=sess.get("channel_name") or sess["channel_id"],
+                department=sess.get("department") or "secretary",
+                model=config.REVIEW_MODEL_CLI,
+                dryrun=config.LEARNING_REVIEW_DRYRUN,
+                allowed_tools=config.LEARNING_ALLOWED_TOOLS,
+                dryrun_allowed_tools=config.LEARNING_DRYRUN_ALLOWED_TOOLS,
+                disallowed_tools=config.LEARNING_DISALLOWED_TOOLS,
+                char_limit=config.LEARNING_CONTEXT_CHAR_LIMIT,
+                timeout_sec=config.LEARNING_REVIEW_TIMEOUT_SEC,
+                skill_hits_path=config.SKILL_HITS_PATH,
+            )
+            results.append((sess, res))
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "learning_review: run_review failed for %s/%s",
+                sess["channel_id"],
+                sess["review_date"],
+            )
+            results.append(
+                (sess, {"status": "error", "note": "exception", "out_of_bounds": []})
+            )
+
+    # 通知メッセージを組み立て
+    n = len(results)
+    with_learning = sum(
+        1
+        for _, r in results
+        if r["status"] == "done" and not r["note"].startswith("no_learnings")
+    )
+    errors = sum(1 for _, r in results if r["status"] == "error")
+    oob_any = [p for _, r in results for p in r.get("out_of_bounds", [])]
+    mode = "ドライラン" if config.LEARNING_REVIEW_DRYRUN else "本番"
+    lines = [
+        f"🧠 **今夜の学習ラン**（{mode}）: {n}件レビュー / {with_learning}件で学びあり "
+        f"/ エラー{errors}件 / skipped(too_short){skipped}件"
+    ]
+    for sess, r in results:
+        if r["status"] == "done" and not r["note"].startswith("no_learnings"):
+            tag = "📝"
+        elif r["status"] == "error":
+            tag = "⚠️"
+        else:
+            tag = "—"
+        lines.append(
+            f"{tag} {sess.get('channel_name') or sess['channel_id']} "
+            f"({sess['review_date']}): {r['note'][:200]}"
+        )
+    if oob_any:
+        lines.append(f"🚨 範囲外への書き込みを検出し revert しました: {oob_any}")
+    if _send_fn:
+        try:
+            await _send_fn(config.LEARNING_NOTIFY_CHANNEL, "\n".join(lines))
+        except Exception:  # noqa: BLE001
+            logger.exception("learning_review: notify failed")
+    logger.info("learning_review done: %s", lines[0])
+
+
+async def learning_curate():
+    """週次キュレーター（weekly_review から呼ばれる、または !learning curate）。"""
+    logger.info("Running learning_curate...")
+    from learning import curator
+
+    res = curator.run_curation(
+        company_dir=config.COMPANY_DIR,
+        model=config.CURATOR_MODEL_CLI,
+        skill_hits_path=config.SKILL_HITS_PATH,
+        disallowed_tools=config.LEARNING_DISALLOWED_TOOLS,
+        timeout_sec=config.LEARNING_CURATOR_TIMEOUT_SEC,
+    )
+    if res["status"] == "done":
+        msg = (
+            f"🧹 **今週のスキル棚卸し**: {res['summary']}\n"
+            f"（巻き戻し基準コミット: `{res['head_before'][:10]}` — やりすぎなら `git -C .company revert` 可）"
+        )
+    else:
+        msg = (
+            f"⚠️ スキル棚卸しに失敗: {res['note']}"
+            f"（スナップショット `.company/skills/.snapshots/` から復元可）"
+        )
+    if res.get("out_of_bounds"):
+        msg += f"\n🚨 範囲外書き込みを revert: {res['out_of_bounds']}"
+    if _send_fn:
+        try:
+            await _send_fn(config.LEARNING_NOTIFY_CHANNEL, msg)
+        except Exception:  # noqa: BLE001
+            logger.exception("learning_curate: notify failed")
+    logger.info("learning_curate done: %s", res.get("summary") or res.get("note"))
+
+
+def learning_prune():
+    """会話ログの保持期間プルーニング（weekly_review から同期呼び出し）。"""
+    from learning import store
+
+    try:
+        deleted = store.prune(
+            config.LEARNING_DB_PATH, retention_days=config.TURNS_RETENTION_DAYS
+        )
+        logger.info("learning_prune: deleted %d old turns", deleted)
+    except Exception:  # noqa: BLE001
+        logger.exception("learning_prune failed")
+
 
 async def ticket_monthly_archive():
     """月初4:00 — done/ の古いチケットを archive/<YYYY-MM>/ に移動する。"""
@@ -1758,6 +1897,24 @@ async def hourly_email_drafts():
         logger.error(f"hourly_email_drafts failed: {e}", exc_info=True)
 
 
+def _on_job_error(event):
+    """APScheduler ジョブが例外を投げたらログ + 学習系は Discord にも通知（best-effort）。"""
+    logger.error("Scheduler job %s raised: %s", event.job_id, event.exception)
+    if (
+        event.job_id in ("learning_review", "learning_curate", "weekly_review")
+        and _send_fn
+    ):
+        try:
+            asyncio.get_event_loop().create_task(
+                _send_fn(
+                    config.LEARNING_NOTIFY_CHANNEL,
+                    f"⚠️ スケジューラジョブ `{event.job_id}` が例外: {event.exception}",
+                )
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def setup_scheduler(send_fn, task_view_fn=None):
     """Setup APScheduler with scheduled jobs. Safe to call multiple times (e.g. on Discord reconnect)."""
     global _scheduler, _scheduler_started, _send_fn, _task_view_fn
@@ -1773,6 +1930,7 @@ def setup_scheduler(send_fn, task_view_fn=None):
     _scheduler = AsyncIOScheduler(
         timezone="Asia/Tokyo", job_defaults={"misfire_grace_time": 300}
     )
+    _scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
 
     _scheduler.add_job(
         morning_briefing,
@@ -1914,6 +2072,18 @@ def setup_scheduler(send_fn, task_view_fn=None):
         "cron",
         minute="*/10",
         name="d-manager死活ハートビート",
+    )
+    # 学習ループ: 夜間23:00 にセッションレビュー
+    _scheduler.add_job(
+        learning_review,
+        "cron",
+        hour=config.LEARNING_REVIEW_HOUR,
+        minute=0,
+        id="learning_review",
+        name="学習ループ夜間レビュー",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=3600,
     )
 
     _scheduler.start()
