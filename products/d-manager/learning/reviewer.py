@@ -6,10 +6,14 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import json
 import logging
 import re
 from pathlib import Path
 from typing import Optional
+
+from . import cli_runner, store
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +106,147 @@ def build_review_prompt(
 - 何か書いた場合: `<summary>done: 何をどこに書いたか（ファイルパスと一言）</summary>`
 - 学びが無かった場合: `<summary>no_learnings: 理由</summary>`
 """
+
+
+def _read_recent_learnings(
+    company_dir: Path, days: int = 7, max_chars: int = 4000
+) -> str:
+    """直近 `days` 日に記録された学びを抜粋（重複チェック用）。Company/Logs と memory/{facts,digest} から。"""
+    chunks: list[str] = []
+    logs_dir = (
+        company_dir.parent / "Company" / "Logs"
+    )  # .company の隣の Company/Logs（環境により異なる場合は存在チェックで吸収）
+    today = dt.date.today()
+    for i in range(days):
+        d = (today - dt.timedelta(days=i)).strftime("%Y-%m-%d")
+        for cand in (
+            logs_dir / f"{d}.md",
+            company_dir / "secretary" / "memory" / "raw" / f"{d}.md",
+        ):
+            if cand.exists():
+                chunks.append(f"### {cand}\n" + cand.read_text(encoding="utf-8")[:1500])
+    # facts / digest は最近更新されたものを数件
+    for sub in ("facts", "digest"):
+        d = company_dir / "secretary" / "memory" / sub
+        if d.exists():
+            files = sorted(
+                d.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True
+            )[:5]
+            for f in files:
+                chunks.append(
+                    f"### memory/{sub}/{f.name}\n" + f.read_text(encoding="utf-8")[:800]
+                )
+    text = "\n\n".join(chunks)
+    return text[:max_chars]
+
+
+def _record_skill_hits(
+    skill_hits_path: Path,
+    channel_name: str,
+    review_date: str,
+    company_dir: Path,
+    status_lines: list[str],
+) -> None:
+    """このレビューで触れた skills/ ファイルを skill_hits.jsonl に追記（キュレーターの利用判定材料）。"""
+    try:
+        skill_hits_path.parent.mkdir(parents=True, exist_ok=True)
+        with skill_hits_path.open("a", encoding="utf-8") as fh:
+            for ln in status_lines:
+                p = cli_runner.parse_status_path(ln)
+                if p.startswith("skills/"):
+                    name = p[len("skills/") :].split("/")[0].removesuffix(".md")
+                    fh.write(
+                        json.dumps(
+                            {
+                                "skill": name,
+                                "channel": channel_name,
+                                "date": review_date,
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+    except Exception:  # noqa: BLE001
+        logger.exception("skill_hits 記録に失敗")
+
+
+def run_review(
+    db_path: Path,
+    company_dir: Path,
+    channel_id: str,
+    review_date: str,
+    channel_name: str,
+    department: str,
+    model: str,
+    dryrun: bool,
+    *,
+    allowed_tools: str = "Read Write Edit Glob Grep",
+    dryrun_allowed_tools: str = "Read Glob Grep",
+    disallowed_tools: str = "Bash WebFetch WebSearch Task",
+    char_limit: int = 40000,
+    max_turns: int = 15,
+    timeout_sec: int = 300,
+    skill_hits_path: Optional[Path] = None,
+    extra_context: str = "",
+    now: Optional[dt.datetime] = None,
+) -> dict:
+    """1セッションを振り返る。戻り値: {status, note, out_of_bounds, head_before}。"""
+    store.mark_review_start(db_path, channel_id, review_date, now=now)
+    turns = store.get_session_turns(db_path, channel_id, review_date)
+    conv_log = format_conversation_log(
+        channel_name, department, review_date, turns, char_limit=char_limit
+    )
+    recent = _read_recent_learnings(company_dir)
+    prompt = build_review_prompt(
+        conv_log, channel_name, department, review_date, recent, dryrun, extra_context
+    )
+    used_allowed = dryrun_allowed_tools if dryrun else allowed_tools
+
+    head_before = cli_runner.git_head(company_dir)
+    result = cli_runner.run_claude(
+        prompt=prompt,
+        cwd=company_dir,
+        model=model,
+        allowed_tools=used_allowed,
+        disallowed_tools=disallowed_tools,
+        system_prompt_append=REVIEWER_PERSONA,
+        max_turns=max_turns,
+        timeout_sec=timeout_sec,
+    )
+
+    status_lines = cli_runner.git_status_short(company_dir)
+    extra_allowed = cli_runner.DEPT_KNOWLEDGE_PREFIXES
+    oob = cli_runner.out_of_bounds_paths(
+        company_dir, status_lines, extra_allowed=extra_allowed
+    )
+    if oob and not dryrun:
+        cli_runner.git_checkout_paths(company_dir, oob)
+        logger.warning(
+            "learning reviewer touched out-of-bounds paths, reverted: %s", oob
+        )
+
+    if result.timed_out:
+        status, note = "error", "timeout"
+    elif not result.ok:
+        status, note = "error", f"exit={result.returncode}: {result.stderr[-300:]}"
+    else:
+        parsed = parse_summary(result.stdout)
+        if parsed is None:
+            status, note = "error", "no_summary"
+        elif parsed[0] == "no_learnings":
+            status, note = "done", f"no_learnings: {parsed[1]}"
+        else:
+            status, note = "done", parsed[1] or parsed[0]
+
+    if status == "done" and not dryrun and skill_hits_path is not None:
+        _record_skill_hits(
+            skill_hits_path, channel_name, review_date, company_dir, status_lines
+        )
+
+    store.mark_reviewed(db_path, channel_id, review_date, status, note, now=now)
+    return {
+        "status": status,
+        "note": note,
+        "out_of_bounds": oob,
+        "head_before": head_before,
+    }
