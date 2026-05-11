@@ -525,7 +525,19 @@ async def _update_listing_handler(params: dict) -> dict:
     if not updates:
         return {"error": "更新フィールドが指定されていません"}
 
-    result = ebay_update_listing(sku, updates)
+    # Trading API 出品（Sell Inventory API に無いSKU）のフォールバック用に ItemID を引く
+    item_id = None
+    _db_lookup = get_db()
+    try:
+        from database.models import Listing
+
+        _l = _db_lookup.query(Listing).filter_by(sku=sku).first()
+        if _l:
+            item_id = _l.listing_id
+    finally:
+        _db_lookup.close()
+
+    result = ebay_update_listing(sku, updates, item_id=item_id)
 
     # Shopify価格を連動更新（price_usdが変更された場合のみ）
     if result["success"] and "price_usd" in params:

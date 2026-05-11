@@ -7,6 +7,7 @@ ebay-inventory-tool と ebay-listing-optimizer の共通処理を統合。
 - Browse API (公開情報取得・競合分析)
 - Offer/Listing 更新
 """
+
 from __future__ import annotations
 
 import json
@@ -37,9 +38,11 @@ logger = logging.getLogger(__name__)
 
 # ── データモデル ──────────────────────────────────────────
 
+
 @dataclass
 class EbayItem:
     """eBay出品アイテム"""
+
     item_id: str
     sku: str
     title: str
@@ -57,6 +60,7 @@ class EbayItem:
 
 
 # ── トークン管理 ──────────────────────────────────────────
+
 
 def _load_token() -> dict:
     """トークンをロード (環境変数 or ファイル)"""
@@ -82,7 +86,9 @@ def _is_token_expired(token_data: dict) -> bool:
 def _refresh_access_token(token_data: dict) -> str:
     refresh_token = token_data.get("refresh_token", "")
     if not refresh_token:
-        raise RuntimeError("refresh_token が見つかりません。setup_ebay_oauth.py を実行してください。")
+        raise RuntimeError(
+            "refresh_token が見つかりません。setup_ebay_oauth.py を実行してください。"
+        )
 
     credentials = b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
     resp = requests.post(
@@ -110,7 +116,9 @@ def get_access_token() -> str:
     """有効なアクセストークンを返す（必要なら自動更新）"""
     token_data = _load_token()
     if not token_data:
-        raise RuntimeError("eBayトークンが見つかりません。setup_ebay_oauth.py を実行してください。")
+        raise RuntimeError(
+            "eBayトークンが見つかりません。setup_ebay_oauth.py を実行してください。"
+        )
     if _is_token_expired(token_data):
         return _refresh_access_token(token_data)
     return token_data["access_token"]
@@ -150,7 +158,9 @@ def _get_browse_token() -> str:
         timeout=15,
     )
     if resp.status_code != 200:
-        logger.error(f"Browse API トークン取得失敗: {resp.status_code} {resp.text[:300]}")
+        logger.error(
+            f"Browse API トークン取得失敗: {resp.status_code} {resp.text[:300]}"
+        )
         resp.raise_for_status()
 
     data = resp.json()
@@ -169,6 +179,7 @@ def _browse_headers() -> dict:
 
 
 # ── Sell Inventory API ────────────────────────────────────
+
 
 def get_active_listings() -> list[EbayItem]:
     """
@@ -203,8 +214,14 @@ def _get_active_listings_inventory_api() -> list[EbayItem]:
             sku = offer.get("sku", "")
             status = offer.get("status", "")
             marketplace = offer.get("marketplaceId", "")
-            if status == "ACTIVE" and sku and (not marketplace or marketplace == "EBAY_US"):
-                price_val = offer.get("pricingSummary", {}).get("price", {}).get("value", "0")
+            if (
+                status == "ACTIVE"
+                and sku
+                and (not marketplace or marketplace == "EBAY_US")
+            ):
+                price_val = (
+                    offer.get("pricingSummary", {}).get("price", {}).get("value", "0")
+                )
                 offers_by_sku[sku] = {
                     "price_usd": float(price_val),
                     "listing_id": offer.get("listingId", ""),
@@ -237,24 +254,32 @@ def _get_active_listings_inventory_api() -> list[EbayItem]:
                 continue
             offer_info = offers_by_sku[sku]
             product = inv.get("product", {})
-            quantity = inv.get("availability", {}).get("shipToLocationAvailability", {}).get("quantity", 0)
-            image_urls = [img.get("imageUrl", "") for img in product.get("imageUrls", [])]
+            quantity = (
+                inv.get("availability", {})
+                .get("shipToLocationAvailability", {})
+                .get("quantity", 0)
+            )
+            image_urls = [
+                img.get("imageUrl", "") for img in product.get("imageUrls", [])
+            ]
 
-            items.append(EbayItem(
-                item_id=offer_info["listing_id"],
-                sku=sku,
-                title=product.get("title", sku),
-                price_usd=offer_info["price_usd"],
-                quantity=quantity,
-                is_out_of_stock=(quantity == 0),
-                listing_id=offer_info["listing_id"],
-                category_id=offer_info.get("category_id", ""),
-                condition=inv.get("condition", ""),
-                image_urls=image_urls,
-                item_specifics=product.get("aspects", {}),
-                description=product.get("description", ""),
-                offer_id=offer_info.get("offer_id", ""),
-            ))
+            items.append(
+                EbayItem(
+                    item_id=offer_info["listing_id"],
+                    sku=sku,
+                    title=product.get("title", sku),
+                    price_usd=offer_info["price_usd"],
+                    quantity=quantity,
+                    is_out_of_stock=(quantity == 0),
+                    listing_id=offer_info["listing_id"],
+                    category_id=offer_info.get("category_id", ""),
+                    condition=inv.get("condition", ""),
+                    image_urls=image_urls,
+                    item_specifics=product.get("aspects", {}),
+                    description=product.get("description", ""),
+                    offer_id=offer_info.get("offer_id", ""),
+                )
+            )
 
         total = data.get("total", 0)
         offset += EBAY_PAGE_SIZE
@@ -274,6 +299,7 @@ def get_out_of_stock_items() -> list[EbayItem]:
 
 
 # ── Trading API (フォールバック) ─────────────────────────
+
 
 def get_active_listings_trading() -> list[EbayItem]:
     """Trading API (GetMyeBaySelling) でアクティブ出品を取得。eBay US のみ。"""
@@ -318,10 +344,14 @@ def get_active_listings_trading() -> list[EbayItem]:
         ack = root.findtext("e:Ack", namespaces=ns_map)
         if ack not in ("Success", "Warning"):
             errors = root.findall(".//e:ShortMessage", namespaces=ns_map)
-            logger.error(f"Trading API: {errors[0].text if errors else 'Unknown error'}")
+            logger.error(
+                f"Trading API: {errors[0].text if errors else 'Unknown error'}"
+            )
             break
 
-        for item in root.findall(".//e:ActiveList/e:ItemArray/e:Item", namespaces=ns_map):
+        for item in root.findall(
+            ".//e:ActiveList/e:ItemArray/e:Item", namespaces=ns_map
+        ):
             site = item.findtext("e:Site", "", namespaces=ns_map)
             if site and site != "US":
                 continue
@@ -342,19 +372,25 @@ def get_active_listings_trading() -> list[EbayItem]:
             # SKU: あれば使う、なければ item_id を SKU として使用
             sku = item.findtext("e:SKU", "", namespaces=ns_map) or item_id
 
-            items.append(EbayItem(
-                item_id=item_id,
-                sku=sku,
-                title=title,
-                price_usd=float(price_text),
-                quantity=quantity,
-                is_out_of_stock=(quantity == 0),
-                listing_id=item_id,
-                category_name=site or "",
-            ))
+            items.append(
+                EbayItem(
+                    item_id=item_id,
+                    sku=sku,
+                    title=title,
+                    price_usd=float(price_text),
+                    quantity=quantity,
+                    is_out_of_stock=(quantity == 0),
+                    listing_id=item_id,
+                    category_name=site or "",
+                )
+            )
 
         total_pages = int(
-            root.findtext(".//e:ActiveList/e:PaginationResult/e:TotalNumberOfPages", "1", namespaces=ns_map)
+            root.findtext(
+                ".//e:ActiveList/e:PaginationResult/e:TotalNumberOfPages",
+                "1",
+                namespaces=ns_map,
+            )
         )
         if page >= total_pages:
             break
@@ -365,6 +401,7 @@ def get_active_listings_trading() -> list[EbayItem]:
 
 
 # ── Browse API (公開情報・競合分析) ───────────────────────
+
 
 def search_ebay(query: str, limit: int = 50, category_id: str = "") -> list[dict]:
     """eBay Browse API で商品検索（公開情報・Client Credentials トークン使用）"""
@@ -381,18 +418,22 @@ def search_ebay(query: str, limit: int = 50, category_id: str = "") -> list[dict
 
     results = []
     for item in resp.json().get("itemSummaries", []):
-        results.append({
-            "item_id": item.get("itemId", ""),
-            "title": item.get("title", ""),
-            "price": float(item.get("price", {}).get("value", 0)),
-            "currency": item.get("price", {}).get("currency", "USD"),
-            "condition": item.get("condition", ""),
-            "image_url": item.get("image", {}).get("imageUrl", ""),
-            "item_url": item.get("itemWebUrl", ""),
-            "seller": item.get("seller", {}).get("username", ""),
-            "seller_feedback": item.get("seller", {}).get("feedbackPercentage", ""),
-            "category_id": item.get("categories", [{}])[0].get("categoryId", "") if item.get("categories") else "",
-        })
+        results.append(
+            {
+                "item_id": item.get("itemId", ""),
+                "title": item.get("title", ""),
+                "price": float(item.get("price", {}).get("value", 0)),
+                "currency": item.get("price", {}).get("currency", "USD"),
+                "condition": item.get("condition", ""),
+                "image_url": item.get("image", {}).get("imageUrl", ""),
+                "item_url": item.get("itemWebUrl", ""),
+                "seller": item.get("seller", {}).get("username", ""),
+                "seller_feedback": item.get("seller", {}).get("feedbackPercentage", ""),
+                "category_id": item.get("categories", [{}])[0].get("categoryId", "")
+                if item.get("categories")
+                else "",
+            }
+        )
 
     return results
 
@@ -411,6 +452,7 @@ def get_item_details(item_id: str) -> Optional[dict]:
 
 
 # ── Browse API ディスカバリー検索 ──────────────────────────
+
 
 def search_ebay_discover(
     query: str,
@@ -450,7 +492,9 @@ def search_ebay_discover(
     url = f"{EBAY_API_BASE}/buy/browse/v1/item_summary/search"
     resp = requests.get(url, headers=headers, params=params, timeout=15)
     if resp.status_code != 200:
-        logger.warning(f"Browse API discover error: {resp.status_code} {resp.text[:200]}")
+        logger.warning(
+            f"Browse API discover error: {resp.status_code} {resp.text[:200]}"
+        )
         return {"items": [], "total": 0}
 
     data = resp.json()
@@ -460,33 +504,37 @@ def search_ebay_discover(
     for item in data.get("itemSummaries", []):
         # soldQuantity 取得（マルチ数量リスティング）
         qty_sold = 0
-        for avail in (item.get("estimatedAvailabilities") or []):
+        for avail in item.get("estimatedAvailabilities") or []:
             qty_sold += avail.get("soldQuantity", 0)
 
-        items.append({
-            "item_id": item.get("itemId", ""),
-            "title": item.get("title", ""),
-            "price": float(item.get("price", {}).get("value", 0)),
-            "currency": item.get("price", {}).get("currency", "USD"),
-            "condition": item.get("condition", ""),
-            "condition_id": item.get("conditionId", ""),
-            "image_url": item.get("image", {}).get("imageUrl", ""),
-            "item_url": item.get("itemWebUrl", ""),
-            "seller": item.get("seller", {}).get("username", ""),
-            "seller_feedback": item.get("seller", {}).get("feedbackScore", 0),
-            "sold_quantity": qty_sold,
-            "buying_options": item.get("buyingOptions", []),
-            "category_id": (
-                item.get("categories", [{}])[0].get("categoryId", "")
-                if item.get("categories") else ""
-            ),
-            "item_location": item.get("itemLocation", {}).get("country", ""),
-        })
+        items.append(
+            {
+                "item_id": item.get("itemId", ""),
+                "title": item.get("title", ""),
+                "price": float(item.get("price", {}).get("value", 0)),
+                "currency": item.get("price", {}).get("currency", "USD"),
+                "condition": item.get("condition", ""),
+                "condition_id": item.get("conditionId", ""),
+                "image_url": item.get("image", {}).get("imageUrl", ""),
+                "item_url": item.get("itemWebUrl", ""),
+                "seller": item.get("seller", {}).get("username", ""),
+                "seller_feedback": item.get("seller", {}).get("feedbackScore", 0),
+                "sold_quantity": qty_sold,
+                "buying_options": item.get("buyingOptions", []),
+                "category_id": (
+                    item.get("categories", [{}])[0].get("categoryId", "")
+                    if item.get("categories")
+                    else ""
+                ),
+                "item_location": item.get("itemLocation", {}).get("country", ""),
+            }
+        )
 
     return {"items": items, "total": total}
 
 
 # ── Finding API (完了リスト — 売れた商品分析) ─────────────
+
 
 def search_ebay_sold(query: str, limit: int = 50, category_id: str = "") -> list[dict]:
     """
@@ -521,21 +569,24 @@ def search_ebay_sold(query: str, limit: int = 50, category_id: str = "") -> list
         for avail in sold_qty:
             qty_sold += avail.get("soldQuantity", 0)
 
-        results.append({
-            "item_id": item.get("itemId", ""),
-            "title": item.get("title", ""),
-            "price": float(item.get("price", {}).get("value", 0)),
-            "currency": item.get("price", {}).get("currency", "USD"),
-            "condition": item.get("condition", ""),
-            "image_url": item.get("image", {}).get("imageUrl", ""),
-            "item_url": item.get("itemWebUrl", ""),
-            "seller": item.get("seller", {}).get("username", ""),
-            "sold_quantity": qty_sold,
-            "category_id": (
-                item.get("categories", [{}])[0].get("categoryId", "")
-                if item.get("categories") else ""
-            ),
-        })
+        results.append(
+            {
+                "item_id": item.get("itemId", ""),
+                "title": item.get("title", ""),
+                "price": float(item.get("price", {}).get("value", 0)),
+                "currency": item.get("price", {}).get("currency", "USD"),
+                "condition": item.get("condition", ""),
+                "image_url": item.get("image", {}).get("imageUrl", ""),
+                "item_url": item.get("itemWebUrl", ""),
+                "seller": item.get("seller", {}).get("username", ""),
+                "sold_quantity": qty_sold,
+                "category_id": (
+                    item.get("categories", [{}])[0].get("categoryId", "")
+                    if item.get("categories")
+                    else ""
+                ),
+            }
+        )
 
     # 売れた数量順でソート
     results.sort(key=lambda x: x["sold_quantity"], reverse=True)
@@ -544,10 +595,13 @@ def search_ebay_sold(query: str, limit: int = 50, category_id: str = "") -> list
 
 # ── 売上取得 (Trading API GetOrders) ─────────────────────
 
+
 def get_recent_orders(days: int = 30) -> list[dict]:
     """Trading API (GetOrders) で最近の注文を取得する。"""
     token = get_access_token()
-    from_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%dT00:00:00.000Z")
+    from_date = (datetime.utcnow() - timedelta(days=days)).strftime(
+        "%Y-%m-%dT00:00:00.000Z"
+    )
     to_date = datetime.utcnow().strftime("%Y-%m-%dT23:59:59.000Z")
 
     xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
@@ -601,7 +655,9 @@ def get_recent_orders(days: int = 30) -> list[dict]:
 
         # 注文内のアイテム
         items = []
-        for txn in order_el.findall(".//e:TransactionArray/e:Transaction", namespaces=ns_map):
+        for txn in order_el.findall(
+            ".//e:TransactionArray/e:Transaction", namespaces=ns_map
+        ):
             item_el = txn.find("e:Item", namespaces=ns_map)
             if item_el is None:
                 continue
@@ -611,13 +667,15 @@ def get_recent_orders(days: int = 30) -> list[dict]:
             qty = int(txn.findtext("e:QuantityPurchased", "1", namespaces=ns_map))
             price_str = txn.findtext("e:TransactionPrice", "0", namespaces=ns_map)
 
-            items.append({
-                "item_id": item_id,
-                "sku": sku,
-                "title": title,
-                "quantity": qty,
-                "price_usd": float(price_str),
-            })
+            items.append(
+                {
+                    "item_id": item_id,
+                    "sku": sku,
+                    "title": title,
+                    "quantity": qty,
+                    "price_usd": float(price_str),
+                }
+            )
 
         # 追跡番号（ShipmentTrackingDetails から取得）
         tracking_details = order_el.findall(
@@ -645,18 +703,20 @@ def get_recent_orders(days: int = 30) -> list[dict]:
             ".//e:ShippingServiceSelected/e:ShippingServiceCost", "0", namespaces=ns_map
         )
 
-        orders.append({
-            "order_id": order_id,
-            "total_usd": float(total_str),
-            "created_time": created,
-            "buyer_id": buyer_id,
-            "buyer_name": buyer_name,
-            "buyer_country": buyer_country,
-            "shipping_cost_usd": float(shipping_cost),
-            "tracking_number": tracking_numbers[0] if tracking_numbers else "",
-            "shipping_carrier": shipping_carrier,
-            "items": items,
-        })
+        orders.append(
+            {
+                "order_id": order_id,
+                "total_usd": float(total_str),
+                "created_time": created,
+                "buyer_id": buyer_id,
+                "buyer_name": buyer_name,
+                "buyer_country": buyer_country,
+                "shipping_cost_usd": float(shipping_cost),
+                "tracking_number": tracking_numbers[0] if tracking_numbers else "",
+                "shipping_carrier": shipping_carrier,
+                "items": items,
+            }
+        )
 
     logger.info(f"GetOrders: {len(orders)}件の注文を取得")
     return orders
@@ -731,7 +791,11 @@ def get_all_orders(from_date: str = "", to_date: str = "") -> list[dict]:
             # バイヤー情報
             buyer_info = o.get("buyer", {})
             buyer_id = buyer_info.get("username", "")
-            ship_to = o.get("fulfillmentStartInstructions", [{}])[0].get("shippingStep", {}).get("shipTo", {})
+            ship_to = (
+                o.get("fulfillmentStartInstructions", [{}])[0]
+                .get("shippingStep", {})
+                .get("shipTo", {})
+            )
             buyer_name = ship_to.get("fullName", "")
             buyer_country = ship_to.get("contactAddress", {}).get("countryCode", "")
 
@@ -763,15 +827,19 @@ def get_all_orders(from_date: str = "", to_date: str = "") -> list[dict]:
                 qty = li.get("quantity", 1)
                 price_val = float(li.get("lineItemCost", {}).get("value", "0"))
 
-                items.append({
-                    "item_id": item_id,
-                    "sku": sku,
-                    "title": title,
-                    "quantity": qty,
-                    "price_usd": price_val,
-                })
+                items.append(
+                    {
+                        "item_id": item_id,
+                        "sku": sku,
+                        "title": title,
+                        "quantity": qty,
+                        "price_usd": price_val,
+                    }
+                )
 
-            total_val = float(o.get("pricingSummary", {}).get("total", {}).get("value", "0"))
+            total_val = float(
+                o.get("pricingSummary", {}).get("total", {}).get("value", "0")
+            )
             shipping_cost_val = float(
                 o.get("pricingSummary", {}).get("deliveryCost", {}).get("value", "0")
             )
@@ -780,21 +848,25 @@ def get_all_orders(from_date: str = "", to_date: str = "") -> list[dict]:
                 o.get("paymentSummary", {}).get("totalDueSeller", {}).get("value", "0")
             )
             # eBay手数料 = 売上 - 実受取額
-            ebay_fees_actual = round(total_val - total_due_seller, 2) if total_due_seller else 0
+            ebay_fees_actual = (
+                round(total_val - total_due_seller, 2) if total_due_seller else 0
+            )
 
-            all_orders.append({
-                "order_id": order_id,
-                "total_usd": total_val,
-                "created_time": created,
-                "buyer_id": buyer_id,
-                "buyer_name": buyer_name,
-                "buyer_country": buyer_country,
-                "shipping_cost_usd": shipping_cost_val,
-                "tracking_number": tracking_number,
-                "shipping_carrier": shipping_carrier,
-                "ebay_fees_usd": ebay_fees_actual,
-                "items": items,
-            })
+            all_orders.append(
+                {
+                    "order_id": order_id,
+                    "total_usd": total_val,
+                    "created_time": created,
+                    "buyer_id": buyer_id,
+                    "buyer_name": buyer_name,
+                    "buyer_country": buyer_country,
+                    "shipping_cost_usd": shipping_cost_val,
+                    "tracking_number": tracking_number,
+                    "shipping_carrier": shipping_carrier,
+                    "ebay_fees_usd": ebay_fees_actual,
+                    "items": items,
+                }
+            )
 
         total_count = data.get("total", 0)
         offset += limit
@@ -809,6 +881,7 @@ def get_all_orders(from_date: str = "", to_date: str = "") -> list[dict]:
 
 # ── バイヤーメッセージ (Trading API GetMyMessages) ────────
 
+
 def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
     """Trading API (GetMyMessages) でバイヤーメッセージを全件取得する。
 
@@ -817,7 +890,9 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
     2. ReturnMessages + MessageIDs でメッセージ本文を取得
     """
     token = get_access_token()
-    from_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%dT00:00:00.000Z")
+    from_date = (datetime.utcnow() - timedelta(days=days)).strftime(
+        "%Y-%m-%dT00:00:00.000Z"
+    )
 
     headers = {
         "X-EBAY-API-SITEID": "0",
@@ -856,7 +931,9 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
             )
 
             if resp.status_code != 200:
-                logger.error(f"GetMyMessages folder={folder_id} page={page} failed: {resp.status_code}")
+                logger.error(
+                    f"GetMyMessages folder={folder_id} page={page} failed: {resp.status_code}"
+                )
                 break
 
             root = ET.fromstring(resp.text)
@@ -879,14 +956,20 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
                     pass
 
                 if is_sent:
-                    recipient = msg_el.findtext("e:SendToName", "", namespaces=ns_map) or msg_el.findtext("e:RecipientUserID", "", namespaces=ns_map) or ""
+                    recipient = (
+                        msg_el.findtext("e:SendToName", "", namespaces=ns_map)
+                        or msg_el.findtext("e:RecipientUserID", "", namespaces=ns_map)
+                        or ""
+                    )
                     all_headers[msg_id] = {
                         "message_id": msg_id,
                         "sender": "me",
                         "recipient": recipient,
                         "subject": subject_raw,
                         "body": "",
-                        "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
+                        "received_date": msg_el.findtext(
+                            "e:ReceiveDate", "", namespaces=ns_map
+                        ),
                         "is_read": True,
                         "item_id": msg_el.findtext("e:ItemID", "", namespaces=ns_map),
                         "responded": True,
@@ -898,15 +981,27 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
                         "sender": msg_el.findtext("e:Sender", "", namespaces=ns_map),
                         "subject": subject_raw,
                         "body": "",
-                        "received_date": msg_el.findtext("e:ReceiveDate", "", namespaces=ns_map),
-                        "is_read": msg_el.findtext("e:Read", "false", namespaces=ns_map) == "true",
+                        "received_date": msg_el.findtext(
+                            "e:ReceiveDate", "", namespaces=ns_map
+                        ),
+                        "is_read": msg_el.findtext("e:Read", "false", namespaces=ns_map)
+                        == "true",
                         "item_id": msg_el.findtext("e:ItemID", "", namespaces=ns_map),
-                        "responded": msg_el.findtext("e:Replied", "false", namespaces=ns_map) == "true",
+                        "responded": msg_el.findtext(
+                            "e:Replied", "false", namespaces=ns_map
+                        )
+                        == "true",
                     }
 
             # 次ページがあるか確認
-            total_pages = int(root.findtext(".//e:PaginationResult/e:TotalNumberOfPages", "1", namespaces=ns_map))
-            logger.info(f"GetMyMessages folder={folder_id} page={page}/{total_pages}: {len(page_msgs)} msgs")
+            total_pages = int(
+                root.findtext(
+                    ".//e:PaginationResult/e:TotalNumberOfPages", "1", namespaces=ns_map
+                )
+            )
+            logger.info(
+                f"GetMyMessages folder={folder_id} page={page}/{total_pages}: {len(page_msgs)} msgs"
+            )
             if page >= total_pages:
                 break
             page += 1
@@ -923,7 +1018,7 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
     # Step 2: メッセージ本文を取得（10件ずつバッチ）
     all_ids = list(msg_headers.keys())
     for i in range(0, len(all_ids), 10):
-        batch_ids = all_ids[i:i + 10]
+        batch_ids = all_ids[i : i + 10]
         ids_xml = "\n".join(f"    <MessageID>{mid}</MessageID>" for mid in batch_ids)
 
         xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
@@ -948,7 +1043,9 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
             root2 = ET.fromstring(resp2.text)
             ack2 = root2.findtext("e:Ack", "", namespaces=ns_map)
             if ack2 in ("Success", "Warning"):
-                for msg_el in root2.findall(".//e:Messages/e:Message", namespaces=ns_map):
+                for msg_el in root2.findall(
+                    ".//e:Messages/e:Message", namespaces=ns_map
+                ):
                     mid = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
                     body_text = msg_el.findtext("e:Text", "", namespaces=ns_map)
                     if mid in msg_headers and body_text:
@@ -956,7 +1053,9 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
                     # 添付画像（MessageMedia）を抽出
                     if mid in msg_headers:
                         media_urls = []
-                        for media in msg_el.findall(".//e:MessageMedia", namespaces=ns_map):
+                        for media in msg_el.findall(
+                            ".//e:MessageMedia", namespaces=ns_map
+                        ):
                             url = media.findtext("e:MediaURL", "", namespaces=ns_map)
                             if url:
                                 media_urls.append(url)
@@ -973,8 +1072,10 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
     if sent_headers:
         sent_ids = list(sent_headers.keys())
         for i in range(0, len(sent_ids), 10):
-            batch_ids = sent_ids[i:i + 10]
-            ids_xml = "\n".join(f"    <MessageID>{mid}</MessageID>" for mid in batch_ids)
+            batch_ids = sent_ids[i : i + 10]
+            ids_xml = "\n".join(
+                f"    <MessageID>{mid}</MessageID>" for mid in batch_ids
+            )
             xml_body_sent = f"""<?xml version="1.0" encoding="utf-8"?>
 <GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
     <RequesterCredentials>
@@ -993,8 +1094,13 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
             )
             if resp3.status_code == 200:
                 root3 = ET.fromstring(resp3.text)
-                if root3.findtext("e:Ack", "", namespaces=ns_map) in ("Success", "Warning"):
-                    for msg_el in root3.findall(".//e:Messages/e:Message", namespaces=ns_map):
+                if root3.findtext("e:Ack", "", namespaces=ns_map) in (
+                    "Success",
+                    "Warning",
+                ):
+                    for msg_el in root3.findall(
+                        ".//e:Messages/e:Message", namespaces=ns_map
+                    ):
                         mid = msg_el.findtext("e:MessageID", "", namespaces=ns_map)
                         body_text = msg_el.findtext("e:Text", "", namespaces=ns_map)
                         if mid in sent_headers and body_text:
@@ -1008,7 +1114,9 @@ def get_buyer_messages(days: int = 30, limit: int = 200) -> list[dict]:
         if msg["body"] and msg["body"].strip().startswith("<"):
             msg["body"] = _html_to_text(msg["body"])
 
-    logger.info(f"GetMyMessages: 受信{len(msg_headers)}件 + 送信{len(sent_headers)}件 = {len(all_messages)}件")
+    logger.info(
+        f"GetMyMessages: 受信{len(msg_headers)}件 + 送信{len(sent_headers)}件 = {len(all_messages)}件"
+    )
     return all_messages
 
 
@@ -1019,10 +1127,12 @@ def _html_to_text(html: str) -> str:
 
     class _Extractor(HTMLParser):
         """HTML→テキスト変換。<p>→段落区切り(\n\n), <br>→改行(\n)を保持。"""
+
         def __init__(self):
             super().__init__()
             self.parts: list[str] = []
             self.skip = False
+
         def handle_starttag(self, tag, attrs):
             if tag in ("style", "head", "script"):
                 self.skip = True
@@ -1031,11 +1141,13 @@ def _html_to_text(html: str) -> str:
             if tag in ("p", "div", "tr"):
                 if self.parts and self.parts[-1] != "\n":
                     self.parts.append("\n")
+
         def handle_endtag(self, tag):
             if tag in ("style", "head", "script"):
                 self.skip = False
             if tag == "p":
                 self.parts.append("\n")
+
         def handle_data(self, data):
             if not self.skip:
                 self.parts.append(data)
@@ -1049,6 +1161,7 @@ def _html_to_text(html: str) -> str:
     # UserInputtedText → ユーザーの実メッセージのみ抽出
     try:
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(html, "html.parser")
         user_text_div = soup.find(id="UserInputtedText")
         if user_text_div:
@@ -1187,6 +1300,7 @@ def _html_to_text(html: str) -> str:
 
 # ── メッセージ送信 (Trading API — 自動判定) ──
 
+
 def _is_transaction_partner(item_id: str, recipient_id: str) -> bool:
     """バイヤーがその商品の取引パートナー（購入者）かどうか判定する。
 
@@ -1194,20 +1308,29 @@ def _is_transaction_partner(item_id: str, recipient_id: str) -> bool:
     """
     try:
         from database.models import get_db, SalesRecord
+
         db = get_db()
         # item_id経由でSalesRecordを検索
-        sale = db.query(SalesRecord).filter(
-            SalesRecord.item_id == item_id,
-            SalesRecord.buyer_name == recipient_id,
-        ).first()
+        sale = (
+            db.query(SalesRecord)
+            .filter(
+                SalesRecord.item_id == item_id,
+                SalesRecord.buyer_name == recipient_id,
+            )
+            .first()
+        )
         db.close()
         if sale:
             return True
         # buyer_nameが実名の場合もあるので、item_idだけでも確認
         db = get_db()
-        sale_by_item = db.query(SalesRecord).filter(
-            SalesRecord.item_id == item_id,
-        ).first()
+        sale_by_item = (
+            db.query(SalesRecord)
+            .filter(
+                SalesRecord.item_id == item_id,
+            )
+            .first()
+        )
         db.close()
         return sale_by_item is not None
     except Exception as e:
@@ -1278,19 +1401,29 @@ def send_buyer_message(
         if not parent_message_id:
             try:
                 from database.models import get_db, BuyerMessage
+
                 db = get_db()
-                last_msg = db.query(BuyerMessage).filter(
-                    BuyerMessage.sender == recipient_id,
-                    BuyerMessage.item_id == item_id,
-                    BuyerMessage.direction == "inbound",
-                ).order_by(BuyerMessage.received_at.desc()).first()
+                last_msg = (
+                    db.query(BuyerMessage)
+                    .filter(
+                        BuyerMessage.sender == recipient_id,
+                        BuyerMessage.item_id == item_id,
+                        BuyerMessage.direction == "inbound",
+                    )
+                    .order_by(BuyerMessage.received_at.desc())
+                    .first()
+                )
                 if last_msg and last_msg.ebay_message_id:
                     parent_message_id = last_msg.ebay_message_id
                 db.close()
             except Exception as e:
                 logger.warning(f"親メッセージID取得エラー: {e}")
 
-        parent_xml = f"<ParentMessageID>{parent_message_id}</ParentMessageID>" if parent_message_id else ""
+        parent_xml = (
+            f"<ParentMessageID>{parent_message_id}</ParentMessageID>"
+            if parent_message_id
+            else ""
+        )
 
         xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
 <AddMemberMessageRTQRequest xmlns="urn:ebay:apis:eBLBaseComponents">
@@ -1330,7 +1463,9 @@ def send_buyer_message(
     root = ET.fromstring(resp.text)
     ack = root.findtext("e:Ack", "", namespaces=ns_map)
     if ack in ("Success", "Warning"):
-        logger.info(f"メッセージ送信成功: {recipient_id} (item={item_id}, api={api_call})")
+        logger.info(
+            f"メッセージ送信成功: {recipient_id} (item={item_id}, api={api_call})"
+        )
         return {"success": True}
     else:
         errors = root.findall(".//e:Errors/e:ShortMessage", namespaces=ns_map)
@@ -1340,14 +1475,24 @@ def send_buyer_message(
         logger.error(f"SendMessage error ({api_call}): {error_msg} — {long_msg}")
 
         # AAQToPartnerで失敗した場合、RTQにフォールバック
-        if api_call == "AddMemberMessageAAQToPartner" and "partner" in (long_msg or error_msg).lower():
+        if (
+            api_call == "AddMemberMessageAAQToPartner"
+            and "partner" in (long_msg or error_msg).lower()
+        ):
             logger.info("AAQToPartner失敗 → RTQにフォールバック")
             return send_buyer_message(
-                item_id, recipient_id, body, subject, image_urls,
+                item_id,
+                recipient_id,
+                body,
+                subject,
+                image_urls,
                 parent_message_id=parent_message_id,
             )
 
-        return {"success": False, "error": f"{error_msg}: {long_msg}" if long_msg else error_msg}
+        return {
+            "success": False,
+            "error": f"{error_msg}: {long_msg}" if long_msg else error_msg,
+        }
 
 
 def mark_messages_read(message_ids: list[str], read: bool = True) -> dict:
@@ -1400,6 +1545,7 @@ def upload_message_image(image_path: str) -> dict:
         {"success": bool, "url": str | None, "error": str | None}
     """
     import base64
+
     token = get_access_token()
 
     with open(image_path, "rb") as f:
@@ -1407,7 +1553,12 @@ def upload_message_image(image_path: str) -> dict:
 
     # ファイル拡張子からMIMEタイプ推定
     ext = image_path.rsplit(".", 1)[-1].lower() if "." in image_path else "jpg"
-    mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif"}
+    mime_map = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "gif": "image/gif",
+    }
     mime_type = mime_map.get(ext, "image/jpeg")
 
     xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
@@ -1440,7 +1591,9 @@ def upload_message_image(image_path: str) -> dict:
     root = ET.fromstring(resp.text)
     ack = root.findtext("e:Ack", "", namespaces=ns_map)
     if ack in ("Success", "Warning"):
-        full_url = root.findtext(".//e:SiteHostedPictureDetails/e:FullURL", "", namespaces=ns_map)
+        full_url = root.findtext(
+            ".//e:SiteHostedPictureDetails/e:FullURL", "", namespaces=ns_map
+        )
         logger.info(f"画像アップロード成功: {full_url}")
         return {"success": True, "url": full_url}
     else:
@@ -1450,6 +1603,7 @@ def upload_message_image(image_path: str) -> dict:
 
 
 # ── Post-Order API (リターン・キャンセル) ────────────────
+
 
 def get_return_requests(order_id: str = "", limit: int = 20) -> list:
     """Post-Order API でリターンリクエスト一覧を取得する。"""
@@ -1468,19 +1622,23 @@ def get_return_requests(order_id: str = "", limit: int = 20) -> list:
     returns = []
     for r in data.get("members", []):
         detail = r.get("returnRequest", r)
-        returns.append({
-            "return_id": detail.get("returnId", ""),
-            "order_id": detail.get("orderId", ""),
-            "item_id": detail.get("itemId", ""),
-            "buyer": detail.get("buyerLoginName", ""),
-            "reason": detail.get("returnReason", ""),
-            "status": detail.get("currentStatus", detail.get("state", "")),
-            "type": detail.get("returnType", ""),
-            "created_date": detail.get("creationDate", {}).get("value", ""),
-            "deadline": detail.get("sellerResponseDue", {}).get("value", ""),
-            "refund_amount": detail.get("returnRefundAmount", {}).get("value", ""),
-            "tracking_number": detail.get("returnShipment", {}).get("shipmentTrackingNumber", ""),
-        })
+        returns.append(
+            {
+                "return_id": detail.get("returnId", ""),
+                "order_id": detail.get("orderId", ""),
+                "item_id": detail.get("itemId", ""),
+                "buyer": detail.get("buyerLoginName", ""),
+                "reason": detail.get("returnReason", ""),
+                "status": detail.get("currentStatus", detail.get("state", "")),
+                "type": detail.get("returnType", ""),
+                "created_date": detail.get("creationDate", {}).get("value", ""),
+                "deadline": detail.get("sellerResponseDue", {}).get("value", ""),
+                "refund_amount": detail.get("returnRefundAmount", {}).get("value", ""),
+                "tracking_number": detail.get("returnShipment", {}).get(
+                    "shipmentTrackingNumber", ""
+                ),
+            }
+        )
     logger.info(f"リターンリクエスト: {len(returns)}件取得")
     return returns
 
@@ -1511,15 +1669,17 @@ def get_cancellation_requests(order_id: str = "") -> list:
     data = resp.json()
     cancels = []
     for c in data.get("cancellations", []):
-        cancels.append({
-            "cancel_id": c.get("cancelId", ""),
-            "order_id": c.get("legacyOrderId", c.get("orderId", "")),
-            "item_id": c.get("itemId", ""),
-            "buyer": c.get("buyerLoginName", ""),
-            "reason": c.get("cancelReason", ""),
-            "status": c.get("cancelStatus", ""),
-            "requested_date": c.get("requestedDate", ""),
-        })
+        cancels.append(
+            {
+                "cancel_id": c.get("cancelId", ""),
+                "order_id": c.get("legacyOrderId", c.get("orderId", "")),
+                "item_id": c.get("itemId", ""),
+                "buyer": c.get("buyerLoginName", ""),
+                "reason": c.get("cancelReason", ""),
+                "status": c.get("cancelStatus", ""),
+                "requested_date": c.get("requestedDate", ""),
+            }
+        )
     return cancels
 
 
@@ -1554,7 +1714,12 @@ def get_best_offers(item_id: str) -> list[dict]:
         "X-EBAY-API-CALL-NAME": "GetBestOffers",
         "Content-Type": "text/xml",
     }
-    resp = requests.post(f"{EBAY_API_BASE}/ws/api.dll", headers=headers, data=xml_body.encode("utf-8"), timeout=30)
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        headers=headers,
+        data=xml_body.encode("utf-8"),
+        timeout=30,
+    )
     ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
     offers = []
     try:
@@ -1567,15 +1732,17 @@ def get_best_offers(item_id: str) -> list[dict]:
             quantity = offer.findtext("e:Quantity", "1", ns)
             buyer_id = offer.findtext(".//e:Buyer/e:UserID", "", ns)
             expiry = offer.findtext("e:ExpirationTime", "", ns)
-            offers.append({
-                "offer_id": offer_id,
-                "status": status,
-                "price": float(price),
-                "currency": currency,
-                "quantity": int(quantity),
-                "buyer": buyer_id,
-                "expires": expiry,
-            })
+            offers.append(
+                {
+                    "offer_id": offer_id,
+                    "status": status,
+                    "price": float(price),
+                    "currency": currency,
+                    "quantity": int(quantity),
+                    "buyer": buyer_id,
+                    "expires": expiry,
+                }
+            )
     except Exception as e:
         logger.warning(f"GetBestOffers parse error: {e}")
     return offers
@@ -1599,7 +1766,11 @@ def respond_to_best_offer(
         <Value>{counter_price:.2f}</Value>
         <CurrencyID>USD</CurrencyID>
     </CounterOfferPrice>"""
-    msg_xml = f"<SellerResponse>{_xml_escape(counter_message)}</SellerResponse>" if counter_message else ""
+    msg_xml = (
+        f"<SellerResponse>{_xml_escape(counter_message)}</SellerResponse>"
+        if counter_message
+        else ""
+    )
 
     xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
 <RespondToBestOfferRequest xmlns="urn:ebay:apis:eBLBaseComponents">
@@ -1616,13 +1787,20 @@ def respond_to_best_offer(
         "X-EBAY-API-CALL-NAME": "RespondToBestOffer",
         "Content-Type": "text/xml",
     }
-    resp = requests.post(f"{EBAY_API_BASE}/ws/api.dll", headers=headers, data=xml_body.encode("utf-8"), timeout=30)
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        headers=headers,
+        data=xml_body.encode("utf-8"),
+        timeout=30,
+    )
     ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
     try:
         root = ET.fromstring(resp.text)
         ack = root.findtext("e:Ack", "", ns)
         if ack in ("Success", "Warning"):
-            logger.info(f"RespondToBestOffer成功: item={item_id} offer={offer_id} action={action}")
+            logger.info(
+                f"RespondToBestOffer成功: item={item_id} offer={offer_id} action={action}"
+            )
             return {"success": True, "action": action}
         errors = root.findall(".//e:Errors/e:ShortMessage", ns)
         error_msg = errors[0].text if errors else "Unknown error"
@@ -1672,6 +1850,7 @@ def _xml_escape(text: str) -> str:
 
 # ── カテゴリ Item Specifics 取得 (Taxonomy API) ──────────
 
+
 def get_category_aspects(category_id: str) -> dict:
     """
     Taxonomy API でカテゴリの必須/推奨 Item Specifics を取得する。
@@ -1697,24 +1876,39 @@ def get_category_aspects(category_id: str) -> dict:
         constraint = aspect.get("aspectConstraint", {})
         mode = constraint.get("aspectUsage", "RECOMMENDED")
         values = [
-            v.get("localizedValue", "")
-            for v in aspect.get("aspectValues", [])[:20]
+            v.get("localizedValue", "") for v in aspect.get("aspectValues", [])[:20]
         ]
-        entry = {"name": name, "values": values, "data_type": constraint.get("aspectDataType", "STRING")}
+        entry = {
+            "name": name,
+            "values": values,
+            "data_type": constraint.get("aspectDataType", "STRING"),
+        }
 
         if mode == "REQUIRED":
             required.append(entry)
         else:
             recommended.append(entry)
 
-    logger.info(f"カテゴリ {category_id} Aspects: 必須{len(required)}件, 推奨{len(recommended)}件")
-    return {"category_id": category_id, "required": required, "recommended": recommended}
+    logger.info(
+        f"カテゴリ {category_id} Aspects: 必須{len(required)}件, 推奨{len(recommended)}件"
+    )
+    return {
+        "category_id": category_id,
+        "required": required,
+        "recommended": recommended,
+    }
 
 
 # ── 新規出品 (Inventory API) ─────────────────────────────
 
-def create_inventory_item(sku: str, product: dict, condition: str = "",
-                          condition_description: str = "", quantity: int = 1) -> dict:
+
+def create_inventory_item(
+    sku: str,
+    product: dict,
+    condition: str = "",
+    condition_description: str = "",
+    quantity: int = 1,
+) -> dict:
     """
     Sell Inventory API で新規 Inventory Item を作成する。
 
@@ -1869,12 +2063,112 @@ def get_payment_policies() -> list[dict]:
 
 # ── 出品更新 ──────────────────────────────────────────────
 
-def update_listing(sku: str, updates: dict) -> dict:
+
+def _xml_escape(s: str) -> str:
+    return (
+        s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def revise_listing_trading(item_id: str, updates: dict) -> dict:
+    """Trading API (ReviseFixedPriceItem) で ItemID 指定の出品を更新する。
+
+    Sell Inventory API に存在しない（Trading API で出品された）SKU の更新フォールバック。
+    死に筒Refresh はこれで title + price を Revise する（ItemID 維持 → SOLD履歴/e-ship影響なし）。
+
+    updates keys: title, price_usd, quantity, description
     """
-    Sell Inventory API で出品情報を更新する。
-    updates に含まれるフィールドのみ更新。
+    token = get_access_token()
+    result: dict = {"success": False, "changes": []}
+
+    fields = []
+    if "title" in updates:
+        fields.append(f"        <Title>{_xml_escape(updates['title'])}</Title>")
+        result["changes"].append(f"title -> {updates['title']}")
+    if "price_usd" in updates:
+        fields.append(
+            f'        <StartPrice currencyID="USD">{updates["price_usd"]:.2f}</StartPrice>'
+        )
+        result["changes"].append(f"price -> ${updates['price_usd']:.2f}")
+    if "quantity" in updates:
+        fields.append(f"        <Quantity>{int(updates['quantity'])}</Quantity>")
+        result["changes"].append(f"quantity -> {updates['quantity']}")
+    if "description" in updates:
+        fields.append(
+            f"        <Description><![CDATA[{updates['description']}]]></Description>"
+        )
+        result["changes"].append("description updated")
+
+    if not fields:
+        result["error"] = "no updatable fields for Trading revise"
+        return result
+
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <Item>
+        <ItemID>{item_id}</ItemID>
+{chr(10).join(fields)}
+    </Item>
+</ReviseFixedPriceItemRequest>"""
+
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+        "Content-Type": "text/xml",
+    }
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        headers=headers,
+        data=xml_body.encode("utf-8"),
+        timeout=60,
+    )
+    if resp.status_code != 200:
+        result["error"] = f"Trading revise HTTP {resp.status_code}: {resp.text[:300]}"
+        return result
+
+    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    try:
+        root = ET.fromstring(resp.text)
+    except ET.ParseError as e:
+        result["error"] = f"Trading revise XML parse error: {e}"
+        return result
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack in ("Success", "Warning"):
+        logger.info(
+            f"出品更新完了 (Trading): ItemID={item_id} ({', '.join(result['changes'])})"
+        )
+        result["success"] = True
+        return result
+
+    errs = root.findall("e:Errors", namespaces=ns_map)
+    msgs = []
+    for er in errs:
+        sev = er.findtext("e:SeverityCode", "", namespaces=ns_map)
+        msg = er.findtext("e:LongMessage", "", namespaces=ns_map) or er.findtext(
+            "e:ShortMessage", "", namespaces=ns_map
+        )
+        if sev == "Error":
+            msgs.append(msg)
+    result["error"] = "; ".join(msgs) or "ReviseFixedPriceItem failed"
+    return result
+
+
+def update_listing(sku: str, updates: dict, item_id: Optional[str] = None) -> dict:
+    """
+    出品情報を更新する。
+
+    まず Sell Inventory API を試み、対象SKUが存在しなければ（Trading API で出品された
+    アイテム）`item_id` を使った Trading API ReviseFixedPriceItem にフォールバックする。
 
     updates keys: title, description, price_usd, quantity, aspects
+    item_id: eBay ItemID（listings.listing_id）。Inventory API に無いSKUの更新に必要。
     """
     headers = _auth_headers()
     result = {"success": False, "changes": []}
@@ -1883,6 +2177,12 @@ def update_listing(sku: str, updates: dict) -> dict:
     url = f"{EBAY_API_BASE}/sell/inventory/v1/inventory_item/{quote(sku, safe='')}"
     resp = requests.get(url, headers=headers, timeout=15)
     if resp.status_code != 200:
+        # Sell Inventory API に無い → Trading API で出品されたアイテム。ItemID があれば Revise。
+        if item_id:
+            logger.info(
+                f"SKU {sku} は Sell Inventory API に無し → Trading API ReviseFixedPriceItem に切替 (ItemID={item_id})"
+            )
+            return revise_listing_trading(item_id, updates)
         result["error"] = f"SKU {sku} が見つかりません"
         return result
 

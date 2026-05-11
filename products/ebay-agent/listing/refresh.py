@@ -487,6 +487,7 @@ async def refresh_single(
                 "title": new_title,
                 "price_usd": new_price,
             },
+            item_id=listing.listing_id,
         )
         if not result.get("success"):
             err_msg = result.get("error", "unknown") or "unknown"
@@ -695,6 +696,7 @@ def rollback(db: Session, backup_id: int) -> dict:
             "title": backup.old_title,
             "price_usd": backup.old_price_usd,
         },
+        item_id=backup.listing_id,
     )
     if not result.get("success"):
         return {"success": False, "error": result.get("error")}
