@@ -17,7 +17,14 @@
 - `products/d-manager/scheduler.py`: `AsyncIOScheduler`、`async def weekly_review()`、末尾の `_scheduler.add_job(...)` 群。Discord 送信は既存ジョブが使っているヘルパ（`morning_briefing` 等がチャンネルに投稿している方法）に合わせる。
 - `products/d-manager/main.py`: `on_message` 内で `raw = message.content.strip()` のあと `if raw.startswith("!rule"):` `if raw.startswith("!session"):` `if raw.startswith("!run"):` の分岐がある。`send_as_character_with_avatar(channel, text, channel_name)` / `send_to_channel(channel_name, text, view=None)` が使える。
 - `products/d-manager/flows.py`: `async def run_flow(flow_name, args, send_fn, channel_override) -> Optional[str]`。末尾の `if ok:` ブロックでフロー完了。`_run_step` が `process_message` を `loop.run_in_executor` で呼ぶ。
-- `products/d-manager/tests/` は**存在しない** → 作る。pytest 設定ファイルも無い → 必要なら `tests/conftest.py` だけ作る。
+- `products/d-manager/tests/` は Task 2 で作る。`tests/__init__.py` は**作らない**（pytest が親dir `products/d-manager/` を走査して `.env` を `stat()` しに行き PermissionError で死ぬため）。代わりに `tests/pytest.ini` を置いて rootdir を `tests/` に固定する。`tests/conftest.py` が `import config` に必要な環境変数（`DISCORD_BOT_TOKEN` ダミー・`COMPANY_DIR` 実パス・`LEARNING_DB_PATH` テスト用）の既定値を補う。
+
+## 実行環境メモ（このサンドボックスでの作法）
+
+- **Python は必ず venv の `.venv/bin/python` を使う**（システム python は 3.14 で依存が無い・bare `python` は存在しない）。`pip install` はサンドボックスの `**/*.pem` deny で pip 自身が動かないので、追加パッケージが要るときはユーザーに依頼する（pytest はインストール済み）。
+- **テスト実行: `cd products/d-manager && .venv/bin/python -m pytest tests/<file>.py -q`**（`tests/pytest.ini` があるので rootdir は `tests/` になり `.env` を踏まない。`tests/conftest.py` が env を補うので `import config` も通る）。
+- **`python -c "import config|departments|ai_engine|scheduler|main"` 系のスモーク**は conftest を経由しないので env を明示する: `cd products/d-manager && DISCORD_BOT_TOKEN=test-dummy COMPANY_DIR=/Users/Mac_air/Claude-Workspace/.company .venv/bin/python -c "..."`。`learning/` 配下のモジュール（store/cli_runner/reviewer/curator）は config に依存しないので env なしで `import` できる。
+- `.env` / `.env.*` / `*.pem` はサンドボックスで read 不可。`.company/` 配下と Workspace 配下は write 可。
 
 ---
 
@@ -112,37 +119,50 @@ git commit -m "feat(d-manager): 学習ループ用 config 定数を追加"
 
 ## Task 2: learning パッケージと test 足場を作る
 
+> **注:** このタスクは実装済み（コミット `ce569d6` + 足場調整 `<infra-fix>`）。内容は以下のとおり。再実行する場合はこの記述に従うこと。`tests/__init__.py` は作らない。
+
 **Files:**
-- Create: `products/d-manager/learning/__init__.py`
-- Create: `products/d-manager/tests/__init__.py`
+- Create: `products/d-manager/learning/__init__.py`（空）
 - Create: `products/d-manager/tests/conftest.py`
+- Create: `products/d-manager/tests/pytest.ini`
 - Modify: `.gitignore`（リポジトリルート）
 
 - [ ] **Step 1: 空のパッケージファイルを作る**
 
-`products/d-manager/learning/__init__.py`:
-```python
-```
-（完全に空でよい）
+`products/d-manager/learning/__init__.py` は完全に空でよい。`tests/__init__.py` は**作らない**（理由: pytest が親dir `products/d-manager/` を走査して `.env` を `stat()` → サンドボックスで PermissionError → collection が死ぬ）。
 
-`products/d-manager/tests/__init__.py`:
-```python
-```
-（完全に空でよい）
-
-- [ ] **Step 2: conftest.py を作る**
+- [ ] **Step 2: conftest.py と pytest.ini を作る**
 
 `products/d-manager/tests/conftest.py`:
 ```python
-"""pytest 共通設定: d-manager/ をインポートルートに加える。"""
+"""pytest 共通設定: d-manager/ をインポートルートに加え、config が import できる環境変数を補う。"""
+
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
+_D_MANAGER = Path(__file__).resolve().parent.parent  # products/d-manager/
+_WORKSPACE = _D_MANAGER.parent.parent  # リポジトリルート
+
+# config.py は import 時に DISCORD_BOT_TOKEN 必須＆.company 配下に mkdir する。
+# テスト環境（.env を読まない）でも import が通るよう、未設定なら無害なダミー/実パスを与える。
+os.environ.setdefault("DISCORD_BOT_TOKEN", "test-dummy-token")
+os.environ.setdefault("COMPANY_DIR", str(_WORKSPACE / ".company"))
+# 学習ループDBの import 時の既定値もテスト用に逃がす（各テストは tmp_path で個別に上書きする）
+os.environ.setdefault("LEARNING_DB_PATH", str(_D_MANAGER / "learning" / "conversations.test.db"))
+
 # tests/ の親（= products/d-manager/）を sys.path に追加し、`import config` 等を可能にする
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(_D_MANAGER))
 ```
+
+`products/d-manager/tests/pytest.ini`:
+```ini
+[pytest]
+addopts = -p no:cacheprovider
+```
+（`tests/` に置くことで pytest の rootdir が `tests/` になり、`products/d-manager/.env` を踏まなくなる。）
 
 - [ ] **Step 3: .gitignore に追記**
 
@@ -158,13 +178,13 @@ products/d-manager/learning/skill_hits.jsonl
 
 - [ ] **Step 4: pytest が起動できることを確認**
 
-Run: `cd products/d-manager && python -m pytest tests/ -q`
-Expected: `no tests ran`（テストファイルがまだ無いので 0 件。エラーなく終了すること）。`pytest` が無ければ `pip install pytest` してから。
+Run: `cd products/d-manager && .venv/bin/python -m pytest tests/ -q`
+Expected: `no tests ran`（テストファイルがまだ無いので 0 件。エラーなく終了すること）。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add products/d-manager/learning/__init__.py products/d-manager/tests/__init__.py products/d-manager/tests/conftest.py .gitignore
+git add products/d-manager/learning/__init__.py products/d-manager/tests/conftest.py products/d-manager/tests/pytest.ini .gitignore
 git commit -m "chore(d-manager): learning パッケージと pytest 足場・gitignore"
 ```
 
