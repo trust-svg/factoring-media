@@ -2064,13 +2064,63 @@ def get_payment_policies() -> list[dict]:
 # ── 出品更新 ──────────────────────────────────────────────
 
 
-def _xml_escape(s: str) -> str:
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+def get_item_trading(item_id: str) -> dict:
+    """Trading API (GetItem) で ItemID の通貨・タイトル・サイトを取得する。
+
+    Sell Inventory API に無いSKUを Revise する前のセーフティチェック用。
+    Returns: {"ok": bool, "currency": str, "title": str, "site": str, "error": str|None}
+    """
+    token = get_access_token()
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <ItemID>{item_id}</ItemID>
+    <DetailLevel>ReturnAll</DetailLevel>
+</GetItemRequest>"""
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "GetItem",
+        "Content-Type": "text/xml",
+    }
+    try:
+        resp = requests.post(
+            f"{EBAY_API_BASE}/ws/api.dll",
+            headers=headers,
+            data=xml_body.encode("utf-8"),
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        return {"ok": False, "error": f"GetItem request failed: {e}"}
+    if resp.status_code != 200:
+        return {"ok": False, "error": f"GetItem HTTP {resp.status_code}"}
+    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    try:
+        root = ET.fromstring(resp.text)
+    except ET.ParseError as e:
+        return {"ok": False, "error": f"GetItem XML parse error: {e}"}
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack not in ("Success", "Warning"):
+        msg = root.findtext("e:Errors/e:LongMessage", "", namespaces=ns_map) or (
+            root.findtext("e:Errors/e:ShortMessage", "", namespaces=ns_map)
+        )
+        return {"ok": False, "error": msg or "GetItem failed"}
+    item = root.find("e:Item", namespaces=ns_map)
+    if item is None:
+        return {"ok": False, "error": "GetItem: no Item in response"}
+    currency = item.findtext("e:Currency", "", namespaces=ns_map)
+    if not currency:
+        sp = item.find("e:StartPrice", namespaces=ns_map)
+        currency = sp.get("currencyID", "") if sp is not None else ""
+    return {
+        "ok": True,
+        "currency": currency,
+        "title": item.findtext("e:Title", "", namespaces=ns_map),
+        "site": item.findtext("e:Site", "", namespaces=ns_map),
+        "error": None,
+    }
 
 
 def revise_listing_trading(item_id: str, updates: dict) -> dict:
@@ -2079,8 +2129,28 @@ def revise_listing_trading(item_id: str, updates: dict) -> dict:
     Sell Inventory API に存在しない（Trading API で出品された）SKU の更新フォールバック。
     死に筒Refresh はこれで title + price を Revise する（ItemID 維持 → SOLD履歴/e-ship影響なし）。
 
+    安全策: 先に GetItem で通貨を確認し、USD 以外（= ebaymag 管理の海外サイト出品）は
+    値段の桁が壊れる/通貨変更不可エラーになるため Revise せず skipped を返す。
+
     updates keys: title, price_usd, quantity, description
     """
+    # セーフティ: 通貨が USD でなければ触らない（ebaymag 管理対象）
+    info = get_item_trading(item_id)
+    if not info.get("ok"):
+        return {
+            "success": False,
+            "error": f"GetItem失敗: {info.get('error')}",
+            "changes": [],
+        }
+    if (info.get("currency") or "").upper() != "USD":
+        return {
+            "success": False,
+            "skipped": True,
+            "reason": "non_usd_listing_ebaymag_managed",
+            "error": f"通貨={info.get('currency')} のためRefresh対象外（ebaymag管理）",
+            "changes": [],
+        }
+
     token = get_access_token()
     result: dict = {"success": False, "changes": []}
 

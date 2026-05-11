@@ -243,6 +243,8 @@ def find_dead_listings(
         Listing.quantity == 1,
         Listing.source_type.in_(["stocked", "dropship_jp"]),
         ~Listing.sku.in_(recently_sold),
+        # ebaymag 管理の海外サイト出品（過去に GetItem で非USDと判明したもの）は除外
+        or_(Listing.listing_site.is_(None), Listing.listing_site != "INTL"),
     )
 
     if exclude_recently_refreshed:
@@ -491,6 +493,28 @@ async def refresh_single(
         )
         if not result.get("success"):
             err_msg = result.get("error", "unknown") or "unknown"
+
+            # 通貨が USD でない（ebaymag 管理の海外サイト出品）→ 触らず候補から外す。
+            # quantity は弄らない（在庫としては有効）。次回以降は候補に出ないよう
+            # backup を skipped 扱いにし、listings 側に印として site を埋める。
+            if result.get("skipped") and result.get("reason", "").startswith("non_usd"):
+                backup.status = "skipped"
+                backup.error_message = err_msg[:500]
+                if not (listing.listing_site or "").strip():
+                    listing.listing_site = "INTL"  # ebaymag 管理の海外サイト印
+                db.commit()
+                _log_run(db, listing.sku, "non_usd_skip", backup.id, err_msg)
+                logger.info(
+                    f"SKU {listing.sku} は非USD出品（ebaymag管理）→ Refresh対象外"
+                )
+                return {
+                    "sku": listing.sku,
+                    "success": False,
+                    "skipped": True,
+                    "reason": result.get("reason"),
+                    "backup_id": backup.id,
+                }
+
             # eBay側で削除済みSKUは listings.quantity=0 にして次回以降の候補から除外
             sku_missing = "見つかりません" in err_msg or "not found" in err_msg.lower()
             if sku_missing:
