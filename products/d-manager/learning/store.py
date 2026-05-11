@@ -195,3 +195,108 @@ def get_session_row(db_path: Path, channel_id: str, review_date: str) -> Optiona
         return dict(r) if r else None
     finally:
         conn.close()
+
+
+def list_pending_reviews(
+    db_path: Path,
+    today: Optional[dt.date] = None,
+    min_turns: int = 2,
+    max_age_days: int = 2,
+) -> list[dict]:
+    """未レビューで、活動日が今日より前、max_age_days 以内、reviewable、ターン数充足のセッション。"""
+    today = today or dt.date.today()
+    oldest = (today - dt.timedelta(days=max_age_days)).strftime("%Y-%m-%d")
+    cutoff_today = today.strftime("%Y-%m-%d")
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM sessions WHERE review_status IS NULL AND reviewable=1 "
+            "AND review_date < ? AND review_date >= ? AND turn_count >= ? "
+            "ORDER BY review_date, channel_id",
+            (cutoff_today, oldest, min_turns),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def mark_review_start(
+    db_path: Path,
+    channel_id: str,
+    review_date: str,
+    now: Optional[dt.datetime] = None,
+) -> None:
+    conn = _connect(db_path)
+    try:
+        conn.execute(
+            "UPDATE sessions SET review_status='running', review_started_at=? "
+            "WHERE channel_id=? AND review_date=?",
+            (_now_iso(now), channel_id, review_date),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_reviewed(
+    db_path: Path,
+    channel_id: str,
+    review_date: str,
+    status: str,
+    note: str = "",
+    now: Optional[dt.datetime] = None,
+) -> None:
+    conn = _connect(db_path)
+    try:
+        conn.execute(
+            "UPDATE sessions SET review_status=?, reviewed_at=?, review_note=?, review_started_at=NULL "
+            "WHERE channel_id=? AND review_date=?",
+            (status, _now_iso(now), note, channel_id, review_date),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def requeue_stuck(
+    db_path: Path,
+    stuck_minutes: int = 30,
+    now: Optional[dt.datetime] = None,
+) -> int:
+    """review_status='running' のまま stuck_minutes 超のものを NULL に戻す。戻した件数を返す。"""
+    now = now or dt.datetime.now()
+    threshold = (now - dt.timedelta(minutes=stuck_minutes)).strftime(
+        "%Y-%m-%dT%H:%M:%S"
+    )
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute(
+            "UPDATE sessions SET review_status=NULL, review_started_at=NULL "
+            "WHERE review_status='running' AND review_started_at < ?",
+            (threshold,),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def mark_short_skipped(
+    db_path: Path,
+    today: Optional[dt.date] = None,
+    min_turns: int = 2,
+) -> int:
+    """ターン数不足で閉じた（=今日より前の）未レビュー reviewable セッションを skipped(too_short) に。"""
+    today = today or dt.date.today()
+    cutoff = today.strftime("%Y-%m-%d")
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute(
+            "UPDATE sessions SET review_status='skipped', review_note='too_short' "
+            "WHERE review_status IS NULL AND reviewable=1 AND review_date < ? AND turn_count < ?",
+            (cutoff, min_turns),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
