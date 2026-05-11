@@ -111,7 +111,13 @@ def record_turn(
     ts = _now_iso(now)
     conn = _connect(db_path)
     try:
-        conn.executescript(_SCHEMA)  # 冪等
+        # init_db を呼ばずに record_turn だけ使われても安全に動くようスキーマを保証する。
+        # ただし executescript は暗黙 COMMIT を伴うので、毎回ではなくテーブル不在時のみ実行する。
+        has_turns = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='turns'"
+        ).fetchone()
+        if not has_turns:
+            conn.executescript(_SCHEMA)
         cur = conn.execute(
             "SELECT COALESCE(MAX(turn_idx), -1) AS m FROM turns WHERE channel_id=? AND review_date=?",
             (channel_id, rdate),
