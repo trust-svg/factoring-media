@@ -21,6 +21,72 @@ from departments import load_department_prompt
 logger = logging.getLogger(__name__)
 JST = timezone(timedelta(hours=9))
 
+# ── 学習ループ: 会話ログ記録 ──────────────────────────────────────────────
+try:
+    from learning import store as _learning_store
+except Exception:  # noqa: BLE001  学習モジュールが無くても本処理は動く
+    _learning_store = None
+
+_learning_record_fail_count = 0
+
+
+def _learning_origin(channel_id: str) -> tuple[str, bool]:
+    """channel_id から (origin, reviewable) を決める。
+    scheduler-* / agent-call-* は人手の会話ではないので reviewable=False（spec §1）。"""
+    cid = channel_id if isinstance(channel_id, str) else str(channel_id)
+    if cid.startswith("scheduler-"):
+        return f"scheduler:{cid}", False
+    if cid.startswith("agent-call-"):
+        return "agent-call", False
+    return "chat", True
+
+
+def _record_learning_turn(
+    channel_id: str,
+    department: str,
+    engine: str,
+    cli_session_id,
+    user_message: str,
+    assistant_reply: str,
+) -> None:
+    """user/assistant の2ターンを learning store に記録。失敗しても本処理は止めない。"""
+    global _learning_record_fail_count
+    if _learning_store is None:
+        return
+    try:
+        # CHANNEL_MAP の逆引き（id→name）は持っていないので channel_id の prefix で origin を決める
+        origin, reviewable = _learning_origin(str(channel_id))
+        for role, content in (("user", user_message), ("assistant", assistant_reply)):
+            _learning_store.record_turn(
+                db_path=config.LEARNING_DB_PATH,
+                channel_id=str(channel_id),
+                channel_name=None,
+                department=department,
+                cli_session_id=cli_session_id,
+                role=role,
+                content=content,
+                engine=engine,
+                origin=origin,
+                reviewable=reviewable,
+            )
+        _learning_record_fail_count = 0
+    except Exception:  # noqa: BLE001
+        _learning_record_fail_count += 1
+        logger.exception(
+            "learning turn 記録に失敗（連続 %d 回目）", _learning_record_fail_count
+        )
+        if _learning_record_fail_count >= 10:
+            try:
+                from main import notify_learning_alert  # 遅延 import で循環回避
+
+                notify_learning_alert(
+                    "⚠️ 学習ログDB（conversations.db）が連続10回書けていません。確認してください。"
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            _learning_record_fail_count = 0
+
+
 # Per-channel session continuity for `claude -p` (CLI mode).
 # Maps channel_id -> {"session_id": uuid_str, "last_used": epoch_seconds}
 # Persisted to disk so restarts don't drop context. Idle TTL is long enough
@@ -314,7 +380,11 @@ def _process_cli(user_message: str, department: str, channel_id: str) -> str:
             return _process_cli(user_message, department, channel_id)
 
         if result.stdout.strip():
-            return result.stdout.strip()
+            reply = result.stdout.strip()
+            _record_learning_turn(
+                channel_id, department, "cli", session_id, user_message, reply
+            )
+            return reply
         else:
             error = (
                 result.stderr.strip()
@@ -982,6 +1052,9 @@ def _process_api(user_message: str, department: str, channel_id: str) -> str:
         if not tool_calls:
             result = "\n".join(text_parts)
             history.append({"role": "assistant", "content": result})
+            _record_learning_turn(
+                channel_id, department, "api", None, user_message, result
+            )
             return result
 
         messages.append({"role": "assistant", "content": response.content})
