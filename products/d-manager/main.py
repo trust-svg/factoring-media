@@ -231,6 +231,58 @@ async def send_as_character_with_avatar(
             )
 
 
+# ── 学習ループ: 通知ヘルパ / 即レビュー ──────────────────────────────────
+def notify_learning_alert(text: str) -> None:
+    """ai_engine 等から呼ばれる同期版アラート（best-effort、event loop があれば投げる）。"""
+    try:
+        loop = asyncio.get_event_loop()
+        loop.create_task(send_to_channel(config.LEARNING_NOTIFY_CHANNEL, text))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def _kick_review_for_channel(channel_id: str, channel_name: str) -> str:
+    """指定チャンネルの「今日のセッション」を即レビューする（!session reset / !learning review 用）。
+    バックグラウンドスレッドで run_review を回し、結果文字列を返す。"""
+    import datetime as dt
+
+    from learning import reviewer, store
+
+    today = dt.date.today().strftime("%Y-%m-%d")
+    store.init_db(config.LEARNING_DB_PATH)
+    row = store.get_session_row(config.LEARNING_DB_PATH, str(channel_id), today)
+    if not row or row["turn_count"] < 1:
+        return "（今日このチャンネルに記録された会話がないため、レビューはスキップしました）"
+    department = (
+        get_department_for_channel(channel_name) if channel_name else "secretary"
+    )
+
+    def _do():
+        return reviewer.run_review(
+            db_path=config.LEARNING_DB_PATH,
+            company_dir=config.COMPANY_DIR,
+            channel_id=str(channel_id),
+            review_date=today,
+            channel_name=channel_name or str(channel_id),
+            department=department,
+            model=config.REVIEW_MODEL_CLI,
+            dryrun=config.LEARNING_REVIEW_DRYRUN,
+            allowed_tools=config.LEARNING_ALLOWED_TOOLS,
+            dryrun_allowed_tools=config.LEARNING_DRYRUN_ALLOWED_TOOLS,
+            disallowed_tools=config.LEARNING_DISALLOWED_TOOLS,
+            char_limit=config.LEARNING_CONTEXT_CHAR_LIMIT,
+            timeout_sec=config.LEARNING_REVIEW_TIMEOUT_SEC,
+            skill_hits_path=config.SKILL_HITS_PATH,
+        )
+
+    res = await asyncio.get_event_loop().run_in_executor(None, _do)
+    mode = "ドライラン" if config.LEARNING_REVIEW_DRYRUN else "本番"
+    out = f"🧠 即レビュー（{mode}）完了: {res['status']} — {res['note'][:300]}"
+    if res.get("out_of_bounds"):
+        out += f"\n🚨 範囲外書き込みを revert: {res['out_of_bounds']}"
+    return out
+
+
 # Old channel names -> new channel names (for migration)
 OLD_TO_NEW = {
     # Legacy -> Japanese names
@@ -515,6 +567,19 @@ async def on_message(message: discord.Message):
                 else "ℹ️ このチャンネルにはアクティブなセッションがありませんでした。"
             )
             await send_as_character_with_avatar(message.channel, msg, channel_name)
+            if config.LEARNING_REVIEW_ENABLED:
+                await send_as_character_with_avatar(
+                    message.channel, "🧠 直前の会話を学習レビューします…", channel_name
+                )
+                try:
+                    review_msg = await _kick_review_for_channel(
+                        channel_id, channel_name
+                    )
+                except Exception as e:  # noqa: BLE001
+                    review_msg = f"（学習レビューでエラー: {e}）"
+                await send_as_character_with_avatar(
+                    message.channel, review_msg, channel_name
+                )
             return
 
         if sub == "info":
@@ -537,6 +602,240 @@ async def on_message(message: discord.Message):
             "🧠 **!session コマンド**\n"
             "- `!session info` — このチャンネルのセッション状態\n"
             "- `!session reset` — セッションをリセット（新しい会話として開始）",
+            channel_name,
+        )
+        return
+
+    # Quick command: !learning <subcommand>
+    if raw.startswith("!learning"):
+        import departments
+        from learning import store
+
+        parts = raw.split(maxsplit=2)
+        sub = parts[1] if len(parts) >= 2 else "status"
+        arg = parts[2] if len(parts) >= 3 else ""
+        db = config.LEARNING_DB_PATH
+        store.init_db(db)
+
+        if sub == "status":
+            import sqlite3
+
+            pending = store.list_pending_reviews(
+                db,
+                min_turns=config.LEARNING_MIN_TURNS,
+                max_age_days=config.LEARNING_REVIEW_MAX_AGE_DAYS,
+            )
+            conn = sqlite3.connect(str(db))
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT review_status, review_note FROM sessions WHERE reviewed_at IS NOT NULL "
+                "ORDER BY reviewed_at DESC LIMIT 100"
+            ).fetchall()
+            conn.close()
+            done = sum(1 for r in rows if r["review_status"] == "done")
+            err = sum(1 for r in rows if r["review_status"] == "error")
+            skip = sum(1 for r in rows if r["review_status"] == "skipped")
+            no_learn = sum(
+                1
+                for r in rows
+                if r["review_status"] == "done"
+                and (r["review_note"] or "").startswith("no_learnings")
+            )
+            metrics = departments.skills_concat_size()
+            bloat = ""
+            if (
+                metrics["concat_chars"] >= config.SKILL_BLOAT_CHAR_THRESHOLD
+                or metrics["count"] >= config.SKILL_BLOAT_COUNT_THRESHOLD
+            ):
+                bloat = (
+                    f"\n⚠️ スキルライブラリが膨らんでいます（{metrics['count']}件 / "
+                    f"{metrics['concat_chars']}文字）。Tier B（SKILL.md化・progressive disclosure）の検討時期です。"
+                )
+            if config.LEARNING_REVIEW_DRYRUN:
+                mode = "ドライラン"
+            elif config.LEARNING_REVIEW_ENABLED:
+                mode = "本番"
+            else:
+                mode = "無効(観測のみ)"
+            await send_as_character_with_avatar(
+                message.channel,
+                f"🧠 **学習ループ状態**（{mode}）\n"
+                f"- 未レビュー: {len(pending)}件\n"
+                f"- 直近100件: done {done} / error {err} / skipped {skip} / うち no_learnings {no_learn}"
+                f"（学び率 {(done - no_learn)}/{max(done, 1)}）\n"
+                f"- スキル: {metrics['count']}件 / 連結 {metrics['concat_chars']}文字{bloat}",
+                channel_name,
+            )
+            return
+
+        if sub in ("review", "retry"):
+            target_name = arg.split()[0] if arg else channel_name
+            target_id = (
+                str(message.channel.id)
+                if (not arg or target_name == channel_name)
+                else None
+            )
+            if target_id is None:
+                ch = (
+                    discord.utils.get(message.guild.text_channels, name=target_name)
+                    if message.guild
+                    else None
+                )
+                target_id = str(ch.id) if ch else None
+            if target_id is None:
+                await send_as_character_with_avatar(
+                    message.channel,
+                    f"⚠️ チャンネル `{target_name}` が見つかりません。",
+                    channel_name,
+                )
+                return
+            if sub == "retry":
+                import datetime as dt
+                import sqlite3
+
+                tokens = arg.split()
+                rdate = (
+                    tokens[1]
+                    if len(tokens) >= 2
+                    else dt.date.today().strftime("%Y-%m-%d")
+                )
+                conn = sqlite3.connect(str(db))
+                conn.execute(
+                    "UPDATE sessions SET review_status=NULL, reviewed_at=NULL, review_note=NULL "
+                    "WHERE channel_id=? AND review_date=? AND review_status='error'",
+                    (target_id, rdate),
+                )
+                conn.commit()
+                conn.close()
+            await send_as_character_with_avatar(
+                message.channel, "🧠 即レビューを実行します…", channel_name
+            )
+            review_msg = await _kick_review_for_channel(target_id, target_name)
+            await send_as_character_with_avatar(
+                message.channel, review_msg, channel_name
+            )
+            return
+
+        if sub == "search":
+            if not arg:
+                await send_as_character_with_avatar(
+                    message.channel,
+                    "使い方: `!learning search <キーワード>`",
+                    channel_name,
+                )
+                return
+            hits = store.search(db, arg, limit=20)
+            if not hits:
+                await send_as_character_with_avatar(
+                    message.channel,
+                    f"「{arg}」に一致する会話はありませんでした。",
+                    channel_name,
+                )
+                return
+            lines = [f"🔎 「{arg}」 {len(hits)}件:"]
+            for h in hits[:20]:
+                snippet = (
+                    (h["content"][:120] + "…")
+                    if len(h["content"]) > 120
+                    else h["content"]
+                )
+                lines.append(
+                    f"- [{h['ts'][:16]}] {h.get('channel_name') or '?'} ({h['role']}): {snippet}"
+                )
+            await send_as_character_with_avatar(
+                message.channel, "\n".join(lines)[:1900], channel_name
+            )
+            return
+
+        if sub == "curate":
+            await send_as_character_with_avatar(
+                message.channel,
+                "🧹 スキル棚卸しを実行します（数分かかります）…",
+                channel_name,
+            )
+            from scheduler import learning_curate
+
+            try:
+                await learning_curate()
+                await send_as_character_with_avatar(
+                    message.channel,
+                    "✅ 棚卸し完了（結果は通知チャンネルに投稿しました）。",
+                    channel_name,
+                )
+            except Exception as e:  # noqa: BLE001
+                await send_as_character_with_avatar(
+                    message.channel, f"⚠️ 棚卸しでエラー: {e}", channel_name
+                )
+            return
+
+        if sub == "healthcheck":
+            import datetime as dt
+            import sqlite3
+
+            today = dt.date.today().strftime("%Y-%m-%d")
+            hc_chan = "healthcheck-temp"
+            store.record_turn(
+                db,
+                hc_chan,
+                "healthcheck",
+                "secretary",
+                "hc-sess",
+                "user",
+                "これはヘルスチェックの会話です",
+                "cli",
+                "chat",
+                True,
+            )
+            store.record_turn(
+                db,
+                hc_chan,
+                "healthcheck",
+                "secretary",
+                "hc-sess",
+                "assistant",
+                "了解しました",
+                "cli",
+                "chat",
+                True,
+            )
+            from learning import reviewer
+
+            res = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: reviewer.run_review(
+                    db_path=db,
+                    company_dir=config.COMPANY_DIR,
+                    channel_id=hc_chan,
+                    review_date=today,
+                    channel_name="healthcheck",
+                    department="secretary",
+                    model=config.REVIEW_MODEL_CLI,
+                    dryrun=True,
+                    timeout_sec=config.LEARNING_REVIEW_TIMEOUT_SEC,
+                ),
+            )
+            conn = sqlite3.connect(str(db))
+            conn.execute("DELETE FROM turns WHERE channel_id=?", (hc_chan,))
+            conn.execute("DELETE FROM sessions WHERE channel_id=?", (hc_chan,))
+            conn.commit()
+            conn.close()
+            await send_as_character_with_avatar(
+                message.channel,
+                f"🩺 学習ループ疎通確認: {'✅ OK' if res['status'] != 'error' else '❌ NG'} "
+                f"— {res['status']}: {res['note'][:200]}",
+                channel_name,
+            )
+            return
+
+        await send_as_character_with_avatar(
+            message.channel,
+            "🧠 **!learning コマンド**\n"
+            "- `!learning status` — 状態（未レビュー数・学び率・スキル肥大）\n"
+            "- `!learning review [チャンネル名]` — 即レビュー\n"
+            "- `!learning retry <チャンネル名> [YYYY-MM-DD]` — エラー終了したレビューを再試行\n"
+            "- `!learning search <キーワード>` — 過去会話を検索\n"
+            "- `!learning curate` — スキル棚卸しを今すぐ実行\n"
+            "- `!learning healthcheck` — 疎通確認",
             channel_name,
         )
         return
