@@ -300,3 +300,72 @@ def mark_short_skipped(
         return cur.rowcount
     finally:
         conn.close()
+
+
+def search(db_path: Path, query: str, limit: int = 50) -> list[dict]:
+    """会話ログ全文検索。3文字以上は FTS5 trigram、2文字以下は LIKE フォールバック。"""
+    query = (query or "").strip()
+    if not query:
+        return []
+    conn = _connect(db_path)
+    try:
+        if len(query) >= 3:
+            rows = conn.execute(
+                "SELECT t.channel_name, t.department, t.ts, t.role, t.content, t.review_date "
+                "FROM turns_fts f JOIN turns t ON t.id = f.rowid "
+                "WHERE turns_fts MATCH ? ORDER BY t.ts DESC LIMIT ?",
+                (query, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT channel_name, department, ts, role, content, review_date "
+                "FROM turns WHERE content LIKE ? ORDER BY ts DESC LIMIT ?",
+                (f"%{query}%", limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def prune(
+    db_path: Path,
+    retention_days: int = 180,
+    now: Optional[dt.datetime] = None,
+) -> int:
+    """ts が retention_days より古い turns を削除（turns_fts はトリガで連動）。削除件数を返す。sessions 台帳は残す。"""
+    now = now or dt.datetime.now()
+    cutoff = (now - dt.timedelta(days=retention_days)).strftime("%Y-%m-%dT%H:%M:%S")
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute("DELETE FROM turns WHERE ts < ?", (cutoff,))
+        conn.commit()
+        conn.execute("INSERT INTO turns_fts(turns_fts) VALUES('optimize')")
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def skill_metrics(skills_dir: Path) -> dict:
+    """`.company/skills/` の規模を計測（肥大メトリクス用）。
+
+    count: トップレベル `<name>.md` と `<name>/SKILL.md` の合計件数。
+    concat_chars: それらを system prompt に連結したときの本文文字数合計（references/ は含めない）。
+    """
+    skills_dir = Path(skills_dir)
+    count = 0
+    concat_chars = 0
+    if not skills_dir.exists():
+        return {"count": 0, "concat_chars": 0}
+    for entry in sorted(skills_dir.iterdir()):
+        if entry.name.startswith("."):
+            continue  # .archive / .snapshots を除外
+        if entry.is_file() and entry.suffix == ".md":
+            count += 1
+            concat_chars += len(entry.read_text(encoding="utf-8"))
+        elif entry.is_dir():
+            skill_md = entry / "SKILL.md"
+            if skill_md.exists():
+                count += 1
+                concat_chars += len(skill_md.read_text(encoding="utf-8"))
+    return {"count": count, "concat_chars": concat_chars}

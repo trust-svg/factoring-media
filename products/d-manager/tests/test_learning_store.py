@@ -140,3 +140,50 @@ def test_mark_short_skipped(db):
     row = store.get_session_row(db, "c-short", "2026-05-10")
     assert row["review_status"] == "skipped"
     assert row["review_note"] == "too_short"
+
+
+def test_search_trigram_and_like_fallback(db):
+    _record(db, content="元彼との復縁相談をした", now=dt.datetime(2026, 5, 10, 9, 0))
+    _record(db, content="メルカリ仕入れの話", now=dt.datetime(2026, 5, 10, 9, 5))
+    # 3文字以上 → FTS5 trigram
+    hits3 = store.search(db, "復縁相談")
+    assert any("復縁" in h["content"] for h in hits3)
+    assert all("メルカリ" not in h["content"] for h in hits3)
+    # 2文字 → LIKE フォールバック
+    hits2 = store.search(db, "復縁")
+    assert any("復縁" in h["content"] for h in hits2)
+
+
+def test_prune_old_turns(db):
+    _record(db, channel_id="c-old", content="古い", now=dt.datetime(2026, 1, 1, 9, 0))
+    _record(db, channel_id="c-old", content="古い2", now=dt.datetime(2026, 1, 1, 9, 5))
+    _record(
+        db, channel_id="c-new", content="新しい", now=dt.datetime(2026, 5, 10, 9, 0)
+    )
+    _record(
+        db, channel_id="c-new", content="新しい2", now=dt.datetime(2026, 5, 10, 9, 5)
+    )
+    deleted = store.prune(db, retention_days=30, now=dt.datetime(2026, 5, 12, 0, 0))
+    assert deleted == 2
+    # turns_fts も連動して消えている（古い語で検索しても出ない）
+    assert store.search(db, "古い") == []
+    # 新しい turns は残る
+    assert len(store.get_session_turns(db, "c-new", "2026-05-10")) == 2
+    # sessions 台帳は残す（集計用）
+    assert store.get_session_row(db, "c-old", "2026-01-01") is not None
+
+
+def test_skill_metrics(db, tmp_path):
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    (skills_dir / "a.md").write_text("x" * 1000, encoding="utf-8")
+    (skills_dir / "b").mkdir()
+    (skills_dir / "b" / "SKILL.md").write_text("y" * 500, encoding="utf-8")
+    (skills_dir / "b" / "references").mkdir()
+    (skills_dir / "b" / "references" / "long.md").write_text(
+        "z" * 9999, encoding="utf-8"
+    )
+    m = store.skill_metrics(skills_dir)
+    assert m["count"] == 2  # a.md と b/SKILL.md
+    # references は数えない
+    assert m["concat_chars"] == 1500
