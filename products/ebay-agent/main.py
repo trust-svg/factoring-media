@@ -15,7 +15,7 @@ import os
 import sys
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import uvicorn
@@ -133,6 +133,43 @@ def _start_scheduler():
             IntervalTrigger(hours=3),
             id="auto_sync_sales",
             name="売上自動同期",
+        )
+
+        # eBay在庫同期（6時間ごと）— listings.fetched_at を更新し死に筒判定の鮮度を保つ。
+        # これが無いと quantity=1 が古いスナップショットで固定され、死に筒Refresh が
+        # 既に終了済みSKUばかり選んで sku_missing 連発になる（2026-03〜05 の事故）。
+        def _run_inventory_sync():
+            import asyncio
+
+            enabled = os.getenv("INVENTORY_SYNC_ENABLED", "true").lower() == "true"
+            if not enabled:
+                return
+            try:
+                from tools.handlers import handle_tool_call
+
+                loop = asyncio.new_event_loop()
+                result_json = loop.run_until_complete(
+                    handle_tool_call("check_inventory", {"out_of_stock_only": False})
+                )
+                import json as _json
+
+                result = _json.loads(result_json)
+                if "error" in result:
+                    logger.warning(f"eBay在庫同期エラー: {result['error']}")
+                else:
+                    logger.info(
+                        f"eBay在庫同期: total={result.get('total', 0)}件 / "
+                        f"在庫切れ={result.get('out_of_stock', 0)}件"
+                    )
+            except Exception as e:
+                logger.exception(f"eBay在庫同期失敗: {e}")
+
+        scheduler.add_job(
+            _run_inventory_sync,
+            IntervalTrigger(hours=6),
+            id="ebay_inventory_sync",
+            name="eBay在庫同期",
+            next_run_time=datetime.utcnow() + timedelta(seconds=30),
         )
 
         # Instagram コンテンツ自動生成（毎日10:00 JST）
@@ -301,6 +338,7 @@ def _start_scheduler():
             f"スケジューラー起動: 価格モニター {PRICE_CHECK_INTERVAL_HOURS}h間隔 + "
             f"朝ダイジェスト 9:00 + 週間レポート Mon 10:00 + 週次分析 Mon 10:30 + "
             f"月次分析 1日 10:00 + 売上同期 3h間隔 + "
+            f"eBay在庫同期 6h間隔（ENV:INVENTORY_SYNC_ENABLED制御） + "
             f"Instagram生成 10:00 + Instagram分析 23:00 + カテゴリ拡張 Wed 11:00 + "
             f"メッセージ同期 5min間隔 + 未返信自動返信 5min間隔 + "
             f"死に筒Refresh 20min間隔（ENV:LISTING_REFRESH_ENABLED制御） + "
