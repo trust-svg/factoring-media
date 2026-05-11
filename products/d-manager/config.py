@@ -90,3 +90,42 @@ CHANNEL_MAP = {
     "アラート-alerts": "secretary",
     "日報-daily-digest": "research",
 }
+
+# ── Learning loop ─────────────────────────────────────────────────────────
+LEARNING_DIR = Path(__file__).parent / "learning"
+LEARNING_DB_PATH = Path(
+    os.getenv("LEARNING_DB_PATH", str(LEARNING_DIR / "conversations.db"))
+)
+SKILL_HITS_PATH = LEARNING_DIR / "skill_hits.jsonl"
+
+# Phase 1=観測のみ: ENABLED=false。Phase 2=ドライラン: ENABLED=true & DRYRUN=true。Phase 3=本番: 両方解除。
+LEARNING_REVIEW_ENABLED = (
+    os.getenv("LEARNING_REVIEW_ENABLED", "false").lower() == "true"
+)
+LEARNING_REVIEW_DRYRUN = os.getenv("LEARNING_REVIEW_DRYRUN", "true").lower() == "true"
+
+LEARNING_REVIEW_HOUR = int(os.getenv("LEARNING_REVIEW_HOUR", "23"))
+LEARNING_MIN_TURNS = int(os.getenv("LEARNING_MIN_TURNS", "2"))
+LEARNING_MAX_PER_RUN = int(os.getenv("LEARNING_MAX_PER_RUN", "3"))
+LEARNING_REVIEW_MAX_AGE_DAYS = int(os.getenv("LEARNING_REVIEW_MAX_AGE_DAYS", "2"))
+LEARNING_CONTEXT_CHAR_LIMIT = int(os.getenv("LEARNING_CONTEXT_CHAR_LIMIT", "40000"))
+LEARNING_REVIEW_TIMEOUT_SEC = int(os.getenv("LEARNING_REVIEW_TIMEOUT_SEC", "300"))
+LEARNING_CURATOR_TIMEOUT_SEC = int(os.getenv("LEARNING_CURATOR_TIMEOUT_SEC", "600"))
+LEARNING_STUCK_MINUTES = int(os.getenv("LEARNING_STUCK_MINUTES", "30"))
+TURNS_RETENTION_DAYS = int(os.getenv("TURNS_RETENTION_DAYS", "180"))
+
+# レビュー/キュレーター用モデル（CLIモードの --model に渡す）。既定は日次=現行CLIモデル、週次=Opus。
+REVIEW_MODEL_CLI = os.getenv("REVIEW_MODEL_CLI", CLAUDE_MODEL_CLI)
+CURATOR_MODEL_CLI = os.getenv("CURATOR_MODEL_CLI", "claude-opus-4-7")
+
+# 学習ループの通知先 Discord チャンネル名（既定: 開発チャンネル）
+LEARNING_NOTIFY_CHANNEL = os.getenv("LEARNING_NOTIFY_CHANNEL", "開発-larry-product")
+
+# スキル肥大アラートの閾値
+SKILL_BLOAT_CHAR_THRESHOLD = int(os.getenv("SKILL_BLOAT_CHAR_THRESHOLD", "60000"))
+SKILL_BLOAT_COUNT_THRESHOLD = int(os.getenv("SKILL_BLOAT_COUNT_THRESHOLD", "25"))
+
+# レビュアー/キュレーターに渡すツール許可リスト（claude -p の --allowedTools / --disallowedTools）
+LEARNING_ALLOWED_TOOLS = "Read Write Edit Glob Grep"
+LEARNING_DRYRUN_ALLOWED_TOOLS = "Read Glob Grep"
+LEARNING_DISALLOWED_TOOLS = "Bash WebFetch WebSearch Task"
