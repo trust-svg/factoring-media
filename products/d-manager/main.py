@@ -829,8 +829,11 @@ async def send_to_channel(channel_name: str, text: str, view: discord.ui.View = 
 
 
 def main():
-    # Register persistent dynamic items so task buttons survive bot restarts.
+    # Register persistent dynamic items so buttons survive bot restarts.
     bot.add_dynamic_items(TaskActionButton)
+    from tools.video_format import VideoTranscriptButton
+
+    bot.add_dynamic_items(VideoTranscriptButton)
     bot.run(config.DISCORD_BOT_TOKEN)
 
 

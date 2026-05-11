@@ -148,46 +148,69 @@ async def fetch_keyframe_files(
     return (caption, files)
 
 
-class VideoAnalysisView(discord.ui.View):
-    """View attached to the analysis result with a 📄 全文 button.
+async def _send_transcript(interaction: discord.Interaction, row_id: int) -> None:
+    """Shared handler: fetch /transcript and post it back ephemerally."""
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    try:
+        data = await video_analyzer.get_transcript(row_id)
+    except Exception as e:
+        await interaction.followup.send(
+            f"⚠️ 全文取得に失敗しました: {e}", ephemeral=True
+        )
+        return
 
-    Clicking the button fetches /transcript from video-analyzer and posts it
-    in-thread (as ephemeral if too long).
+    text = data.get("text") or "(空)"
+    lang = data.get("language") or "?"
+    segments = data.get("segments") or []
+
+    if len(text) > 1800:
+        buf = io.BytesIO(text.encode("utf-8"))
+        await interaction.followup.send(
+            f"📄 **全文書き起こし** (lang={lang}, {len(text)}文字, {len(segments)} セグメント)",
+            file=discord.File(fp=buf, filename=f"transcript_{row_id}.txt"),
+            ephemeral=True,
+        )
+    else:
+        await interaction.followup.send(
+            f"📄 **全文書き起こし** (lang={lang})\n```\n{text}\n```",
+            ephemeral=True,
+        )
+
+
+class VideoTranscriptButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"video_transcript:(?P<row_id>\d+)",
+):
+    """Persistent 📄 全文 button.
+
+    custom_id encodes row_id, so the button keeps working after a bot restart
+    (no in-memory View needed). Registered via bot.add_dynamic_items() in main.
     """
+
+    def __init__(self, row_id: int):
+        super().__init__(
+            discord.ui.Button(
+                label="📄 全文（書き起こし）",
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"video_transcript:{row_id}",
+            )
+        )
+        self.row_id = row_id
+
+    @classmethod
+    async def from_custom_id(
+        cls, interaction: discord.Interaction, item: discord.ui.Button, match, /
+    ):
+        return cls(row_id=int(match["row_id"]))
+
+    async def callback(self, interaction: discord.Interaction):
+        await _send_transcript(interaction, self.row_id)
+
+
+class VideoAnalysisView(discord.ui.View):
+    """View attached to the analysis result with a persistent 📄 全文 button."""
 
     def __init__(self, row_id: int):
         super().__init__(timeout=None)
         self.row_id = row_id
-
-    @discord.ui.button(
-        label="📄 全文（書き起こし）", style=discord.ButtonStyle.secondary
-    )
-    async def show_transcript(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        try:
-            data = await video_analyzer.get_transcript(self.row_id)
-        except Exception as e:
-            await interaction.followup.send(
-                f"⚠️ 全文取得に失敗しました: {e}", ephemeral=True
-            )
-            return
-
-        text = data.get("text") or "(空)"
-        lang = data.get("language") or "?"
-        segments = data.get("segments") or []
-
-        # Send as a file if too long for a chat message
-        if len(text) > 1800:
-            buf = io.BytesIO(text.encode("utf-8"))
-            await interaction.followup.send(
-                f"📄 **全文書き起こし** (lang={lang}, {len(text)}文字, {len(segments)} セグメント)",
-                file=discord.File(fp=buf, filename=f"transcript_{self.row_id}.txt"),
-                ephemeral=True,
-            )
-        else:
-            await interaction.followup.send(
-                f"📄 **全文書き起こし** (lang={lang})\n```\n{text}\n```",
-                ephemeral=True,
-            )
+        self.add_item(VideoTranscriptButton(row_id))
