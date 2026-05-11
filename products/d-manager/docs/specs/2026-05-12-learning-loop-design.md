@@ -90,7 +90,8 @@ CREATE VIRTUAL TABLE turns_fts USING fts5(
 
 ### 新規モジュール `learning/store.py`
 
-- `record_turn(channel_id, channel_name, department, cli_session_id, role, content, engine, origin, reviewable=True)` — `turns` に1行 append、`sessions` の `(channel_id, today)` 行を upsert（`last_turn_at`/`turn_count` 更新、無ければ `first_turn_at`/`origin`/`reviewable` も）。`turn_idx` は `(channel_id, cli_session_id)` ごとの連番（cli_session_id が NULL の場合は `(channel_id, review_date)` ごと）。
+- `record_turn(channel_id, channel_name, department, cli_session_id, role, content, engine, origin, reviewable=True)` — `turns` に1行 append、`sessions` の `(channel_id, today)` 行を upsert（`last_turn_at`/`turn_count` 更新、無ければ `first_turn_at`/`origin`/`reviewable` も）。`turn_idx` は **`(channel_id, review_date)` 内の連番**（cli_session_id は参考メタデータとして列に持つだけ）。
+- `prune(retention_days=TURNS_RETENTION_DAYS=180)` — `turns` の `ts` が `retention_days` より古い行を削除（`turns_fts` もトリガで連動削除）。`sessions` 台帳は `review_date` が古くても残す（件数が少ないので。集計・`!learning status` 用）。`weekly_review` から呼ぶ。`learning/skill_hits.jsonl` も同様に古い行を間引く。
 - `list_pending_reviews(limit, max_age_days=2)` — `review_status` が NULL かつ `review_date` が今日より前（= その日の活動はもう増えない）かつ `reviewable=1` かつ `turn_count >= MIN_TURNS` の `sessions` 行を、`max_age_days` 以内に絞って返す。
 - `requeue_stuck()` — `review_status='running'` かつ `review_started_at` が30分超のものを `review_status=NULL` に戻す（d-manager 再起動でレビューが殺されたケース）。
 - `get_session_turns(channel_id, review_date)` — その日のチャンネルの全ターンを `turn_idx`→`ts` 順で返す。
@@ -101,7 +102,7 @@ CREATE VIRTUAL TABLE turns_fts USING fts5(
 
 ### 書き込み点（`ai_engine.py` への唯一の侵襲）
 
-- `_process_cli` の正常終了直前: `store.record_turn(..., role='user', ...)` と `store.record_turn(..., role='assistant', ...)`。`origin='chat'`（scheduler 由来チャンネルなら `origin='scheduler:<job>'`、`reviewable` は briefing 系は False、review/evening 系は True を初期想定 — 後で調整）。
+- `_process_cli` の正常終了直前: `store.record_turn(..., role='user', ...)` と `store.record_turn(..., role='assistant', ...)`。通常のチャンネルは `origin='chat'`、`reviewable=True`。**scheduler 由来チャンネル（`scheduler-*`）は `origin='scheduler:<job>'`、v1 では一律 `reviewable=False`**（morning_briefing は読み上げで学び無し、evening_review/nightly_commit_review は既に自前の出力先がある＝二重記録を避ける）。必要になったら個別ジョブを True に上げるのは後続で。
 - `_process_api` も同様（`engine='api'`、`cli_session_id=NULL`）。
 - 失敗時（タイムアウト・例外）は記録しない。`record_turn` 自体が例外なら握りつぶしてログのみ（学習ログの失敗で本処理を止めない）。ただし**連続10回失敗**で Discord に1回通知（サイレント化させない、CLAUDE.md「サイレント故障対策」）。
 
@@ -155,12 +156,14 @@ learning_review() 毎晩23:00:
      claude -p "<REVIEW_PROMPT 本体 + 会話ログ + 既存学び一覧>"
        --append-system-prompt "<レビュアー人格（最小限）>"
        --model {REVIEW_MODEL_CLI}                    # 既定 = 現行 Sonnet
-       --allowedTools "Read Write Edit Glob Grep"     # Bash は渡さない
-       --dangerously-skip-permissions                 # フェンスは allowedTools の方
+       --allowedTools "Read Write Edit Glob Grep"     # whitelist。Bash は渡さない
+       --disallowedTools "Bash WebFetch WebSearch Task"  # 明示的に blocklist（外部API・サブエージェントを禁止）
+       --dangerously-skip-permissions                 # 柵は allowedTools/disallowedTools の方
        --max-turns 15
        cwd = COMPANY_DIR                              # .company/ の中
      timeout = 300s
-   dryrun=True の場合: プロンプトに「ファイルは書くな。何を書く予定だったかを <summary> に詳細列挙せよ」を追加
+   dryrun=True の場合: --allowedTools を "Read Glob Grep" に絞る（Write/Edit を外す＝プロンプトだけに頼らない）
+     ＋ プロンプトに「ファイルは書くな。何を書く予定だったかを <summary> に詳細列挙せよ」を追加
 5. 出力末尾の <summary>…</summary> をパース
 6. git -C COMPANY_DIR status --short をログ
    許可宛先（.company/skills/, .company/secretary/memory/, .company/secretary/rules.md,
@@ -184,7 +187,7 @@ learning_review() 毎晩23:00:
 
 ### 設定（`config.py` に追加）
 
-`LEARNING_DB_PATH`, `LEARNING_REVIEW_ENABLED`, `LEARNING_REVIEW_DRYRUN`, `LEARNING_REVIEW_HOUR`(=23), `LEARNING_MIN_TURNS`(=2), `LEARNING_MAX_PER_RUN`(=3), `LEARNING_CONTEXT_CHAR_LIMIT`(=40000), `REVIEW_MODEL_CLI`(既定 Sonnet), `CURATOR_MODEL_CLI`(既定 Opus), `LEARNING_NOTIFY_CHANNEL`(既定 開発チャンネル).
+`LEARNING_DB_PATH`, `LEARNING_REVIEW_ENABLED`, `LEARNING_REVIEW_DRYRUN`, `LEARNING_REVIEW_HOUR`(=23), `LEARNING_MIN_TURNS`(=2), `LEARNING_MAX_PER_RUN`(=3), `LEARNING_REVIEW_MAX_AGE_DAYS`(=2), `LEARNING_CONTEXT_CHAR_LIMIT`(=40000), `TURNS_RETENTION_DAYS`(=180), `REVIEW_MODEL_CLI`(既定 Sonnet), `CURATOR_MODEL_CLI`(既定 Opus), `LEARNING_NOTIFY_CHANNEL`(既定 開発チャンネル), `SKILL_BLOAT_CHAR_THRESHOLD`, `SKILL_BLOAT_COUNT_THRESHOLD`.
 
 ---
 
@@ -253,6 +256,7 @@ run_curation():
          --append-system-prompt "<キュレーター人格（最小限）>"
          --model {CURATOR_MODEL_CLI}                 # 既定 Opus
          --allowedTools "Read Write Edit Glob Grep"
+         --disallowedTools "Bash WebFetch WebSearch Task"
          --dangerously-skip-permissions
          --max-turns 25
          cwd = COMPANY_DIR
@@ -328,12 +332,20 @@ run_curation():
 
 `!learning healthcheck` — ダミー会話を `turns` に入れて `run_review`（dryrun）を即実行し、`<summary>` が返るまで通るか確認 → Discord に合否。`weekly_review` の月初回に自動実行する案も（任意）。
 
+### 既知の制約（v1 で許容するもの）
+
+- **in-bounds の同時書き込み競合**: レビュアー/キュレーターが `.company/skills/X.md` 等を編集している最中に、別チャンネルの本処理エージェントが同じファイルを編集すると競合し得る。「範囲外書き込みの自動 revert」は許可宛先内の競合までは捕まえない。発生確率は低く（レビューは夜間に集中、本処理は日中が中心）、`run_review`/`run_curation` 後の `git status --short` ログで事後に気づける。本格的なロックは v1 ではやらない。
+- **長期ダウン時の取りこぼし**: d-manager が `TURNS_RETENTION_DAYS` 近く（既定180日）止まることは想定しないが、`list_pending_reviews` は `max_age_days`（既定2日）より古いセッションを拾わない。数日の停止なら、その間のセッションは振り返られない（古い会話は学び価値が低いとして許容）。`max_age_days` は config 可変。
+- **scheduler 由来の学び**: v1 では `scheduler-*` セッションを `reviewable=False` にしているため、夜間ジョブ（evening_review 等）の中で生まれた知見は学習ループでは拾わない（それらは元々 Discord 投稿や自前ファイルに出力されている）。必要なら後続サイクルで個別に対象化。
+
 ### テスト — `products/d-manager/tests/test_learning.py`（pytest）
 
-- `store.py`: `record_turn`→`get_session_turns` の往復、`turns_fts` 検索（trigram ≥3字 / <3字 LIKE フォールバック）、`list_pending_reviews`（今日の分は対象外・`max_age_days` 超過は対象外）、`mark_reviewed`、`(channel_id, review_date)` upsert、`reviewable=False` が `list_pending_reviews` に出ないこと、`requeue_stuck`
-- `reviewer.py`: subprocess を**モック**して — (a) `<summary>done: …>` → `mark_reviewed(done)`、(b) `<summary>no_learnings>` → `mark_reviewed(done, no_learnings)`、(c) timeout → `error`、(d) `<summary>` 無し → `error`、(e) git status に範囲外 → `git checkout` が呼ばれること、(f) dryrun でプロンプトに「書くな」指示が入ること
+- `store.py`: `record_turn`→`get_session_turns` の往復、`turn_idx` が `(channel_id, review_date)` 内連番になること、`turns_fts` 検索（trigram ≥3字 / <3字 LIKE フォールバック）、`list_pending_reviews`（今日の分は対象外・`max_age_days` 超過は対象外）、`mark_reviewed`、`(channel_id, review_date)` upsert、`reviewable=False` が `list_pending_reviews` に出ないこと、`requeue_stuck`、`prune`（古い `turns` と `turns_fts` 連動削除、`sessions` 台帳は残ること）
+- `reviewer.py`: subprocess を**モック**して — (a) `<summary>done: …>` → `mark_reviewed(done)`、(b) `<summary>no_learnings>` → `mark_reviewed(done, no_learnings)`、(c) timeout → `error`、(d) `<summary>` 無し → `error`、(e) git status に範囲外 → `git checkout` が呼ばれること、(f) dryrun で `--allowedTools` から Write/Edit が外れ、プロンプトに「書くな」指示が入ること、(g) `--disallowedTools` に Bash が含まれること
+- `departments.py`: `<name>.md` のみ → 従来どおり全文連結、`<name>/SKILL.md` あり → 本文だけ連結し `references/*.md` は連結しない、両方ある → 新形式優先、スキル連結総文字数を返す補助関数
 - `scheduler.learning_review`: `turns` に当日分（実際は前日扱いに）を仕込む → 対象が正しく抽出、`turn_count < MIN_TURNS` は `skipped(too_short)`、1回 `LEARNING_MAX_PER_RUN` 件まで、`LEARNING_REVIEW_ENABLED=false` で何もしない
 - `curator.py`: subprocess モックで `<summary>` パース、範囲外 revert、スナップショット作成（tmpdir）、8世代ローテーション
+- `!learning status`: スキル肥大メトリクス（件数・総文字数・増加ペース）が出ること、閾値超でアラート文言が付くこと
 - 既存 `ai_engine` テストが壊れていないこと（`_process_cli`/`_process_api` に `record_turn` を1行足すだけ。`record_turn` をモックすれば既存テストは無傷のはず）
 
 ### ロールアウト（段階導入）
@@ -369,11 +381,11 @@ products/d-manager/learning/skill_hits.jsonl
 
 変更:
 - `products/d-manager/ai_engine.py` — `_process_cli` / `_process_api` の正常終了時に `store.record_turn` を2行（user/assistant）。連続失敗カウンタ。
-- `products/d-manager/scheduler.py` — `learning_review` ジョブ追加（23:00）、`weekly_review` に `run_curation()` ステップ追加、ジョブ例外ハンドラ。
+- `products/d-manager/scheduler.py` — `learning_review` ジョブ追加（23:00）、`weekly_review` に `run_curation()` ＋ `store.prune()` ステップ追加、ジョブ例外ハンドラ。
 - `products/d-manager/flows.py` — `run_flow` 完了時にそのセッションをレビュー対象にマーク、council は議事録パスを添える。
 - `products/d-manager/main.py` — `!session reset` ハンドラから即レビューをキック、`!learning` コマンド群（status/review/retry/search/curate/healthcheck）。`status` にスキル肥大メトリクス（§4.5a）。
 - `products/d-manager/departments.py` — `load_department_prompt` を `references/` デュアルローダー化（§4.5b）。`<name>/SKILL.md` があれば本文だけ連結、`references/` は連結しない。既存 `<name>.md` 形式は従来どおり。スキル連結総文字数を返す補助関数（メトリクス用）。
-- `products/d-manager/config.py` — `LEARNING_*` / `REVIEW_MODEL_CLI` / `CURATOR_MODEL_CLI` / `LEARNING_NOTIFY_CHANNEL` / `SKILL_BLOAT_CHAR_THRESHOLD` / `SKILL_BLOAT_COUNT_THRESHOLD`。
+- `products/d-manager/config.py` — `LEARNING_*`（`LEARNING_DB_PATH` / `LEARNING_REVIEW_ENABLED` / `LEARNING_REVIEW_DRYRUN` / `LEARNING_REVIEW_HOUR` / `LEARNING_MIN_TURNS` / `LEARNING_MAX_PER_RUN` / `LEARNING_REVIEW_MAX_AGE_DAYS` / `LEARNING_CONTEXT_CHAR_LIMIT` / `LEARNING_NOTIFY_CHANNEL`）/ `TURNS_RETENTION_DAYS` / `REVIEW_MODEL_CLI` / `CURATOR_MODEL_CLI` / `SKILL_BLOAT_CHAR_THRESHOLD` / `SKILL_BLOAT_COUNT_THRESHOLD`。
 - `.gitignore` — 上記。
 
 範囲外（別サイクル）: Tier B 本体（`.company/skills/*.md` の **一括** `<name>/SKILL.md` 化 + progressive disclosure の本格運用 + 利用統計 `.usage.json` + 審査ゲート付き外部スキル tap）、メモリ自動注入/自己統合、`tools/memory.py` の API tool 化、per-Nターンのリアルタイムレビュー。※ 本設計には Tier B の「最小前倒し」（§4.5: 肥大メトリクス + `references/` デュアルローダー）だけ含まれる。
