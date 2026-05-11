@@ -118,6 +118,36 @@ def git_checkout_paths(repo: Path, paths: list[str]) -> None:
         logger.exception("git checkout for out-of-bounds revert failed")
 
 
+def git_clean_paths(repo: Path, paths: list[str]) -> None:
+    """untracked な範囲外ファイル/ディレクトリを削除する（`git checkout --` では消せないため）。"""
+    if not paths:
+        return
+    try:
+        subprocess.run(
+            ["git", "-C", str(repo), "clean", "-fd", "--"] + paths,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("git clean for out-of-bounds untracked files failed")
+
+
+def revert_out_of_bounds(
+    repo: Path, status_lines: list[str], oob_paths: list[str]
+) -> None:
+    """範囲外パスを、tracked は `git checkout --`、untracked(`??`) は `git clean -fd --` で戻す。"""
+    oob = set(oob_paths)
+    tracked: list[str] = []
+    untracked: list[str] = []
+    for ln in status_lines:
+        p = parse_status_path(ln)
+        if p not in oob:
+            continue
+        (untracked if ln.startswith("??") else tracked).append(p)
+    git_checkout_paths(repo, tracked)
+    git_clean_paths(repo, untracked)
+
+
 def parse_status_path(line: str) -> str:
     """`git status --short` の1行からパス部分を取り出す（"?? path" / " M path" / "A  path" 等）。"""
     # 先頭2文字 = ステータス、その後スペース1つ、残りがパス（リネームは ' -> ' を含む → 右側を取る）

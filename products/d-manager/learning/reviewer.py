@@ -220,7 +220,7 @@ def run_review(
         company_dir, status_lines, extra_allowed=extra_allowed
     )
     if oob and not dryrun:
-        cli_runner.git_checkout_paths(company_dir, oob)
+        cli_runner.revert_out_of_bounds(company_dir, status_lines, oob)
         logger.warning(
             "learning reviewer touched out-of-bounds paths, reverted: %s", oob
         )

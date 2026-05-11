@@ -1900,17 +1900,17 @@ async def hourly_email_drafts():
 def _on_job_error(event):
     """APScheduler ジョブが例外を投げたらログ + 学習系は Discord にも通知（best-effort）。"""
     logger.error("Scheduler job %s raised: %s", event.job_id, event.exception)
-    if (
-        event.job_id in ("learning_review", "learning_curate", "weekly_review")
-        and _send_fn
-    ):
+    if event.job_id in ("learning_review", "weekly_review") and _send_fn:
         try:
-            asyncio.get_event_loop().create_task(
+            # AsyncIOScheduler のリスナーはイベントループ内で呼ばれる前提（get_running_loop）。
+            asyncio.get_running_loop().create_task(
                 _send_fn(
                     config.LEARNING_NOTIFY_CHANNEL,
                     f"⚠️ スケジューラジョブ `{event.job_id}` が例外: {event.exception}",
                 )
             )
+        except RuntimeError:
+            pass
         except Exception:  # noqa: BLE001
             pass
 
@@ -1967,6 +1967,7 @@ def setup_scheduler(send_fn, task_view_fn=None):
         day_of_week="sun",
         hour=21,
         minute=0,
+        id="weekly_review",
         name="週次レビュー",
     )
     # Phase 5: 朝の情報収集（Xバズ・ニュースレター・AIトレンド）

@@ -233,12 +233,18 @@ async def send_as_character_with_avatar(
 
 # ── 学習ループ: 通知ヘルパ / 即レビュー ──────────────────────────────────
 def notify_learning_alert(text: str) -> None:
-    """ai_engine 等から呼ばれる同期版アラート（best-effort、event loop があれば投げる）。"""
+    """ai_engine 等（executor スレッド含む）から呼ばれる同期版アラート（best-effort）。
+
+    `process_message` は run_in_executor 経由なので呼び出し元スレッドにループは無い。
+    discord クライアントのループにスレッドセーフに coroutine を投げる。
+    """
     try:
-        loop = asyncio.get_event_loop()
-        loop.create_task(send_to_channel(config.LEARNING_NOTIFY_CHANNEL, text))
+        loop = bot.loop  # discord.py のイベントループ（起動後に有効）
+        asyncio.run_coroutine_threadsafe(
+            send_to_channel(config.LEARNING_NOTIFY_CHANNEL, text), loop
+        )
     except Exception:  # noqa: BLE001
-        pass
+        logger.warning("notify_learning_alert: 通知を送れませんでした", exc_info=True)
 
 
 async def _kick_review_for_channel(channel_id: str, channel_name: str) -> str:

@@ -153,7 +153,7 @@ def run_curation(
         if not (p.startswith("skills/")):
             oob.append(p)
     if oob:
-        cli_runner.git_checkout_paths(company_dir, oob)
+        cli_runner.revert_out_of_bounds(company_dir, status_lines, oob)
         logger.warning("curator touched out-of-bounds paths, reverted: %s", oob)
 
     if result.timed_out:

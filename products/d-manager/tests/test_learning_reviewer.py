@@ -247,6 +247,42 @@ def test_run_review_out_of_bounds_reverted(setup, monkeypatch):
     assert res["out_of_bounds"] == [".env"]
 
 
+def test_run_review_out_of_bounds_untracked_cleaned(setup, monkeypatch):
+    """範囲外に *新規* ファイルが作られたら（`??`）`git checkout --` ではなく `git clean` で消す。"""
+    db, company = setup
+    monkeypatch.setattr(
+        cli_runner, "run_claude", _fake_cli("<summary>done: 何か</summary>")
+    )
+    monkeypatch.setattr(
+        cli_runner,
+        "git_status_short",
+        lambda repo: ["?? secretary/decisions/leaked.md", "A  skills/x.md"],
+    )
+    monkeypatch.setattr(cli_runner, "git_head", lambda repo: "x")
+    checked_out = []
+    cleaned = []
+    monkeypatch.setattr(
+        cli_runner, "git_checkout_paths", lambda repo, paths: checked_out.extend(paths)
+    )
+    monkeypatch.setattr(
+        cli_runner, "git_clean_paths", lambda repo, paths: cleaned.extend(paths)
+    )
+    res = reviewer.run_review(
+        db_path=db,
+        company_dir=company,
+        channel_id="chan-1",
+        review_date="2026-05-10",
+        channel_name="c",
+        department="operations",
+        model="m",
+        dryrun=False,
+        now=dt.datetime(2026, 5, 11, 23, 0),
+    )
+    assert cleaned == ["secretary/decisions/leaked.md"]
+    assert "secretary/decisions/leaked.md" not in checked_out
+    assert res["out_of_bounds"] == ["secretary/decisions/leaked.md"]
+
+
 def test_run_review_dryrun_restricts_tools(setup, monkeypatch):
     db, company = setup
     captured = {}
