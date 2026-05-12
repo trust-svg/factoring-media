@@ -18,6 +18,12 @@ const nextConfig: NextConfig = {
         destination: "/companies/paytoday",
         permanent: true,
       },
+      // えんナビは比較DBから除外済み → レビュー記事に誘導（将来DB復活の可能性があるので一時リダイレクト）
+      {
+        source: "/companies/ennavi",
+        destination: "/articles/ennavi-review",
+        permanent: false,
+      },
     ];
   },
 };
