@@ -1220,6 +1220,28 @@ async def morning_briefing():
         "secretary",
         "scheduler-briefing",
     )
+    # 前日のダイジェストサマリ（知見エンジン フェーズ1）
+    try:
+        import datetime as _dt
+
+        from knowledge import store as kstore
+
+        yday = (_dt.date.today() - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        drows = kstore.get_digests(config.KNOWLEDGE_DB_PATH, yday)
+        if drows:
+            topics = []
+            for r in drows:
+                if r["topics_json"]:
+                    import json as _json
+
+                    topics.extend(_json.loads(r["topics_json"]))
+            uniq = list(dict.fromkeys(topics))[:5]
+            line = f"\n\n📋 昨日のダイジェスト {len(drows)}件"
+            if uniq:
+                line += "｜主なトピック: " + " / ".join(uniq)
+            result = (result or "") + line
+    except Exception:  # noqa: BLE001
+        logger.exception("morning_briefing: digest summary failed")
     if _send_fn:
         await _send_fn("ceo-steve-general", result)
     logger.info("Morning briefing sent")
