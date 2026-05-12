@@ -26,7 +26,7 @@ const allResults: Record<string, Result[]> = {
   "個人事業主_即日": [
     { slug: "ququmo", name: "QuQuMo", fee: "1%〜14.8%", speed: "最短2時間", point: "個人事業主OK・上限なし", url: "/companies/ququmo" },
     { slug: "accel-factor", name: "アクセルファクター", fee: "2%〜20%", speed: "最短即日", point: "審査通過率93%・少額OK", url: "/companies/accel-factor" },
-    { slug: "paytoday", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "最短10分で審査完了", url: "/companies/paytoday" },
+    { slug: "paytner", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "最短10分で審査完了", url: "/companies/paytner" },
   ],
   "個人事業主_通常": [
     { slug: "factoru", name: "ファクトル", fee: "1.5%〜10%", speed: "最短即日", point: "非営利法人の安心感", url: "/companies/factoru" },
@@ -34,12 +34,12 @@ const allResults: Record<string, Result[]> = {
     { slug: "beat-trading", name: "ビートレーディング", fee: "2%〜12%", speed: "最短5時間", point: "実績1,300億円超", url: "/companies/beat-trading" },
   ],
   "フリーランス_即日": [
-    { slug: "paytoday", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "請求書1枚・最短10分", url: "/companies/paytoday" },
+    { slug: "paytner", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "請求書1枚・最短10分", url: "/companies/paytner" },
     { slug: "labol", name: "ラボル", fee: "一律10%", speed: "最短60分", point: "1万円から・上場企業G", url: "/companies/labol" },
     { slug: "ququmo", name: "QuQuMo", fee: "1%〜14.8%", speed: "最短2時間", point: "大口にも対応可能", url: "/companies/ququmo" },
   ],
   "フリーランス_通常": [
-    { slug: "paytoday", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "フリーランス特化No.1", url: "/companies/paytoday" },
+    { slug: "paytner", name: "ペイトナー", fee: "一律10%", speed: "最短10分", point: "フリーランス特化No.1", url: "/companies/paytner" },
     { slug: "labol", name: "ラボル", fee: "一律10%", speed: "最短60分", point: "24時間365日対応", url: "/companies/labol" },
     { slug: "factoru", name: "ファクトル", fee: "1.5%〜10%", speed: "最短即日", point: "手数料を抑えたい方に", url: "/companies/factoru" },
   ],

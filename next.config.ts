@@ -12,10 +12,10 @@ const nextConfig: NextConfig = {
         destination: "/articles/paytner-review",
         permanent: true,
       },
-      // /companies/paytner の旧リンク（実体は slug "paytoday"）
+      // ペイトナーの旧 slug "paytoday" → "paytner" にリネーム（"pay-today"（PAYTODAY）との混同回避）
       {
-        source: "/companies/paytner",
-        destination: "/companies/paytoday",
+        source: "/companies/paytoday",
+        destination: "/companies/paytner",
         permanent: true,
       },
       // えんナビは比較DBから除外済み → レビュー記事に誘導（将来DB復活の可能性があるので一時リダイレクト）

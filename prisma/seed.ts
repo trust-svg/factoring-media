@@ -226,7 +226,7 @@ async function main() {
       rankingOrder: 7,
     },
     {
-      slug: "paytoday",
+      slug: "paytner",
       name: "ペイトナーファクタリング",
       officialUrl: "https://paytner.co.jp/factoring",
       affiliateUrl: "https://faccel.jp/go/paytner",
@@ -391,9 +391,16 @@ async function main() {
     },
   ];
 
-  // Delete removed company
+  // Reset reviews first: keeps the seed idempotent (no duplicate reviews) and
+  // lets us delete companies below without hitting the Review FK constraint.
+  await prisma.review.deleteMany({});
+
+  // Delete removed / renamed companies
+  // - "ennavi": dropped from the comparison DB (redirects to /articles/ennavi-review)
+  // - "paytoday": old slug for ペイトナー, renamed to "paytner" to avoid confusion
+  //   with the separate company "pay-today" (PAYTODAY／ペイトゥデイ)
   await prisma.company.deleteMany({
-    where: { slug: "ennavi" },
+    where: { slug: { in: ["ennavi", "paytoday"] } },
   });
 
   for (const company of companies) {
@@ -403,9 +410,6 @@ async function main() {
       create: company,
     });
   }
-
-  // Reset reviews so re-running the seed stays idempotent (avoids duplicates)
-  await prisma.review.deleteMany({});
 
   // Insert sample reviews
   const reviews = [
@@ -447,9 +451,9 @@ async function main() {
     { companySlug: "pmg", rating: 3, title: "個人事業主は利用不可", body: "問い合わせたところ、個人事業主は対象外と言われました。法人限定なので、その点は事前に確認が必要です。対応自体は丁寧でした。", userType: "個人事業主", isApproved: true },
 
     // ペイトナー (8位)
-    { companySlug: "paytoday", rating: 5, title: "10分で審査完了は本当だった", body: "半信半疑で申し込みましたが、本当に10分で審査が完了し、すぐに入金されました。フリーランスとして月末の生活費が厳しい時に助かりました。手数料10%は安くはないですが、このスピード感は価値があります。", userType: "フリーランス", isApproved: true },
-    { companySlug: "paytoday", rating: 4, title: "請求書1枚から使える手軽さ", body: "15万円の請求書1枚でも利用できました。他の業者は最低金額が高いところが多いですが、ペイトナーは少額でもOKなのがフリーランスには嬉しいです。", userType: "フリーランス", isApproved: true },
-    { companySlug: "paytoday", rating: 3, title: "上限100万円は物足りない", body: "事業が成長してきて、100万円以上の請求書もファクタリングしたくなりましたが、上限が100万円なので使えません。少額向けと割り切って利用しています。", userType: "個人事業主", isApproved: true },
+    { companySlug: "paytner", rating: 5, title: "10分で審査完了は本当だった", body: "半信半疑で申し込みましたが、本当に10分で審査が完了し、すぐに入金されました。フリーランスとして月末の生活費が厳しい時に助かりました。手数料10%は安くはないですが、このスピード感は価値があります。", userType: "フリーランス", isApproved: true },
+    { companySlug: "paytner", rating: 4, title: "請求書1枚から使える手軽さ", body: "15万円の請求書1枚でも利用できました。他の業者は最低金額が高いところが多いですが、ペイトナーは少額でもOKなのがフリーランスには嬉しいです。", userType: "フリーランス", isApproved: true },
+    { companySlug: "paytner", rating: 3, title: "上限100万円は物足りない", body: "事業が成長してきて、100万円以上の請求書もファクタリングしたくなりましたが、上限が100万円なので使えません。少額向けと割り切って利用しています。", userType: "個人事業主", isApproved: true },
 
     // ラボル (9位)
     { companySlug: "labol", rating: 5, title: "1万円から使えるのが助かる", body: "駆け出しのフリーランスなので、請求額が小さいことが多いです。1万円から利用できるラボルは本当に助かっています。上場企業グループという安心感もあります。", userType: "フリーランス", isApproved: true },
@@ -486,8 +490,8 @@ async function main() {
     { companySlug: "pmg", rating: 5, title: "担当者の知識が豊富", body: "ファクタリングだけでなく、資金調達全般について幅広い知識を持った担当者でした。補助金や融資の選択肢も提案してもらえて、単なるファクタリング業者以上の価値を感じました。", userType: "法人（中規模）", isApproved: true },
 
     // ペイトナー 追加
-    { companySlug: "paytoday", rating: 5, title: "UIが使いやすくて迷わない", body: "Webサービスとしての完成度が高く、申し込みの画面がとても分かりやすかったです。請求書をアップロードして数タップで完了。テクノロジー企業が作ったサービスだなと感じました。", userType: "フリーランス", isApproved: true },
-    { companySlug: "paytoday", rating: 4, title: "急ぎの生活費に助かった", body: "クライアントの支払いが遅れて生活費がピンチの時に利用しました。朝申し込んで昼には入金。フリーランスのセーフティネットとして心強いサービスです。", userType: "フリーランス", isApproved: true },
+    { companySlug: "paytner", rating: 5, title: "UIが使いやすくて迷わない", body: "Webサービスとしての完成度が高く、申し込みの画面がとても分かりやすかったです。請求書をアップロードして数タップで完了。テクノロジー企業が作ったサービスだなと感じました。", userType: "フリーランス", isApproved: true },
+    { companySlug: "paytner", rating: 4, title: "急ぎの生活費に助かった", body: "クライアントの支払いが遅れて生活費がピンチの時に利用しました。朝申し込んで昼には入金。フリーランスのセーフティネットとして心強いサービスです。", userType: "フリーランス", isApproved: true },
 
     // ラボル 追加
     { companySlug: "labol", rating: 5, title: "副業の請求書でも使えた", body: "本業はサラリーマンで、副業のWeb制作の請求書でファクタリングしました。5万円という少額でしたが問題なく対応してもらえました。副業フリーランスにもおすすめです。", userType: "フリーランス", isApproved: true },
