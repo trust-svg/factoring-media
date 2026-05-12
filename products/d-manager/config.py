@@ -129,3 +129,30 @@ SKILL_BLOAT_COUNT_THRESHOLD = int(os.getenv("SKILL_BLOAT_COUNT_THRESHOLD", "25")
 LEARNING_ALLOWED_TOOLS = "Read Write Edit Glob Grep"
 LEARNING_DRYRUN_ALLOWED_TOOLS = "Read Glob Grep"
 LEARNING_DISALLOWED_TOOLS = "Bash WebFetch WebSearch Task"
+
+# ── Knowledge engine（フェーズ1: 議事録化）─────────────────────────────────
+KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
+KNOWLEDGE_DB_PATH = Path(
+    os.getenv("KNOWLEDGE_DB_PATH", str(KNOWLEDGE_DIR / "knowledge.db"))
+)
+# Markdownビューの出力先（.company 配下・別gitリポ。.company/.gitignore で secretary/knowledge/ を除外）
+KNOWLEDGE_VIEW_DIR = COMPANY_DIR / "secretary" / "knowledge"
+
+# 安全弁: デフォルト無効。テスト後に KNOWLEDGE_DIGEST_ENABLED=true で本番化。
+KNOWLEDGE_DIGEST_ENABLED = (
+    os.getenv("KNOWLEDGE_DIGEST_ENABLED", "false").lower() == "true"
+)
+KNOWLEDGE_DIGEST_HOUR = int(os.getenv("KNOWLEDGE_DIGEST_HOUR", "23"))
+KNOWLEDGE_DIGEST_MINUTE = int(os.getenv("KNOWLEDGE_DIGEST_MINUTE", "30"))
+KNOWLEDGE_MIN_DIGEST_TURNS = int(os.getenv("KNOWLEDGE_MIN_DIGEST_TURNS", "4"))
+KNOWLEDGE_DIGEST_TIMEOUT_SEC = int(os.getenv("KNOWLEDGE_DIGEST_TIMEOUT_SEC", "180"))
+KNOWLEDGE_DIGEST_MAX_SESSIONS = int(os.getenv("KNOWLEDGE_DIGEST_MAX_SESSIONS", "20"))
+KNOWLEDGE_NOTIFY_CHANNEL = os.getenv("KNOWLEDGE_NOTIFY_CHANNEL", "日報-daily-digest")
+
+# 議事録化の対象から外す通知専用チャンネル。channel_id ベースで除外する。
+# 環境変数 KNOWLEDGE_NOTIFICATION_CHANNEL_IDS にカンマ区切りの Discord channel_id を入れる。未設定なら空。
+KNOWLEDGE_NOTIFICATION_CHANNEL_IDS = tuple(
+    cid.strip()
+    for cid in os.getenv("KNOWLEDGE_NOTIFICATION_CHANNEL_IDS", "").split(",")
+    if cid.strip()
+)
