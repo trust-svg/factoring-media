@@ -546,7 +546,7 @@ async function main() {
 
   console.log(`Reviews inserted: ${reviews.length}`);
 
-  console.log("Seed data inserted successfully: 10 companies");
+  console.log(`Seed data inserted successfully: ${companies.length} companies`);
 }
 
 main()
