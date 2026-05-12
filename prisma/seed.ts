@@ -326,6 +326,7 @@ async function main() {
       slug: "pay-today",
       name: "PAYTODAY（ペイトゥデイ）",
       officialUrl: "https://paytoday.jp/",
+      affiliateUrl: "https://faccel.jp/go/pay-today",
       description:
         "AI与信モデルを活用したオンライン完結型ファクタリング。最短30分入金、手数料1%〜9.5%。法人・個人事業主対応で、面談・来店は不要。",
       minAmount: 10,
@@ -353,6 +354,40 @@ async function main() {
       rating: 4.2,
       isRecommended: false,
       rankingOrder: 11,
+    },
+    {
+      slug: "owl-keizai",
+      name: "アウル経済",
+      officialUrl: "https://owl-economy.jp/",
+      affiliateUrl: "https://faccel.jp/go/owl-keizai",
+      description:
+        "中小企業に特化した法人向けファクタリング。手数料は概ね1%〜10%程度で「最低手数料率保証」を掲げる。1997年設立で27年以上の実績、担保・連帯保証人不要、赤字決算でも相談可。",
+      minAmount: 50,
+      maxAmount: 5000,
+      fee: "1%〜10%程度（最低手数料率保証 ※条件あり）",
+      depositSpeed: "最短即日（平日15時までの書類提出で当日中に審査回答）",
+      targetBusiness: "法人（中小企業中心）",
+      features: [
+        "中小企業特化",
+        "最低手数料率保証（※条件あり）",
+        "1997年設立・27年以上の実績",
+        "担保・連帯保証人不要",
+      ],
+      pros: [
+        "他社見積もりを提示すれば手数料の値下げ交渉がしやすい",
+        "手数料の上限が10%程度と低め",
+        "赤字決算でも相談できる",
+        "原則ノンリコース（償還請求権なし）",
+      ],
+      cons: [
+        "手数料1%は条件付き（売掛先の信用力次第）",
+        "原則2社間のみの対応",
+        "買取下限が50万円のため小口には不向き",
+        "個人事業主・フリーランスは対象外",
+      ],
+      rating: 3.9,
+      isRecommended: false,
+      rankingOrder: 12,
     },
   ];
 
@@ -462,6 +497,11 @@ async function main() {
     { companySlug: "pay-today", rating: 5, title: "午前に申し込んで当日入金された", body: "急な支払いで資金が必要になり利用しました。午前中に申し込み、書類確認が終わったら夕方には入金完了。銀行融資だと数週間かかるので助かりました。手数料は売掛先が上場企業だったこともあり数%で収まりました。", userType: "法人（小規模）", isApproved: true },
     { companySlug: "pay-today", rating: 4, title: "面談がないのが楽だった", body: "他社は対面や電話の面談があって時間が取られましたが、PAYTODAYはすべてオンラインで完結。スマホとPCだけで手続きできました。手数料1%とはいきませんでしたが、複数社で比較した中では妥当な水準でした。", userType: "個人事業主", isApproved: true },
     { companySlug: "pay-today", rating: 4, title: "「1%〜」は条件付きだと理解しておくべき", body: "公式の「手数料1%〜」を見て申し込みましたが、実際の見積もりは7%程度でした。誇大とまでは言いませんが、最低値が自分に適用されるわけではないと痛感。スピードと手軽さには満足しています。", userType: "個人事業主", isApproved: true },
+
+    // アウル経済
+    { companySlug: "owl-keizai", rating: 5, title: "他社の見積書を見せたら手数料を下げてくれた", body: "別の会社で12%を提示されていましたが、その見積書を見せたら8%台まで下げてくれました。「最低手数料率保証」は本当でした。すでに他社の見積もりを持っているなら交渉材料に使えます。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "owl-keizai", rating: 4, title: "平日午前の申込で当日中に回答が来た", body: "月末の支払いが迫っていて急いでいましたが、午前中に書類を送ったら当日中に審査結果の連絡がありました。建設業で入金サイクルが長いので、つなぎ資金として助かっています。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "owl-keizai", rating: 4, title: "赤字でも担保なしで利用できた", body: "銀行融資は赤字で全滅。アウル経済は売掛先の信用力で判断するとのことで利用できました。担保も連帯保証人も不要なのは中小企業にはありがたいです。知名度は低めですが会社の実績は古く、安心して使えました。", userType: "法人（小規模）", isApproved: true },
   ];
 
   for (const review of reviews) {
