@@ -404,6 +404,9 @@ async function main() {
     });
   }
 
+  // Reset reviews so re-running the seed stays idempotent (avoids duplicates)
+  await prisma.review.deleteMany({});
+
   // Insert sample reviews
   const reviews = [
     // QuQuMo (1位)
