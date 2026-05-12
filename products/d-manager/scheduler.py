@@ -1615,6 +1615,48 @@ async def learning_review():
     logger.info("learning_review done: %s", lines[0])
 
 
+async def knowledge_digest():
+    """夜間バッチ: その日のチャンネルごとの会話を構造化議事録にする（フェーズ1）。"""
+    if not config.KNOWLEDGE_DIGEST_ENABLED:
+        logger.info("knowledge_digest: disabled (KNOWLEDGE_DIGEST_ENABLED=false), skip")
+        return
+    logger.info("Running knowledge_digest...")
+    import datetime as _dt
+
+    from knowledge import digest as kdigest
+
+    today = _dt.date.today().strftime("%Y-%m-%d")
+    loop = asyncio.get_event_loop()
+    run = await loop.run_in_executor(
+        None,
+        lambda: kdigest.build_daily_digests(
+            date=today,
+            learning_db=config.LEARNING_DB_PATH,
+            knowledge_db=config.KNOWLEDGE_DB_PATH,
+            view_dir=config.KNOWLEDGE_VIEW_DIR,
+            company_dir=config.COMPANY_DIR,
+            meetings_dir=config.COMPANY_DIR / "meetings",
+            model=config.REVIEW_MODEL_CLI,
+            min_turns=config.KNOWLEDGE_MIN_DIGEST_TURNS,
+            notification_channel_ids=config.KNOWLEDGE_NOTIFICATION_CHANNEL_IDS,
+            timeout_sec=config.KNOWLEDGE_DIGEST_TIMEOUT_SEC,
+            max_sessions=config.KNOWLEDGE_DIGEST_MAX_SESSIONS,
+        ),
+    )
+    lines = [
+        f"📋 **今夜の議事録化**（{today}）: {run.processed}件 / 失敗{run.failed}件 "
+        f"/ スキップ{run.skipped}件 / council索引{run.council_indexed}件"
+    ]
+    for note in run.notes:
+        lines.append(f"⚠️ {note}")
+    if _send_fn:
+        try:
+            await _send_fn(config.KNOWLEDGE_NOTIFY_CHANNEL, "\n".join(lines))
+        except Exception:  # noqa: BLE001
+            logger.exception("knowledge_digest: notify failed")
+    logger.info("knowledge_digest done: %s", lines[0])
+
+
 async def learning_curate():
     """週次キュレーター（weekly_review から呼ばれる、または !learning curate）。"""
     logger.info("Running learning_curate...")
@@ -2082,6 +2124,17 @@ def setup_scheduler(send_fn, task_view_fn=None):
         minute=0,
         id="learning_review",
         name="学習ループ夜間レビュー",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=3600,
+    )
+    _scheduler.add_job(
+        knowledge_digest,
+        "cron",
+        hour=config.KNOWLEDGE_DIGEST_HOUR,
+        minute=config.KNOWLEDGE_DIGEST_MINUTE,
+        id="knowledge_digest",
+        name="知見エンジン: 夜間議事録化",
         max_instances=1,
         coalesce=True,
         misfire_grace_time=3600,
