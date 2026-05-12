@@ -1229,13 +1229,13 @@ git commit -m "feat(d-manager): 朝ブリーフィングに前日ダイジェス
 ## Task 9: `.company/.gitignore` でMarkdownビューを除外
 
 **Files:**
-- Create: `products/d-manager/.company/.gitignore`
+- Create / Modify: `/Users/Mac_air/Claude-Workspace/.company/.gitignore`
 
-> `.company/` は別 git リポ（`.company/.git`）。`secretary/memory/` 等は引き続きコミット対象。`secretary/knowledge/`（digest/signals/stories の Markdownビュー）だけ除外する＝SQLite `knowledge.db` が正で Markdown は再生成可能なため、履歴肥大を避ける。
+> `.company/`（= ワークスペース直下 `/Users/Mac_air/Claude-Workspace/.company`）は d-manager 本体とは別の git リポ（`.company/.git`）。`secretary/memory/` 等は引き続きコミット対象。`secretary/knowledge/`（digest/signals/stories の Markdownビュー）だけ除外する＝SQLite `knowledge.db` が正で Markdown は再生成可能なため、履歴肥大を避ける。
 
-- [ ] **Step 1: `.gitignore` を作成**
+- [ ] **Step 1: `.gitignore` を作成（無ければ新規／あれば追記）**
 
-`products/d-manager/.company/.gitignore`:
+`/Users/Mac_air/Claude-Workspace/.company/.gitignore` に1行追加:
 
 ```gitignore
 secretary/knowledge/
@@ -1252,7 +1252,7 @@ Expected: `.gitignore` が新規ファイルとして見える（`secretary/know
 cd /Users/Mac_air/Claude-Workspace/.company && git add .gitignore && git commit -m "chore: secretary/knowledge/ を ignore（knowledge engine の Markdownビュー）"
 ```
 
-> 注: `.company` は d-manager 本体リポ（`/Users/Mac_air/Claude-Workspace`）とは別リポなので、コミットも別。d-manager 本体側の `git status` には `.company/` の中身は出ない（サブモジュールではなく独立リポ・ネスト配置）。d-manager 本体側でこのプランの他タスクをコミットするときに `.company/` が巻き込まれないことを確認すること。
+> 注: `.company`（`/Users/Mac_air/Claude-Workspace/.company`）はワークスペース本体リポ（`/Users/Mac_air/Claude-Workspace`）とは別の独立 git リポ（サブモジュールではない）なので、コミットも別。ワークスペース本体側の `git status` には `.company/` の中身は出ない。本体側でこのプランの他タスクをコミットするときに `.company/` が巻き込まれないことを確認すること。
 
 ---
 
