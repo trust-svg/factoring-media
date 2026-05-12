@@ -1870,11 +1870,13 @@ def _generate_draft_via_cli(email: dict) -> Optional[str]:
 
 
 async def hourly_email_drafts():
-    """0/6/12/18時 — 未読メールに対して返信下書きを自動作成。
+    """30分ごと(7-23時) — 未読メールに対して返信下書きを自動作成。
 
     - 重複除外: 既に下書きがあるスレッドはスキップ
-    - ノイズ除外: noreply / メルマガ系は除外
-    - 通知: 新規分があれば ceo-steve-general へサマリー送信
+    - ノイズ除外: noreply / メルマガ系 / AIが返信不要と判断したもの
+    - 通知: 新規分があれば ceo-steve-general へサマリー送信。下書き生成に
+      失敗(claude -p エラー等)した件があれば、その件数と件名も併記する
+      (サイレント故障対策)。
     """
     logger.info("Running hourly email drafts...")
     try:
@@ -1890,33 +1892,37 @@ async def hourly_email_drafts():
         )
 
         new_drafts = []
+        failures = []  # (subject, reason) — claude -p 失敗・create_draft 失敗
         skipped_dup = 0
-        skipped_noise = 0
-        failed = 0
+        skipped_filter = 0  # 送信元/件名のノイズパターン
+        skipped_ai = 0  # AI が [SKIP] 判定
+        skipped_phrase = 0  # AI返信本文の冒頭がノイズフレーズ
 
         for e in emails:
             tid = e.get("threadId")
+            subj = (e.get("subject") or "")[:60]
             if tid in drafted:
                 skipped_dup += 1
                 continue
             if _is_noise_email(e):
-                skipped_noise += 1
+                skipped_filter += 1
                 continue
 
             body = await loop.run_in_executor(None, _generate_draft_via_cli, e)
             if not body:
-                failed += 1
+                logger.warning(f"draft generation returned nothing: {subj}")
+                failures.append((subj, "claude -p 失敗/空応答"))
                 continue
             if "[SKIP]" in body[:20].upper():
-                skipped_noise += 1
+                skipped_ai += 1
                 continue
             # AI が指示を無視して「これは～自動配信」と前置きを書いた場合の保険
             body_head = body[:80].lower()
             if any(p.lower() in body_head for p in _NOISE_BODY_PHRASES):
                 logger.info(
-                    f"AI returned meta-comment instead of [SKIP] — treating as noise: {e.get('subject', '')[:40]}"
+                    f"AI returned meta-comment instead of [SKIP] — treating as noise: {subj}"
                 )
-                skipped_noise += 1
+                skipped_phrase += 1
                 continue
 
             try:
@@ -1941,21 +1947,42 @@ async def hourly_email_drafts():
                     drafted.add(tid)  # 同一実行内の重複防止
             except Exception as ce:
                 logger.error(f"create_draft failed for {e.get('id')}: {ce}")
-                failed += 1
+                failures.append((subj, f"create_draft 失敗: {str(ce)[:80]}"))
 
         logger.info(
-            f"hourly_email_drafts: new={len(new_drafts)} dup={skipped_dup} noise={skipped_noise} failed={failed}"
+            "hourly_email_drafts: new=%d dup=%d noise_filter=%d ai_skip=%d phrase=%d failed=%d",
+            len(new_drafts),
+            skipped_dup,
+            skipped_filter,
+            skipped_ai,
+            skipped_phrase,
+            len(failures),
         )
 
-        if new_drafts and _send_fn:
-            lines = [f"📧 メール返信下書き **{len(new_drafts)}件** 作成しました"]
-            for e in new_drafts[:10]:
-                sender_short = (e.get("from") or "")[:40]
-                subj_short = (e.get("subject") or "")[:50]
-                lines.append(f"- `{sender_short}` — {subj_short}")
-            if len(new_drafts) > 10:
-                lines.append(f"…他 {len(new_drafts) - 10}件")
-            lines.append("\nGmail下書きから確認・編集して送信してください。")
+        if (new_drafts or failures) and _send_fn:
+            lines = []
+            if new_drafts:
+                lines.append(
+                    f"📧 メール返信下書き **{len(new_drafts)}件** 作成しました"
+                )
+                for e in new_drafts[:10]:
+                    sender_short = (e.get("from") or "")[:40]
+                    subj_short = (e.get("subject") or "")[:50]
+                    lines.append(f"- `{sender_short}` — {subj_short}")
+                if len(new_drafts) > 10:
+                    lines.append(f"…他 {len(new_drafts) - 10}件")
+            if failures:
+                if lines:
+                    lines.append("")
+                lines.append(
+                    f"⚠️ 下書き生成に失敗 **{len(failures)}件**（手動対応してください）"
+                )
+                for subj, reason in failures[:10]:
+                    lines.append(f"- {subj} — {reason}")
+                if len(failures) > 10:
+                    lines.append(f"…他 {len(failures) - 10}件")
+            if new_drafts:
+                lines.append("\nGmail下書きから確認・編集して送信してください。")
             await _send_fn("ceo-steve-general", "\n".join(lines))
     except Exception as e:
         logger.error(f"hourly_email_drafts failed: {e}", exc_info=True)
@@ -2067,12 +2094,12 @@ def setup_scheduler(send_fn, task_view_fn=None):
         minute=0,
         name="チケット月次アーカイブ",
     )
-    # メール返信下書き自動作成（0/6/12/18時）— サイレント実行、新規分のみ通知
+    # メール返信下書き自動作成（30分ごと・7-23時）— サイレント実行、新規分+失敗分を通知
     _scheduler.add_job(
         hourly_email_drafts,
         "cron",
-        hour="0,6,12,18",
-        minute=0,
+        hour="7-23",
+        minute="0,30",
         name="メール返信下書き自動作成",
     )
     # Tier 3-A: 深夜2:00 主要プロダクトサイト疎通チェック（失敗のみJackに通知）
