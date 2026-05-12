@@ -846,6 +846,65 @@ async def on_message(message: discord.Message):
         )
         return
 
+    # Quick command: !digest [YYYY-MM-DD] [--run]
+    if raw.startswith("!digest"):
+        import datetime as _dt
+
+        from knowledge import digest as kdigest, store as kstore
+
+        parts = raw.split()
+        if len(parts) >= 2 and not parts[1].startswith("--"):
+            target = parts[1]
+        else:
+            target = _dt.date.today().strftime("%Y-%m-%d")
+
+        if "--run" in parts:
+            run = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: kdigest.build_daily_digests(
+                    date=target,
+                    learning_db=config.LEARNING_DB_PATH,
+                    knowledge_db=config.KNOWLEDGE_DB_PATH,
+                    view_dir=config.KNOWLEDGE_VIEW_DIR,
+                    company_dir=config.COMPANY_DIR,
+                    meetings_dir=config.COMPANY_DIR / "meetings",
+                    model=config.REVIEW_MODEL_CLI,
+                    min_turns=config.KNOWLEDGE_MIN_DIGEST_TURNS,
+                    notification_channel_ids=config.KNOWLEDGE_NOTIFICATION_CHANNEL_IDS,
+                    timeout_sec=config.KNOWLEDGE_DIGEST_TIMEOUT_SEC,
+                    max_sessions=config.KNOWLEDGE_DIGEST_MAX_SESSIONS,
+                ),
+            )
+            await send_as_character_with_avatar(
+                message.channel,
+                f"📋 議事録化 {target}: 処理{run.processed} / 失敗{run.failed} / "
+                f"スキップ{run.skipped} / council索引{run.council_indexed}",
+                channel_name,
+            )
+            return
+
+        rows = await asyncio.get_event_loop().run_in_executor(
+            None, kstore.get_digests, config.KNOWLEDGE_DB_PATH, target
+        )
+        if not rows:
+            await send_as_character_with_avatar(
+                message.channel,
+                f"📋 {target} のダイジェストはまだありません（`!digest {target} --run` で生成）",
+                channel_name,
+            )
+            return
+        out = [f"📋 **{target} のダイジェスト** ({len(rows)}件)"]
+        for r in rows:
+            head = (r["summary_md"] or "").splitlines()
+            first = next(
+                (ln for ln in head if ln.strip() and not ln.startswith("#")), ""
+            )
+            out.append(f"・**{r['channel_name']}** ({r['source_kind']}): {first[:120]}")
+        await send_as_character_with_avatar(
+            message.channel, "\n".join(out)[:1900], channel_name
+        )
+        return
+
     # Quick command: !run <flow> [arg=value] [arg=value] …
     if raw.startswith("!run"):
         from flows import FLOWS, list_flows, run_flow
