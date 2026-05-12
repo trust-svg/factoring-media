@@ -150,23 +150,42 @@ def get_digests(db_path: Path, date: str) -> list:
         conn.close()
 
 
+def _like_search(conn: sqlite3.Connection, query: str, limit: int) -> list:
+    # LIKE のワイルドカード（% _）はエスケープしてリテラル扱いにする
+    esc = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    like = f"%{esc}%"
+    rows = conn.execute(
+        "SELECT * FROM digests WHERE summary_md LIKE ? ESCAPE '\\' "
+        "OR COALESCE(topics_json,'') LIKE ? ESCAPE '\\' ORDER BY date DESC LIMIT ?",
+        (like, like, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def search(db_path: Path, query: str, limit: int = 50) -> list:
+    """議事録の全文検索。3文字以上は FTS5 trigram、2文字以下は LIKE フォールバック。
+
+    `!digest` コマンドや将来のコンサルモードから任意文字列が渡るので、FTS5 構文エラーや
+    trigram 非対応ビルドは捕まえて LIKE フォールバックに落とす。
+    """
+    query = (query or "").strip()
+    if not query:
+        return []
     conn = _connect(db_path)
     try:
-        try:
-            rows = conn.execute(
-                "SELECT d.* FROM digests_fts f JOIN digests d ON d.id=f.rowid "
-                "WHERE digests_fts MATCH ? ORDER BY d.date DESC LIMIT ?",
-                (query, limit),
-            ).fetchall()
-            return [dict(r) for r in rows]
-        except sqlite3.OperationalError:
-            like = f"%{query.replace('%', '').replace('_', '')}%"
-            rows = conn.execute(
-                "SELECT * FROM digests WHERE summary_md LIKE ? OR COALESCE(topics_json,'') LIKE ? "
-                "ORDER BY date DESC LIMIT ?",
-                (like, like, limit),
-            ).fetchall()
-            return [dict(r) for r in rows]
+        rows = None
+        if len(query) >= 3:
+            try:
+                rows = conn.execute(
+                    "SELECT d.* FROM digests_fts f JOIN digests d ON d.id=f.rowid "
+                    "WHERE digests_fts MATCH ? ORDER BY d.date DESC LIMIT ?",
+                    (query, limit),
+                ).fetchall()
+                rows = [dict(r) for r in rows]
+            except sqlite3.OperationalError:
+                rows = None  # FTS5 構文エラー / trigram 非対応 → LIKE
+        if rows is None:
+            rows = _like_search(conn, query, limit)
+        return rows
     finally:
         conn.close()
