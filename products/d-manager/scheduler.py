@@ -1961,15 +1961,23 @@ async def hourly_email_drafts():
         logger.error(f"hourly_email_drafts failed: {e}", exc_info=True)
 
 
+_JOB_ERROR_NOTIFY = {
+    "learning_review": config.LEARNING_NOTIFY_CHANNEL,
+    "weekly_review": config.LEARNING_NOTIFY_CHANNEL,
+    "knowledge_digest": config.KNOWLEDGE_NOTIFY_CHANNEL,
+}
+
+
 def _on_job_error(event):
-    """APScheduler ジョブが例外を投げたらログ + 学習系は Discord にも通知（best-effort）。"""
+    """APScheduler ジョブが例外を投げたらログ + 一部ジョブは Discord にも通知（best-effort）。"""
     logger.error("Scheduler job %s raised: %s", event.job_id, event.exception)
-    if event.job_id in ("learning_review", "weekly_review") and _send_fn:
+    notify_channel = _JOB_ERROR_NOTIFY.get(event.job_id)
+    if notify_channel and _send_fn:
         try:
             # AsyncIOScheduler のリスナーはイベントループ内で呼ばれる前提（get_running_loop）。
             asyncio.get_running_loop().create_task(
                 _send_fn(
-                    config.LEARNING_NOTIFY_CHANNEL,
+                    notify_channel,
                     f"⚠️ スケジューラジョブ `{event.job_id}` が例外: {event.exception}",
                 )
             )

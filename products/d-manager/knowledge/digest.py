@@ -117,7 +117,7 @@ def index_council_meetings(*, date: str, knowledge_db: Path, meetings_dir: Path)
             date=date,
             source_kind="council",
             turn_count=0,
-            summary_md=f"council 議事録（索引）: `{f}`\n\n{head}",
+            summary_md=f"council 議事録（索引）: `meetings/{f.name}`\n\n{head}",
             topics=None,
             decisions=None,
             open_items=None,
@@ -164,8 +164,10 @@ def build_daily_digests(
                 prompt=_build_prompt(conv),
                 cwd=Path(company_dir),
                 model=model,
+                # 議事録化は純粋なテキスト変換。ツールは一切不要なので allowed は空、
+                # 念のため副作用系・外部アクセス系を disallowed にも明示する。
                 allowed_tools="",
-                disallowed_tools="Bash Edit Write WebFetch",
+                disallowed_tools="Bash Edit Write WebFetch WebSearch Task",
                 system_prompt_append=_PERSONA,
                 max_turns=1,
                 timeout_sec=timeout_sec,

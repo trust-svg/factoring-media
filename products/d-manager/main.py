@@ -849,12 +849,20 @@ async def on_message(message: discord.Message):
     # Quick command: !digest [YYYY-MM-DD] [--run]
     if raw.startswith("!digest"):
         import datetime as _dt
+        import re as _re
 
         from knowledge import digest as kdigest, store as kstore
 
         parts = raw.split()
         if len(parts) >= 2 and not parts[1].startswith("--"):
             target = parts[1]
+            if not _re.fullmatch(r"\d{4}-\d{2}-\d{2}", target):
+                await send_as_character_with_avatar(
+                    message.channel,
+                    "📋 日付は `YYYY-MM-DD` で指定してください（例: `!digest 2026-05-12 --run`）",
+                    channel_name,
+                )
+                return
         else:
             target = _dt.date.today().strftime("%Y-%m-%d")
 
