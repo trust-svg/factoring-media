@@ -322,6 +322,38 @@ async function main() {
       isRecommended: false,
       rankingOrder: 10,
     },
+    {
+      slug: "pay-today",
+      name: "PAYTODAY（ペイトゥデイ）",
+      officialUrl: "https://paytoday.jp/",
+      description:
+        "AI与信モデルを活用したオンライン完結型ファクタリング。最短30分入金、手数料1%〜9.5%。法人・個人事業主対応で、面談・来店は不要。",
+      minAmount: 10,
+      maxAmount: null,
+      fee: "1%〜9.5%",
+      depositSpeed: "最短30分",
+      targetBusiness: "法人・個人事業主",
+      features: [
+        "最短30分入金",
+        "AI与信モデル",
+        "手数料1%〜",
+        "オンライン完結・面談不要",
+      ],
+      pros: [
+        "手数料の下限が業界最安級",
+        "AI審査でスピードが速い",
+        "来店・面談が不要",
+        "法人・個人事業主どちらも対応",
+      ],
+      cons: [
+        "手数料1%は条件付き（売掛先の信用力次第）",
+        "2社間のみの対応",
+        "口コミがまだ少ない",
+      ],
+      rating: 4.2,
+      isRecommended: false,
+      rankingOrder: 11,
+    },
   ];
 
   // Delete removed company
@@ -425,6 +457,11 @@ async function main() {
     // トップマネジメント 追加
     { companySlug: "top-management", rating: 5, title: "見積書ファクタリングが便利", body: "まだ請求書が発行されていない段階の見積書でもファクタリングできるサービスがあり、資金を早期に確保できました。他社では請求書が必須なので、この柔軟性は大きな差別化ポイントです。", userType: "法人（小規模）", isApproved: true },
     { companySlug: "top-management", rating: 4, title: "コンサルティングが充実", body: "ファクタリングの相談だけでなく、事業計画書の書き方や銀行融資の受け方まで教えてもらえました。15年の実績からくるノウハウは本物だと感じました。手数料は5%で良心的でした。", userType: "法人（小規模）", isApproved: true },
+
+    // PAYTODAY（ペイトゥデイ）
+    { companySlug: "pay-today", rating: 5, title: "午前に申し込んで当日入金された", body: "急な支払いで資金が必要になり利用しました。午前中に申し込み、書類確認が終わったら夕方には入金完了。銀行融資だと数週間かかるので助かりました。手数料は売掛先が上場企業だったこともあり数%で収まりました。", userType: "法人（小規模）", isApproved: true },
+    { companySlug: "pay-today", rating: 4, title: "面談がないのが楽だった", body: "他社は対面や電話の面談があって時間が取られましたが、PAYTODAYはすべてオンラインで完結。スマホとPCだけで手続きできました。手数料1%とはいきませんでしたが、複数社で比較した中では妥当な水準でした。", userType: "個人事業主", isApproved: true },
+    { companySlug: "pay-today", rating: 4, title: "「1%〜」は条件付きだと理解しておくべき", body: "公式の「手数料1%〜」を見て申し込みましたが、実際の見積もりは7%程度でした。誇大とまでは言いませんが、最低値が自分に適用されるわけではないと痛感。スピードと手軽さには満足しています。", userType: "個人事業主", isApproved: true },
   ];
 
   for (const review of reviews) {
