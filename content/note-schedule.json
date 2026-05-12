@@ -272,12 +272,16 @@
     {
       "date": "2026-05-12",
       "slug": "axel-factor-yabai",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n43e46ff6e24b",
+      "published_at": "2026-05-13"
     },
     {
       "date": "2026-05-13",
       "slug": "betrading-hyouban-warui",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n087688d63a24",
+      "published_at": "2026-05-13"
     },
     {
       "date": "2026-05-14",
