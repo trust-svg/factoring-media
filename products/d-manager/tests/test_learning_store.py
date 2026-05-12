@@ -215,3 +215,33 @@ def test_skill_metrics_skips_unreadable(tmp_path):
     m = store.skill_metrics(skills_dir)
     assert m["count"] == 2
     assert m["concat_chars"] == 100  # bad.md は読めないので 0 扱い
+
+
+def test_list_sessions_for_date(db):
+    # 2026-05-10 に 3ターンのセッション、2026-05-11 に 1ターンのセッション
+    for i in range(3):
+        _record(
+            db,
+            channel_id="c10",
+            role="user",
+            content=f"q{i}",
+            now=dt.datetime(2026, 5, 10, 9, i, 0),
+        )
+    _record(
+        db,
+        channel_id="c11",
+        role="user",
+        content="x",
+        now=dt.datetime(2026, 5, 11, 9, 0, 0),
+    )
+
+    got_all = store.list_sessions_for_date(db, "2026-05-10", min_turns=1)
+    assert [s["channel_id"] for s in got_all] == ["c10"]
+    assert got_all[0]["turn_count"] == 3
+
+    # min_turns で絞れる
+    assert store.list_sessions_for_date(db, "2026-05-11", min_turns=2) == []
+    assert len(store.list_sessions_for_date(db, "2026-05-11", min_turns=1)) == 1
+
+    # 該当日が無ければ空
+    assert store.list_sessions_for_date(db, "2099-01-01", min_turns=1) == []

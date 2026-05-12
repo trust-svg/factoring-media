@@ -220,6 +220,20 @@ def list_pending_reviews(
         conn.close()
 
 
+def list_sessions_for_date(db_path: Path, date: str, min_turns: int = 1) -> list[dict]:
+    """指定日のセッション（チャンネル）一覧。レビュー状態は問わない。turn_count >= min_turns のみ。"""
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM sessions WHERE review_date=? AND turn_count >= ? "
+            "ORDER BY channel_id",
+            (date, min_turns),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def mark_review_start(
     db_path: Path,
     channel_id: str,
