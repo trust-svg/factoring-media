@@ -1,4 +1,5 @@
 """バイヤー購入履歴 — 注文履歴・追跡番号・フィードバック統合"""
+
 from __future__ import annotations
 
 import logging
@@ -34,34 +35,54 @@ def get_buyer_full_history(db: Session, buyer_username: str) -> dict:
         }
     """
     # Step 1: buyer_nameで直接検索
-    sales = db.query(SalesRecord).filter(
-        SalesRecord.buyer_name == buyer_username
-    ).order_by(SalesRecord.sold_at.desc()).all()
+    sales = (
+        db.query(SalesRecord)
+        .filter(SalesRecord.buyer_name == buyer_username)
+        .order_by(SalesRecord.sold_at.desc())
+        .all()
+    )
 
     # Step 2: 直接マッチ0件 → このバイヤーのメッセージitem_id経由で検索
     # （buyer_name=フルネーム, sender=eBayユーザーIDの不一致を救済）
     if not sales:
         buyer_item_ids = [
-            r[0] for r in db.query(BuyerMessage.item_id).filter(
-                ((BuyerMessage.sender == buyer_username) | (BuyerMessage.recipient == buyer_username)),
+            r[0]
+            for r in db.query(BuyerMessage.item_id)
+            .filter(
+                (
+                    (BuyerMessage.sender == buyer_username)
+                    | (BuyerMessage.recipient == buyer_username)
+                ),
                 BuyerMessage.item_id != "",
-            ).distinct().all()
+            )
+            .distinct()
+            .all()
         ]
         if buyer_item_ids:
-            sales = db.query(SalesRecord).filter(
-                SalesRecord.item_id.in_(buyer_item_ids)
-            ).order_by(SalesRecord.sold_at.desc()).all()
+            sales = (
+                db.query(SalesRecord)
+                .filter(SalesRecord.item_id.in_(buyer_item_ids))
+                .order_by(SalesRecord.sold_at.desc())
+                .all()
+            )
 
     # メッセージスレッド
-    messages = db.query(BuyerMessage).filter(
-        (BuyerMessage.sender == buyer_username) | (BuyerMessage.recipient == buyer_username)
-    ).all()
+    messages = (
+        db.query(BuyerMessage)
+        .filter(
+            (BuyerMessage.sender == buyer_username)
+            | (BuyerMessage.recipient == buyer_username)
+        )
+        .all()
+    )
 
     # 注文ごとの情報を構築
     orders = []
     for s in sales:
         # 追跡番号 + キャリアリンク
-        tracking_info = _build_tracking_info(s.tracking_number or "", s.shipping_method or "")
+        tracking_info = _build_tracking_info(
+            s.tracking_number or "", s.shipping_method or ""
+        )
 
         # この注文に関するメッセージ数
         order_messages = [m for m in messages if m.item_id == s.item_id]
@@ -75,36 +96,39 @@ def get_buyer_full_history(db: Session, buyer_username: str) -> dict:
             listing = db.query(Listing).filter(Listing.listing_id == s.item_id).first()
             if listing and listing.image_urls_json:
                 import json as _json
+
                 try:
                     imgs = _json.loads(listing.image_urls_json)
                     thumbnail = imgs[0] if imgs else ""
                 except Exception:
                     pass
 
-        orders.append({
-            "order_id": s.order_id,
-            "item_id": s.item_id,
-            "sku": s.sku,
-            "title": s.title,
-            "thumbnail": thumbnail,
-            "sale_price_usd": s.sale_price_usd,
-            "source_cost_jpy": s.source_cost_jpy,
-            "net_profit_usd": s.net_profit_usd,
-            "net_profit_jpy": s.net_profit_jpy,
-            "profit_margin_pct": s.profit_margin_pct,
-            "shipping_method": s.shipping_method,
-            "tracking_number": s.tracking_number or "",
-            "tracking_url": tracking_info.get("url", ""),
-            "carrier": tracking_info.get("carrier", ""),
-            "progress": s.progress,
-            "trouble_type": trouble_type,
-            "trouble_icon": _trouble_icon(trouble_type),
-            "message_count": len(order_messages),
-            "buyer_country": s.buyer_country,
-            "marketplace": s.marketplace,
-            "sold_at": s.sold_at.isoformat() if s.sold_at else "",
-            "ship_by_date": s.ship_by_date.isoformat() if s.ship_by_date else "",
-        })
+        orders.append(
+            {
+                "order_id": s.order_id,
+                "item_id": s.item_id,
+                "sku": s.sku,
+                "title": s.title,
+                "thumbnail": thumbnail,
+                "sale_price_usd": s.sale_price_usd,
+                "source_cost_jpy": s.source_cost_jpy,
+                "net_profit_usd": s.net_profit_usd,
+                "net_profit_jpy": s.net_profit_jpy,
+                "profit_margin_pct": s.profit_margin_pct,
+                "shipping_method": s.shipping_method,
+                "tracking_number": s.tracking_number or "",
+                "tracking_url": tracking_info.get("url", ""),
+                "carrier": tracking_info.get("carrier", ""),
+                "progress": s.progress,
+                "trouble_type": trouble_type,
+                "trouble_icon": _trouble_icon(trouble_type),
+                "message_count": len(order_messages),
+                "buyer_country": s.buyer_country,
+                "marketplace": s.marketplace,
+                "sold_at": s.sold_at.isoformat() if s.sold_at else "",
+                "ship_by_date": s.ship_by_date.isoformat() if s.ship_by_date else "",
+            }
+        )
 
     # 統計
     total_revenue = sum(s.sale_price_usd for s in sales)
@@ -132,7 +156,9 @@ def get_buyer_full_history(db: Session, buyer_username: str) -> dict:
             "total_profit_usd": round(total_profit, 2),
             "avg_profit_margin": round(
                 sum(s.profit_margin_pct for s in sales) / len(sales), 1
-            ) if sales else 0,
+            )
+            if sales
+            else 0,
             "trouble_count": trouble_count,
             "first_order": sales[-1].sold_at.isoformat() if sales else "",
             "last_order": sales[0].sold_at.isoformat() if sales else "",
@@ -184,7 +210,12 @@ def edit_listing_from_chat(db: Session, item_id: str, updates: dict) -> dict:
         api_updates["quantity"] = int(updates["quantity"])
 
     if api_updates:
-        result = update_listing(sku, api_updates)
+        result = update_listing(
+            sku,
+            api_updates,
+            item_id=listing.listing_id,
+            currency=(listing.currency or None),
+        )
         if result.get("success"):
             # ローカルDBも更新
             if "price_usd" in api_updates:
@@ -202,6 +233,7 @@ def edit_listing_from_chat(db: Session, item_id: str, updates: dict) -> dict:
 
 
 # ── ヘルパー ─────────────────────────────────────────────
+
 
 def _build_tracking_info(tracking_number: str, shipping_method: str) -> dict:
     """追跡番号からキャリアとURLを生成する。"""
@@ -239,7 +271,10 @@ def _detect_carrier(tracking_number: str, shipping_method: str = "") -> str:
         return "Japan Post"
 
     # ── 名前ベース判定（パターンで判定できない場合のフォールバック）──
-    if any(k in method for k in ("speedpak", "speed pak", "orangeconnex", "sppeedpak", "sppedpak")):
+    if any(
+        k in method
+        for k in ("speedpak", "speed pak", "orangeconnex", "sppeedpak", "sppedpak")
+    ):
         return "SpeedPAK"
     if "dhl" in method:
         return "DHL"

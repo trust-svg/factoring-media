@@ -243,11 +243,25 @@ def find_dead_listings(
     non_usd_skus = select(ListingRefreshRun.sku).where(
         ListingRefreshRun.outcome == "non_usd_skip"
     )
+    # 既知の壊れ出品（errorId 25709 = API_INVENTORY、Revise不可）は恒久除外。
+    broken_listing_skus = select(ListingRefreshRun.sku).where(
+        ListingRefreshRun.outcome == "error",
+        ListingRefreshRun.note.like("%25709%"),
+    )
+    # 同一SKUで error が 2回以上 → 何らかの恒久要因。毎日再ピックされる無限ループを止める。
+    repeated_error_skus = (
+        select(ListingRefreshRun.sku)
+        .where(ListingRefreshRun.outcome == "error")
+        .group_by(ListingRefreshRun.sku)
+        .having(func.count(ListingRefreshRun.id) >= 2)
+    )
     q = select(Listing).where(
         Listing.quantity == 1,
         Listing.source_type.in_(["stocked", "dropship_jp"]),
         ~Listing.sku.in_(recently_sold),
         ~Listing.sku.in_(non_usd_skus),
+        ~Listing.sku.in_(broken_listing_skus),
+        ~Listing.sku.in_(repeated_error_skus),
     )
 
     if exclude_recently_refreshed:
@@ -493,6 +507,7 @@ async def refresh_single(
                 "price_usd": new_price,
             },
             item_id=listing.listing_id,
+            currency=(listing.currency or None),
         )
         if not result.get("success"):
             err_msg = result.get("error", "unknown") or "unknown"
@@ -715,6 +730,7 @@ def rollback(db: Session, backup_id: int) -> dict:
 
     from ebay_core.client import update_listing
 
+    listing = db.get(Listing, backup.sku)
     result = update_listing(
         backup.sku,
         {
@@ -722,11 +738,11 @@ def rollback(db: Session, backup_id: int) -> dict:
             "price_usd": backup.old_price_usd,
         },
         item_id=backup.listing_id,
+        currency=((listing.currency or None) if listing else None),
     )
     if not result.get("success"):
         return {"success": False, "error": result.get("error")}
 
-    listing = db.get(Listing, backup.sku)
     if listing:
         listing.title = backup.old_title
         listing.price_usd = backup.old_price_usd

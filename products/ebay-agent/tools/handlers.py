@@ -75,7 +75,34 @@ async def _check_inventory(params: dict) -> dict:
                 item_specifics_json=json.dumps(item.item_specifics),
                 description=item.description,
                 offer_id=item.offer_id,
+                currency=item.currency,
             )
+
+        # 通貨バックフィル: GetMyeBaySelling(=1コールで全アクティブ出品) から currency を取得し、
+        # 既存 listings 行に書き込む。これで死に筒Refresh が Revise 前に Trading API GetItem を
+        # 呼ばずに済む（GetItem デイリーコール枯渇 → error 連発の再発防止）。
+        # 既存行の currency 列だけを更新（画像等のリッチ情報は Inventory API 側の同期に任せる）。
+        if not out_of_stock_only:
+            try:
+                from database.models import Listing
+                from ebay_core.client import get_active_listings_trading
+
+                cur_backfilled = 0
+                for ti in get_active_listings_trading():
+                    if not ti.currency:
+                        continue
+                    n = (
+                        db.query(Listing)
+                        .filter(Listing.sku == ti.sku, Listing.currency != ti.currency)
+                        .update({"currency": ti.currency})
+                    )
+                    cur_backfilled += n
+                db.commit()
+                if cur_backfilled:
+                    logger.info(f"出品通貨バックフィル: {cur_backfilled}件更新")
+            except Exception:
+                db.rollback()
+                logger.exception("出品通貨バックフィルに失敗（在庫同期は継続）")
     finally:
         db.close()
 
@@ -526,7 +553,9 @@ async def _update_listing_handler(params: dict) -> dict:
         return {"error": "更新フィールドが指定されていません"}
 
     # Trading API 出品（Sell Inventory API に無いSKU）のフォールバック用に ItemID を引く
+    # 通貨もキャッシュ済みなら渡す（USD 以外は ebaymag 管理 → 即 skipped）
     item_id = None
+    listing_currency = None
     _db_lookup = get_db()
     try:
         from database.models import Listing
@@ -534,10 +563,13 @@ async def _update_listing_handler(params: dict) -> dict:
         _l = _db_lookup.query(Listing).filter_by(sku=sku).first()
         if _l:
             item_id = _l.listing_id
+            listing_currency = _l.currency or None
     finally:
         _db_lookup.close()
 
-    result = ebay_update_listing(sku, updates, item_id=item_id)
+    result = ebay_update_listing(
+        sku, updates, item_id=item_id, currency=listing_currency
+    )
 
     # Shopify価格を連動更新（price_usdが変更された場合のみ）
     if result["success"] and "price_usd" in params:
@@ -620,7 +652,12 @@ async def _apply_price_change(params: dict) -> dict:
             return {"error": f"SKU {sku} が見つかりません"}
 
         old_price = listing.price_usd
-        result = ebay_update_listing(sku, {"price_usd": new_price})
+        result = ebay_update_listing(
+            sku,
+            {"price_usd": new_price},
+            item_id=listing.listing_id,
+            currency=(listing.currency or None),
+        )
 
         if result["success"]:
             crud.log_change(db, sku, "price", f"${old_price:.2f}", f"${new_price:.2f}")
@@ -1142,6 +1179,7 @@ async def _create_draft_listing(params: dict) -> dict:
             item_specifics_json=json.dumps(aspects),
             description=description,
             offer_id=offer_result.get("offer_id", ""),
+            currency="USD",
         )
     finally:
         db.close()

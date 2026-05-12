@@ -57,6 +57,9 @@ class EbayItem:
     item_specifics: dict = field(default_factory=dict)
     description: str = ""
     offer_id: str = ""
+    currency: str = (
+        ""  # 出品通貨。USD 以外は ebaymag 管理の海外サイト出品 → 死に筒Refresh対象外
+    )
 
 
 # ── トークン管理 ──────────────────────────────────────────
@@ -219,14 +222,14 @@ def _get_active_listings_inventory_api() -> list[EbayItem]:
                 and sku
                 and (not marketplace or marketplace == "EBAY_US")
             ):
-                price_val = (
-                    offer.get("pricingSummary", {}).get("price", {}).get("value", "0")
-                )
+                price_summary = offer.get("pricingSummary", {}).get("price", {})
+                price_val = price_summary.get("value", "0")
                 offers_by_sku[sku] = {
                     "price_usd": float(price_val),
                     "listing_id": offer.get("listingId", ""),
                     "offer_id": offer.get("offerId", ""),
                     "category_id": offer.get("categoryId", ""),
+                    "currency": price_summary.get("currency", ""),
                 }
         total = data.get("total", 0)
         offset += EBAY_PAGE_SIZE
@@ -278,6 +281,7 @@ def _get_active_listings_inventory_api() -> list[EbayItem]:
                     item_specifics=product.get("aspects", {}),
                     description=product.get("description", ""),
                     offer_id=offer_info.get("offer_id", ""),
+                    currency=offer_info.get("currency", ""),
                 )
             )
 
@@ -369,6 +373,14 @@ def get_active_listings_trading() -> list[EbayItem]:
                 )
             quantity = int(item.findtext("e:QuantityAvailable", "0", namespaces=ns_map))
 
+            # 出品通貨: CurrentPrice の currencyID 属性。USD 以外は ebaymag 管理の海外サイト出品
+            currency = ""
+            cur_el = item.find("e:SellingStatus/e:CurrentPrice", ns_map)
+            if cur_el is not None:
+                currency = cur_el.get("currencyID", "")
+            if not currency:
+                currency = item.findtext("e:Currency", "", namespaces=ns_map)
+
             # SKU: あれば使う、なければ item_id を SKU として使用
             sku = item.findtext("e:SKU", "", namespaces=ns_map) or item_id
 
@@ -382,6 +394,7 @@ def get_active_listings_trading() -> list[EbayItem]:
                     is_out_of_stock=(quantity == 0),
                     listing_id=item_id,
                     category_name=site or "",
+                    currency=currency,
                 )
             )
 
@@ -2123,31 +2136,39 @@ def get_item_trading(item_id: str) -> dict:
     }
 
 
-def revise_listing_trading(item_id: str, updates: dict) -> dict:
+def revise_listing_trading(
+    item_id: str, updates: dict, currency: Optional[str] = None
+) -> dict:
     """Trading API (ReviseFixedPriceItem) で ItemID 指定の出品を更新する。
 
     Sell Inventory API に存在しない（Trading API で出品された）SKU の更新フォールバック。
     死に筒Refresh はこれで title + price を Revise する（ItemID 維持 → SOLD履歴/e-ship影響なし）。
 
-    安全策: 先に GetItem で通貨を確認し、USD 以外（= ebaymag 管理の海外サイト出品）は
-    値段の桁が壊れる/通貨変更不可エラーになるため Revise せず skipped を返す。
+    安全策: 通貨が USD 以外（= ebaymag 管理の海外サイト出品）は値段の桁が壊れる/通貨変更不可
+    エラーになるため Revise せず skipped を返す。
+    `currency` が渡されていれば（在庫同期でキャッシュ済み）それを使い GetItem 呼び出しを省略。
+    渡されていなければ GetItem で確認する（Trading API デイリーコール消費）。
 
     updates keys: title, price_usd, quantity, description
     """
     # セーフティ: 通貨が USD でなければ触らない（ebaymag 管理対象）
-    info = get_item_trading(item_id)
-    if not info.get("ok"):
-        return {
-            "success": False,
-            "error": f"GetItem失敗: {info.get('error')}",
-            "changes": [],
-        }
-    if (info.get("currency") or "").upper() != "USD":
+    if currency:
+        cur = currency
+    else:
+        info = get_item_trading(item_id)
+        if not info.get("ok"):
+            return {
+                "success": False,
+                "error": f"GetItem失敗: {info.get('error')}",
+                "changes": [],
+            }
+        cur = info.get("currency") or ""
+    if cur.upper() != "USD":
         return {
             "success": False,
             "skipped": True,
             "reason": "non_usd_listing_ebaymag_managed",
-            "error": f"通貨={info.get('currency')} のためRefresh対象外（ebaymag管理）",
+            "error": f"通貨={cur} のためRefresh対象外（ebaymag管理）",
             "changes": [],
         }
 
@@ -2230,7 +2251,12 @@ def revise_listing_trading(item_id: str, updates: dict) -> dict:
     return result
 
 
-def update_listing(sku: str, updates: dict, item_id: Optional[str] = None) -> dict:
+def update_listing(
+    sku: str,
+    updates: dict,
+    item_id: Optional[str] = None,
+    currency: Optional[str] = None,
+) -> dict:
     """
     出品情報を更新する。
 
@@ -2239,9 +2265,21 @@ def update_listing(sku: str, updates: dict, item_id: Optional[str] = None) -> di
 
     updates keys: title, description, price_usd, quantity, aspects
     item_id: eBay ItemID（listings.listing_id）。Inventory API に無いSKUの更新に必要。
+    currency: 在庫同期でキャッシュした出品通貨。USD 以外なら ebaymag 管理対象として即 skipped を返す。
+              USD と分かっていれば Trading フォールバック時に GetItem 呼び出しを省略できる。
     """
     headers = _auth_headers()
     result = {"success": False, "changes": []}
+
+    # 0) 通貨が分かっていて USD 以外 → ebaymag 管理の海外サイト出品。一切触らない。
+    if currency and currency.upper() != "USD":
+        return {
+            "success": False,
+            "skipped": True,
+            "reason": "non_usd_listing_ebaymag_managed",
+            "error": f"通貨={currency} のためRefresh対象外（ebaymag管理）",
+            "changes": [],
+        }
 
     # 1) 現在の inventory item を取得
     url = f"{EBAY_API_BASE}/sell/inventory/v1/inventory_item/{quote(sku, safe='')}"
@@ -2252,7 +2290,7 @@ def update_listing(sku: str, updates: dict, item_id: Optional[str] = None) -> di
             logger.info(
                 f"SKU {sku} は Sell Inventory API に無し → Trading API ReviseFixedPriceItem に切替 (ItemID={item_id})"
             )
-            return revise_listing_trading(item_id, updates)
+            return revise_listing_trading(item_id, updates, currency=currency)
         result["error"] = f"SKU {sku} が見つかりません"
         return result
 
