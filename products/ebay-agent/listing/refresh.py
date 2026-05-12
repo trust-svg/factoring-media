@@ -258,6 +258,9 @@ def find_dead_listings(
     q = select(Listing).where(
         Listing.quantity == 1,
         Listing.source_type.in_(["stocked", "dropship_jp"]),
+        # 通貨が判明していて USD 以外 → ebaymag 管理の海外サイト出品。Refresh 対象外。
+        # （未判明 currency='' は候補に残し、初回 Revise 時の GetItem で判定 → non_usd_skip 記録）
+        or_(Listing.currency == "", func.upper(Listing.currency) == "USD"),
         ~Listing.sku.in_(recently_sold),
         ~Listing.sku.in_(non_usd_skus),
         ~Listing.sku.in_(broken_listing_skus),
