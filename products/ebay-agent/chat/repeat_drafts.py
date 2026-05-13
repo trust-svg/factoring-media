@@ -156,6 +156,16 @@ def _build_messages(
     )
     msgs.extend(shots)
 
+    # Anthropic API は assistant の tool_use の直後に tool_result が必要。
+    # few-shot の最後の assistant ブロックから tool_use_id を取り出して
+    # 同じ user ターン内で tool_result + 次リクエストを並べる。
+    shot_tool_use_id = ""
+    if shots and isinstance(shots[-1].get("content"), list):
+        for block in shots[-1]["content"]:
+            if isinstance(block, dict) and block.get("type") == "tool_use":
+                shot_tool_use_id = block.get("id", "")
+                break
+
     user_payload = (
         f"buyer: {buyer_username}\n"
         f"past_title: {past_title or 'a Japanese collectible'}\n"
@@ -163,7 +173,23 @@ def _build_messages(
         f"feedback_comment: {feedback_comment or '(no comment)'}\n\n"
         "Write the draft."
     )
-    msgs.append({"role": "user", "content": user_payload})
+
+    if shot_tool_use_id:
+        msgs.append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": shot_tool_use_id,
+                        "content": "Draft accepted. Now write the next one.",
+                    },
+                    {"type": "text", "text": user_payload},
+                ],
+            }
+        )
+    else:
+        msgs.append({"role": "user", "content": user_payload})
     return msgs
 
 
