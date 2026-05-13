@@ -534,8 +534,17 @@ async def refresh_single(
                     "backup_id": backup.id,
                 }
 
-            # eBay側で削除済みSKUは listings.quantity=0 にして次回以降の候補から除外
-            sku_missing = "見つかりません" in err_msg or "not found" in err_msg.lower()
+            # eBay側で削除済み or 終了済みSKUは listings.quantity=0 にして次回以降の候補から除外
+            # （在庫同期はACTIVE出品しか返さないため、終了済み出品は DB上 quantity=1 のまま
+            #  残り続けて何度も Refresh 候補に上がる。Trading API の "ended listing" /
+            #  "not allowed to revise" エラーをここで拾って一発で quantity=0 にする）
+            err_low = err_msg.lower()
+            sku_missing = (
+                "見つかりません" in err_msg
+                or "not found" in err_low
+                or "ended listing" in err_low
+                or "not allowed to revise" in err_low
+            )
             if sku_missing:
                 listing.quantity = 0
                 backup.status = "skipped"

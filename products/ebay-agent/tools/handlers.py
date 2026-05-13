@@ -17,7 +17,6 @@ from shopify.sync import get_discount_rate, get_shopify_price
 from database import crud
 from ebay_core.client import (
     get_active_listings,
-    get_active_listings_trading,
     get_out_of_stock_items,
     search_ebay,
     update_listing as ebay_update_listing,
@@ -78,31 +77,10 @@ async def _check_inventory(params: dict) -> dict:
                 currency=item.currency,
             )
 
-        # 通貨バックフィル: GetMyeBaySelling(=1コールで全アクティブ出品) から currency を取得し、
-        # 既存 listings 行に書き込む。これで死に筒Refresh が Revise 前に Trading API GetItem を
-        # 呼ばずに済む（GetItem デイリーコール枯渇 → error 連発の再発防止）。
-        # 既存行の currency 列だけを更新（画像等のリッチ情報は Inventory API 側の同期に任せる）。
-        if not out_of_stock_only:
-            try:
-                from database.models import Listing
-                from ebay_core.client import get_active_listings_trading
-
-                cur_backfilled = 0
-                for ti in get_active_listings_trading():
-                    if not ti.currency:
-                        continue
-                    n = (
-                        db.query(Listing)
-                        .filter(Listing.sku == ti.sku, Listing.currency != ti.currency)
-                        .update({"currency": ti.currency})
-                    )
-                    cur_backfilled += n
-                db.commit()
-                if cur_backfilled:
-                    logger.info(f"出品通貨バックフィル: {cur_backfilled}件更新")
-            except Exception:
-                db.rollback()
-                logger.exception("出品通貨バックフィルに失敗（在庫同期は継続）")
+        # 通貨は upsert_listing(currency=item.currency) で既に書き込み済み。
+        # （旧版にあった get_active_listings_trading() による重複バックフィルは削除:
+        #  6h同期で GetMyeBaySelling を2回叩き、Trading API デイリーコール上限に
+        #  達して在庫同期が落ちる事故が 2026-05-13 02:55 UTC に発生したため）
     finally:
         db.close()
 
