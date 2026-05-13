@@ -951,6 +951,7 @@ def _migrate_repeat_engine(engine_instance) -> None:
             conn.execute(text(stmt))
 
         # outbound_offers への後付けカラム（既に作成済みテーブルがある場合の冪等 ALTER）
+        oo_altered = False
         try:
             oo_result = conn.execute(text("PRAGMA table_info(outbound_offers)"))
             oo_existing = {row[1] for row in oo_result.fetchall()}
@@ -960,6 +961,7 @@ def _migrate_repeat_engine(engine_instance) -> None:
                         "ALTER TABLE outbound_offers ADD COLUMN draft_body_ja TEXT NOT NULL DEFAULT ''"
                     )
                 )
+                oo_altered = True
         except Exception:
             # outbound_offers がまだ作られていない初回起動 (create_all 前) のケース。
             # create_all 時点で正しいスキーマで作られるので問題なし。
@@ -992,7 +994,7 @@ def _migrate_repeat_engine(engine_instance) -> None:
                 "ON repeat_campaigns(code)"
             )
         )
-        if stmts:
+        if stmts or oo_altered:
             conn.commit()
 
 
