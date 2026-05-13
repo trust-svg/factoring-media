@@ -10,7 +10,11 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from chat.repeat_drafts import _build_messages, _FEW_SHOTS_BY_TAG  # noqa: E402
+from chat.repeat_drafts import (  # noqa: E402
+    _build_messages,
+    _FEW_SHOTS_BY_TAG,
+    _TOOL_DEFINITION,
+)
 
 
 def test_tool_use_followed_by_tool_result():
@@ -94,3 +98,24 @@ def test_known_tags_have_tool_use_id():
         tu = [b for b in content if isinstance(b, dict) and b.get("type") == "tool_use"]
         assert tu, f"{tag} に tool_use ブロックが無い"
         assert tu[0].get("id"), f"{tag} の tool_use に id が無い"
+
+
+def test_tool_schema_requires_body_ja():
+    """submit_draft tool は body_ja を必須項目として宣言していること。"""
+    schema = _TOOL_DEFINITION["input_schema"]
+    assert "body_ja" in schema["properties"], "body_ja プロパティが無い"
+    assert "body_ja" in schema["required"], "body_ja が required に無い"
+
+
+def test_few_shots_include_body_ja():
+    """全 few-shot 例で body_ja が含まれていること（モデルへの規範提示）。"""
+    for tag, shots in _FEW_SHOTS_BY_TAG.items():
+        assistant = shots[-1]
+        tu = [b for b in assistant["content"] if b.get("type") == "tool_use"]
+        inp = tu[0].get("input", {})
+        assert inp.get("body_ja"), f"{tag} の few-shot に body_ja が無い"
+        # 日本語訳には日本語の文字（ひらがな or カタカナ or 漢字）が含まれていること
+        ja = inp["body_ja"]
+        assert any("぀" <= ch <= "ヿ" or "一" <= ch <= "鿿" for ch in ja), (
+            f"{tag} の body_ja に日本語文字が見当たらない"
+        )

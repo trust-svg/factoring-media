@@ -766,6 +766,9 @@ class OutboundOffer(Base):
 
     draft_subject: Mapped[str] = mapped_column(String(256), default="")
     draft_body: Mapped[str] = mapped_column(Text, default="")
+    draft_body_ja: Mapped[str] = mapped_column(
+        Text, default=""
+    )  # 承認カード確認用・送信されない
     draft_rationale: Mapped[str] = mapped_column(Text, default="")
     compliance_flags_json: Mapped[str] = mapped_column(Text, default="[]")
 
@@ -946,6 +949,22 @@ def _migrate_repeat_engine(engine_instance) -> None:
             )
         for stmt in stmts:
             conn.execute(text(stmt))
+
+        # outbound_offers への後付けカラム（既に作成済みテーブルがある場合の冪等 ALTER）
+        try:
+            oo_result = conn.execute(text("PRAGMA table_info(outbound_offers)"))
+            oo_existing = {row[1] for row in oo_result.fetchall()}
+            if oo_existing and "draft_body_ja" not in oo_existing:
+                conn.execute(
+                    text(
+                        "ALTER TABLE outbound_offers ADD COLUMN draft_body_ja TEXT NOT NULL DEFAULT ''"
+                    )
+                )
+        except Exception:
+            # outbound_offers がまだ作られていない初回起動 (create_all 前) のケース。
+            # create_all 時点で正しいスキーマで作られるので問題なし。
+            pass
+
         # 新カラム用インデックス（冪等）
         conn.execute(
             text(

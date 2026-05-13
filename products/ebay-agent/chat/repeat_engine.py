@@ -566,6 +566,7 @@ def draft_pending_post_feedback() -> dict:
 
                 offer.draft_subject = draft.get("subject", "")[:256]
                 offer.draft_body = draft.get("body", "")
+                offer.draft_body_ja = draft.get("body_ja", "")
                 offer.draft_rationale = draft.get("rationale", "")
                 flags = compliance_check(offer.draft_body)
                 offer.compliance_flags_json = json.dumps(flags, ensure_ascii=False)

@@ -75,9 +75,13 @@ def _format_card(offer: OutboundOffer, sale: Optional[SalesRecord]) -> str:
         "",
         f"<b>Subject:</b> {html.escape(offer.draft_subject or '(none)')}",
         "",
-        "<b>Body:</b>",
+        "<b>Body (English — sent to buyer):</b>",
         f"<pre>{html.escape(offer.draft_body or '(empty)')}</pre>",
     ]
+    if offer.draft_body_ja:
+        lines.append("")
+        lines.append("<b>🇯🇵 日本語訳（確認用・送信されない）:</b>")
+        lines.append(f"<pre>{html.escape(offer.draft_body_ja)}</pre>")
     if block_flags:
         lines.append("")
         lines.append("⛔ <b>BLOCKED — manual edit required</b>")

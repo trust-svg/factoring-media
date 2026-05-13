@@ -43,7 +43,9 @@ Hard rules:
 - No mention of WhatsApp, Telegram, LINE, Instagram, Facebook, TikTok, WeChat, or any off-platform channel.
 - Do NOT use pressure tactics ("act now", "hurry", "last chance", "limited time only").
 - Warm, professional tone. Avoid emoji.
-- The subject should be short (≤ 60 characters) and natural — no salesy capitalization."""
+- The subject should be short (≤ 60 characters) and natural — no salesy capitalization.
+
+Also include body_ja: a faithful, natural Japanese translation of the English body, written for a Japanese reviewer (not the buyer). Keep the same paragraph structure. Leave eBay-specific phrases like "Save Seller" in English inside Japanese quotes. The body_ja is NEVER sent to the buyer — it's a review aid."""
 
 
 _TOOL_DEFINITION = {
@@ -54,18 +56,22 @@ _TOOL_DEFINITION = {
         "properties": {
             "subject": {
                 "type": "string",
-                "description": "Short message subject, ≤ 60 chars.",
+                "description": "Short message subject in English, ≤ 60 chars.",
             },
             "body": {
                 "type": "string",
                 "description": "Message body in English, ≤ 600 chars.",
+            },
+            "body_ja": {
+                "type": "string",
+                "description": "Faithful Japanese translation of body — for the Japanese reviewer to confirm tone and intent. NOT sent to the buyer. Translate naturally, do not literally translate eBay-specific phrases like 'Save Seller' (leave them in English in quotes).",
             },
             "rationale": {
                 "type": "string",
                 "description": "One short sentence in Japanese explaining tone choice (内部メモ・送信されない).",
             },
         },
-        "required": ["subject", "body", "rationale"],
+        "required": ["subject", "body", "body_ja", "rationale"],
     },
 }
 
@@ -86,6 +92,7 @@ _FEW_SHOTS_BY_TAG: dict[str, list[dict]] = {
                     "input": {
                         "subject": "Thank you for the kind feedback",
                         "body": "Hi collector_taro,\n\nThank you so much for the warm feedback on the Bandai S.H.Figuarts Gundam figure — I'm really glad it arrived safely and that the packaging held up.\n\nI restock figures and Japanese collectibles every week, including some hard-to-find pieces. If you'd like to be notified when new arrivals go live, please tap \"Save Seller\" on my eBay store page.\n\nThanks again for your support!\n\nKind regards,\nSamuraiShopJapanSelect",
+                        "body_ja": "collector_taroさん、こんにちは。\n\nバンダイ S.H.Figuarts のガンダムフィギュアにあたたかいフィードバックをいただき、本当にありがとうございます。無事に届いて梱包も問題なかったとのこと、こちらも安心しました。\n\n毎週フィギュアや日本のコレクター品を補充していて、入手困難なアイテムも入荷します。新着のお知らせを受け取りたい場合は、eBayストアページの「Save Seller」をタップしてください。\n\n改めて、ご支援ありがとうございます。\n\n敬具\nSamuraiShopJapanSelect",
                         "rationale": "コレクター層・短期リピート想定。Save Seller誘導を自然な形で含める。",
                     },
                 }
@@ -107,6 +114,7 @@ _FEW_SHOTS_BY_TAG: dict[str, list[dict]] = {
                     "input": {
                         "subject": "Glad the Seiko found a good home",
                         "body": "Hi kenji_w,\n\nThank you for the kind feedback on the Seiko 5 Sports — it means a lot. I source watches carefully one at a time from Japan, so each piece is a bit of a hunt.\n\nWhen the next interesting Seiko or vintage piece comes in, I'd love for you to see it first. If you'd like to follow along, please tap \"Save Seller\" on my store page and you'll be notified as new arrivals go live.\n\nThanks again,\nSamuraiShopJapanSelect",
+                        "body_ja": "kenji_wさん、こんにちは。\n\nSeiko 5 Sports にあたたかいフィードバックをいただき、ありがとうございます。本当に励みになります。腕時計は日本から一点一点丁寧に仕入れているので、毎回が宝探しのようなものです。\n\n次に良いSeikoやヴィンテージ品が入ったときは、まず一番にご覧いただきたいです。新着情報をフォローしたい場合は、ストアページの「Save Seller」をタップしていただければ、入荷時にお知らせが届きます。\n\n改めてありがとうございます。\nSamuraiShopJapanSelect",
                         "rationale": "高単価・長期フォロワー化方針。一点物の希少さを示唆。",
                     },
                 }
@@ -128,6 +136,7 @@ _FEW_SHOTS_BY_TAG: dict[str, list[dict]] = {
                     "input": {
                         "subject": "Thank you for trusting the Kabuto to me",
                         "body": "Hi armor_fan,\n\nThank you so much for the thoughtful feedback on the Edo-period Kabuto replica. Pieces like that take time to source and prepare for shipment, and I'm really glad it arrived in the condition it deserved.\n\nI occasionally find other armor and samurai-related items — they don't come up often. If you'd like to be alerted when a new piece is listed, please tap \"Save Seller\" on my eBay store page.\n\nKind regards,\nSamuraiShopJapanSelect",
+                        "body_ja": "armor_fanさん、こんにちは。\n\n江戸時代の兜レプリカに、丁寧なフィードバックをいただきありがとうございます。このような品は仕入れも梱包も時間がかかるため、ふさわしい状態で無事お届けできたこと、本当に嬉しく思います。\n\n他の甲冑や侍関連の品も時折入荷しますが、頻繁に出るものではありません。新しい一点が出品された際にお知らせを受け取りたい場合は、eBayストアページの「Save Seller」をタップしてください。\n\n敬具\nSamuraiShopJapanSelect",
                         "rationale": "甲冑・希少性訴求。長期フォロワー化を狙う。",
                     },
                 }
@@ -242,21 +251,40 @@ def generate_draft(
                 data = block.input or {}
                 subject = (data.get("subject") or "")[:256]
                 body = (data.get("body") or "").strip()
+                body_ja = (data.get("body_ja") or "").strip()
                 rationale = (data.get("rationale") or "")[:512]
                 if not body:
                     return {
                         "subject": "",
                         "body": "",
+                        "body_ja": "",
                         "rationale": "",
                         "error": "empty_body",
                     }
-                return {"subject": subject, "body": body, "rationale": rationale}
+                return {
+                    "subject": subject,
+                    "body": body,
+                    "body_ja": body_ja,
+                    "rationale": rationale,
+                }
 
         logger.warning(
             f"generate_draft: no tool_use block in response for buyer={buyer_username}"
         )
-        return {"subject": "", "body": "", "rationale": "", "error": "no_tool_use"}
+        return {
+            "subject": "",
+            "body": "",
+            "body_ja": "",
+            "rationale": "",
+            "error": "no_tool_use",
+        }
 
     except Exception as e:
         logger.exception(f"generate_draft crashed for buyer={buyer_username}")
-        return {"subject": "", "body": "", "rationale": "", "error": str(e)}
+        return {
+            "subject": "",
+            "body": "",
+            "body_ja": "",
+            "rationale": "",
+            "error": str(e),
+        }
