@@ -5,6 +5,7 @@ TrustLink — Meta広告 パフォーマンスレポート
 """
 
 import os
+import re
 import sys
 import csv
 import json
@@ -31,18 +32,46 @@ ADSET_TO_SITE = {
     MASSIVE_ADSET_ID: "Massive",
 }
 
+
+def resolve_site(row):
+    """広告行からサイト名を判定する。
+
+    キャンペーン名の先頭の英字トークンをサイト名とみなす
+    （例: "Travis-camp-CV - 2" → "Travis", "Memoria-camp-CV" → "Memoria",
+     "Olive-camp-CV - 03" → "Olive", "Massive2 20y" → "Massive"）。
+    キャンペーンが複製・再作成されても adset_id 直書きに依存せず追従できる。
+    判定できない場合は既知の ADSET_TO_SITE をフォールバックに使い、
+    それでも不明なら "不明" を返す。
+    """
+    cname = (row.get("campaign_name") or "").strip()
+    m = re.match(r"\s*([A-Za-z]+)", cname)
+    if m:
+        return m.group(1)
+    site = ADSET_TO_SITE.get(row.get("adset_id", ""))
+    return site or "不明"
+
+
 # 業界ベンチマーク（マッチング系）
 BENCH = {
-    "ctr": 1.0,       # %
-    "cpc": 150,        # 円
-    "cvr": 5.0,        # %
-    "cpa": 1000,       # 円
+    "ctr": 1.0,  # %
+    "cpc": 150,  # 円
+    "cvr": 5.0,  # %
+    "cpa": 1000,  # 円
 }
 
 FIELDS = [
-    "ad_id", "ad_name", "adset_id", "adset_name",
-    "campaign_name", "impressions", "clicks", "ctr",
-    "cpc", "spend", "actions", "cost_per_action_type",
+    "ad_id",
+    "ad_name",
+    "adset_id",
+    "adset_name",
+    "campaign_name",
+    "impressions",
+    "clicks",
+    "ctr",
+    "cpc",
+    "spend",
+    "actions",
+    "cost_per_action_type",
 ]
 
 
@@ -74,7 +103,9 @@ def parse_conversions(row):
             return action_map[pixel_key]
         return action_map.get(generic_key, 0)
 
-    registrations = pick("offsite_conversion.fb_pixel_complete_registration", "complete_registration")
+    registrations = pick(
+        "offsite_conversion.fb_pixel_complete_registration", "complete_registration"
+    )
     leads = pick("offsite_conversion.fb_pixel_lead", "lead")
     purchases = pick("offsite_conversion.fb_pixel_purchase", "purchase")
 
@@ -147,12 +178,14 @@ def generate_analysis(rows):
         status = f"目標CPAの{cpa_ratio:.1f}倍"
         status_icon = "🔴"
 
-    analysis.append({
-        "title": "全体概況",
-        "body": f"{status_icon} {status}（目標¥{BENCH['cpa']:,} → 実績¥{avg_cpa:,.0f}）\n"
-                f"総消化¥{total_spend:,.0f} / 登録{total_conv}件 / 課金{total_purch}件 / "
-                f"登録→課金率 {purch_rate:.1f}%"
-    })
+    analysis.append(
+        {
+            "title": "全体概況",
+            "body": f"{status_icon} {status}（目標¥{BENCH['cpa']:,} → 実績¥{avg_cpa:,.0f}）\n"
+            f"総消化¥{total_spend:,.0f} / 登録{total_conv}件 / 課金{total_purch}件 / "
+            f"登録→課金率 {purch_rate:.1f}%",
+        }
+    )
 
     # 2. サイト別評価
     site_data = {}
@@ -171,33 +204,36 @@ def generate_analysis(rows):
         cpa = (d["spend"] / d["conv"]) if d["conv"] > 0 else float("inf")
         pr = (d["purch"] / d["conv"] * 100) if d["conv"] > 0 else 0
         ctr = (d["clicks"] / d["imp"] * 100) if d["imp"] > 0 else 0
-        icon = "✅" if cpa <= BENCH["cpa"] else ("⚠️" if cpa <= BENCH["cpa"] * 2 else "🔴")
+        icon = (
+            "✅" if cpa <= BENCH["cpa"] else ("⚠️" if cpa <= BENCH["cpa"] * 2 else "🔴")
+        )
         site_lines.append(
             f"  {icon} {site}: CPA¥{cpa:,.0f} / CTR{ctr:.1f}% / "
             f"登録{d['conv']}→課金{d['purch']}（{pr:.0f}%）"
         )
 
-    analysis.append({
-        "title": "サイト別評価",
-        "body": "\n".join(site_lines)
-    })
+    analysis.append({"title": "サイト別評価", "body": "\n".join(site_lines)})
 
     # 3. 広告効率（上位・下位）
     active = [r for r in rows if r["impressions"] >= 500 and r["conversions"] > 0]
     if active:
         best = min(active, key=lambda r: r["cpa"])
         worst = max(active, key=lambda r: r["cpa"])
-        analysis.append({
-            "title": "広告効率",
-            "body": f"  最良: {best['ad_name']}（{best['site']}）CPA¥{best['cpa']:,.0f}\n"
-                    f"  最悪: {worst['ad_name']}（{worst['site']}）CPA¥{worst['cpa']:,.0f}\n"
-                    f"  差は{worst['cpa']/best['cpa']:.1f}倍 — 最悪の広告の予算を最良に振り替えるだけで効率改善の余地あり"
-        })
+        analysis.append(
+            {
+                "title": "広告効率",
+                "body": f"  最良: {best['ad_name']}（{best['site']}）CPA¥{best['cpa']:,.0f}\n"
+                f"  最悪: {worst['ad_name']}（{worst['site']}）CPA¥{worst['cpa']:,.0f}\n"
+                f"  差は{worst['cpa'] / best['cpa']:.1f}倍 — 最悪の広告の予算を最良に振り替えるだけで効率改善の余地あり",
+            }
+        )
 
     # 4. 課金転換分析
     if total_purch > 0:
         sites_with_purch = [s for s, d in site_data.items() if d["purch"] > 0]
-        sites_without = [s for s, d in site_data.items() if d["purch"] == 0 and d["conv"] > 0]
+        sites_without = [
+            s for s, d in site_data.items() if d["purch"] == 0 and d["conv"] > 0
+        ]
         body = f"課金実績があるサイト: {', '.join(sites_with_purch)}"
         if sites_without:
             body += f"\n  課金0のサイト: {', '.join(sites_without)} — LP/サイト導線の問題 or データ蓄積期間不足の可能性"
@@ -205,19 +241,23 @@ def generate_analysis(rows):
         body += f"\n  課金1件あたりの広告費: ¥{cost_per_purch:,.0f}"
         analysis.append({"title": "課金転換", "body": body})
     else:
-        analysis.append({
-            "title": "課金転換",
-            "body": "課金実績なし — ピクセルイベントの設定確認 or データ蓄積期間が短い可能性"
-        })
+        analysis.append(
+            {
+                "title": "課金転換",
+                "body": "課金実績なし — ピクセルイベントの設定確認 or データ蓄積期間が短い可能性",
+            }
+        )
 
     # 5. データ充足度
     sufficient = [r for r in rows if r["impressions"] >= 500]
     insufficient = [r for r in rows if r["impressions"] < 500]
-    analysis.append({
-        "title": "データ充足度",
-        "body": f"判定可能: {len(sufficient)}本 / データ不足: {len(insufficient)}本\n"
-                f"  データ不足の広告は予算が分散している可能性。広告本数を絞って集中配信を検討。"
-    })
+    analysis.append(
+        {
+            "title": "データ充足度",
+            "body": f"判定可能: {len(sufficient)}本 / データ不足: {len(insufficient)}本\n"
+            f"  データ不足の広告は予算が分散している可能性。広告本数を絞って集中配信を検討。",
+        }
+    )
 
     return analysis
 
@@ -247,51 +287,63 @@ def generate_suggestions(rows):
     # --- 改善提案ロジック ---
 
     # 1. CTR低い広告
-    low_ctr = [r for r in rows if r["impressions"] >= 500 and r["ctr"] < BENCH["ctr"] * 0.7]
+    low_ctr = [
+        r for r in rows if r["impressions"] >= 500 and r["ctr"] < BENCH["ctr"] * 0.7
+    ]
     if low_ctr:
         names = ", ".join(r["ad_name"] for r in low_ctr[:3])
-        suggestions.append({
-            "category": "クリエイティブ",
-            "priority": "高",
-            "issue": f"CTRが低い広告が{len(low_ctr)}本あります（{names}）",
-            "action": "メインテキストの冒頭を変更するか、画像を差し替えてテスト。"
-                      "特に最初の1行で「自分ごと」にさせる表現に変更。",
-        })
+        suggestions.append(
+            {
+                "category": "クリエイティブ",
+                "priority": "高",
+                "issue": f"CTRが低い広告が{len(low_ctr)}本あります（{names}）",
+                "action": "メインテキストの冒頭を変更するか、画像を差し替えてテスト。"
+                "特に最初の1行で「自分ごと」にさせる表現に変更。",
+            }
+        )
 
     # 2. CPC高い広告
-    high_cpc = [r for r in rows if r["cpc"] > BENCH["cpc"] * 1.5 and r["impressions"] >= 500]
+    high_cpc = [
+        r for r in rows if r["cpc"] > BENCH["cpc"] * 1.5 and r["impressions"] >= 500
+    ]
     if high_cpc:
         names = ", ".join(r["ad_name"] for r in high_cpc[:3])
-        suggestions.append({
-            "category": "入札・コスト",
-            "priority": "高",
-            "issue": f"CPCが高い広告: {names}（¥{int(max(r['cpc'] for r in high_cpc))}）",
-            "action": "ターゲティングが狭すぎないか確認。オーディエンス拡大 or 類似拡張を検討。",
-        })
+        suggestions.append(
+            {
+                "category": "入札・コスト",
+                "priority": "高",
+                "issue": f"CPCが高い広告: {names}（¥{int(max(r['cpc'] for r in high_cpc))}）",
+                "action": "ターゲティングが狭すぎないか確認。オーディエンス拡大 or 類似拡張を検討。",
+            }
+        )
 
     # 3. CVゼロの広告（十分なインプレッション）
     no_cv = [r for r in rows if r["conversions"] == 0 and r["impressions"] >= 1000]
     if no_cv:
         names = ", ".join(r["ad_name"] for r in no_cv[:3])
-        suggestions.append({
-            "category": "コンバージョン",
-            "priority": "高",
-            "issue": f"1000imp以上でCV0の広告: {names}",
-            "action": "LP到達後の離脱が原因の可能性。LP改善 or 広告→LPのメッセージ一致度を見直し。"
-                      "改善しない場合はOFFにして予算を勝ち広告に集中。",
-        })
+        suggestions.append(
+            {
+                "category": "コンバージョン",
+                "priority": "高",
+                "issue": f"1000imp以上でCV0の広告: {names}",
+                "action": "LP到達後の離脱が原因の可能性。LP改善 or 広告→LPのメッセージ一致度を見直し。"
+                "改善しない場合はOFFにして予算を勝ち広告に集中。",
+            }
+        )
 
     # 4. 勝ち広告のスケール提案
     winners = [r for r in rows if r["label"] == "🏆 勝ち"]
     if winners:
         names = ", ".join(r["ad_name"] for r in winners)
-        suggestions.append({
-            "category": "スケール",
-            "priority": "中",
-            "issue": f"勝ち広告が{len(winners)}本あります（{names}）",
-            "action": "勝ち広告のバリエーションを作成（見出し変更、画像差替え）してテスト。"
-                      "予算を20%ずつ段階的に増額。",
-        })
+        suggestions.append(
+            {
+                "category": "スケール",
+                "priority": "中",
+                "issue": f"勝ち広告が{len(winners)}本あります（{names}）",
+                "action": "勝ち広告のバリエーションを作成（見出し変更、画像差替え）してテスト。"
+                "予算を20%ずつ段階的に増額。",
+            }
+        )
 
     # 5. 停止推奨の広告
     stop_ads = []
@@ -313,25 +365,37 @@ def generate_suggestions(rows):
         stop_ads.sort(key=lambda x: x["spend"], reverse=True)
         lines = []
         for r in stop_ads:
-            lines.append(f"  {r['ad_name']}（{r['site']}）消化¥{r['spend']:,.0f} / CPA¥{r['cpa']:,.0f} / 課金{r['purchases']}")
-        suggestions.insert(0, {
-            "category": "即停止すべき広告",
-            "priority": "高",
-            "issue": f"以下の{len(stop_ads)}本は予算を浪費しています:\n" + "\n".join(lines),
-            "action": "即OFFにして、浮いた予算を勝ち広告（CPA¥1,000以下）に集中配分。",
-        })
+            lines.append(
+                f"  {r['ad_name']}（{r['site']}）消化¥{r['spend']:,.0f} / CPA¥{r['cpa']:,.0f} / 課金{r['purchases']}"
+            )
+        suggestions.insert(
+            0,
+            {
+                "category": "即停止すべき広告",
+                "priority": "高",
+                "issue": f"以下の{len(stop_ads)}本は予算を浪費しています:\n"
+                + "\n".join(lines),
+                "action": "即OFFにして、浮いた予算を勝ち広告（CPA¥1,000以下）に集中配分。",
+            },
+        )
 
     if watch_ads:
         watch_ads.sort(key=lambda x: x["spend"], reverse=True)
         lines = []
         for r in watch_ads:
-            lines.append(f"  {r['ad_name']}（{r['site']}）消化¥{r['spend']:,.0f} / CPA¥{r['cpa']:,.0f} / 課金{r['purchases']}")
-        suggestions.insert(len(stop_ads) and 1 or 0, {
-            "category": "要注意（1週間改善なければ停止）",
-            "priority": "中",
-            "issue": f"以下の{len(watch_ads)}本はCPA目標の2倍超かつ課金ゼロ:\n" + "\n".join(lines),
-            "action": "クリエイティブ or LPを変更して1週間テスト。改善しなければOFF。",
-        })
+            lines.append(
+                f"  {r['ad_name']}（{r['site']}）消化¥{r['spend']:,.0f} / CPA¥{r['cpa']:,.0f} / 課金{r['purchases']}"
+            )
+        suggestions.insert(
+            len(stop_ads) and 1 or 0,
+            {
+                "category": "要注意（1週間改善なければ停止）",
+                "priority": "中",
+                "issue": f"以下の{len(watch_ads)}本はCPA目標の2倍超かつ課金ゼロ:\n"
+                + "\n".join(lines),
+                "action": "クリエイティブ or LPを変更して1週間テスト。改善しなければOFF。",
+            },
+        )
 
     # 6. サイト間比較
     if len(site_spend) >= 2:
@@ -350,41 +414,49 @@ def generate_suggestions(rows):
                 worst_site = site
 
         if best_site and worst_site and best_site != worst_site:
-            suggestions.append({
-                "category": "予算配分",
-                "priority": "中",
-                "issue": f"{best_site}のCPAが最良（¥{int(best_cpa)}）、{worst_site}が最高（¥{int(worst_cpa)}）",
-                "action": f"{worst_site}の予算を{best_site}にシフトすることを検討。"
-                          f"ただし{worst_site}の広告クリエイティブ改善も並行して実施。",
-            })
+            suggestions.append(
+                {
+                    "category": "予算配分",
+                    "priority": "中",
+                    "issue": f"{best_site}のCPAが最良（¥{int(best_cpa)}）、{worst_site}が最高（¥{int(worst_cpa)}）",
+                    "action": f"{worst_site}の予算を{best_site}にシフトすることを検討。"
+                    f"ただし{worst_site}の広告クリエイティブ改善も並行して実施。",
+                }
+            )
 
     # 6. 全体的なデータ不足
     insufficient = [r for r in rows if r["impressions"] < 500]
     if len(insufficient) > len(rows) * 0.5:
-        suggestions.append({
-            "category": "データ蓄積",
-            "priority": "中",
-            "issue": f"{len(insufficient)}/{len(rows)}本がデータ不足（500imp未満）",
-            "action": "判定に最低500imp（理想1000imp）必要。広告本数を絞って予算を集中させるか、期間を延ばして再評価。",
-        })
+        suggestions.append(
+            {
+                "category": "データ蓄積",
+                "priority": "中",
+                "issue": f"{len(insufficient)}/{len(rows)}本がデータ不足（500imp未満）",
+                "action": "判定に最低500imp（理想1000imp）必要。広告本数を絞って予算を集中させるか、期間を延ばして再評価。",
+            }
+        )
 
     # 7. 全体CTRが低い場合
     if avg_ctr < BENCH["ctr"] * 0.8 and total_imp > 1000:
-        suggestions.append({
-            "category": "全体戦略",
-            "priority": "高",
-            "issue": f"全体CTRが{avg_ctr:.2f}%（ベンチマーク{BENCH['ctr']}%）",
-            "action": "画像のインパクトが弱い可能性。人物写真やビフォーアフター系のクリエイティブをテスト。"
-                      "また、ターゲット年齢層の精度を確認。",
-        })
+        suggestions.append(
+            {
+                "category": "全体戦略",
+                "priority": "高",
+                "issue": f"全体CTRが{avg_ctr:.2f}%（ベンチマーク{BENCH['ctr']}%）",
+                "action": "画像のインパクトが弱い可能性。人物写真やビフォーアフター系のクリエイティブをテスト。"
+                "また、ターゲット年齢層の精度を確認。",
+            }
+        )
 
     if not suggestions:
-        suggestions.append({
-            "category": "総合",
-            "priority": "-",
-            "issue": "現状大きな問題は見つかりません",
-            "action": "引き続きデータを蓄積し、次回レポートで再評価してください。",
-        })
+        suggestions.append(
+            {
+                "category": "総合",
+                "priority": "-",
+                "issue": "現状大きな問題は見つかりません",
+                "action": "引き続きデータを蓄積し、次回レポートで再評価してください。",
+            }
+        )
 
     return suggestions
 
@@ -401,8 +473,7 @@ def process_insights(insights):
         conversions, purchases, cpa = parse_conversions(row)
         cvr = (conversions / clicks * 100) if clicks > 0 else 0
 
-        adset_id = row.get("adset_id", "")
-        site = ADSET_TO_SITE.get(adset_id, "不明")
+        site = resolve_site(row)
 
         r = {
             "ad_id": row.get("ad_id", ""),
@@ -447,12 +518,16 @@ def print_report(rows, analysis, suggestions, since, until):
         sites[s]["purch"] += r["purchases"]
 
     print("📊 サイト別サマリー")
-    print(f"{'サイト':<10} {'消化額':>10} {'IMP':>8} {'Click':>7} {'CTR':>6} {'登録':>4} {'課金':>4} {'CPA':>8}")
+    print(
+        f"{'サイト':<10} {'消化額':>10} {'IMP':>8} {'Click':>7} {'CTR':>6} {'登録':>4} {'課金':>4} {'CPA':>8}"
+    )
     print("-" * 68)
     for site, d in sites.items():
         ctr = (d["clicks"] / d["imp"] * 100) if d["imp"] > 0 else 0
         cpa = (d["spend"] / d["conv"]) if d["conv"] > 0 else 0
-        print(f"{site:<10} ¥{d['spend']:>9,.0f} {d['imp']:>8,} {d['clicks']:>7,} {ctr:>5.2f}% {d['conv']:>4} {d['purch']:>4} ¥{cpa:>7,.0f}")
+        print(
+            f"{site:<10} ¥{d['spend']:>9,.0f} {d['imp']:>8,} {d['clicks']:>7,} {ctr:>5.2f}% {d['conv']:>4} {d['purch']:>4} ¥{cpa:>7,.0f}"
+        )
 
     total_spend = sum(d["spend"] for d in sites.values())
     total_imp = sum(d["imp"] for d in sites.values())
@@ -462,14 +537,20 @@ def print_report(rows, analysis, suggestions, since, until):
     total_ctr = (total_clicks / total_imp * 100) if total_imp > 0 else 0
     total_cpa = (total_spend / total_conv) if total_conv > 0 else 0
     print("-" * 68)
-    print(f"{'合計':<10} ¥{total_spend:>9,.0f} {total_imp:>8,} {total_clicks:>7,} {total_ctr:>5.2f}% {total_conv:>4} {total_purch:>4} ¥{total_cpa:>7,.0f}")
+    print(
+        f"{'合計':<10} ¥{total_spend:>9,.0f} {total_imp:>8,} {total_clicks:>7,} {total_ctr:>5.2f}% {total_conv:>4} {total_purch:>4} ¥{total_cpa:>7,.0f}"
+    )
 
     # 広告別
     print(f"\n📋 広告別パフォーマンス")
-    print(f"{'広告名':<30} {'サイト':<8} {'IMP':>7} {'CTR':>6} {'CPC':>7} {'登録':>4} {'課金':>4} {'CPA':>8} {'消化':>9} {'判定'}")
+    print(
+        f"{'広告名':<30} {'サイト':<8} {'IMP':>7} {'CTR':>6} {'CPC':>7} {'登録':>4} {'課金':>4} {'CPA':>8} {'消化':>9} {'判定'}"
+    )
     print("-" * 110)
     for r in rows:
-        print(f"{r['ad_name']:<30} {r['site']:<8} {r['impressions']:>7,} {r['ctr']:>5.2f}% ¥{r['cpc']:>6,.0f} {r['conversions']:>4} {r['purchases']:>4} ¥{r['cpa']:>7,.0f} ¥{r['spend']:>8,.0f} {r['label']}")
+        print(
+            f"{r['ad_name']:<30} {r['site']:<8} {r['impressions']:>7,} {r['ctr']:>5.2f}% ¥{r['cpc']:>6,.0f} {r['conversions']:>4} {r['purchases']:>4} ¥{r['cpa']:>7,.0f} ¥{r['spend']:>8,.0f} {r['label']}"
+        )
 
     # 現状分析
     print(f"\n🔍 現状分析")
@@ -496,17 +577,43 @@ def export_csv(rows, since, until, out_dir):
     filename = out_dir / f"report_{since}_{until}.csv"
     with open(filename, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
-        writer.writerow(["広告名", "サイト", "キャンペーン", "広告セット",
-                         "IMP", "Click", "CTR%", "CPC", "消化額",
-                         "登録", "課金", "CVR%", "CPA", "判定"])
+        writer.writerow(
+            [
+                "広告名",
+                "サイト",
+                "キャンペーン",
+                "広告セット",
+                "IMP",
+                "Click",
+                "CTR%",
+                "CPC",
+                "消化額",
+                "登録",
+                "課金",
+                "CVR%",
+                "CPA",
+                "判定",
+            ]
+        )
         for r in rows:
-            writer.writerow([
-                r["ad_name"], r["site"], r["campaign_name"], r["adset_name"],
-                r["impressions"], r["clicks"], f"{r['ctr']:.2f}",
-                f"{r['cpc']:.0f}", f"{r['spend']:.0f}",
-                r["conversions"], r["purchases"], f"{r['cvr']:.2f}",
-                f"{r['cpa']:.0f}", r["label"],
-            ])
+            writer.writerow(
+                [
+                    r["ad_name"],
+                    r["site"],
+                    r["campaign_name"],
+                    r["adset_name"],
+                    r["impressions"],
+                    r["clicks"],
+                    f"{r['ctr']:.2f}",
+                    f"{r['cpc']:.0f}",
+                    f"{r['spend']:.0f}",
+                    r["conversions"],
+                    r["purchases"],
+                    f"{r['cvr']:.2f}",
+                    f"{r['cpa']:.0f}",
+                    r["label"],
+                ]
+            )
     print(f"📄 CSV: {filename}")
     return filename
 
@@ -541,12 +648,12 @@ def export_html(rows, analysis, suggestions, since, until, out_dir):
         cpa = (d["spend"] / d["conv"]) if d["conv"] > 0 else 0
         site_rows_html += f"""<tr>
             <td>{site}</td>
-            <td class="num">¥{d['spend']:,.0f}</td>
-            <td class="num">{d['imp']:,}</td>
-            <td class="num">{d['clicks']:,}</td>
+            <td class="num">¥{d["spend"]:,.0f}</td>
+            <td class="num">{d["imp"]:,}</td>
+            <td class="num">{d["clicks"]:,}</td>
             <td class="num">{ctr:.2f}%</td>
-            <td class="num">{d['conv']}</td>
-            <td class="num">{d['purch']}</td>
+            <td class="num">{d["conv"]}</td>
+            <td class="num">{d["purch"]}</td>
             <td class="num">¥{cpa:,.0f}</td>
         </tr>"""
 
@@ -565,17 +672,17 @@ def export_html(rows, analysis, suggestions, since, until, out_dir):
             label_class = "pending"
 
         ad_rows_html += f"""<tr>
-            <td>{r['ad_name']}</td>
-            <td>{r['site']}</td>
-            <td class="num">{r['impressions']:,}</td>
-            <td class="num">{r['ctr']:.2f}%</td>
-            <td class="num">¥{r['cpc']:,.0f}</td>
-            <td class="num">{r['conversions']}</td>
-            <td class="num">{r['purchases']}</td>
-            <td class="num">{r['cvr']:.2f}%</td>
-            <td class="num">¥{r['cpa']:,.0f}</td>
-            <td class="num">¥{r['spend']:,.0f}</td>
-            <td class="{label_class}">{r['label']}</td>
+            <td>{r["ad_name"]}</td>
+            <td>{r["site"]}</td>
+            <td class="num">{r["impressions"]:,}</td>
+            <td class="num">{r["ctr"]:.2f}%</td>
+            <td class="num">¥{r["cpc"]:,.0f}</td>
+            <td class="num">{r["conversions"]}</td>
+            <td class="num">{r["purchases"]}</td>
+            <td class="num">{r["cvr"]:.2f}%</td>
+            <td class="num">¥{r["cpa"]:,.0f}</td>
+            <td class="num">¥{r["spend"]:,.0f}</td>
+            <td class="{label_class}">{r["label"]}</td>
         </tr>"""
 
     # 現状分析
@@ -583,7 +690,7 @@ def export_html(rows, analysis, suggestions, since, until, out_dir):
     for a in analysis:
         body_html = a["body"].replace("\n", "<br>")
         analysis_html += f"""<div class="analysis-item">
-            <h3>{a['title']}</h3>
+            <h3>{a["title"]}</h3>
             <p>{body_html}</p>
         </div>"""
 
@@ -593,11 +700,11 @@ def export_html(rows, analysis, suggestions, since, until, out_dir):
         pri_class = "pri-high" if s["priority"] == "高" else "pri-mid"
         suggestion_html += f"""<div class="suggestion">
             <div class="suggestion-header">
-                <span class="{pri_class}">[{s['priority']}]</span>
-                <strong>{s['category']}</strong>
+                <span class="{pri_class}">[{s["priority"]}]</span>
+                <strong>{s["category"]}</strong>
             </div>
-            <p class="issue">{s['issue']}</p>
-            <p class="action">{s['action']}</p>
+            <p class="issue">{s["issue"]}</p>
+            <p class="action">{s["action"]}</p>
         </div>"""
 
     html = f"""<!DOCTYPE html>
@@ -718,7 +825,7 @@ def export_html(rows, analysis, suggestions, since, until, out_dir):
     {suggestion_html}
   </div>
 
-  <p class="footer">Generated by Facebook Ad Report Tool — {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+  <p class="footer">Generated by Facebook Ad Report Tool — {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}</p>
 </div>
 </body>
 </html>"""
@@ -748,7 +855,7 @@ def export_pdf(html_path, out_dir):
 
 def build_notify_message(rows, since, until, suggestions=None):
     """通知用のサマリーメッセージを組み立て"""
-    is_daily = (since == until)
+    is_daily = since == until
 
     sites = {}
     for r in rows:
@@ -767,22 +874,32 @@ def build_notify_message(rows, since, until, suggestions=None):
     date_label = since if is_daily else f"{since} 〜 {until}"
     lines = [
         f"📊 Facebook広告レポート",
-        f"📅 {date_label}", "",
+        f"📅 {date_label}",
+        "",
         f"💰 総消化: ¥{total_spend:,.0f}",
         f"📝 登録: {total_conv}件 / 課金: {total_purch}件",
-        f"📈 CPA: ¥{avg_cpa:,.0f}（目標¥{BENCH['cpa']:,}）", "",
+        f"📈 CPA: ¥{avg_cpa:,.0f}（目標¥{BENCH['cpa']:,}）",
+        "",
     ]
 
     for site, d in sites.items():
         cpa = (d["spend"] / d["conv"]) if d["conv"] > 0 else 0
         icon = "✅" if cpa <= BENCH["cpa"] else "🔴"
-        lines.append(f"{icon} {site}: ¥{d['spend']:,.0f} 登録{d['conv']} 課金{d['purch']} CPA¥{cpa:,.0f}")
+        lines.append(
+            f"{icon} {site}: ¥{d['spend']:,.0f} 登録{d['conv']} 課金{d['purch']} CPA¥{cpa:,.0f}"
+        )
 
     # 週次・月次のみ: 即停止推奨 + 改善提案
     if not is_daily:
-        stop_ads = [r for r in rows if r["impressions"] >= 500
-                    and ((r["cpa"] > BENCH["cpa"] * 3 and r["purchases"] == 0)
-                         or (r["impressions"] >= 1000 and r["conversions"] == 0))]
+        stop_ads = [
+            r
+            for r in rows
+            if r["impressions"] >= 500
+            and (
+                (r["cpa"] > BENCH["cpa"] * 3 and r["purchases"] == 0)
+                or (r["impressions"] >= 1000 and r["conversions"] == 0)
+            )
+        ]
         if stop_ads:
             lines.append("")
             lines.append(f"🛑 即停止推奨: {len(stop_ads)}本")
@@ -808,7 +925,7 @@ def send_discord_message(rows, since, until, suggestions=None):
         return False
 
     msg = build_notify_message(rows, since, until, suggestions=suggestions)
-    chunks = [msg[i:i + 1900] for i in range(0, len(msg), 1900)]
+    chunks = [msg[i : i + 1900] for i in range(0, len(msg), 1900)]
     for chunk in chunks:
         payload = json.dumps({"content": chunk}).encode()
         req = urllib.request.Request(
@@ -833,45 +950,15 @@ def send_discord_message(rows, since, until, suggestions=None):
     return True
 
 
-def send_line_message(rows, since, until, suggestions=None):
-    """LINE Messaging APIでレポートサマリーを送信（broadcast: 友だち全員に配信）"""
-    channel_token = os.getenv("LINE_CHANNEL_TOKEN")
-
-    if not channel_token:
-        print("⚠️  LINE_CHANNEL_TOKEN が未設定。LINE通知をスキップ。")
-        return
-
-    msg = build_notify_message(rows, since, until, suggestions=suggestions)
-
-    # broadcast API — 友だち全員に送信（ユーザーID不要）
-    payload = json.dumps({
-        "messages": [{"type": "text", "text": msg}],
-    }).encode()
-
-    req = urllib.request.Request(
-        "https://api.line.me/v2/bot/message/broadcast",
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {channel_token}",
-        },
-    )
-    try:
-        urllib.request.urlopen(req)
-        print("📱 LINE通知を送信しました")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        print(f"⚠️  LINE通知エラー: {e.code} {body}")
-    except Exception as e:
-        print(f"⚠️  LINE通知エラー: {e}")
-
-
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Facebook広告レポート生成")
     parser.add_argument("--since", help="開始日 YYYY-MM-DD（デフォルト: 7日前）")
     parser.add_argument("--until", help="終了日 YYYY-MM-DD（デフォルト: 昨日）")
-    parser.add_argument("--days", type=int, default=7, help="過去N日間（デフォルト: 7）")
+    parser.add_argument(
+        "--days", type=int, default=7, help="過去N日間（デフォルト: 7）"
+    )
     parser.add_argument("--no-csv", action="store_true", help="CSV出力しない")
     parser.add_argument("--no-html", action="store_true", help="HTML出力しない")
     parser.add_argument("--pdf", action="store_true", help="PDF出力する")
