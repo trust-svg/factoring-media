@@ -222,6 +222,23 @@ class SalesRecord(Base):
 
     sold_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    # ── リピート購入エンジン Phase 1（_migrate_repeat_engine で後付け） ──
+    feedback_rating: Mapped[str] = mapped_column(String(16), default="")
+    # Positive / Neutral / Negative / ""
+    feedback_comment: Mapped[str] = mapped_column(Text, default="")
+    feedback_received_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    refund_status: Mapped[str] = mapped_column(String(16), default="")
+    # "" / none / partial / full
+    dispute_status: Mapped[str] = mapped_column(String(16), default="")
+    # "" / none / inr / inad / cancelled
+    shipped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    item_category_tag: Mapped[str] = mapped_column(String(32), default="", index=True)
+    # figure_collectible / audio_collectible / audio_premium / watch_premium / armor_premium / other
+    is_repeat_eligible: Mapped[int] = mapped_column(Integer, default=0, index=True)
+
 
 # ── 月間固定費 ────────────────────────────────────────────
 
@@ -695,6 +712,135 @@ class DropshipCandidate(Base):
     )
 
 
+# ── リピート購入エンジン Phase 1 ─────────────────────────
+
+
+class BuyerSegment(Base):
+    """過去バイヤー × ジャンルタグのセグメント。
+
+    Phase 1 では last_positive_feedback_at と opt_out のみ使うが、
+    Phase 2/3 で必要になるカラムも先に確保しておく。
+    """
+
+    __tablename__ = "buyer_segments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    buyer_username: Mapped[str] = mapped_column(String(128), index=True)
+    category_tag: Mapped[str] = mapped_column(String(32), default="other", index=True)
+    purchase_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_spend_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    last_purchase_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    last_positive_feedback_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    cadence_bucket: Mapped[str] = mapped_column(String(16), default="long_term")
+    # short_term / long_term / cold
+    opt_out: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    last_contacted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    contact_count: Mapped[int] = mapped_column(Integer, default=0)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class OutboundOffer(Base):
+    """リピート促進メッセージの下書き → 承認 → 送信 → KPI 一連管理。"""
+
+    __tablename__ = "outbound_offers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    campaign_id: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, index=True
+    )
+    buyer_username: Mapped[str] = mapped_column(String(128), index=True)
+    trigger: Mapped[str] = mapped_column(String(32), default="", index=True)
+    # post_feedback_d7 / new_listing / cold_reactivation など
+    past_order_item_id: Mapped[str] = mapped_column(String(64), default="")
+    past_sale_record_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    draft_subject: Mapped[str] = mapped_column(String(256), default="")
+    draft_body: Mapped[str] = mapped_column(Text, default="")
+    draft_rationale: Mapped[str] = mapped_column(Text, default="")
+    compliance_flags_json: Mapped[str] = mapped_column(Text, default="[]")
+
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    # draft / awaiting_approval / approved / sent / rejected / failed / suppressed
+    due_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True, index=True
+    )
+    telegram_message_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    telegram_chat_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    approved_by: Mapped[str] = mapped_column(String(64), default="")
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Phase 2 用（Phase 1 では NULL 固定）
+    promotion_id: Mapped[str] = mapped_column(String(64), default="")
+    promotion_url: Mapped[str] = mapped_column(Text, default="")
+
+    # KPI
+    resulted_in_purchase_order_id: Mapped[str] = mapped_column(String(64), default="")
+    resulted_in_purchase_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class RepeatCampaign(Base):
+    """リピート促進キャンペーン定義。Phase 1 では post_feedback_d7 が 1 件あれば十分。"""
+
+    __tablename__ = "repeat_campaigns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(64), index=True, default="")
+    # post_feedback_d7 / new_listing_short_term / cold_reactivation_120d など
+    name: Mapped[str] = mapped_column(String(128), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    trigger_type: Mapped[str] = mapped_column(String(32), default="")
+    target_category_tag: Mapped[str] = mapped_column(String(32), default="")
+    cooldown_days: Mapped[int] = mapped_column(Integer, default=30)
+    daily_cap: Mapped[int] = mapped_column(Integer, default=5)
+    is_enabled: Mapped[int] = mapped_column(Integer, default=0)
+    is_control: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class ListingCategoryRule(Base):
+    """ジャンルタグ判定ルール（テーブル化してコードに埋め込まない）。"""
+
+    __tablename__ = "listing_category_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    rule_name: Mapped[str] = mapped_column(String(64), default="")
+    priority: Mapped[int] = mapped_column(Integer, default=100, index=True)
+    ebay_category_id: Mapped[str] = mapped_column(String(32), default="")
+    title_regex: Mapped[str] = mapped_column(Text, default="")
+    min_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    max_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    category_tag: Mapped[str] = mapped_column(String(32), default="other")
+    cadence_bucket: Mapped[str] = mapped_column(String(16), default="long_term")
+    is_enabled: Mapped[int] = mapped_column(Integer, default=1)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── DB初期化 ──────────────────────────────────────────────
 
 engine = create_engine(
@@ -753,10 +899,89 @@ def _migrate_shopify_columns(engine_instance) -> None:
             conn.commit()
 
 
+def _migrate_repeat_engine(engine_instance) -> None:
+    """sales_records にリピート購入エンジン Phase 1 用カラムを追加（冪等）。
+
+    新規テーブル（buyer_segments / outbound_offers / repeat_campaigns /
+    listing_category_rules）は Base.metadata.create_all で作られるので、
+    この関数は既存 sales_records への ALTER と関連インデックスのみ担当。
+    """
+    from sqlalchemy import text
+
+    with engine_instance.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(sales_records)"))
+        existing = {row[1] for row in result.fetchall()}
+        stmts: list[str] = []
+        if "feedback_rating" not in existing:
+            stmts.append(
+                "ALTER TABLE sales_records ADD COLUMN feedback_rating VARCHAR(16) NOT NULL DEFAULT ''"
+            )
+        if "feedback_comment" not in existing:
+            stmts.append(
+                "ALTER TABLE sales_records ADD COLUMN feedback_comment TEXT NOT NULL DEFAULT ''"
+            )
+        if "feedback_received_at" not in existing:
+            stmts.append(
+                "ALTER TABLE sales_records ADD COLUMN feedback_received_at DATETIME"
+            )
+        if "refund_status" not in existing:
+            stmts.append(
+                "ALTER TABLE sales_records ADD COLUMN refund_status VARCHAR(16) NOT NULL DEFAULT ''"
+            )
+        if "dispute_status" not in existing:
+            stmts.append(
+                "ALTER TABLE sales_records ADD COLUMN dispute_status VARCHAR(16) NOT NULL DEFAULT ''"
+            )
+        if "shipped_at" not in existing:
+            stmts.append("ALTER TABLE sales_records ADD COLUMN shipped_at DATETIME")
+        if "delivered_at" not in existing:
+            stmts.append("ALTER TABLE sales_records ADD COLUMN delivered_at DATETIME")
+        if "item_category_tag" not in existing:
+            stmts.append(
+                "ALTER TABLE sales_records ADD COLUMN item_category_tag VARCHAR(32) NOT NULL DEFAULT ''"
+            )
+        if "is_repeat_eligible" not in existing:
+            stmts.append(
+                "ALTER TABLE sales_records ADD COLUMN is_repeat_eligible INTEGER NOT NULL DEFAULT 0"
+            )
+        for stmt in stmts:
+            conn.execute(text(stmt))
+        # 新カラム用インデックス（冪等）
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_sales_records_item_category_tag "
+                "ON sales_records(item_category_tag)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_sales_records_is_repeat_eligible "
+                "ON sales_records(is_repeat_eligible)"
+            )
+        )
+        # buyer_segments は (buyer_username, category_tag) でユニーク
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_buyer_segments_buyer_category "
+                "ON buyer_segments(buyer_username, category_tag)"
+            )
+        )
+        # repeat_campaigns.code もユニーク化（コード経由で UPSERT する）
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_repeat_campaigns_code "
+                "ON repeat_campaigns(code)"
+            )
+        )
+        if stmts:
+            conn.commit()
+
+
 def init_db():
     """テーブル作成"""
     Base.metadata.create_all(engine)
     _migrate_shopify_columns(engine)
+    _migrate_repeat_engine(engine)
 
 
 def get_db() -> Session:

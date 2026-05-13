@@ -1,4 +1,5 @@
 """eBay Agent Hub — 統合設定"""
+
 import os
 from pathlib import Path
 
@@ -15,12 +16,14 @@ EBAY_TOKEN_FILE = BASE_DIR / "tokens" / "ebay_token.json"
 EBAY_API_BASE = "https://api.ebay.com"
 EBAY_AUTH_BASE = "https://auth.ebay.com"
 
-EBAY_OAUTH_SCOPES = " ".join([
-    "https://api.ebay.com/oauth/api_scope/sell.inventory",
-    "https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
-    "https://api.ebay.com/oauth/api_scope/buy.browse",
-    "https://api.ebay.com/oauth/api_scope/sell.account.readonly",
-])
+EBAY_OAUTH_SCOPES = " ".join(
+    [
+        "https://api.ebay.com/oauth/api_scope/sell.inventory",
+        "https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
+        "https://api.ebay.com/oauth/api_scope/buy.browse",
+        "https://api.ebay.com/oauth/api_scope/sell.account.readonly",
+    ]
+)
 
 # ── AI ────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -64,14 +67,32 @@ INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID", "")
 # ── Scraper ───────────────────────────────────────────────
 # ジャンク品キーワード
 JUNK_KEYWORDS = [
-    "ジャンク", "junk", "現状品", "現状渡し", "動作未確認",
-    "動作不良", "故障", "部品取り", "訳あり", "難あり",
-    "as is", "for parts", "not working", "broken",
+    "ジャンク",
+    "junk",
+    "現状品",
+    "現状渡し",
+    "動作未確認",
+    "動作不良",
+    "故障",
+    "部品取り",
+    "訳あり",
+    "難あり",
+    "as is",
+    "for parts",
+    "not working",
+    "broken",
 ]
 
 WORKING_KEYWORDS = [
-    "動作確認済", "動作確認済み", "動作品", "動作良好",
-    "正常動作", "完動品", "動作OK", "動作ok", "tested",
+    "動作確認済",
+    "動作確認済み",
+    "動作品",
+    "動作良好",
+    "正常動作",
+    "完動品",
+    "動作OK",
+    "動作ok",
+    "tested",
 ]
 
 # スクレイピング設定（ebay-inventory-tool 互換）
@@ -99,15 +120,34 @@ SHOPIFY_WEBHOOK_SECRET = os.getenv("SHOPIFY_WEBHOOK_SECRET", "")
 SHOPIFY_DISCOUNT_RATE = float(os.getenv("SHOPIFY_DISCOUNT_RATE", "0.05"))
 
 # ── Monthly Targets ───────────────────────────────────────
-MONTHLY_REVENUE_TARGET_JPY = 5_000_000   # ¥5,000,000
-MONTHLY_MARGIN_TARGET_PCT  = 20.0        # 20%
-MONTHLY_PROFIT_TARGET_JPY  = 1_000_000   # ¥1,000,000
+MONTHLY_REVENUE_TARGET_JPY = 5_000_000  # ¥5,000,000
+MONTHLY_MARGIN_TARGET_PCT = 20.0  # 20%
+MONTHLY_PROFIT_TARGET_JPY = 1_000_000  # ¥1,000,000
 
 # ── Telegram (無在庫出品通知) ─────────────────────────────
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+# setWebhook 設定時の secret_token と Telegram からの
+# X-Telegram-Bot-Api-Secret-Token ヘッダー照合に使用
+TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
 
 # ── 無在庫出品パイプライン ────────────────────────────────
-DROPSHIP_PIPELINE_ENABLED = os.getenv("DROPSHIP_PIPELINE_ENABLED", "false").lower() == "true"
+DROPSHIP_PIPELINE_ENABLED = (
+    os.getenv("DROPSHIP_PIPELINE_ENABLED", "false").lower() == "true"
+)
 DROPSHIP_TARGET_MARGIN = float(os.getenv("DROPSHIP_TARGET_MARGIN", "0.25"))
 DROPSHIP_DIGEST_TOP_N = int(os.getenv("DROPSHIP_DIGEST_TOP_N", "10"))
+
+# ── リピート購入エンジン Phase 1 ─────────────────────────
+# マスタースイッチ。false の間はスケジューラージョブも webhook も無効
+REPEAT_ENGINE_ENABLED = os.getenv("REPEAT_ENGINE_ENABLED", "false").lower() == "true"
+# 下書き生成・保存はするが eBay 実送信はしない（品質確認期間用）
+REPEAT_ENGINE_DRY_RUN = os.getenv("REPEAT_ENGINE_DRY_RUN", "true").lower() == "true"
+# JST 1日あたりの送信上限（dispatch_send 側でカウンタ参照）
+REPEAT_ENGINE_DAILY_SEND_CAP = int(os.getenv("REPEAT_ENGINE_DAILY_SEND_CAP", "5"))
+# カンマ区切りバイヤー名。値があるとそれ以外のバイヤーには送らない（エスカレート用）
+REPEAT_ENGINE_ALLOWLIST_BUYERS = [
+    b.strip()
+    for b in os.getenv("REPEAT_ENGINE_ALLOWLIST_BUYERS", "").split(",")
+    if b.strip()
+]

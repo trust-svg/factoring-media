@@ -333,6 +333,34 @@ def _start_scheduler():
             name="無在庫出品パイプライン",
         )
 
+        # ── リピート購入エンジン Phase 1 ───────────────────
+        # REPEAT_ENGINE_ENABLED=false の間はジョブは登録するが内部で early-return する
+        # （関数側でフラグ参照）。これにより環境変数の切替だけで有効化できる。
+        from chat.repeat_engine import (
+            draft_pending_post_feedback,
+            refresh_eligibility,
+            rebuild_buyer_segments,
+        )
+
+        scheduler.add_job(
+            refresh_eligibility,
+            CronTrigger(hour=2, minute=0, timezone="Asia/Tokyo"),
+            id="repeat_refresh_eligibility",
+            name="リピート: eligibility再計算",
+        )
+        scheduler.add_job(
+            rebuild_buyer_segments,
+            CronTrigger(hour=2, minute=30, timezone="Asia/Tokyo"),
+            id="repeat_rebuild_segments",
+            name="リピート: buyer_segments再構築",
+        )
+        scheduler.add_job(
+            draft_pending_post_feedback,
+            IntervalTrigger(minutes=15),
+            id="repeat_post_feedback_drafter",
+            name="リピート: D7下書き生成",
+        )
+
         scheduler.start()
         logger.info(
             f"スケジューラー起動: 価格モニター {PRICE_CHECK_INTERVAL_HOURS}h間隔 + "
@@ -342,7 +370,9 @@ def _start_scheduler():
             f"Instagram生成 10:00 + Instagram分析 23:00 + カテゴリ拡張 Wed 11:00 + "
             f"メッセージ同期 5min間隔 + 未返信自動返信 5min間隔 + "
             f"死に筒Refresh 20min間隔（ENV:LISTING_REFRESH_ENABLED制御） + "
-            f"無在庫Pipeline 9:00 JST（ENV:DROPSHIP_PIPELINE_ENABLED制御）"
+            f"無在庫Pipeline 9:00 JST（ENV:DROPSHIP_PIPELINE_ENABLED制御） + "
+            f"リピートEngine eligibility 02:00 + segments 02:30 + drafter 15min間隔"
+            f"（ENV:REPEAT_ENGINE_ENABLED制御）"
         )
         return scheduler
     except ImportError:
@@ -624,6 +654,174 @@ async def ebay_webhook_receive(request: Request):
     logger.info(f"eBay Webhook受信: {len(body_str)} bytes")
     result = await handle_notification(body_str)
     return result
+
+
+# ── Telegram Webhook（リピート購入エンジン承認） ─────────
+
+
+@app.post("/webhook/telegram")
+async def telegram_webhook(request: Request):
+    """Telegram setWebhook の受信エンドポイント。
+
+    承認カードの inline_keyboard コールバック (`ro:approve:<id>` 等) のみ処理する。
+    通常のメッセージは現状無視（必要なら edit_pending 待ち実装で拾う）。
+    """
+    from config import TELEGRAM_WEBHOOK_SECRET
+    from comms.telegram_approval import (
+        answer_callback_query,
+        edit_card_status,
+        parse_callback_query,
+    )
+    from chat.repeat_engine import handle_telegram_action
+
+    if TELEGRAM_WEBHOOK_SECRET:
+        provided = request.headers.get("x-telegram-bot-api-secret-token", "")
+        if provided != TELEGRAM_WEBHOOK_SECRET:
+            logger.warning("Telegram webhook: secret token mismatch")
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    try:
+        update = await request.json()
+    except Exception:
+        logger.warning("Telegram webhook: invalid JSON body")
+        return JSONResponse({"ok": True})
+
+    parsed = parse_callback_query(update)
+    if not parsed:
+        return JSONResponse({"ok": True})
+
+    action = parsed["action"]
+    offer_id = parsed["offer_id"]
+    cb = {"from": parsed["from"], "message": parsed["message"]}
+
+    try:
+        result = handle_telegram_action(action, offer_id, cb)
+    except Exception:
+        logger.exception(
+            f"telegram_webhook handler crashed action={action} offer={offer_id}"
+        )
+        result = {"error": "handler_crashed"}
+
+    # UI フィードバック（ベストエフォート）
+    try:
+        await answer_callback_query(
+            parsed["callback_query_id"],
+            text=_describe_action_result(action, result),
+        )
+        msg = parsed.get("message") or {}
+        chat_id = (msg.get("chat") or {}).get("id")
+        message_id = msg.get("message_id")
+        if chat_id and message_id:
+            await edit_card_status(
+                chat_id, message_id, _format_status_line(action, result)
+            )
+    except Exception:
+        logger.exception("telegram UI feedback failed")
+
+    return JSONResponse({"ok": True, "action": action, "result": result})
+
+
+def _describe_action_result(action: str, result: dict) -> str:
+    if result.get("error"):
+        return f"⚠️ {result['error']}"
+    if action == "approve":
+        if result.get("dry_run"):
+            return "✅ Sent (DRY-RUN)"
+        if result.get("sent"):
+            return "✅ Sent"
+        return "⚠️ failed"
+    if action == "reject":
+        return "❌ Rejected"
+    if action == "edit":
+        return "✏️ Edit pending"
+    return "ok"
+
+
+def _format_status_line(action: str, result: dict) -> str:
+    base = _describe_action_result(action, result)
+    if result.get("error"):
+        return f"<b>{base}</b>"
+    if action == "approve" and result.get("dry_run"):
+        return f"<b>{base}</b> — DB のみ更新（eBay 未送信）"
+    return f"<b>{base}</b>"
+
+
+# ── リピート購入エンジン管理 API ─────────────────────
+
+
+@app.get("/api/repeat/outbound-queue")
+async def repeat_outbound_queue(status: str = "", limit: int = 50):
+    """承認待ち/送信済みなどステータス別に outbound_offers を取得する。"""
+    from database.models import OutboundOffer
+
+    db = get_db()
+    try:
+        q = db.query(OutboundOffer).order_by(OutboundOffer.created_at.desc())
+        if status:
+            q = q.filter(OutboundOffer.status == status)
+        rows = q.limit(min(max(limit, 1), 500)).all()
+        return {
+            "items": [
+                {
+                    "id": r.id,
+                    "buyer_username": r.buyer_username,
+                    "trigger": r.trigger,
+                    "status": r.status,
+                    "past_order_item_id": r.past_order_item_id,
+                    "draft_subject": r.draft_subject,
+                    "draft_body": r.draft_body,
+                    "compliance_flags": r.compliance_flags_json,
+                    "due_at": r.due_at.isoformat() if r.due_at else None,
+                    "sent_at": r.sent_at.isoformat() if r.sent_at else None,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "error_message": r.error_message,
+                }
+                for r in rows
+            ]
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/repeat/opt-out/{buyer}")
+async def repeat_opt_out(buyer: str, reason: str = "manual"):
+    """指定バイヤーを opt-out（BuyerExclude + 全 BuyerSegment に伝播）。"""
+    from chat.repeat_engine import opt_out_buyer
+
+    return opt_out_buyer(buyer, reason=reason)
+
+
+@app.get("/api/repeat/kpi")
+async def repeat_kpi():
+    """Phase 1 最小 KPI: ステータス別件数 + 7日後購入率の雛形。"""
+    from database.models import OutboundOffer
+    from sqlalchemy import func as _func
+
+    db = get_db()
+    try:
+        rows = (
+            db.query(OutboundOffer.status, _func.count(OutboundOffer.id))
+            .group_by(OutboundOffer.status)
+            .all()
+        )
+        counts = {s: c for s, c in rows}
+        sent = counts.get("sent", 0)
+        converted = (
+            db.query(OutboundOffer)
+            .filter(
+                OutboundOffer.status == "sent",
+                OutboundOffer.resulted_in_purchase_order_id != "",
+            )
+            .count()
+        )
+        return {
+            "counts_by_status": counts,
+            "sent": sent,
+            "converted": converted,
+            "conversion_rate": (converted / sent) if sent else 0.0,
+        }
+    finally:
+        db.close()
 
 
 @app.get("/agent", response_class=HTMLResponse)
