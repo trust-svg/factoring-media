@@ -483,52 +483,145 @@ git -C /Users/Mac_air/.claude commit -m "feat: add /monthly-cleanup slash comman
 
 ---
 
-### Task 4: CronCreate routine を登録
+### Task 4: launchd plist でリマインダー登録（月初9:00 JST）
+
+**設計判断**: 実装時に CronCreate の制約（session-only + 7日 auto-expire）と schedule skill (Claude.ai Routines) の remote 実行制約が判明したため、macOS launchd で月初リマインダーだけ送り、Hiro が手動で `/monthly-cleanup` を起動する方式に変更（spec 修正済み 2026-05-14, commit 75504bb）。
 
 **Files:**
-- Modify (in-session): CronCreate ストレージ
-- Modify: `/Users/Mac_air/Obsidian/context/cron-inventory.md` （登録結果を反映）
+- Create: `/Users/Mac_air/.claude/scripts/monthly-cleanup-reminder.sh`
+- Create: `/Users/Mac_air/Library/LaunchAgents/com.trustlink.monthly-cleanup-reminder.plist`
+- Modify: `/Users/Mac_air/Obsidian/context/cron-inventory.md`
 
-- [ ] **Step 1: CronCreate ツールで登録**
+- [ ] **Step 1: リマインダースクリプトを Write**
 
-ToolSearch で CronCreate のスキーマをロード → 以下を登録:
+`/Users/Mac_air/.claude/scripts/monthly-cleanup-reminder.sh`:
 
+```bash
+#!/bin/bash
+# 月次棚卸しリマインダー (spec #1) — launchd から呼ばれる
+# Telegram 汎用Botに通知だけ送る。実際の /monthly-cleanup 起動は Hiro が手動で。
+
+set -euo pipefail
+
+LOG_FILE="/tmp/monthly-cleanup-reminder.log"
+ENV_FILE="/Users/Mac_air/.claude/.telegram-meta-bot.env"
+
+{
+  echo "=== $(date +%Y-%m-%d\ %H:%M:%S) ==="
+  if [ ! -f "$ENV_FILE" ]; then
+    echo "ERROR: $ENV_FILE not found"
+    exit 1
+  fi
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+
+  MESSAGE="📋 月次リポジトリ棚卸しの時間です ($(date +%Y-%m-%d))
+
+Claude Code で /monthly-cleanup を起動してください。
+完了するとレポートが ~/Obsidian/Daily/repo-cleanup-$(date +%F).md に出ます。"
+
+  RESPONSE=$(curl -s "https://api.telegram.org/bot${TELEGRAM_META_BOT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TELEGRAM_META_BOT_CHAT_ID}" \
+    --data-urlencode "text=${MESSAGE}")
+  echo "Response: $RESPONSE"
+
+  if echo "$RESPONSE" | grep -q '"ok":true'; then
+    echo "SUCCESS"
+  else
+    echo "FAILURE"
+    exit 1
+  fi
+} >> "$LOG_FILE" 2>&1
 ```
-Name: monthly-cleanup
-Schedule: 0 9 1 * * (Asia/Tokyo)
-Prompt: /monthly-cleanup
+
+`chmod +x` で実行権限付与。
+
+- [ ] **Step 2: launchd plist を Write**
+
+`/Users/Mac_air/Library/LaunchAgents/com.trustlink.monthly-cleanup-reminder.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.trustlink.monthly-cleanup-reminder</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/Mac_air/.claude/scripts/monthly-cleanup-reminder.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Day</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/monthly-cleanup-reminder.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/monthly-cleanup-reminder.stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/Mac_air</string>
+    </dict>
+</dict>
+</plist>
 ```
 
-CronCreate ツールに渡すパラメータ:
-- `name`: `monthly-cleanup`
-- `cron`: `0 9 1 * *`
-- `tz`: `Asia/Tokyo`
-- `prompt`: `monthly-cleanup ritual を /monthly-cleanup で実行してください` （slash command 起動のための明示プロンプト、実装時に CronCreate の引数仕様確認後微調整）
+注: VPS ホストTZ は Asia/Tokyo 化済み（memory: vps-timezone.md）だが、launchd は Mac ローカル TZ で動く。Mac の TZ も Asia/Tokyo なら `Hour: 9` がそのまま 09:00 JST になる（要確認: `systemsetup -gettimezone`）。
 
-- [ ] **Step 2: CronList で登録確認**
+- [ ] **Step 3: launchd plist を load**
 
-CronList を実行し、`monthly-cleanup` が一覧に出ることを確認。
+```bash
+launchctl load /Users/Mac_air/Library/LaunchAgents/com.trustlink.monthly-cleanup-reminder.plist
+launchctl list | grep monthly-cleanup
+```
 
-- [ ] **Step 3: cron-inventory.md の「CronCreate」セクションを更新**
+Expected: `com.trustlink.monthly-cleanup-reminder` が一覧に出る（PID 列は `-` でOK、StartCalendarInterval は idle 状態）。
 
-`/Users/Mac_air/Obsidian/context/cron-inventory.md` の `## CronCreate (Claude Code セッション)` セクションを Edit:
+- [ ] **Step 4: 手動発火テスト**
+
+```bash
+launchctl start com.trustlink.monthly-cleanup-reminder
+sleep 3
+cat /tmp/monthly-cleanup-reminder.log | tail -10
+```
+
+Expected: `SUCCESS` の行が出る、Telegram に「📋 月次リポジトリ棚卸しの時間です」が届く。届かなければ:
+1. `~/.claude/.telegram-meta-bot.env` が正しく書かれているか確認
+2. `/tmp/monthly-cleanup-reminder.stderr.log` を確認
+3. Telegram API のレスポンスが `"ok":true` か確認
+
+- [ ] **Step 5: cron-inventory.md の launchd セクションを更新**
+
+`/Users/Mac_air/Obsidian/context/cron-inventory.md` の `## launchd (macOS Mac_air)` セクションを Edit。既存テーブル行に追記:
 
 ```markdown
-| Name | Schedule (JST) | 用途 | 出力先 |
-|------|----------------|------|-------|
-| `monthly-cleanup` | `0 9 1 * *` (毎月1日 09:00) | 月次リポジトリ棚卸し | Obsidian + Telegram 汎用Bot |
+| `com.trustlink.monthly-cleanup-reminder` | 月初1日 09:00 JST | 月次棚卸しリマインダー (spec #1) | `/Users/Mac_air/Library/LaunchAgents/com.trustlink.monthly-cleanup-reminder.plist` |
 ```
 
-「現在登録なし」の文言を「現在1件登録」に変更。`last_confirmed: 2026-05-14` を当日日付に更新。
+`last_confirmed: 2026-05-14` を当日日付に更新。
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git -C /Users/Mac_air/Obsidian add context/cron-inventory.md
-git -C /Users/Mac_air/Obsidian commit -m "docs(context): register monthly-cleanup CronCreate routine (spec #1)"
+git -C /Users/Mac_air/Obsidian commit -m "docs(context): register monthly-cleanup-reminder launchd (spec #1)"
 ```
 
-注: Obsidian vault が git管理されている前提（既存運用と整合）。管理外ならスキップ。
+注: Obsidian vault は git管理されている。`~/.claude` は管理外なので、plist と reminder script は commit しない（個別端末固有）。
 
 ---
 

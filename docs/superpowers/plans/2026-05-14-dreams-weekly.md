@@ -302,42 +302,139 @@ git -C /Users/Mac_air/.claude commit -m "feat: add /dreams slash command for wee
 
 ---
 
-### Task 3: CronCreate routine を登録（土曜 08:00 JST）
+### Task 3: launchd plist でリマインダー登録（土曜 08:00 JST）
+
+**設計判断**: spec #1 と同じく、CronCreate と schedule skill が利用不可のため launchd + Telegram リマインダー + Hiro 手動起動方式に変更（spec 修正済み 2026-05-14, commit 75504bb）。
 
 **Files:**
-- Modify (in-session): CronCreate ストレージ
+- Create: `/Users/Mac_air/.claude/scripts/dreams-weekly-reminder.sh`
+- Create: `/Users/Mac_air/Library/LaunchAgents/com.trustlink.dreams-weekly-reminder.plist`
 - Modify: `/Users/Mac_air/Obsidian/context/cron-inventory.md`
 
-- [ ] **Step 1: CronCreate ツールで登録**
+- [ ] **Step 1: リマインダースクリプトを Write**
 
-CronCreate を以下のパラメータで実行:
-- `name`: `dreams-weekly`
-- `cron`: `0 8 * * 6`
-- `tz`: `Asia/Tokyo`
-- `prompt`: `週次 Dreams 振り返りを /dreams で実行してください`
+`/Users/Mac_air/.claude/scripts/dreams-weekly-reminder.sh`:
 
-- [ ] **Step 2: CronList で登録確認**
+```bash
+#!/bin/bash
+# 週次 Dreams 振り返りリマインダー (spec #5) — launchd から呼ばれる
+# Telegram 汎用Botに通知だけ送る。実際の /dreams 起動は Hiro が手動で。
 
-CronList を実行し `dreams-weekly` が一覧に出ることを確認。spec #1 で登録した `monthly-cleanup` と並んで2件になっているはず。
+set -euo pipefail
 
-- [ ] **Step 3: cron-inventory.md の CronCreate セクション更新**
+LOG_FILE="/tmp/dreams-weekly-reminder.log"
+ENV_FILE="/Users/Mac_air/.claude/.telegram-meta-bot.env"
 
-`/Users/Mac_air/Obsidian/context/cron-inventory.md` の `## CronCreate` セクションを Edit:
+{
+  echo "=== $(date +%Y-%m-%d\ %H:%M:%S) ==="
+  if [ ! -f "$ENV_FILE" ]; then
+    echo "ERROR: $ENV_FILE not found"
+    exit 1
+  fi
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
 
-```markdown
-| Name | Schedule (JST) | 用途 | 出力先 |
-|------|----------------|------|-------|
-| `monthly-cleanup` | `0 9 1 * *` (毎月1日 09:00) | 月次リポジトリ棚卸し | Obsidian + Telegram 汎用Bot |
-| `dreams-weekly` | `0 8 * * 6` (毎週土曜 08:00) | 週次 Dreams 振り返り | Obsidian + Telegram 汎用Bot |
+  MESSAGE="🌙 週次 Dreams 振り返りの時間です ($(date +%Y-%m-%d))
+
+Claude Code で /dreams を起動してください。
+先週の判断・ミス・未消化パターンを集計したレポートが ~/Obsidian/Daily/dreams-$(date +%F).md に出ます。"
+
+  RESPONSE=$(curl -s "https://api.telegram.org/bot${TELEGRAM_META_BOT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TELEGRAM_META_BOT_CHAT_ID}" \
+    --data-urlencode "text=${MESSAGE}")
+  echo "Response: $RESPONSE"
+
+  if echo "$RESPONSE" | grep -q '"ok":true'; then
+    echo "SUCCESS"
+  else
+    echo "FAILURE"
+    exit 1
+  fi
+} >> "$LOG_FILE" 2>&1
 ```
 
-`last_confirmed` を今日の日付に更新。
+`chmod +x` で実行権限付与。
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 2: launchd plist を Write**
+
+`/Users/Mac_air/Library/LaunchAgents/com.trustlink.dreams-weekly-reminder.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.trustlink.dreams-weekly-reminder</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/Mac_air/.claude/scripts/dreams-weekly-reminder.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>6</integer>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/dreams-weekly-reminder.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/dreams-weekly-reminder.stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/Mac_air</string>
+    </dict>
+</dict>
+</plist>
+```
+
+注: launchd の `Weekday` は **0=日曜 ... 6=土曜**（cron と同じ）。Apple 公式 launchd.plist man page で確認可。
+
+- [ ] **Step 3: launchd plist を load**
+
+```bash
+launchctl load /Users/Mac_air/Library/LaunchAgents/com.trustlink.dreams-weekly-reminder.plist
+launchctl list | grep dreams
+```
+
+Expected: `com.trustlink.dreams-weekly-reminder` が一覧に出る。
+
+- [ ] **Step 4: 手動発火テスト**
+
+```bash
+launchctl start com.trustlink.dreams-weekly-reminder
+sleep 3
+cat /tmp/dreams-weekly-reminder.log | tail -10
+```
+
+Expected: `SUCCESS`、Telegram に「🌙 週次 Dreams 振り返りの時間です」が届く。
+
+- [ ] **Step 5: cron-inventory.md の launchd セクションを更新**
+
+`/Users/Mac_air/Obsidian/context/cron-inventory.md` の `## launchd (macOS Mac_air)` セクションに追記:
+
+```markdown
+| `com.trustlink.dreams-weekly-reminder` | 毎週土曜 08:00 JST | 週次 Dreams 振り返りリマインダー (spec #5) | `/Users/Mac_air/Library/LaunchAgents/com.trustlink.dreams-weekly-reminder.plist` |
+```
+
+`last_confirmed: 2026-05-14` を当日日付に更新。spec #1 の monthly-cleanup-reminder と並んで2件登録されているはず。
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git -C /Users/Mac_air/Obsidian add context/cron-inventory.md
-git -C /Users/Mac_air/Obsidian commit -m "docs(context): register dreams-weekly CronCreate routine (spec #5)"
+git -C /Users/Mac_air/Obsidian commit -m "docs(context): register dreams-weekly-reminder launchd (spec #5)"
 ```
 
 ---
