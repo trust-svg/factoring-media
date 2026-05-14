@@ -33,13 +33,13 @@
 
 ## フェーズ進捗管理
 
-現在: **Phase 1（コア記録）実装中**
+現在: **Phase 3（AI メニュー提案）実装中**
 
 | Phase | 状態 |
 |---|---|
-| Phase 1 | 🟡 in progress（スケルトン完了、Xcode プロジェクト化待ち）|
-| Phase 2 | ⚪ pending |
-| Phase 3 | ⚪ pending |
+| Phase 1 | ✅ complete |
+| Phase 2 | ✅ complete |
+| Phase 3 | ✅ complete |
 | Phase 4 | ⚪ pending |
 | Phase 5 | ⚪ pending |
 | Phase 6 | ⚪ pending |

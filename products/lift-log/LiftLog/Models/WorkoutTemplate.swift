@@ -5,7 +5,7 @@ import SwiftData
 /// exerciseIDs は `Exercise.id` の配列で順序付き。
 @Model
 final class WorkoutTemplate {
-    var id: UUID
+    @Attribute(.unique) var id: UUID
     var name: String
     var isAIGenerated: Bool
     var exerciseIDs: [String]

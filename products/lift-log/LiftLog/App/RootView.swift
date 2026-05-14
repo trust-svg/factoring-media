@@ -13,6 +13,9 @@ struct RootView: View {
             ChartsView()
                 .tabItem { Label("推移", systemImage: "chart.line.uptrend.xyaxis") }
 
+            AIMenuView()
+                .tabItem { Label("AI", systemImage: "sparkles") }
+
             SettingsView()
                 .tabItem { Label("設定", systemImage: "gearshape.fill") }
         }
@@ -21,5 +24,6 @@ struct RootView: View {
 
 #Preview {
     RootView()
+        .environment(HealthKitBridge.shared)
         .modelContainer(SwiftDataContainer.shared)
 }
