@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import asyncio
+import subprocess
 from pathlib import Path
 
 import discord
@@ -124,6 +125,10 @@ CHANNELS = [
         "動画分析-video-research",
         "🎬 Elon — YouTube/TikTok/Instagram の URL を貼ると構造化分析",
     ),
+    (
+        "アイディア-ideas",
+        "💡 アイデア投稿 — 投稿するとスレッドが自動作成され Reid が評価",
+    ),
     ("決裁-decisions", "📋 決裁案件の通知"),
     (
         "会議-councils",
@@ -144,6 +149,7 @@ CHANNEL_CHARACTERS = {
     "調査-elon-research": ("Elon", "akira.png"),
     "戦略-reid-strategy": ("Reid", "nao.png"),
     "動画分析-video-research": ("Elon", "akira.png"),
+    "アイディア-ideas": ("Reid", "nao.png"),
     "決裁-decisions": ("Steve", "steve.png"),
     "会議-councils": ("Steve", "steve.png"),
     "アラート-alerts": ("Steve", "steve.png"),
@@ -440,6 +446,98 @@ async def on_ready():
     logger.info("D-Manager ready!")
 
 
+_IDEAS_TEMPLATE = (
+    "💡 アイデア受付しました！以下を埋めてスレッド内に返信してください。\n\n"
+    "🎯 **どの軸？**\n"
+    "プチストレス改善 / 可視化 / 節約 / 効率化 / 自動化 / バズ\n\n"
+    "👤 **誰向け？** ターゲットユーザーを一言で\n\n"
+    "🔥 **自分が使いたい？** Yes / No\n\n"
+    "━━━━━━━━━━━━━━━━━━\n"
+    "回答が揃ったら Reid が技術難度・市場性・差別化を評価します。\n"
+    "リアクション: 🔥=やりたい / 💰=収益性高い / ⚡=すぐ作れる"
+)
+
+
+async def _ideas_send_as_reid(thread: discord.Thread, content: str) -> None:
+    """Webhook を使って Reid キャラとして ideas スレッドに投稿する。"""
+    webhook = webhook_cache.get("アイディア-ideas")
+    if webhook:
+        import aiohttp
+
+        async with aiohttp.ClientSession() as session:
+            await session.post(
+                f"{webhook.url}?thread_id={thread.id}",
+                json={"content": content, "username": "Reid"},
+            )
+    else:
+        await thread.send(content)
+
+
+async def _ideas_post_template(thread: discord.Thread) -> None:
+    """アイデア投稿を受け取ったスレッドにテンプレを送る。"""
+    await _ideas_send_as_reid(thread, _IDEAS_TEMPLATE)
+
+
+def _evaluate_idea_sync(original_idea: str, replies: str) -> str | None:
+    """claude -p でアイデアを3軸評価する（同期・executor 経由で呼ぶ）。"""
+    prompt = (
+        "以下のアプリアイデアを3軸で評価してください。\n"
+        "出力は必ず以下フォーマット3行のみ（前置き・後書き不要）:\n"
+        "⚡ 技術難度: 高/中/低 — 理由を1行\n"
+        "💰 市場性: 高/中/低 — 理由を1行\n"
+        "🏆 差別化: 強/中/弱 — 理由を1行\n\n"
+        f"【アイデア】{original_idea}\n"
+        f"【補足】{replies or '（なし）'}"
+    )
+    try:
+        result = subprocess.run(
+            [
+                "claude",
+                "-p",
+                prompt,
+                "--output-format",
+                "text",
+                "--max-turns",
+                "1",
+                "--dangerously-skip-permissions",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(config.COMPANY_DIR),
+        )
+        body = (result.stdout or "").strip()
+        return body if body else None
+    except Exception as e:
+        logger.warning(f"_evaluate_idea_sync failed: {e}")
+        return None
+
+
+async def _ideas_thread_reply(message: discord.Message) -> None:
+    """ideas スレッド内の返信を受けて Reid が3軸評価を返す。"""
+    thread = message.channel
+    # スターターメッセージ（オリジナルのアイデア）を取得
+    try:
+        starter = (
+            await message.guild.fetch_message(thread.id)
+            if hasattr(thread, "id")
+            else None
+        )
+    except Exception:
+        starter = None
+    original_idea = (
+        thread.name.lstrip("💡 ")
+        if starter is None
+        else (starter.content or thread.name)
+    )
+    loop = asyncio.get_event_loop()
+    evaluation = await loop.run_in_executor(
+        None, _evaluate_idea_sync, original_idea, message.content
+    )
+    if evaluation:
+        await _ideas_send_as_reid(thread, f"📊 **Reid の評価**\n\n{evaluation}")
+
+
 @bot.event
 async def on_message(message: discord.Message):
     # Debug logging
@@ -455,6 +553,13 @@ async def on_message(message: discord.Message):
     # Ignore DMs
     if not message.guild:
         return
+
+    # アイディア-ideas のスレッド内返信 → Reid が評価
+    if isinstance(message.channel, discord.Thread):
+        parent = message.channel.parent
+        if parent and parent.name == "アイディア-ideas":
+            asyncio.create_task(_ideas_thread_reply(message))
+            return
 
     # Ignore non-text channels and read-only channels
     channel_name = message.channel.name
@@ -498,6 +603,16 @@ async def on_message(message: discord.Message):
             "- **SNSバズリサーチ**: ジャンル名・キーワード・アカウントURL を貼る → Elon が sns-research スキルで実行",
             channel_name,
         )
+        return
+
+    # Ideas channel: auto-create thread + Reid テンプレ
+    if channel_name == "アイディア-ideas":
+        idea_title = message.content[:50] + ("…" if len(message.content) > 50 else "")
+        thread = await message.create_thread(
+            name=f"💡 {idea_title}",
+            auto_archive_duration=10080,  # 7 days
+        )
+        asyncio.create_task(_ideas_post_template(thread))
         return
 
     # Quick command: task board with buttons
