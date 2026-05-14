@@ -50,6 +50,19 @@ They are NOT related unless explicitly stated.
 - Never mix client data into `products/` general directories
 - Never create files outside the specified target directory without asking
 
+## SSoT Map（横断台帳の参照先）
+
+「広告アカウントID」「サブスク契約」「自動実行ジョブ」などの **横断情報** は、ここから探す。
+個別プロダクトの memory より優先。アカウント不明・契約状況不明な時は **最初にこの3つを見る**。
+
+| 種別 | 場所 | 内容 |
+|------|------|------|
+| 広告アカウント | `~/Obsidian/context/ad-accounts.md` | Meta/Google/LinkedIn/TikTok/X 全アカウントID |
+| 契約/サブスク | `~/Obsidian/context/subscriptions.md` | AI/API・インフラ・SaaS・広告予算・ASP |
+| 自動実行ジョブ | `~/Obsidian/context/cron-inventory.md` | VPS cron + launchd + GitHub Actions + CronCreate |
+
+更新ルール: 該当ファイルを上書き、`last_confirmed` を更新。詳細スキーマと flow/stock 設計は `~/Claude-Workspace/docs/superpowers/specs/2026-05-14-ssot-flow-stock-design.md`。
+
 ## Working Process Rules（作業プロセス規律）
 
 ### 自己検証ルール（完了報告の前に必須）

@@ -132,6 +132,16 @@ mv ~/.claude/skills/remotion-to-hyperframes ~/.claude/skills/.archive/2026-06/
 2. 180日以上更新されていないファイルをリスト化
 3. ファイル内容の冒頭3行を併記して「廃止宣言済み」「TODO残置」を判定
 
+**SSoT ファイルの特別扱い** (spec #3 依存):
+
+以下の SSoT 横断台帳は **180日経過判定の対象外**。代わりに毎月 **4ソース再監査** を実行する。
+
+- `~/Obsidian/context/ad-accounts.md` — 広告アカウント全部のID再確認
+- `~/Obsidian/context/subscriptions.md` — Hiro にサブスク変動ヒアリング
+- `~/Obsidian/context/cron-inventory.md` — `ssh trustlink-prod 'crontab -l && ls -la /etc/cron.d/'` + `launchctl list | grep trustlink` + `gh workflow list -R trust-svg/<repo>` + `CronList` の差分検出
+
+再監査で差分があれば該当ファイルを上書き・`last_confirmed` を当月日付に更新。詳細手順は `~/Claude-Workspace/docs/superpowers/specs/2026-05-14-ssot-flow-stock-design.md` § 6.1。
+
 **出力例**:
 ```markdown
 ## ② 古いメモリ/context（180日+ 未更新）
