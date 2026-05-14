@@ -293,7 +293,9 @@
     {
       "date": "2026-05-15",
       "slug": "olta-tesuuryou-takai",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n62d0e4f4317f",
+      "published_at": "2026-05-15"
     },
     {
       "date": "2026-05-16",
