@@ -31,15 +31,23 @@ Claude Code リポジトリ（`~/.claude/` + `~/Claude-Workspace/`）の**汚れ
 
 ### 2.1 トリガー
 
-- **CronCreate routine** で毎月1日 09:00 JST に発火
-- スケジュール式: `0 9 1 * *`（TZ=Asia/Tokyo）
+- **macOS launchd** で毎月1日 09:00 JST に Telegram リマインダー送信 → Hiro が Claude Code で `/monthly-cleanup` を手動起動
+- launchd plist: `~/Library/LaunchAgents/com.trustlink.monthly-cleanup-reminder.plist`
+- 起動間隔: `StartCalendarInterval` で `Day=1, Hour=9, Minute=0`
+
+**設計判断の根拠** (2026-05-14 実装時に判明):
+- CronCreate は session-only + 7日 auto-expire のため、月次cronは物理的に不可能
+- `schedule` skill (Claude.ai Routines) は remote環境で動作するため、Mac ローカルファイル（`~/.claude/skills/`, `~/.claude/projects/*.jsonl`, `~/Obsidian/`）にアクセスできず、本spec の3監査が成立しない
+- 完全自動化（launchd + `claude -p '/monthly-cleanup'` headless 実行）は権限プロンプト・サイレント故障・spec 意図（人間に判断材料を渡す）とのズレで初期採用しない。1〜2サイクル運用後に検証検討
 
 ### 2.2 実行フロー
 
 ```
-[Cron 09:00 JST 月初]
+[launchd 09:00 JST 月初]
   ↓
-[remote agent 起動] (claude-opus-4-7 デフォルト)
+[Telegram 汎用メタ運用Bot に「月次棚卸しの時間です」リマインダー送信]
+  ↓
+[Hiro が Claude Code で /monthly-cleanup を手動起動]
   ↓
 [3つの監査を直列実行]
   ├─ ① 未使用スキル検出
@@ -50,7 +58,7 @@ Claude Code リポジトリ（`~/.claude/` + `~/Claude-Workspace/`）の**汚れ
   ↓
 [Obsidian/Daily/repo-cleanup-YYYY-MM-DD.md に書き込み]
   ↓
-[Telegram @bmanager_trustlink_bot に「棚卸しレポート出ました」通知]
+[Telegram 汎用メタ運用Bot に「棚卸しレポート出ました」完了通知]
 ```
 
 ### 2.3 出力先
@@ -191,8 +199,9 @@ mv ~/.claude/skills/remotion-to-hyperframes ~/.claude/skills/.archive/2026-06/
 | ファイル | 役割 | 場所 |
 |---------|------|------|
 | `monthly-cleanup.md` (prompt) | 監査プロンプト本体 | `~/.claude/commands/monthly-cleanup.md` |
-| `monthly-cleanup-routine.sh` | 補助スクリプト（ログ集計） | `~/.claude/scripts/monthly-cleanup.sh` |
-| CronCreate登録 | スケジュール本体 | Claude Code 内（永続） |
+| `monthly-cleanup.sh` | 補助スクリプト（ログ集計・bottleneck診断・Telegram送信） | `~/.claude/scripts/monthly-cleanup.sh` |
+| `monthly-cleanup-reminder.sh` | launchd から呼ぶリマインダー送信スクリプト | `~/.claude/scripts/monthly-cleanup-reminder.sh` |
+| launchd plist | スケジュール本体（月初9:00 JST にリマインダー送信） | `~/Library/LaunchAgents/com.trustlink.monthly-cleanup-reminder.plist` |
 
 ### 4.2 prompt 仕様（抜粋）
 
@@ -223,11 +232,12 @@ Telegram bmanager_trustlink_bot に通知してください。
 
 ## 5. Gotchas / リスク
 
-### リスク1: Cron発火失敗をサイレント故障させない
+### リスク1: launchd リマインダー発火失敗をサイレント故障させない
 
 **対策**:
-- 棚卸し agent が「実行開始」と「実行完了」の両方をTelegram通知
-- 月の3日になっても通知が来てなければ、月次棚卸し未実行 → 別チェック機構が必要かは要検討（YAGNI判断）
+- リマインダー送信スクリプトは送信成否を `/tmp/monthly-cleanup-reminder.log` に追記
+- 月初に Telegram が届かなければ Hiro が `launchctl list | grep monthly-cleanup` で確認
+- リマインダー無視＝棚卸しスキップなので、二重防護は YAGNI 判断（手動起動 `/monthly-cleanup` でいつでも実行可）
 
 ### リスク2: jsonl ログ削除でスキル使用履歴が欠落
 
@@ -254,10 +264,11 @@ Telegram bmanager_trustlink_bot に通知してください。
 ## 6. 受け入れ基準
 
 - [ ] 新規Telegram Bot が作成され、Chat IDとTokenが安全に保管されている
-- [ ] CronCreate で routine が登録され、`CronList` で確認できる
-- [ ] 月初1日 09:00 JST に発火し、レポートが Obsidian/Daily/ に出る
+- [ ] launchd plist `com.trustlink.monthly-cleanup-reminder.plist` が登録され、`launchctl list | grep monthly-cleanup` で確認できる
+- [ ] 月初1日 09:00 JST にリマインダー Telegram が届く（手動 `launchctl start` でロジック検証可）
+- [ ] Hiro が `/monthly-cleanup` を Claude Code で起動するとレポートが Obsidian/Daily/ に出る
 - [ ] レポートが3セクション（①②③）構成で出力される
-- [ ] Telegram 通知が届く（要約3行 + Obsidian path）
+- [ ] 完了通知 Telegram が届く（要約3行 + Obsidian path）
 - [ ] `/monthly-cleanup` slash command で手動起動できる
 - [ ] 初回手動実行で「最低1件の隔離候補」または「健全宣言」のどちらかが出る
 - [ ] レポートに「実行コマンド（コピペ）」が含まれ、Hiroが承認後に手動実行できる

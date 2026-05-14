@@ -32,15 +32,23 @@ spec #2（Gotchas）が「人間のフィードバック起点」なのに対し
 
 ### 2.1 トリガー
 
-- **CronCreate** で毎週 **土曜 08:00 JST** に発火（先週分の Daily/ が確定したタイミング）
-- スケジュール式: `0 8 * * 6`（TZ=Asia/Tokyo）
+- **macOS launchd** で毎週 **土曜 08:00 JST** に Telegram リマインダー送信 → Hiro が Claude Code で `/dreams` を手動起動（先週分の Daily/ が確定したタイミング）
+- launchd plist: `~/Library/LaunchAgents/com.trustlink.dreams-weekly-reminder.plist`
+- 起動指定: `StartCalendarInterval` で `Weekday=6` (土曜), `Hour=8`, `Minute=0`
+
+**設計判断の根拠** (2026-05-14 実装時に判明):
+- CronCreate は session-only + 7日 auto-expire のため、週次cronはギリギリ動くが「Claude Code 未起動週」で消滅するリスクあり
+- `schedule` skill (Claude.ai Routines) は remote環境で動作するため、Mac ローカルファイル（`~/Obsidian/Daily/`, `~/.claude/projects/*.jsonl`, `.company/meetings/`）にアクセスできず、本spec の入力データを取得できない
+- spec #1 と同じく launchd リマインダー + Hiro 手動起動方式を採用（既存 d-manager / Obsidian-sync の launchd 運用パターンと整合）
 
 ### 2.2 実行フロー
 
 ```
-[Cron 土曜 08:00 JST]
+[launchd 土曜 08:00 JST]
   ↓
-[remote agent 起動]
+[Telegram 汎用メタ運用Bot に「週次振り返りの時間です」リマインダー送信]
+  ↓
+[Hiro が Claude Code で /dreams を手動起動]
   ↓
 [入力データ取得]
   ├─ ~/Obsidian/Daily/<過去7日>.md
@@ -57,7 +65,7 @@ spec #2（Gotchas）が「人間のフィードバック起点」なのに対し
   ↓
 [~/Obsidian/Daily/dreams-YYYY-MM-DD.md に書き込み（flow）]
   ↓
-[Telegram 汎用Bot に通知（spec #1と同じBot）]
+[Telegram 汎用メタ運用Bot に完了通知（spec #1と同じBot）]
 ```
 
 ### 2.3 2層構造（重要）
@@ -228,9 +236,9 @@ Docker Compose の volume mount なしプロダクトでは、`docker compose up
 
 | ファイル | 役割 | 場所 |
 |---------|------|------|
-| `dreams-weekly.md` (prompt) | 週次振り返りプロンプト本体 | `~/.claude/commands/dreams-weekly.md` |
-| `/dreams` slash command | 手動起動用 | 同上（共用） |
-| CronCreate 登録 | スケジュール本体 | Claude Code 内 |
+| `dreams.md` (prompt) | 週次振り返りプロンプト本体 + `/dreams` slash command 定義 | `~/.claude/commands/dreams.md` |
+| `dreams-weekly-reminder.sh` | launchd から呼ぶリマインダー送信スクリプト | `~/.claude/scripts/dreams-weekly-reminder.sh` |
+| launchd plist | スケジュール本体（土曜 08:00 JST にリマインダー送信） | `~/Library/LaunchAgents/com.trustlink.dreams-weekly-reminder.plist` |
 
 ### prompt 仕様（抜粋）
 
@@ -294,10 +302,11 @@ flow なので時系列追加されるが、52ファイル/年で増加する。
 
 ## 9. 受け入れ基準
 
-- [ ] CronCreate で週次 routine が登録され、`CronList` で確認できる
-- [ ] 土曜 08:00 JST に発火し、`Daily/dreams-YYYY-MM-DD.md` が出力される
+- [ ] launchd plist `com.trustlink.dreams-weekly-reminder.plist` が登録され、`launchctl list | grep dreams` で確認できる
+- [ ] 土曜 08:00 JST にリマインダー Telegram が届く（手動 `launchctl start` で発火検証可）
+- [ ] Hiro が `/dreams` を Claude Code で起動すると `Daily/dreams-YYYY-MM-DD.md` が出力される
 - [ ] レポートが3セクション（判断/ミス/未消化）+ stock昇格候補 + アクションリスト構成
-- [ ] Telegram 通知が届く（汎用Bot経由）
+- [ ] 完了通知 Telegram が届く（汎用Bot経由）
 - [ ] `/dreams` slash command で手動起動できる
 - [ ] 初回手動実行で「最低1パターン」または「健全宣言」が出る
 - [ ] `~/Obsidian/context/dreams.md` テンプレが用意されている
