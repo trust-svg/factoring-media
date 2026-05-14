@@ -1,6 +1,13 @@
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
+    @Environment(HealthKitBridge.self) private var bridge
+    @Environment(\.modelContext) private var context
+
+    @State private var isSyncing = false
+    @State private var syncError: String?
+
     var body: some View {
         NavigationStack {
             List {
@@ -17,9 +24,45 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("連携 (Phase 2+)") {
-                    Label("HealthKit / TANITA", systemImage: "heart.fill")
-                        .foregroundStyle(.secondary)
+                Section("HealthKit / TANITA") {
+                    if !bridge.isAuthorized {
+                        Button {
+                            Task { try await bridge.requestAuthorization() }
+                        } label: {
+                            Label("権限を許可", systemImage: "heart.fill")
+                                .foregroundStyle(.red)
+                        }
+                    } else {
+                        Label("権限あり", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+
+                    Button {
+                        syncNow()
+                    } label: {
+                        HStack {
+                            Label("今すぐ同期", systemImage: "arrow.triangle.2.circlepath")
+                            Spacer()
+                            if isSyncing {
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .disabled(isSyncing)
+
+                    if let last = bridge.lastSyncDate {
+                        LabeledContent("最終同期",
+                            value: last.formatted(date: .abbreviated, time: .shortened))
+                    }
+
+                    if let err = syncError {
+                        Text(err)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section("連携 (準備中)") {
                     Label("Apple Music", systemImage: "music.note")
                         .foregroundStyle(.secondary)
                     Label("AI メニュー提案", systemImage: "sparkles")
@@ -27,11 +70,25 @@ struct SettingsView: View {
                 }
 
                 Section("情報") {
-                    LabeledContent("バージョン", value: "0.1.0 (Phase 1)")
+                    LabeledContent("バージョン", value: "0.2.0 (Phase 2)")
                     LabeledContent("開発", value: "Hiro 個人専用")
                 }
             }
             .navigationTitle("設定")
+        }
+    }
+
+    private func syncNow() {
+        isSyncing = true
+        syncError = nil
+        Task {
+            do {
+                if !bridge.isAuthorized { try await bridge.requestAuthorization() }
+                try await bridge.sync(into: context)
+            } catch {
+                syncError = error.localizedDescription
+            }
+            isSyncing = false
         }
     }
 }
@@ -58,4 +115,5 @@ private struct TimerSettingsPlaceholder: View {
 
 #Preview {
     SettingsView()
+        .environment(HealthKitBridge.shared)
 }
