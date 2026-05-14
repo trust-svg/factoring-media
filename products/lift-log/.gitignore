@@ -1,0 +1,46 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+build/
+DerivedData/
+*.swp
+*.swo
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.playground
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj/xcshareddata/swiftpm/
+
+# CocoaPods (使う場合)
+Pods/
+*.podfile.lock
+
+# Environment / secrets
+.env
+.env.local
+*.xcconfig.local
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+*.iml
+.idea/
