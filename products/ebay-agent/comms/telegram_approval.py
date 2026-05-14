@@ -21,8 +21,8 @@ import httpx
 
 from config import (
     REPEAT_ENGINE_DRY_RUN,
-    TELEGRAM_BOT_TOKEN,
-    TELEGRAM_CHAT_ID,
+    REPEAT_ENGINE_TELEGRAM_BOT_TOKEN as TELEGRAM_BOT_TOKEN,
+    REPEAT_ENGINE_TELEGRAM_CHAT_ID as TELEGRAM_CHAT_ID,
 )
 from database.models import OutboundOffer, SalesRecord, get_db
 

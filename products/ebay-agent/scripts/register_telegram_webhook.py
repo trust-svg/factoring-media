@@ -18,7 +18,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx
 
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET
+from config import (
+    REPEAT_ENGINE_TELEGRAM_BOT_TOKEN as TELEGRAM_BOT_TOKEN,
+    TELEGRAM_WEBHOOK_SECRET,
+)
 
 
 def main() -> int:

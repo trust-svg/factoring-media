@@ -151,3 +151,11 @@ REPEAT_ENGINE_ALLOWLIST_BUYERS = [
     for b in os.getenv("REPEAT_ENGINE_ALLOWLIST_BUYERS", "").split(",")
     if b.strip()
 ]
+# リピートエンジン専用の Telegram Bot（@ssjs_repeat_bot）。
+# 未設定なら上記の TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID にフォールバック。
+REPEAT_ENGINE_TELEGRAM_BOT_TOKEN = (
+    os.getenv("REPEAT_ENGINE_TELEGRAM_BOT_TOKEN", "") or TELEGRAM_BOT_TOKEN
+)
+REPEAT_ENGINE_TELEGRAM_CHAT_ID = (
+    os.getenv("REPEAT_ENGINE_TELEGRAM_CHAT_ID", "") or TELEGRAM_CHAT_ID
+)
