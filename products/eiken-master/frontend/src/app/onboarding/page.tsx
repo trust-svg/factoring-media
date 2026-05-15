@@ -29,15 +29,15 @@ export default function OnboardingPage() {
         exam_date: examDate || null,
       })
       setUser(updated)
-    } catch {
-      // ignore — go to home anyway
+    } catch (err) {
+      console.error('onboarding update failed:', err)
     } finally {
       setLoading(false)
       router.replace('/home')
     }
   }
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
 
   if (step === 'grade') {
     return (

@@ -46,15 +46,15 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserOut)
 def me(user: User = Depends(current_user)):
-    return {
-        "id": user.id,
-        "username": user.username,
-        "grade": user.grade,
-        "exam_date": user.exam_date,
-        "daily_goal_minutes": user.daily_goal_minutes,
-    }
+    return UserOut(
+        id=str(user.id),
+        username=user.username,
+        grade=user.grade,
+        exam_date=user.exam_date,
+        daily_goal_minutes=user.daily_goal_minutes,
+    )
 
 
 @router.put("/me", response_model=UserOut)
@@ -65,7 +65,7 @@ def update_me(
 ):
     if body.grade is not None:
         user.grade = body.grade
-    if body.exam_date is not None:
+    if "exam_date" in body.model_fields_set:
         user.exam_date = body.exam_date
     if body.daily_goal_minutes is not None:
         user.daily_goal_minutes = body.daily_goal_minutes
