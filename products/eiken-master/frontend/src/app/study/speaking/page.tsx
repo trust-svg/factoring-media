@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   apiEndSession,
@@ -25,6 +25,7 @@ export default function SpeakingPage() {
   const [breakDialog, setBreakDialog] = useState(false)
   const startRef = useRef<number>(Date.now())
   const mountedRef = useRef(true)
+  const handleBreak = useCallback(() => setBreakDialog(true), [])
   const mimeTypeRef = useRef<string>('')
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -175,7 +176,7 @@ export default function SpeakingPage() {
 
   return (
     <main className="min-h-screen bg-rose-50 flex flex-col">
-      <PomodoroTimer onBreak={() => setBreakDialog(true)} />
+      <PomodoroTimer onBreak={handleBreak} />
 
       {breakDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   apiEndSession,
@@ -25,24 +25,43 @@ export default function ReadingPage() {
   const [breakDialog, setBreakDialog] = useState(false)
   const startRef = useRef<number>(Date.now())
   const questionStartRef = useRef<number>(Date.now())
+  const endedRef = useRef(false)
+  const sessionIdRef = useRef<string | null>(null)
+  const latestRef = useRef({ correctCount: 0, attempted: 0 })
 
   useEffect(() => {
     Promise.all([apiStartSession('reading'), apiGetQuestions('reading', 5)])
       .then(([session, qs]) => {
         setSessionId(session.id)
+        sessionIdRef.current = session.id
         setQuestions(qs)
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (!endedRef.current && sessionIdRef.current) {
+        const duration = Math.round((Date.now() - startRef.current) / 1000)
+        apiEndSession(sessionIdRef.current, {
+          duration_seconds: duration,
+          questions_attempted: latestRef.current.attempted,
+          correct_count: latestRef.current.correctCount,
+          pomodoro_completed: false,
+        }).catch(() => {})
+      }
+    }
+  }, [])
+
   const endSession = async (pomodoro = false) => {
-    if (!sessionId) return
+    if (!sessionId || endedRef.current) return
+    endedRef.current = true
     const duration = Math.round((Date.now() - startRef.current) / 1000)
     await apiEndSession(sessionId, {
       duration_seconds: duration,
-      questions_attempted: index,
-      correct_count: correctCount,
+      questions_attempted: latestRef.current.attempted,
+      correct_count: latestRef.current.correctCount,
       pomodoro_completed: pomodoro,
     }).catch(() => {})
     setDone(true)
@@ -53,7 +72,8 @@ export default function ReadingPage() {
     setSelected(choiceIndex)
     const content = questions[index].content as ReadingContent
     const isCorrect = choiceIndex === content.answer
-    if (isCorrect) setCorrectCount((c) => c + 1)
+    latestRef.current.attempted += 1
+    if (isCorrect) { setCorrectCount((c) => c + 1); latestRef.current.correctCount += 1 }
     const timeSpent = Math.round((Date.now() - questionStartRef.current) / 1000)
     await apiRecordAttempt(sessionId, {
       question_id: questions[index].id,
@@ -75,6 +95,35 @@ export default function ReadingPage() {
       questionStartRef.current = Date.now()
     }
   }
+
+  const handleGoHome = useCallback(() => {
+    if (!endedRef.current && sessionIdRef.current) {
+      endedRef.current = true
+      const duration = Math.round((Date.now() - startRef.current) / 1000)
+      apiEndSession(sessionIdRef.current, {
+        duration_seconds: duration,
+        questions_attempted: latestRef.current.attempted,
+        correct_count: latestRef.current.correctCount,
+        pomodoro_completed: false,
+      }).catch(() => {})
+    }
+    router.push('/home')
+  }, [router])
+
+  const handleBreak = useCallback(() => {
+    setBreakDialog(true)
+    if (!endedRef.current && sessionIdRef.current) {
+      endedRef.current = true
+      const duration = Math.round((Date.now() - startRef.current) / 1000)
+      apiEndSession(sessionIdRef.current, {
+        duration_seconds: duration,
+        questions_attempted: latestRef.current.attempted,
+        correct_count: latestRef.current.correctCount,
+        pomodoro_completed: true,
+      }).catch(() => {})
+      setDone(true)
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -123,12 +172,7 @@ export default function ReadingPage() {
 
   return (
     <main className="min-h-screen bg-blue-50 flex flex-col">
-      <PomodoroTimer
-        onBreak={() => {
-          setBreakDialog(true)
-          endSession(true)
-        }}
-      />
+      <PomodoroTimer onBreak={handleBreak} />
 
       {breakDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
@@ -215,7 +259,7 @@ export default function ReadingPage() {
       </div>
 
       <div className="p-4 text-center">
-        <button onClick={() => router.push('/home')} className="text-sm text-gray-400 underline">
+        <button onClick={handleGoHome} className="text-sm text-gray-400 underline">
           ホームに戻る
         </button>
       </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   apiEndSession,
@@ -27,6 +27,8 @@ export default function WritingPage() {
   const [error, setError] = useState('')
   const [breakDialog, setBreakDialog] = useState(false)
   const startRef = useRef<number>(Date.now())
+
+  const handleBreak = useCallback(() => setBreakDialog(true), [])
 
   useEffect(() => {
     Promise.all([apiStartSession('writing'), apiGetQuestions('writing', 1)])
@@ -102,7 +104,7 @@ export default function WritingPage() {
 
   return (
     <main className="min-h-screen bg-amber-50 flex flex-col">
-      <PomodoroTimer onBreak={() => setBreakDialog(true)} />
+      <PomodoroTimer onBreak={handleBreak} />
 
       {breakDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
