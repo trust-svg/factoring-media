@@ -16,4 +16,8 @@ describe('formatTime', () => {
   it('formats 599 as 09:59', () => {
     expect(formatTime(599)).toBe('09:59')
   })
+
+  it('formats 60 as 01:00', () => {
+    expect(formatTime(60)).toBe('01:00')
+  })
 })

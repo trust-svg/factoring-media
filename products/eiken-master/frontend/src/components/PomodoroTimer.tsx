@@ -16,6 +16,13 @@ export default function PomodoroTimer({ onBreak }: PomodoroTimerProps) {
   const [elapsed, setElapsed] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const brokeRef = useRef(false)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     intervalRef.current = setInterval(() => {
@@ -23,7 +30,7 @@ export default function PomodoroTimer({ onBreak }: PomodoroTimerProps) {
         const next = prev + 1
         if (next >= 1500 && !brokeRef.current) {
           brokeRef.current = true
-          onBreak()
+          if (mountedRef.current) onBreak()
         }
         return next
       })
