@@ -1,11 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('eiken_token')
-}
+import { getToken } from '@/lib/auth'
 
 export default function RootPage() {
   const router = useRouter()

@@ -5,15 +5,11 @@ import type {
   UpdateUserRequest,
   User,
 } from './types'
+import { getToken } from './auth'
 
 function apiUrl(path: string): string {
   const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8100'
   return `${base}${path}`
-}
-
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('eiken_token')
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
