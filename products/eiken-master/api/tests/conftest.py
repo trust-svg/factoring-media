@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-anthropic-key")
+os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
 
 from app.main import app
 from app.db import Base, get_db
