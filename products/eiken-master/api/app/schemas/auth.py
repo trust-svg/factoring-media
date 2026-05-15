@@ -23,3 +23,17 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user_id: str
     grade: str
+
+
+class UpdateUserRequest(BaseModel):
+    grade: Optional[str] = Field(None, pattern=r"^(pre2|2)$")
+    exam_date: Optional[date] = None
+    daily_goal_minutes: Optional[int] = Field(None, ge=5, le=120)
+
+
+class UserOut(BaseModel):
+    id: str
+    username: str
+    grade: str
+    exam_date: Optional[date]
+    daily_goal_minutes: int

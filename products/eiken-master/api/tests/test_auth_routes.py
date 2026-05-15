@@ -51,3 +51,35 @@ def test_me_with_token(client):
     res = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
     assert res.json()["username"] == "taro"
+
+
+def test_update_me_grade(client):
+    client.post(
+        "/auth/register", json={"username": "updater", "pin": "5678", "grade": "pre2"}
+    )
+    login_res = client.post("/auth/login", json={"username": "updater", "pin": "5678"})
+    token = login_res.json()["access_token"]
+
+    res = client.put(
+        "/auth/me",
+        json={"grade": "2"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+    assert res.json()["grade"] == "2"
+
+
+def test_update_me_exam_date(client):
+    client.post(
+        "/auth/register", json={"username": "examuser", "pin": "9999", "grade": "pre2"}
+    )
+    login_res = client.post("/auth/login", json={"username": "examuser", "pin": "9999"})
+    token = login_res.json()["access_token"]
+
+    res = client.put(
+        "/auth/me",
+        json={"exam_date": "2026-10-01"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+    assert res.json()["exam_date"] == "2026-10-01"

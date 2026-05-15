@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.deps import current_user
 from app.models.user import User
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
+from app.schemas.auth import (
+    RegisterRequest,
+    LoginRequest,
+    TokenResponse,
+    UpdateUserRequest,
+    UserOut,
+)
 from app.services.auth import hash_pin, verify_pin, create_token
 
 router = APIRouter()
@@ -49,3 +55,26 @@ def me(user: User = Depends(current_user)):
         "exam_date": user.exam_date,
         "daily_goal_minutes": user.daily_goal_minutes,
     }
+
+
+@router.put("/me", response_model=UserOut)
+def update_me(
+    body: UpdateUserRequest,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    if body.grade is not None:
+        user.grade = body.grade
+    if body.exam_date is not None:
+        user.exam_date = body.exam_date
+    if body.daily_goal_minutes is not None:
+        user.daily_goal_minutes = body.daily_goal_minutes
+    db.commit()
+    db.refresh(user)
+    return UserOut(
+        id=str(user.id),
+        username=user.username,
+        grade=user.grade,
+        exam_date=user.exam_date,
+        daily_goal_minutes=user.daily_goal_minutes,
+    )
