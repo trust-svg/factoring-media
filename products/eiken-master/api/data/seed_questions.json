@@ -7,8 +7,8 @@
     "content": {
       "passage": "Many people around the world enjoy keeping pets. Dogs and cats are the most popular pets in many countries. Pets can make people feel happy and less lonely. However, owning a pet requires time and money. You need to feed them every day and take them to the vet when they are sick.",
       "question": "According to the passage, what is needed when owning a pet?",
-      "choices": ["Only money", "Time and money", "Only a big house", "A garden"],
-      "answer": 1,
+      "choices": ["Time and money", "Only a big house", "Only money", "A garden"],
+      "answer": 0,
       "explanation": "The passage states 'owning a pet requires time and money.'"
     }
   },
@@ -46,8 +46,8 @@
     "content": {
       "passage": "Volunteering is a great way to help your community and meet new people. There are many types of volunteer work available, from helping at animal shelters to working at food banks. Studies show that volunteering can also improve your mental health and give you a sense of purpose. Many schools encourage students to volunteer as part of their education.",
       "question": "According to the passage, why do schools encourage volunteering?",
-      "choices": ["To save money", "As part of education", "To keep students busy", "To help teachers"],
-      "answer": 1,
+      "choices": ["To save money", "To keep students busy", "To help teachers", "As part of education"],
+      "answer": 3,
       "explanation": "The passage states 'Many schools encourage students to volunteer as part of their education.'"
     }
   },
@@ -59,8 +59,8 @@
     "audio_text": "A: Hi, I'd like to make a reservation for dinner tonight. B: Of course. How many people will be dining with us? A: There will be four of us. B: We have a table available at 7 PM or 8:30 PM. Which would you prefer? A: 7 PM would be perfect, thank you.",
     "content": {
       "question": "What time does the person make a reservation for?",
-      "choices": ["6 PM", "7 PM", "8 PM", "8:30 PM"],
-      "answer": 1,
+      "choices": ["7 PM", "6 PM", "8 PM", "8:30 PM"],
+      "answer": 0,
       "explanation": "The person says '7 PM would be perfect.'"
     }
   },
@@ -85,8 +85,8 @@
     "content": {
       "passage": "Climate change has become one of the most significant challenges facing the world today. Scientists have found that global temperatures have risen by about 1.1 degrees Celsius since the pre-industrial era. This warming has led to more frequent extreme weather events, rising sea levels, and disruptions to ecosystems worldwide. Governments and organizations around the world are working together to reduce greenhouse gas emissions and transition to renewable energy sources.",
       "question": "What has been a consequence of rising global temperatures?",
-      "choices": ["Decreased rainfall globally", "More frequent extreme weather events", "Lower sea levels", "Stronger ecosystems"],
-      "answer": 1,
+      "choices": ["Decreased rainfall globally", "Lower sea levels", "More frequent extreme weather events", "Stronger ecosystems"],
+      "answer": 2,
       "explanation": "The passage states 'This warming has led to more frequent extreme weather events.'"
     }
   },
@@ -111,8 +111,8 @@
     "content": {
       "passage": "The concept of circular economy has gained attention as a solution to the problem of waste. Unlike the traditional linear economy, which follows a 'take-make-dispose' model, a circular economy aims to keep resources in use for as long as possible. Products are designed to be repaired, reused, or recycled rather than thrown away. Some companies have started implementing circular economy principles by offering repair services and using recycled materials in their products.",
       "question": "How does a circular economy differ from a linear economy?",
-      "choices": ["It produces more waste", "It focuses on keeping resources in use", "It relies on fossil fuels", "It discourages recycling"],
-      "answer": 1,
+      "choices": ["It produces more waste", "It relies on fossil fuels", "It discourages recycling", "It focuses on keeping resources in use"],
+      "answer": 3,
       "explanation": "The passage explains that circular economy 'aims to keep resources in use for as long as possible.'"
     }
   },
@@ -124,8 +124,8 @@
     "audio_text": "Today we're looking at the phenomenon of social media influencers. These individuals build large online followings and partner with companies to promote products. While influencer marketing can be effective, consumers should be aware that these promotions are paid advertisements. In many countries, influencers are now legally required to disclose when content is sponsored. Critics argue that influencer marketing can create unrealistic expectations, particularly among young people.",
     "content": {
       "question": "What are influencers legally required to do in many countries?",
-      "choices": ["Post daily", "Disclose sponsored content", "Show their income", "Avoid certain products"],
-      "answer": 1,
+      "choices": ["Disclose sponsored content", "Post daily", "Show their income", "Avoid certain products"],
+      "answer": 0,
       "explanation": "The passage states 'influencers are now legally required to disclose when content is sponsored.'"
     }
   },
@@ -137,7 +137,7 @@
     "content": {
       "prompt": "Some people think that students should use smartphones in class. Do you agree? Write about 80 words.",
       "min_words": 80,
-      "example_response": "I think students should not use smartphones in class. First, smartphones can distract students from studying. When students use smartphones, they may look at social media instead of listening to the teacher. Second, students can learn better by taking notes by hand. Writing by hand helps students remember information. For these reasons, I do not think smartphones should be used in class."
+      "example_response": "I think students should not use smartphones in class. First, smartphones can distract students from studying. When students use smartphones, they may look at social media or play games instead of listening to the teacher. This makes it harder to concentrate and learn new material. Second, students can learn better by taking notes by hand. Writing by hand helps students remember information more effectively. Teachers can also explain lessons more clearly without the distraction of devices. For these reasons, I do not think smartphones should be used in class."
     }
   },
   {
@@ -148,7 +148,7 @@
     "content": {
       "prompt": "Some people say that reading books is more important than watching TV. Do you agree? Write about 80 words.",
       "min_words": 80,
-      "example_response": "I agree that reading books is more important than watching TV. First, books help improve vocabulary and reading skills. When we read, we learn new words and ideas. Second, books require concentration, which is good for the brain. Watching TV is passive, but reading is active. For these reasons, I think reading books is more beneficial than watching TV."
+      "example_response": "I agree that reading books is more important than watching TV. First, books help improve vocabulary and reading skills. When we read, we learn new words and ideas that we cannot find on television. Second, books require concentration and imagination, which is very good for the brain. Watching TV is passive because everything is shown to you, but reading is an active process that trains your mind. Reading also allows you to learn at your own pace. For these reasons, I think reading books is more beneficial than watching TV every day."
     }
   },
   {
@@ -159,7 +159,7 @@
     "content": {
       "prompt": "Some people believe that remote work will replace traditional office work in the future. Do you agree with this view? Write about 100 words.",
       "min_words": 100,
-      "example_response": "I partially agree that remote work will become more common in the future. On the one hand, advances in technology make it possible for many employees to work effectively from home. Remote work also reduces commuting time and costs. On the other hand, some jobs require physical presence, and face-to-face communication is essential for team collaboration. While remote work will certainly increase, it is unlikely to completely replace traditional office environments."
+      "example_response": "I partially agree that remote work will become more common in the future, but I do not think it will fully replace office work. On the one hand, advances in technology make it possible for many employees to work effectively from home. Remote work also reduces commuting time and costs, improving work-life balance. For example, software engineers and writers can complete their tasks without being physically present. On the other hand, some jobs require physical presence, and face-to-face communication is essential for team collaboration and creative problem-solving. While remote work will certainly increase in popularity, it is unlikely to completely replace traditional office environments."
     }
   },
   {
@@ -170,7 +170,7 @@
     "content": {
       "prompt": "Is social media beneficial for society? Express your opinion with reasons and examples. Write about 100 words.",
       "min_words": 100,
-      "example_response": "I believe social media has both benefits and drawbacks for society. On the positive side, it enables people to stay connected with family and friends regardless of distance. It also serves as a powerful tool for sharing information quickly during emergencies. However, excessive use of social media can lead to mental health issues, particularly among young people. Moreover, the spread of misinformation is a serious concern. Overall, social media is beneficial when used responsibly and critically."
+      "example_response": "I believe social media has both significant benefits and serious drawbacks for society. On the positive side, it enables people to stay connected with family and friends regardless of distance, which is especially valuable for those living abroad. It also serves as a powerful tool for sharing information quickly during emergencies, such as natural disasters. For instance, relief organizations use social media to coordinate aid efficiently. However, excessive use of social media can lead to mental health issues, particularly among teenagers who compare themselves to others online. Moreover, the rapid spread of misinformation is a growing and serious concern. Overall, social media is beneficial when used responsibly, critically, and with clear personal boundaries."
     }
   },
   {
@@ -225,8 +225,8 @@
     "content": {
       "passage": "Renewable energy sources such as solar and wind power are becoming increasingly important in the fight against climate change. Unlike fossil fuels, these sources produce little to no greenhouse gas emissions during operation. However, they face challenges such as intermittency and the need for large-scale energy storage solutions. Many governments are now investing heavily in renewable energy infrastructure to reduce dependence on fossil fuels.",
       "question": "What is one challenge mentioned about renewable energy sources?",
-      "choices": ["They produce too much electricity", "They are intermittent and require storage solutions", "They are too expensive to research", "They emit greenhouse gases"],
-      "answer": 1,
+      "choices": ["They produce too much electricity", "They emit greenhouse gases", "They are too expensive to research", "They are intermittent and require storage solutions"],
+      "answer": 3,
       "explanation": "The passage states renewable energy faces 'challenges such as intermittency and the need for large-scale energy storage solutions.'"
     }
   },
