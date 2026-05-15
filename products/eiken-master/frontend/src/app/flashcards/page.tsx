@@ -9,14 +9,15 @@ interface QualityOption {
   q: number
   label: string
   bg: string
+  text: string
 }
 
 const QUALITY_OPTIONS: QualityOption[] = [
-  { q: 1, label: '全忘れ', bg: 'bg-red-500' },
-  { q: 2, label: '誤答', bg: 'bg-orange-400' },
-  { q: 3, label: 'ヒント', bg: 'bg-yellow-400 text-gray-800' },
-  { q: 4, label: '正解', bg: 'bg-green-500' },
-  { q: 5, label: '即答', bg: 'bg-emerald-600' },
+  { q: 1, label: '全忘れ', bg: 'bg-red-500', text: 'text-white' },
+  { q: 2, label: '誤答', bg: 'bg-orange-400', text: 'text-white' },
+  { q: 3, label: 'ヒント', bg: 'bg-yellow-400', text: 'text-gray-800' },
+  { q: 4, label: '正解', bg: 'bg-green-500', text: 'text-white' },
+  { q: 5, label: '即答', bg: 'bg-emerald-600', text: 'text-white' },
 ]
 
 export default function FlashcardsPage() {
@@ -25,30 +26,37 @@ export default function FlashcardsPage() {
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
+  const [reviewError, setReviewError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
 
   useEffect(() => {
     apiGetDueFlashcards()
       .then(setCards)
-      .catch((err) => console.error('Failed to load cards:', err))
+      .catch((err) => {
+        console.error('Failed to load cards:', err)
+        setFetchError(true)
+      })
       .finally(() => setLoading(false))
   }, [])
 
   const handleReview = async (quality: number) => {
     if (submitting) return
     setSubmitting(true)
+    setReviewError(false)
     const card = cards[index]
     try {
       await apiReviewFlashcard(card.id, quality)
+      if (index + 1 >= cards.length) {
+        setDone(true)
+      } else {
+        setIndex((i) => i + 1)
+        setRevealed(false)
+      }
     } catch (err) {
       console.error('Review failed:', err)
-    }
-    if (index + 1 >= cards.length) {
-      setDone(true)
-    } else {
-      setIndex((i) => i + 1)
-      setRevealed(false)
+      setReviewError(true)
     }
     setSubmitting(false)
   }
@@ -58,6 +66,22 @@ export default function FlashcardsPage() {
       <div className="min-h-screen flex items-center justify-center bg-indigo-50">
         <div className="text-indigo-400 text-sm">カードを読み込み中...</div>
       </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center bg-indigo-50 gap-5">
+        <div className="text-6xl">⚠️</div>
+        <h2 className="text-xl font-bold text-gray-700">読み込みに失敗しました</h2>
+        <p className="text-gray-400 text-sm">ネットワーク接続を確認してください</p>
+        <button
+          onClick={() => router.push('/home')}
+          className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold"
+        >
+          ホームへ
+        </button>
+      </main>
     )
   }
 
@@ -127,13 +151,19 @@ export default function FlashcardsPage() {
                 どれくらい覚えていましたか？
               </p>
 
+              {reviewError && (
+                <p className="text-red-500 text-xs text-center">
+                  送信に失敗しました。もう一度試してください。
+                </p>
+              )}
+
               <div className="grid grid-cols-5 gap-2">
-                {QUALITY_OPTIONS.map(({ q, label, bg }) => (
+                {QUALITY_OPTIONS.map(({ q, label, bg, text }) => (
                   <button
                     key={q}
                     onClick={() => handleReview(q)}
                     disabled={submitting}
-                    className={`${bg} text-white rounded-xl py-2.5 text-xs font-bold disabled:opacity-50`}
+                    className={`${bg} ${text} rounded-xl py-2.5 text-xs font-bold disabled:opacity-50`}
                   >
                     {label}
                   </button>
