@@ -24,6 +24,8 @@ export default function SpeakingPage() {
   const [recCountdown, setRecCountdown] = useState(0)
   const [breakDialog, setBreakDialog] = useState(false)
   const startRef = useRef<number>(Date.now())
+  const mountedRef = useRef(true)
+  const mimeTypeRef = useRef<string>('')
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const prepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -38,6 +40,7 @@ export default function SpeakingPage() {
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
     return () => {
+      mountedRef.current = false
       if (prepTimerRef.current) clearInterval(prepTimerRef.current)
       if (recTimerRef.current) clearInterval(recTimerRef.current)
       mediaRecorderRef.current?.stop()
@@ -61,7 +64,13 @@ export default function SpeakingPage() {
     if (prepTimerRef.current) clearInterval(prepTimerRef.current)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : ''
+      mimeTypeRef.current = mimeType
+      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
       chunksRef.current = []
       mr.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data)
@@ -98,8 +107,9 @@ export default function SpeakingPage() {
 
   const submitRecording = async () => {
     if (!question || !sessionId) return
+    if (!mountedRef.current) return
     setPhase('processing')
-    const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
+    const audioBlob = new Blob(chunksRef.current, { type: mimeTypeRef.current || 'audio/webm' })
     const content = question.content as SpeakingContent
     try {
       const result = await apiScoreSpeaking(
@@ -110,6 +120,7 @@ export default function SpeakingPage() {
         audioBlob
       )
       setScore(result)
+      if (!mountedRef.current) return
       await apiRecordAttempt(sessionId, {
         question_id: question.id,
         skill: 'speaking',
@@ -124,6 +135,7 @@ export default function SpeakingPage() {
       }).catch(() => {})
       setPhase('result')
     } catch (err) {
+      if (!mountedRef.current) return
       setError(err instanceof Error ? err.message : '採点に失敗しました')
       setPhase('prep')
     }
