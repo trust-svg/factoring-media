@@ -19,7 +19,7 @@ def test_seed_endpoint_returns_count(client):
     headers = {"Authorization": f"Bearer {token}"}
     res = client.post("/questions/seed", headers=headers)
     assert res.status_code == 201
-    assert res.json()["seeded"] == 10
+    assert res.json()["seeded"] == 20
 
 
 def test_get_questions_after_seed(client):

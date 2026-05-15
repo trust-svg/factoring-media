@@ -128,5 +128,119 @@
       "answer": 1,
       "explanation": "The passage states 'influencers are now legally required to disclose when content is sponsored.'"
     }
+  },
+  {
+    "grade": "pre2",
+    "skill": "writing",
+    "source": "ai_generated",
+    "difficulty": 0.4,
+    "content": {
+      "prompt": "Some people think that students should use smartphones in class. Do you agree? Write about 80 words.",
+      "min_words": 80,
+      "example_response": "I think students should not use smartphones in class. First, smartphones can distract students from studying. When students use smartphones, they may look at social media instead of listening to the teacher. Second, students can learn better by taking notes by hand. Writing by hand helps students remember information. For these reasons, I do not think smartphones should be used in class."
+    }
+  },
+  {
+    "grade": "pre2",
+    "skill": "writing",
+    "source": "ai_generated",
+    "difficulty": 0.5,
+    "content": {
+      "prompt": "Some people say that reading books is more important than watching TV. Do you agree? Write about 80 words.",
+      "min_words": 80,
+      "example_response": "I agree that reading books is more important than watching TV. First, books help improve vocabulary and reading skills. When we read, we learn new words and ideas. Second, books require concentration, which is good for the brain. Watching TV is passive, but reading is active. For these reasons, I think reading books is more beneficial than watching TV."
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "writing",
+    "source": "ai_generated",
+    "difficulty": 0.6,
+    "content": {
+      "prompt": "Some people believe that remote work will replace traditional office work in the future. Do you agree with this view? Write about 100 words.",
+      "min_words": 100,
+      "example_response": "I partially agree that remote work will become more common in the future. On the one hand, advances in technology make it possible for many employees to work effectively from home. Remote work also reduces commuting time and costs. On the other hand, some jobs require physical presence, and face-to-face communication is essential for team collaboration. While remote work will certainly increase, it is unlikely to completely replace traditional office environments."
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "writing",
+    "source": "ai_generated",
+    "difficulty": 0.7,
+    "content": {
+      "prompt": "Is social media beneficial for society? Express your opinion with reasons and examples. Write about 100 words.",
+      "min_words": 100,
+      "example_response": "I believe social media has both benefits and drawbacks for society. On the positive side, it enables people to stay connected with family and friends regardless of distance. It also serves as a powerful tool for sharing information quickly during emergencies. However, excessive use of social media can lead to mental health issues, particularly among young people. Moreover, the spread of misinformation is a serious concern. Overall, social media is beneficial when used responsibly and critically."
+    }
+  },
+  {
+    "grade": "pre2",
+    "skill": "speaking",
+    "source": "ai_generated",
+    "difficulty": 0.4,
+    "content": {
+      "topic": "Are school uniforms a good idea?",
+      "speaking_points": ["Think about equality among students", "Think about self-expression"],
+      "time_limit_seconds": 60
+    }
+  },
+  {
+    "grade": "pre2",
+    "skill": "speaking",
+    "source": "ai_generated",
+    "difficulty": 0.5,
+    "content": {
+      "topic": "Should students have part-time jobs while studying?",
+      "speaking_points": ["Think about learning responsibility", "Think about effect on studies"],
+      "time_limit_seconds": 60
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "speaking",
+    "source": "ai_generated",
+    "difficulty": 0.6,
+    "content": {
+      "topic": "Do you think artificial intelligence will have a positive impact on society?",
+      "speaking_points": ["Consider employment and automation", "Consider benefits in healthcare and education"],
+      "time_limit_seconds": 90
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "speaking",
+    "source": "ai_generated",
+    "difficulty": 0.7,
+    "content": {
+      "topic": "Should governments prioritize economic growth or environmental protection?",
+      "speaking_points": ["Consider long-term sustainability", "Consider immediate economic needs"],
+      "time_limit_seconds": 90
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "reading",
+    "source": "ai_generated",
+    "difficulty": 0.6,
+    "content": {
+      "passage": "Renewable energy sources such as solar and wind power are becoming increasingly important in the fight against climate change. Unlike fossil fuels, these sources produce little to no greenhouse gas emissions during operation. However, they face challenges such as intermittency and the need for large-scale energy storage solutions. Many governments are now investing heavily in renewable energy infrastructure to reduce dependence on fossil fuels.",
+      "question": "What is one challenge mentioned about renewable energy sources?",
+      "choices": ["They produce too much electricity", "They are intermittent and require storage solutions", "They are too expensive to research", "They emit greenhouse gases"],
+      "answer": 1,
+      "explanation": "The passage states renewable energy faces 'challenges such as intermittency and the need for large-scale energy storage solutions.'"
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "listening",
+    "source": "ai_generated",
+    "difficulty": 0.6,
+    "audio_text": "Man: I'm thinking about applying for the marketing position at the new company downtown. Woman: Really? Have you looked into their work culture? I've heard they expect long hours. Man: I know, but the salary is significantly higher than what I'm making now. Woman: Just make sure it's worth the trade-off. Sometimes money isn't everything.",
+    "content": {
+      "question": "Why is the man interested in the new position?",
+      "choices": ["The office location is convenient", "He prefers the company's products", "The salary is considerably higher", "He already knows people there"],
+      "answer": 2,
+      "explanation": "The man says 'the salary is significantly higher than what I'm making now.'"
+    }
   }
 ]
