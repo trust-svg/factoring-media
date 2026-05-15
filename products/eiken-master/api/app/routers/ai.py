@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session as DbSession
 
 from app.db import get_db
@@ -15,6 +15,8 @@ from app.services import ai_service
 
 router = APIRouter()
 
+MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 25 MB — Whisper API limit
+
 
 @router.post("/score-writing", response_model=WritingScoreResponse)
 def score_writing(
@@ -30,7 +32,12 @@ def score_writing(
         if question
         else "Write an essay."
     )
-    return ai_service.score_writing(prompt, body.answer_text)
+    try:
+        return ai_service.score_writing(prompt, body.answer_text)
+    except Exception as e:
+        raise HTTPException(
+            status_code=502, detail="AI scoring temporarily unavailable"
+        )
 
 
 @router.post("/generate-audio", response_model=AudioResponse)
@@ -38,7 +45,12 @@ def generate_audio(
     body: AudioRequest,
     user: User = Depends(current_user),
 ):
-    return ai_service.generate_audio(body.text, body.voice)
+    try:
+        return ai_service.generate_audio(body.text, body.voice)
+    except Exception as e:
+        raise HTTPException(
+            status_code=502, detail="Audio generation temporarily unavailable"
+        )
 
 
 @router.post("/score-speaking", response_model=SpeakingScoreResponse)
@@ -50,6 +62,13 @@ def score_speaking(
     speaking_points: str = Form(""),
     user: User = Depends(current_user),
 ):
-    audio_bytes = audio.file.read()
+    audio_bytes = audio.file.read(MAX_AUDIO_BYTES + 1)
+    if len(audio_bytes) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Audio file too large (max 25MB)")
     points = [p.strip() for p in speaking_points.split(",") if p.strip()]
-    return ai_service.score_speaking(topic, points, audio_bytes)
+    try:
+        return ai_service.score_speaking(topic, points, audio_bytes)
+    except Exception as e:
+        raise HTTPException(
+            status_code=502, detail="Speech scoring temporarily unavailable"
+        )
