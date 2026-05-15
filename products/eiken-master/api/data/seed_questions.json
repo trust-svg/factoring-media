@@ -85,8 +85,8 @@
     "content": {
       "passage": "Climate change has become one of the most significant challenges facing the world today. Scientists have found that global temperatures have risen by about 1.1 degrees Celsius since the pre-industrial era. This warming has led to more frequent extreme weather events, rising sea levels, and disruptions to ecosystems worldwide. Governments and organizations around the world are working together to reduce greenhouse gas emissions and transition to renewable energy sources.",
       "question": "What has been a consequence of rising global temperatures?",
-      "choices": ["Decreased rainfall globally", "Lower sea levels", "More frequent extreme weather events", "Stronger ecosystems"],
-      "answer": 2,
+      "choices": ["Decreased rainfall globally", "More frequent extreme weather events", "Lower sea levels", "Stronger ecosystems"],
+      "answer": 1,
       "explanation": "The passage states 'This warming has led to more frequent extreme weather events.'"
     }
   },
