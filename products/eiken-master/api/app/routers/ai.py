@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session as DbSession
 
@@ -12,6 +14,8 @@ from app.schemas.ai import (
     SpeakingScoreResponse,
 )
 from app.services import ai_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -34,7 +38,8 @@ def score_writing(
     )
     try:
         return ai_service.score_writing(prompt, body.answer_text)
-    except Exception as e:
+    except Exception:
+        logger.exception("score_writing failed for question_id=%s", body.question_id)
         raise HTTPException(
             status_code=502, detail="AI scoring temporarily unavailable"
         )
@@ -47,7 +52,8 @@ def generate_audio(
 ):
     try:
         return ai_service.generate_audio(body.text, body.voice)
-    except Exception as e:
+    except Exception:
+        logger.exception("generate_audio failed")
         raise HTTPException(
             status_code=502, detail="Audio generation temporarily unavailable"
         )
@@ -68,7 +74,8 @@ def score_speaking(
     points = [p.strip() for p in speaking_points.split(",") if p.strip()]
     try:
         return ai_service.score_speaking(topic, points, audio_bytes)
-    except Exception as e:
+    except Exception:
+        logger.exception("score_speaking failed for topic=%s", topic)
         raise HTTPException(
             status_code=502, detail="Speech scoring temporarily unavailable"
         )
