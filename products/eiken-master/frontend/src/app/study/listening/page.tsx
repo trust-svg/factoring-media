@@ -48,22 +48,37 @@ export default function ListeningPage() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     if (prevAudioUrl.current) {
       URL.revokeObjectURL(prevAudioUrl.current)
       prevAudioUrl.current = null
     }
     const q = questions[index]
-    if (!q?.audio_text) return
+    if (!q?.audio_text) {
+      return () => { cancelled = true }
+    }
     setAudioUrl(null)
     setAudioLoading(true)
     apiGenerateAudio(q.audio_text)
       .then(({ audio_base64 }) => {
+        if (cancelled) return
         const url = base64ToAudioUrl(audio_base64)
         prevAudioUrl.current = url
         setAudioUrl(url)
       })
-      .catch(() => setError('音声の生成に失敗しました'))
-      .finally(() => setAudioLoading(false))
+      .catch(() => {
+        if (!cancelled) setError('音声の生成に失敗しました')
+      })
+      .finally(() => {
+        if (!cancelled) setAudioLoading(false)
+      })
+    return () => {
+      cancelled = true
+      if (prevAudioUrl.current) {
+        URL.revokeObjectURL(prevAudioUrl.current)
+        prevAudioUrl.current = null
+      }
+    }
   }, [index, questions])
 
   const endSession = async (pomodoro = false) => {
