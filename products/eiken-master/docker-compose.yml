@@ -1,0 +1,39 @@
+services:
+  api:
+    build: ./api
+    container_name: eiken-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8100:8100"
+    environment:
+      TZ: Asia/Tokyo
+    env_file:
+      - ./api/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: eiken-postgres
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Tokyo
+      POSTGRES_USER: eiken
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: eiken
+    volumes:
+      - eiken_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eiken -d eiken"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  eiken_pgdata:
