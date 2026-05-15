@@ -1,5 +1,6 @@
 import type {
   Flashcard,
+  Grade,
   TokenResponse,
   UpdateUserRequest,
   User,
@@ -20,9 +21,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(init.headers as Record<string, string> | undefined),
   }
-  const res = await fetch(apiUrl(path), { ...init, headers })
+  let res: Response
+  try {
+    res = await fetch(apiUrl(path), { ...init, headers })
+  } catch {
+    throw new Error('ネットワークエラー: サーバーに接続できません')
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error((body as { detail?: string }).detail ?? `HTTP ${res.status}`)
@@ -40,7 +45,7 @@ export const apiLogin = (username: string, pin: string) =>
 export const apiRegister = (
   username: string,
   pin: string,
-  grade: string,
+  grade: Grade,
   exam_date?: string,
   daily_goal_minutes = 30,
 ) =>
