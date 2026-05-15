@@ -82,7 +82,7 @@ export const apiReviewFlashcard = (cardId: string, quality: number) =>
 
 // Questions
 export const apiGetQuestions = (skill: Skill, count = 5) =>
-  request<Question[]>(`/questions/?skill=${skill}&count=${count}`)
+  request<Question[]>(`/questions?skill=${skill}&count=${count}`)
 
 // Sessions
 export const apiStartSession = (skill: Skill) =>
@@ -149,7 +149,7 @@ export async function apiScoreSpeaking(
   form.append('session_id', sessionId)
   form.append('question_id', questionId)
   form.append('topic', topic)
-  form.append('speaking_points', speakingPoints.join(','))
+  speakingPoints.forEach(p => form.append('speaking_points', p))
   let res: Response
   try {
     res = await fetch(apiUrl('/ai/score-speaking'), {

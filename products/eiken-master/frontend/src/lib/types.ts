@@ -76,6 +76,7 @@ export interface Session {
   id: string
   skill: Skill
   started_at: string
+  ended_at?: string | null
   duration_seconds: number | null
   accuracy_rate: number | null
   questions_attempted: number
