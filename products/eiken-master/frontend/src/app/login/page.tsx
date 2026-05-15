@@ -17,7 +17,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const { access_token } = await apiLogin(username, pin)
+      const { access_token } = await apiLogin(username.trim(), pin)
       saveToken(access_token)
       router.replace('/home')
     } catch (err) {
