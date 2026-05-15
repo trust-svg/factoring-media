@@ -1,0 +1,19 @@
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Environment files
+.env*.local
+eiken.env
+
+# PWA generated files (in dev)
+public/sw.js
+public/workbox-*.js
+public/worker-*.js
+public/fallback-*.js

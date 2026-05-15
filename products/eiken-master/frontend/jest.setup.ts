@@ -1,1 +1,1 @@
-// Global test setup — add jest-dom imports here when needed for component tests
+import '@testing-library/jest-dom'
