@@ -1,0 +1,35 @@
+{
+  "account": "saimutimes",
+  "schedule": {
+    "frequency": "weekly",
+    "day_of_week": "thursday",
+    "time": "09:00",
+    "timezone": "Asia/Tokyo"
+  },
+  "queue": [
+    {
+      "date": "2026-05-22",
+      "filename": "01_ninni-seiri-350man.md",
+      "title": "27歳のとき、350万円の借金を任意整理した話",
+      "status": "draft",
+      "note_url": "https://note.com/saimutimes/n/n9ca2687504a2",
+      "drafted_at": "2026-05-15T10:38:00+09:00",
+      "tags_added": true,
+      "tags": ["借金", "任意整理", "体験談", "債務整理", "エッセイ"]
+    },
+    {
+      "date": "2026-05-29",
+      "filename": "02_jimusho-de-mita-koto.md",
+      "title": "法律事務所で3年働いて、私が「もっと早く言ってあげたかった」と思ったこと",
+      "status": "pending",
+      "note_url": null
+    },
+    {
+      "date": "2026-06-05",
+      "filename": "03_soudan-mae-no-yoru.md",
+      "title": "弁護士に相談に行く「前の夜」が、いちばん怖かった",
+      "status": "pending",
+      "note_url": null
+    }
+  ]
+}
