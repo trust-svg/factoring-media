@@ -89,3 +89,4 @@ products/d-manager/learning/*.db-shm
 products/d-manager/learning/skill_hits.jsonl
 .company/skills/.snapshots/
 products/d-manager/logs/
+products/eiken-master/api/eiken.env
