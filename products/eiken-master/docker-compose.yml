@@ -35,5 +35,19 @@ services:
       timeout: 5s
       retries: 5
 
+  nextjs:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://eiken-api.trustlink-tk.com
+    container_name: eiken-nextjs
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    environment:
+      TZ: Asia/Tokyo
+    depends_on:
+      - api
+
 volumes:
   eiken_pgdata:
