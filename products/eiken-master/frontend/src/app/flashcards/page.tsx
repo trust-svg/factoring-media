@@ -110,7 +110,7 @@ export default function FlashcardsPage() {
   }
 
   const card = cards[index]
-  const progress = (index / cards.length) * 100
+  const progress = ((index + 1) / cards.length) * 100
 
   return (
     <main className="min-h-screen bg-indigo-50 flex flex-col">
