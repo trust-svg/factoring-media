@@ -34,3 +34,73 @@ export interface UpdateUserRequest {
   exam_date?: string | null
   daily_goal_minutes?: number
 }
+
+export interface Question {
+  id: string
+  grade: Grade
+  skill: Skill
+  source: string
+  content: ReadingContent | ListeningContent | WritingContent | SpeakingContent
+  audio_text: string | null
+  difficulty: number
+}
+
+export interface ReadingContent {
+  passage?: string
+  question: string
+  choices: string[]
+  answer: number
+  explanation: string
+}
+
+export interface ListeningContent {
+  question: string
+  choices: string[]
+  answer: number
+  explanation: string
+}
+
+export interface WritingContent {
+  prompt: string
+  min_words: number
+  example_response?: string
+}
+
+export interface SpeakingContent {
+  topic: string
+  speaking_points: string[]
+  time_limit_seconds: number
+}
+
+export interface Session {
+  id: string
+  skill: Skill
+  started_at: string
+  duration_seconds: number | null
+  accuracy_rate: number | null
+  questions_attempted: number
+  pomodoro_completed: boolean
+}
+
+export interface CriterionScore {
+  score: number
+  max: number
+  comment: string
+}
+
+export interface WritingScore {
+  score: number
+  max_score: number
+  feedback: string
+  criteria: Record<string, CriterionScore>
+  is_passing: boolean
+}
+
+export interface SpeakingScore extends WritingScore {
+  transcript: string
+}
+
+export interface AudioResponse {
+  audio_base64: string
+  duration_hint_seconds: number | null
+}

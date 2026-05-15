@@ -92,3 +92,46 @@ describe('apiReviewFlashcard', () => {
     )
   })
 })
+
+describe('apiGetQuestions', () => {
+  it('fetches questions with skill and count params', async () => {
+    const mockQ = [{ id: 'q1', skill: 'reading', grade: 'pre2' }]
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockQ,
+    } as Response)
+    const { apiGetQuestions } = await import('@/lib/api')
+    const result = await apiGetQuestions('reading', 3)
+    expect(result).toEqual(mockQ)
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toContain('skill=reading&count=3')
+  })
+})
+
+describe('apiStartSession', () => {
+  it('posts skill and returns session', async () => {
+    const mockSession = { id: 's1', skill: 'writing', questions_attempted: 0 }
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockSession,
+    } as Response)
+    const { apiStartSession } = await import('@/lib/api')
+    const result = await apiStartSession('writing')
+    expect(result).toEqual(mockSession)
+    const call = (global.fetch as jest.Mock).mock.calls[0]
+    expect(JSON.parse(call[1].body)).toEqual({ skill: 'writing' })
+  })
+})
+
+describe('apiScoreWriting', () => {
+  it('posts answer and returns score', async () => {
+    const mockScore = { score: 7, max_score: 10, is_passing: true, feedback: 'ok', criteria: {} }
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockScore,
+    } as Response)
+    const { apiScoreWriting } = await import('@/lib/api')
+    const result = await apiScoreWriting({ session_id: 's1', question_id: 'q1', answer_text: 'My essay.' })
+    expect(result.is_passing).toBe(true)
+    expect(result.score).toBe(7)
+  })
+})

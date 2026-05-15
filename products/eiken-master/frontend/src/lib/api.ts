@@ -1,9 +1,15 @@
 import type {
+  AudioResponse,
   Flashcard,
   Grade,
+  Question,
+  Session,
+  Skill,
+  SpeakingScore,
   TokenResponse,
   UpdateUserRequest,
   User,
+  WritingScore,
 } from './types'
 import { getToken } from './auth'
 
@@ -73,3 +79,90 @@ export const apiReviewFlashcard = (cardId: string, quality: number) =>
     method: 'POST',
     body: JSON.stringify({ quality }),
   })
+
+// Questions
+export const apiGetQuestions = (skill: Skill, count = 5) =>
+  request<Question[]>(`/questions/?skill=${skill}&count=${count}`)
+
+// Sessions
+export const apiStartSession = (skill: Skill) =>
+  request<Session>('/sessions/start', {
+    method: 'POST',
+    body: JSON.stringify({ skill }),
+  })
+
+export const apiEndSession = (
+  sessionId: string,
+  data: {
+    duration_seconds: number
+    questions_attempted: number
+    correct_count: number
+    pomodoro_completed?: boolean
+  }
+) =>
+  request<Session>(`/sessions/${sessionId}/end`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+export const apiRecordAttempt = (
+  sessionId: string,
+  data: {
+    question_id: string
+    skill: Skill
+    user_answer?: string
+    is_correct: boolean
+    time_spent_seconds?: number
+  }
+) =>
+  request<{ id: string }>(`/sessions/${sessionId}/attempt`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+export const apiScoreWriting = (data: {
+  session_id: string
+  question_id: string
+  answer_text: string
+}) =>
+  request<WritingScore>('/ai/score-writing', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+export const apiGenerateAudio = (text: string) =>
+  request<AudioResponse>('/ai/generate-audio', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  })
+
+export async function apiScoreSpeaking(
+  sessionId: string,
+  questionId: string,
+  topic: string,
+  speakingPoints: string[],
+  audioBlob: Blob
+): Promise<SpeakingScore> {
+  const token = getToken()
+  const form = new FormData()
+  form.append('audio', audioBlob, 'recording.webm')
+  form.append('session_id', sessionId)
+  form.append('question_id', questionId)
+  form.append('topic', topic)
+  form.append('speaking_points', speakingPoints.join(','))
+  let res: Response
+  try {
+    res = await fetch(apiUrl('/ai/score-speaking'), {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+  } catch {
+    throw new Error('ネットワークエラー: サーバーに接続できません')
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error((body as { detail?: string }).detail ?? `HTTP ${res.status}`)
+  }
+  return res.json() as Promise<SpeakingScore>
+}
