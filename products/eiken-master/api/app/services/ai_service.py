@@ -70,11 +70,14 @@ Return JSON only (no markdown):
 
 
 def _parse_criteria(raw: dict) -> dict[str, CriterionScore]:
-    return {k: CriterionScore(**v) for k, v in raw.items()}
+    try:
+        return {k: CriterionScore(**v) for k, v in raw.items()}
+    except (TypeError, Exception) as e:
+        raise ValueError(f"Unexpected criteria structure: {raw}") from e
 
 
 def score_writing(prompt: str, answer: str) -> WritingScoreResponse:
-    msg = anthropic_client.messages.create(
+    msg = _get_anthropic().messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=512,
         messages=[
@@ -84,8 +87,13 @@ def score_writing(prompt: str, answer: str) -> WritingScoreResponse:
             }
         ],
     )
-    data = json.loads(msg.content[0].text)
-    score = float(data["score"])
+    try:
+        data = json.loads(msg.content[0].text)
+        score = float(data["score"])
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        raise ValueError(
+            f"Unexpected Claude response: {msg.content[0].text[:200]}"
+        ) from e
     return WritingScoreResponse(
         score=score,
         max_score=10.0,
@@ -96,7 +104,7 @@ def score_writing(prompt: str, answer: str) -> WritingScoreResponse:
 
 
 def generate_audio(text: str, voice: str = "alloy") -> AudioResponse:
-    resp = openai_client.audio.speech.create(model="tts-1", voice=voice, input=text)
+    resp = _get_openai().audio.speech.create(model="tts-1", voice=voice, input=text)
     return AudioResponse(audio_base64=base64.b64encode(resp.content).decode())
 
 
@@ -108,7 +116,7 @@ def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> str:
         tmp_path = tmp.name
     try:
         with open(tmp_path, "rb") as f:
-            resp = openai_client.audio.transcriptions.create(
+            resp = _get_openai().audio.transcriptions.create(
                 model="whisper-1", file=(filename, f, "audio/webm")
             )
         return resp.text
@@ -120,7 +128,7 @@ def score_speaking(
     topic: str, speaking_points: list[str], audio_bytes: bytes
 ) -> SpeakingScoreResponse:
     transcript = transcribe_audio(audio_bytes)
-    msg = anthropic_client.messages.create(
+    msg = _get_anthropic().messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=512,
         messages=[
@@ -134,8 +142,13 @@ def score_speaking(
             }
         ],
     )
-    data = json.loads(msg.content[0].text)
-    score = float(data["score"])
+    try:
+        data = json.loads(msg.content[0].text)
+        score = float(data["score"])
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        raise ValueError(
+            f"Unexpected Claude response: {msg.content[0].text[:200]}"
+        ) from e
     return SpeakingScoreResponse(
         score=score,
         max_score=10.0,
