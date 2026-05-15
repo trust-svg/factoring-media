@@ -1,0 +1,132 @@
+[
+  {
+    "grade": "pre2",
+    "skill": "reading",
+    "source": "ai_generated",
+    "difficulty": 0.4,
+    "content": {
+      "passage": "Many people around the world enjoy keeping pets. Dogs and cats are the most popular pets in many countries. Pets can make people feel happy and less lonely. However, owning a pet requires time and money. You need to feed them every day and take them to the vet when they are sick.",
+      "question": "According to the passage, what is needed when owning a pet?",
+      "choices": ["Only money", "Time and money", "Only a big house", "A garden"],
+      "answer": 1,
+      "explanation": "The passage states 'owning a pet requires time and money.'"
+    }
+  },
+  {
+    "grade": "pre2",
+    "skill": "reading",
+    "source": "ai_generated",
+    "difficulty": 0.5,
+    "content": {
+      "passage": "The library is an important place in many communities. People can borrow books for free and return them when they are done. Libraries also offer computers and internet access for those who need them. Some libraries hold special events like reading clubs for children and workshops for adults.",
+      "question": "What do some libraries offer besides books?",
+      "choices": ["Free food", "Computers and internet access", "Movie theaters", "Swimming pools"],
+      "answer": 1,
+      "explanation": "The passage mentions 'Libraries also offer computers and internet access.'"
+    }
+  },
+  {
+    "grade": "pre2",
+    "skill": "listening",
+    "source": "ai_generated",
+    "difficulty": 0.4,
+    "audio_text": "A: Excuse me, does this bus go to the central station? B: No, you need to take bus number 5. This is bus number 3. A: Oh, I see. Where can I catch bus number 5? B: Just cross the street and wait at the stop on the other side.",
+    "content": {
+      "question": "Where should the person go to catch bus number 5?",
+      "choices": ["The current bus stop", "The central station", "The other side of the street", "The train station"],
+      "answer": 2,
+      "explanation": "B says 'Just cross the street and wait at the stop on the other side.'"
+    }
+  },
+  {
+    "grade": "pre2",
+    "skill": "reading",
+    "source": "ai_generated",
+    "difficulty": 0.45,
+    "content": {
+      "passage": "Volunteering is a great way to help your community and meet new people. There are many types of volunteer work available, from helping at animal shelters to working at food banks. Studies show that volunteering can also improve your mental health and give you a sense of purpose. Many schools encourage students to volunteer as part of their education.",
+      "question": "According to the passage, why do schools encourage volunteering?",
+      "choices": ["To save money", "As part of education", "To keep students busy", "To help teachers"],
+      "answer": 1,
+      "explanation": "The passage states 'Many schools encourage students to volunteer as part of their education.'"
+    }
+  },
+  {
+    "grade": "pre2",
+    "skill": "listening",
+    "source": "ai_generated",
+    "difficulty": 0.5,
+    "audio_text": "A: Hi, I'd like to make a reservation for dinner tonight. B: Of course. How many people will be dining with us? A: There will be four of us. B: We have a table available at 7 PM or 8:30 PM. Which would you prefer? A: 7 PM would be perfect, thank you.",
+    "content": {
+      "question": "What time does the person make a reservation for?",
+      "choices": ["6 PM", "7 PM", "8 PM", "8:30 PM"],
+      "answer": 1,
+      "explanation": "The person says '7 PM would be perfect.'"
+    }
+  },
+  {
+    "grade": "pre2",
+    "skill": "reading",
+    "source": "ai_generated",
+    "difficulty": 0.55,
+    "content": {
+      "passage": "Exercise is important for maintaining good health. Doctors recommend at least 30 minutes of moderate exercise five days a week. Walking, swimming, and cycling are examples of moderate exercise. Regular exercise can reduce the risk of heart disease, diabetes, and some types of cancer. It also helps manage stress and improves sleep quality.",
+      "question": "What is one benefit of regular exercise mentioned in the passage?",
+      "choices": ["It helps you learn faster", "It reduces the risk of heart disease", "It improves your eyesight", "It makes you taller"],
+      "answer": 1,
+      "explanation": "The passage states 'Regular exercise can reduce the risk of heart disease.'"
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "reading",
+    "source": "ai_generated",
+    "difficulty": 0.6,
+    "content": {
+      "passage": "Climate change has become one of the most significant challenges facing the world today. Scientists have found that global temperatures have risen by about 1.1 degrees Celsius since the pre-industrial era. This warming has led to more frequent extreme weather events, rising sea levels, and disruptions to ecosystems worldwide. Governments and organizations around the world are working together to reduce greenhouse gas emissions and transition to renewable energy sources.",
+      "question": "What has been a consequence of rising global temperatures?",
+      "choices": ["Decreased rainfall globally", "More frequent extreme weather events", "Lower sea levels", "Stronger ecosystems"],
+      "answer": 1,
+      "explanation": "The passage states 'This warming has led to more frequent extreme weather events.'"
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "listening",
+    "source": "ai_generated",
+    "difficulty": 0.6,
+    "audio_text": "Welcome to today's science program. We'll be discussing the latest research on artificial intelligence. Researchers at a leading university have developed a new AI system that can diagnose certain diseases with greater accuracy than experienced doctors. The system was trained on millions of medical images and can detect early signs of cancer that human doctors might miss. However, experts stress that AI should assist doctors, not replace them.",
+    "content": {
+      "question": "What can the new AI system do that is mentioned in the passage?",
+      "choices": ["Replace all doctors", "Perform surgery", "Detect early signs of cancer", "Create new medicines"],
+      "answer": 2,
+      "explanation": "The passage states the AI 'can detect early signs of cancer that human doctors might miss.'"
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "reading",
+    "source": "ai_generated",
+    "difficulty": 0.65,
+    "content": {
+      "passage": "The concept of circular economy has gained attention as a solution to the problem of waste. Unlike the traditional linear economy, which follows a 'take-make-dispose' model, a circular economy aims to keep resources in use for as long as possible. Products are designed to be repaired, reused, or recycled rather than thrown away. Some companies have started implementing circular economy principles by offering repair services and using recycled materials in their products.",
+      "question": "How does a circular economy differ from a linear economy?",
+      "choices": ["It produces more waste", "It focuses on keeping resources in use", "It relies on fossil fuels", "It discourages recycling"],
+      "answer": 1,
+      "explanation": "The passage explains that circular economy 'aims to keep resources in use for as long as possible.'"
+    }
+  },
+  {
+    "grade": "2",
+    "skill": "listening",
+    "source": "ai_generated",
+    "difficulty": 0.55,
+    "audio_text": "Today we're looking at the phenomenon of social media influencers. These individuals build large online followings and partner with companies to promote products. While influencer marketing can be effective, consumers should be aware that these promotions are paid advertisements. In many countries, influencers are now legally required to disclose when content is sponsored. Critics argue that influencer marketing can create unrealistic expectations, particularly among young people.",
+    "content": {
+      "question": "What are influencers legally required to do in many countries?",
+      "choices": ["Post daily", "Disclose sponsored content", "Show their income", "Avoid certain products"],
+      "answer": 1,
+      "explanation": "The passage states 'influencers are now legally required to disclose when content is sponsored.'"
+    }
+  }
+]
