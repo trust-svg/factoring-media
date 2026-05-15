@@ -22,7 +22,7 @@ const STUDY_MODES: StudyMode[] = [
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null
   const ms = new Date(dateStr).getTime() - Date.now()
-  return Math.ceil(ms / 86_400_000)
+  return Math.max(0, Math.ceil(ms / 86_400_000))
 }
 
 export default function HomePage() {
