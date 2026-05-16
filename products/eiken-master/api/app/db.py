@@ -20,6 +20,6 @@ def get_db():
 
 
 def init_db() -> None:
-    from app.models import user, flashcard, question, session  # noqa: F401
+    from app.models import user, flashcard, question, session, push_subscription  # noqa: F401
 
     Base.metadata.create_all(bind=engine)

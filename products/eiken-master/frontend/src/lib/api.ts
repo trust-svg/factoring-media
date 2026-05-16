@@ -165,6 +165,25 @@ export const apiGetVocabClusters = (grade?: string) =>
     `/vocabulary/clusters${grade ? `?grade=${grade}` : ''}`,
   )
 
+// Push notifications
+export const apiGetVapidPublicKey = () =>
+  request<{ public_key: string }>('/push/vapid-public-key')
+
+export const apiPushSubscribe = (sub: { endpoint: string; p256dh: string; auth: string }) =>
+  request<{ id: string }>('/push/subscribe', {
+    method: 'POST',
+    body: JSON.stringify(sub),
+  })
+
+export const apiPushUnsubscribe = (sub: { endpoint: string; p256dh: string; auth: string }) =>
+  request<{ ok: boolean }>('/push/unsubscribe', {
+    method: 'DELETE',
+    body: JSON.stringify(sub),
+  })
+
+export const apiPushTest = () =>
+  request<{ sent: number; removed_stale: number }>('/push/test', { method: 'POST' })
+
 export async function apiScoreSpeaking(
   sessionId: string,
   questionId: string,
