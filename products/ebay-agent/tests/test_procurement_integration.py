@@ -23,6 +23,23 @@ def db():
     session.close()
 
 
+@pytest.fixture
+def db_engine():
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}
+    )
+    Base.metadata.create_all(engine)
+    yield engine
+
+
+@pytest.fixture
+def db_session(db_engine):
+    Session = sessionmaker(bind=db_engine)
+    session = Session()
+    yield session
+    session.close()
+
+
 def test_procurement_new_fields_persist(db):
     proc = add_procurement(
         db,
@@ -209,3 +226,53 @@ def test_bulk_import_logic_creates_procurement(db):
     )
     assert inv_count == 1
     assert proc_count == 1
+
+
+def test_procurement_ebay_fields(db_session):
+    """eBay連携・管理フィールドがデフォルト値で保存できる"""
+    proc = Procurement(
+        title="テスト商品",
+        purchase_price_jpy=10000,
+        stock_number="P-001",
+        location="棚A",
+        ebay_item_id="123456789012",
+        ebay_order_id="12-34567-89012",
+        ebay_price_usd=89.99,
+    )
+    db_session.add(proc)
+    db_session.commit()
+    db_session.refresh(proc)
+
+    assert proc.stock_number == "P-001"
+    assert proc.location == "棚A"
+    assert proc.ebay_item_id == "123456789012"
+    assert proc.ebay_order_id == "12-34567-89012"
+    assert abs(proc.ebay_price_usd - 89.99) < 0.001
+    assert proc.listed_at is None
+    assert proc.sold_at is None
+    assert proc.shipped_at is None
+
+
+def test_migrate_new_columns_idempotent(db_engine):
+    """_migrate_procurement_columns が新カラムで冪等動作する"""
+    from database.models import _migrate_procurement_columns
+
+    _migrate_procurement_columns(db_engine)
+    _migrate_procurement_columns(db_engine)
+
+    from sqlalchemy import text
+
+    with db_engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(procurements)"))
+        cols = {row[1] for row in result.fetchall()}
+    for col in [
+        "stock_number",
+        "location",
+        "ebay_item_id",
+        "ebay_order_id",
+        "ebay_price_usd",
+        "listed_at",
+        "sold_at",
+        "shipped_at",
+    ]:
+        assert col in cols, f"Missing column: {col}"

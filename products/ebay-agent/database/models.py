@@ -132,6 +132,17 @@ class Procurement(Base):
     seller_url: Mapped[str] = mapped_column(Text, default="")
     screenshot_path: Mapped[str] = mapped_column(Text, default="")
     category: Mapped[str] = mapped_column(String(32), default="")  # 古物13区分
+    # ── eBay連携・在庫管理フィールド ──
+    stock_number: Mapped[str] = mapped_column(
+        String(32), default=""
+    )  # 管理番号（例: P-001）
+    location: Mapped[str] = mapped_column(String(128), default="")  # 保管場所
+    ebay_item_id: Mapped[str] = mapped_column(String(64), default="")
+    ebay_order_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    ebay_price_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    listed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    sold_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    shipped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     image_url: Mapped[str] = mapped_column(Text, default="")
     condition: Mapped[str] = mapped_column(String(32), default="")  # 新品/中古A/中古B等
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -946,6 +957,32 @@ def _migrate_procurement_columns(engine_instance) -> None:
             stmts.append(
                 "ALTER TABLE procurements ADD COLUMN condition VARCHAR(32) NOT NULL DEFAULT ''"
             )
+        if "stock_number" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN stock_number VARCHAR(32) NOT NULL DEFAULT ''"
+            )
+        if "location" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN location VARCHAR(128) NOT NULL DEFAULT ''"
+            )
+        if "ebay_item_id" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN ebay_item_id VARCHAR(64) NOT NULL DEFAULT ''"
+            )
+        if "ebay_order_id" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN ebay_order_id VARCHAR(64) NOT NULL DEFAULT ''"
+            )
+        if "ebay_price_usd" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN ebay_price_usd REAL NOT NULL DEFAULT 0.0"
+            )
+        if "listed_at" not in existing:
+            stmts.append("ALTER TABLE procurements ADD COLUMN listed_at DATETIME")
+        if "sold_at" not in existing:
+            stmts.append("ALTER TABLE procurements ADD COLUMN sold_at DATETIME")
+        if "shipped_at" not in existing:
+            stmts.append("ALTER TABLE procurements ADD COLUMN shipped_at DATETIME")
         for stmt in stmts:
             conn.execute(text(stmt))
         if stmts:
