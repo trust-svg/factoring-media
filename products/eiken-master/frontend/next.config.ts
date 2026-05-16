@@ -7,6 +7,19 @@ const withPWA = withPWAInit({
   register: true,
   workboxOptions: {
     skipWaiting: true,
+    runtimeCaching: [
+      {
+        // Cache due flashcards for offline review (NetworkFirst: prefer fresh, fall back to cache)
+        urlPattern: /\/flashcards\/due/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'flashcards-due',
+          networkTimeoutSeconds: 5,
+          expiration: { maxEntries: 1, maxAgeSeconds: 86400 },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+    ],
   },
 })
 
