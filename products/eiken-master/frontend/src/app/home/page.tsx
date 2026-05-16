@@ -343,7 +343,7 @@ export default function HomePage() {
             {/* Pass probability ring */}
             <div className="flex items-center justify-center lg:justify-start animate-pop-in delay-200">
               {pct !== null ? (
-                <RingProgress pct={pct} size={typeof window !== 'undefined' && window.innerWidth >= 1024 ? 160 : 130} />
+                <RingProgress pct={pct} size={130} />
               ) : (
                 <div className="w-32 h-32 rounded-full border-4 border-white/15 flex items-center justify-center">
                   <div className="text-center">
