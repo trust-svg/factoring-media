@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   apiEndSession,
+  apiGenerateQuestion,
   apiGetQuestions,
   apiRecordAttempt,
   apiStartSession,
@@ -31,10 +32,15 @@ export default function ReadingPage() {
 
   useEffect(() => {
     Promise.all([apiStartSession('reading'), apiGetQuestions('reading', 5)])
-      .then(([session, qs]) => {
+      .then(async ([session, qs]) => {
         setSessionId(session.id)
         sessionIdRef.current = session.id
-        setQuestions(qs)
+        if (qs.length > 0) {
+          setQuestions(qs)
+        } else {
+          const generated = await apiGenerateQuestion('reading')
+          setQuestions([generated])
+        }
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))

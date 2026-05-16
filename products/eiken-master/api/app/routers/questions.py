@@ -2,7 +2,7 @@ import json
 import random
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -10,6 +10,7 @@ from app.deps import current_user
 from app.models.question import Question
 from app.models.user import User
 from app.schemas.question import QuestionOut
+from app.services import ai_service
 
 router = APIRouter()
 SEED_PATH = Path(__file__).parent.parent.parent / "data" / "seed_questions.json"
@@ -30,6 +31,23 @@ def get_questions(
     if not questions:
         return []
     return random.sample(questions, min(count, len(questions)))
+
+
+@router.post("/generate", response_model=QuestionOut, status_code=201)
+def generate_question(
+    skill: str = Query(..., pattern=r"^(reading|listening|writing|speaking)$"),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        content = ai_service.generate_question(skill, user.grade)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"問題生成に失敗しました: {e}")
+    q = Question(grade=user.grade, skill=skill, source="ai_generated", content=content)
+    db.add(q)
+    db.commit()
+    db.refresh(q)
+    return q
 
 
 @router.post("/seed", status_code=201)

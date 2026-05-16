@@ -68,6 +68,10 @@ export const apiUpdateMe = (data: UpdateUserRequest) =>
 // Analytics
 export const apiGetProgress = () => request<ProgressData>('/analytics/progress')
 
+// Question generation
+export const apiGenerateQuestion = (skill: Skill) =>
+  request<Question>(`/questions/generate?skill=${skill}`, { method: 'POST' })
+
 // Flashcards
 export const apiGetDueFlashcards = () =>
   request<Flashcard[]>('/flashcards/due')

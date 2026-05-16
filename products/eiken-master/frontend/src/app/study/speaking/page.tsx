@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   apiEndSession,
+  apiGenerateQuestion,
   apiGetQuestions,
   apiRecordAttempt,
   apiScoreSpeaking,
@@ -50,10 +51,15 @@ export default function SpeakingPage() {
 
   useEffect(() => {
     Promise.all([apiStartSession('speaking'), apiGetQuestions('speaking', 1)])
-      .then(([session, qs]) => {
+      .then(async ([session, qs]) => {
         setSessionId(session.id)
         sessionIdRef.current = session.id
-        setQuestion(qs[0] ?? null)
+        if (qs.length > 0) {
+          setQuestion(qs[0])
+        } else {
+          const generated = await apiGenerateQuestion('speaking')
+          setQuestion(generated)
+        }
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))

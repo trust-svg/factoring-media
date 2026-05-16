@@ -176,6 +176,70 @@ _ADVICE_PROMPT = """\
 """
 
 
+_QUESTION_PROMPTS = {
+    "reading": """\
+英検{grade_label}レベルのリーディング問題を1問生成してください。
+以下のJSON形式で返してください（他のテキスト不要）:
+{{
+  "passage": "英文パッセージ（120〜160語）",
+  "question": "設問（英語）",
+  "choices": ["選択肢A", "選択肢B", "選択肢C", "選択肢D"],
+  "answer": 0,
+  "explanation": "正答の解説（日本語、2〜3文）"
+}}
+answerは0〜3の正答インデックス。選択肢は4つ。パッセージは完全な英文で。""",
+    "listening": """\
+英検{grade_label}レベルのリスニング問題を1問生成してください。
+日常的な場面の短い会話や説明を想定した問題です。
+以下のJSON形式で返してください（他のテキスト不要）:
+{{
+  "question": "状況・設問（英語）例: 'A girl is talking to her teacher. What does she want to do?'",
+  "choices": ["選択肢A（英語）", "選択肢B（英語）", "選択肢C（英語）", "選択肢D（英語）"],
+  "answer": 0,
+  "explanation": "正答の解説（日本語、2〜3文）"
+}}
+answerは0〜3の正答インデックス。選択肢は4つ。""",
+    "writing": """\
+英検{grade_label}レベルのライティング問題を1問生成してください。
+以下のJSON形式で返してください（他のテキスト不要）:
+{{
+  "prompt": "英作文の課題（英語）例: 'Do you think ... ? Write about 80 words.'",
+  "min_words": 80,
+  "example_response": "模範解答（英語、80〜100語）"
+}}
+課題は賛否を問うもの（Do you agree...? / Do you think...?）で。""",
+    "speaking": """\
+英検{grade_label}レベルのスピーキング問題を1問生成してください。
+以下のJSON形式で返してください（他のテキスト不要）:
+{{
+  "topic": "スピーキングのトピック（英語、疑問文）",
+  "speaking_points": ["観点1（英語）", "観点2（英語）"],
+  "time_limit_seconds": 60
+}}
+トピックは身近な話題で意見を述べやすいものを。""",
+}
+
+_GRADE_LABELS = {"pre2": "準2級", "2": "2級"}
+
+
+def generate_question(skill: str, grade: str) -> dict:
+    prompt = _QUESTION_PROMPTS[skill].format(
+        grade_label=_GRADE_LABELS.get(grade, grade)
+    )
+    msg = _get_anthropic().messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = msg.content[0].text.strip()
+    # Strip markdown code fences if present
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return json.loads(text.strip())
+
+
 def generate_advice(
     grade: str,
     days_remaining: int | None,
