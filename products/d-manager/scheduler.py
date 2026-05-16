@@ -8,7 +8,10 @@ import re
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
+from html import unescape
 from datetime import datetime, timezone, timedelta, date
 from pathlib import Path
 from typing import Optional
@@ -1126,6 +1129,128 @@ DEPT_REPORT_PROMPTS = {
 }
 
 
+_NEWS_QUERIES_EN = [
+    "Claude Anthropic AI",
+    "Google Gemini AI",
+    "ChatGPT OpenAI",
+    "AI monetization business 2026",
+]
+_NEWS_QUERIES_JA = [
+    "AI 最新ニュース",
+    "生成AI ビジネス活用",
+]
+_NEWS_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+
+def _rss_fetch(query: str, lang: str = "en", num: int = 6) -> list[dict]:
+    if lang == "ja":
+        url = (
+            f"https://news.google.com/rss/search?q={urllib.parse.quote(query)}"
+            "&hl=ja&gl=JP&ceid=JP:ja"
+        )
+    else:
+        url = (
+            f"https://news.google.com/rss/search?q={urllib.parse.quote(query)}"
+            "&hl=en&gl=US&ceid=US:en"
+        )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": _NEWS_UA})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            root = ET.fromstring(resp.read())
+        items = []
+        for item in root.findall(".//item")[:num]:
+            items.append(
+                {
+                    "title": item.findtext("title", ""),
+                    "link": item.findtext("link", ""),
+                    "desc": unescape(
+                        re.sub(r"<[^>]+>", "", item.findtext("description", ""))
+                    )[:300],
+                    "date": item.findtext("pubDate", ""),
+                }
+            )
+        return items
+    except Exception as e:
+        logger.warning(f"RSS fetch failed ({query}): {e}")
+        return []
+
+
+def _collect_news() -> str:
+    sections = []
+    for q in _NEWS_QUERIES_EN:
+        items = _rss_fetch(q, lang="en")
+        if items:
+            lines = [f"### {q}"]
+            for it in items:
+                lines.append(
+                    f"- {it['title']} ({it['date']})\n  {it['desc']}\n  {it['link']}"
+                )
+            sections.append("\n".join(lines))
+    for q in _NEWS_QUERIES_JA:
+        items = _rss_fetch(q, lang="ja")
+        if items:
+            lines = [f"### {q}"]
+            for it in items:
+                lines.append(
+                    f"- {it['title']} ({it['date']})\n  {it['desc']}\n  {it['link']}"
+                )
+            sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def _summarize_news(raw: str, today_iso: str) -> str:
+    import anthropic as _anthropic
+
+    client = _anthropic.Anthropic()
+    msg = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=2048,
+        system=(
+            "あなたはAI業界専門のニュースキュレーターです。"
+            "提供された検索結果を元に、日本語でAIデイリーダイジェストを作成してください。\n"
+            "## フォーマット\n"
+            f"# AIニュース {today_iso}\n\n"
+            "## ハイライト（3行）\n\n"
+            "## Claude / Anthropic（最新2-3件、日付・内容・意義）\n\n"
+            "## Google / Gemini（同上）\n\n"
+            "## OpenAI（同上）\n\n"
+            "## 日本のAI動向（2-3件）\n\n"
+            "## AIマネタイズ最前線（2件）\n\n"
+            "---\nSources: （使用URLリスト）\n\n"
+            "## ルール: 検索結果に無い情報は書かない。各ニュースに日付を明記。"
+        ),
+        messages=[
+            {"role": "user", "content": f"以下を元にダイジェストを作成:\n\n{raw}"}
+        ],
+    )
+    return msg.content[0].text
+
+
+async def fetch_ai_news_cache() -> None:
+    """07:00 JST — Google News RSSを取得・Haikuで要約してnews_cacheに保存。"""
+    today_iso = date.today().isoformat()
+    cache_dir = config.COMPANY_DIR / "secretary" / "news_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / f"{today_iso}.md"
+
+    if cache_path.exists():
+        logger.info("fetch_ai_news_cache: already exists, skip")
+        return
+
+    loop = asyncio.get_running_loop()
+    raw = await loop.run_in_executor(None, _collect_news)
+    if len(raw) < 100:
+        logger.warning("fetch_ai_news_cache: too few results, abort")
+        return
+
+    digest = await loop.run_in_executor(None, _summarize_news, raw, today_iso)
+    cache_path.write_text(digest, encoding="utf-8")
+    logger.info(f"fetch_ai_news_cache: saved {cache_path} ({len(digest)} chars)")
+
+
 async def morning_briefing():
     """Generate and send morning briefing + task board."""
     logger.info("Running morning briefing...")
@@ -1681,24 +1806,33 @@ async def knowledge_digest():
 
 async def learning_curate():
     """週次キュレーター（weekly_review から呼ばれる、または !learning curate）。"""
-    logger.info("Running learning_curate...")
+    if not config.LEARNING_CURATOR_ENABLED:
+        logger.info("learning_curate: disabled (LEARNING_CURATOR_ENABLED=false), skip")
+        return
+    logger.info(
+        "Running learning_curate (dryrun=%s)...", config.LEARNING_CURATOR_DRYRUN
+    )
     from learning import curator
 
     res = curator.run_curation(
         company_dir=config.COMPANY_DIR,
         model=config.CURATOR_MODEL_CLI,
         skill_hits_path=config.SKILL_HITS_PATH,
+        allowed_tools=config.LEARNING_ALLOWED_TOOLS,
+        dryrun_allowed_tools=config.LEARNING_DRYRUN_ALLOWED_TOOLS,
         disallowed_tools=config.LEARNING_DISALLOWED_TOOLS,
         timeout_sec=config.LEARNING_CURATOR_TIMEOUT_SEC,
+        dryrun=config.LEARNING_CURATOR_DRYRUN,
     )
+    mode_label = "ドライラン" if res.get("dryrun") else "本番"
     if res["status"] == "done":
         msg = (
-            f"🧹 **今週のスキル棚卸し**: {res['summary']}\n"
+            f"🧹 **今週のスキル棚卸し（{mode_label}）**: {res['summary']}\n"
             f"（巻き戻し基準コミット: `{res['head_before'][:10]}` — やりすぎなら `git -C .company revert` 可）"
         )
     else:
         msg = (
-            f"⚠️ スキル棚卸しに失敗: {res['note']}"
+            f"⚠️ スキル棚卸しに失敗（{mode_label}）: {res['note']}"
             f"（スナップショット `.company/skills/.snapshots/` から復元可）"
         )
     if res.get("out_of_bounds"):
@@ -2031,6 +2165,13 @@ def setup_scheduler(send_fn, task_view_fn=None):
     )
     _scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
 
+    _scheduler.add_job(
+        fetch_ai_news_cache,
+        "cron",
+        hour=7,
+        minute=0,
+        name="AIニュースキャッシュ取得",
+    )
     _scheduler.add_job(
         morning_briefing,
         "cron",
