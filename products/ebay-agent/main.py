@@ -1893,6 +1893,59 @@ async def create_procurement(request: Request):
         db.close()
 
 
+@app.get("/api/procurements/export/ledger")
+async def export_procurement_ledger():
+    """古物商台帳 CSV エクスポート（古物営業法 施行規則第17条対応）"""
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    db = get_db()
+    try:
+        procs = crud.get_all_procurements(db)
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "取引年月日",
+                "品名",
+                "数量",
+                "取得価格(円)",
+                "古物区分",
+                "仕入先",
+                "仕入先URL",
+                "出品者ID",
+                "出品者URL",
+                "取引証跡パス",
+            ]
+        )
+        for p in procs:
+            writer.writerow(
+                [
+                    p.purchase_date.strftime("%Y-%m-%d") if p.purchase_date else "",
+                    p.title,
+                    p.quantity,
+                    p.purchase_price_jpy,
+                    p.category,
+                    p.platform,
+                    p.url or "",
+                    p.seller_id or "",
+                    p.seller_url or "",
+                    p.screenshot_path or "",
+                ]
+            )
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue().encode("utf-8-sig")]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": 'attachment; filename="kojyo-ledger.csv"',
+            },
+        )
+    finally:
+        db.close()
+
+
 @app.get("/api/procurements/{sku}")
 async def get_procurements_by_sku(sku: str):
     """SKU別仕入れ実績"""

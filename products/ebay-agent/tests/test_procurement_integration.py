@@ -104,3 +104,58 @@ def test_update_procurement_category(db):
     updated = update_procurement(db, proc.id, category="機械工具類", quantity=3)
     assert updated.category == "機械工具類"
     assert updated.quantity == 3
+
+
+def test_ledger_csv_columns(db):
+    import datetime
+
+    add_procurement(
+        db,
+        sku="CSV-001",
+        title="テスト品",
+        purchase_price_jpy=3000,
+        purchase_date=datetime.datetime(2026, 5, 16),
+        platform="メルカリ",
+        category="道具類",
+        seller_id="seller001",
+        quantity=1,
+    )
+    procs = db.query(Procurement).all()
+    import csv, io
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    HEADERS = [
+        "取引年月日",
+        "品名",
+        "数量",
+        "取得価格(円)",
+        "古物区分",
+        "仕入先",
+        "仕入先URL",
+        "出品者ID",
+        "出品者URL",
+        "取引証跡パス",
+    ]
+    writer.writerow(HEADERS)
+    for p in procs:
+        writer.writerow(
+            [
+                p.purchase_date.strftime("%Y-%m-%d") if p.purchase_date else "",
+                p.title,
+                p.quantity,
+                p.purchase_price_jpy,
+                p.category,
+                p.platform,
+                p.url or "",
+                p.seller_id or "",
+                p.seller_url or "",
+                p.screenshot_path or "",
+            ]
+        )
+    output.seek(0)
+    reader = csv.DictReader(output)
+    rows = list(reader)
+    assert rows[0]["品名"] == "テスト品"
+    assert rows[0]["古物区分"] == "道具類"
+    assert rows[0]["出品者ID"] == "seller001"
