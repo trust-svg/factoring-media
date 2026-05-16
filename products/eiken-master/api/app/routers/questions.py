@@ -37,12 +37,12 @@ def seed_questions(db: Session = Depends(get_db)):
     """開発用シードエンドポイント。"""
     if not SEED_PATH.exists():
         return {"seeded": 0}
+    if db.query(Question).count() > 0:
+        return {"seeded": 0, "message": "already seeded"}
     data = json.loads(SEED_PATH.read_text())
     seeded = 0
     for item in data:
-        if db.query(Question).filter_by(id=item["id"]).first():
-            continue
-        db.add(Question(**{k: v for k, v in item.items()}))
+        db.add(Question(**{k: v for k, v in item.items() if k != "id"}))
         seeded += 1
     db.commit()
     return {"seeded": seeded}
