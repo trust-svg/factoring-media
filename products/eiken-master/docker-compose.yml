@@ -43,7 +43,7 @@ services:
     container_name: eiken-nextjs
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3100:3100"
+      - "127.0.0.1:3300:3100"
     environment:
       TZ: Asia/Tokyo
     depends_on:
