@@ -1825,7 +1825,7 @@ async def list_procurements(status: str = ""):
                 "platform": p.platform,
                 "title": p.title,
                 "url": p.url or "",
-                "image_url": image_map.get(p.sku, ""),
+                "image_url": p.image_url or image_map.get(p.sku, ""),
                 "purchase_price_jpy": p.purchase_price_jpy,
                 "shipping_cost_jpy": p.shipping_cost_jpy,
                 "other_cost_jpy": p.other_cost_jpy,
@@ -1844,7 +1844,6 @@ async def list_procurements(status: str = ""):
                 "seller_url": p.seller_url,
                 "screenshot_path": p.screenshot_path,
                 "category": p.category,
-                "image_url": p.image_url,
                 "condition": p.condition,
                 "stock_number": p.stock_number,
                 "location": p.location,
@@ -1874,6 +1873,10 @@ async def create_procurement(request: Request):
                 purchase_date = datetime.strptime(body["purchase_date"], "%Y-%m-%d")
             except ValueError:
                 pass
+        try:
+            _ebay_price_usd = float(body.get("ebay_price_usd", 0) or 0)
+        except (TypeError, ValueError):
+            _ebay_price_usd = 0.0
         proc = crud.add_procurement(
             db,
             sku=body.get("sku", ""),
@@ -1896,7 +1899,7 @@ async def create_procurement(request: Request):
             location=body.get("location", ""),
             ebay_item_id=body.get("ebay_item_id", ""),
             ebay_order_id=body.get("ebay_order_id", ""),
-            ebay_price_usd=float(body.get("ebay_price_usd", 0) or 0),
+            ebay_price_usd=_ebay_price_usd,
             **({"purchase_date": purchase_date} if purchase_date else {}),
         )
         return JSONResponse(
