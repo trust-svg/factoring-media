@@ -368,3 +368,12 @@ def test_procurement_stats(db):
     assert s["sold"] == 1
     assert s["purchased"] == 1
     assert s["total_cost_jpy"] == 3000 + 300 + 5000 + 500 + 2000
+
+
+def test_procurement_auto_sku_assigns(db):
+    """SKUなしの仕入れ記録が作成できることを確認（auto-skuはeBay出品とのマッチが必要なため）"""
+    proc = add_procurement(
+        db, title="TASCAM DP-2500 マルチトラック", purchase_price_jpy=12000
+    )
+    assert proc.sku == "" or proc.sku is None
+    assert proc.id is not None

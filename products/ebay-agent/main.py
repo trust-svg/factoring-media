@@ -1873,6 +1873,106 @@ async def procurement_stats():
         db.close()
 
 
+@app.post("/api/procurements/auto-sku")
+async def proc_auto_sku():
+    """SKUなしの仕入れ記録にeBay出品とのマッチングでSKU/eBay IDを自動付与"""
+    import re as _re
+
+    def extract_models(title: str) -> list:
+        models = []
+        brand_pats = re.findall(
+            r"(?:TASCAM|YAMAHA|SONY|DENON|PIONEER|ROLAND|BOSS|KORG|TECHNICS|CASIO|TEAC|ZOOM|AKAI|NAKAMICHI|ACCUPHASE|LUXMAN|MARANTZ|SANSUI|ONKYO|JBL|BOSE|SHURE)"
+            r"\s+([A-Za-z0-9][\w\-]+)",
+            title,
+            re.IGNORECASE,
+        )
+        for m in brand_pats:
+            if len(m) >= 3:
+                models.append(m)
+        hyphen = _re.findall(
+            r"[A-Za-z]{1,10}[\-][A-Za-z0-9]{1,10}(?:[\-][A-Za-z0-9]+)*", title
+        )
+        for m in hyphen:
+            if len(m) >= 4 and m not in models:
+                models.append(m)
+        alnum = _re.findall(r"[A-Za-z]{1,6}\d{2,5}[A-Za-z]*", title)
+        for m in alnum:
+            if len(m) >= 4 and m not in models:
+                models.append(m)
+        numalpha = _re.findall(r"\d{3,5}[A-Za-z]{2,}", title)
+        for m in numalpha:
+            if len(m) >= 4 and m not in models:
+                models.append(m)
+        junk = {"JUNK", "CD-ROM", "USB-", "OK", "ver", "No"}
+        models = [
+            m
+            for m in models
+            if m not in junk and not m.startswith("N1") and not m.startswith("w2")
+        ]
+        return models
+
+    import re
+
+    db = get_db()
+    try:
+        procs = (
+            db.query(Procurement)
+            .filter((Procurement.sku == "") | (Procurement.sku == None))
+            .all()
+        )
+        listings = db.query(Listing).all()
+        listing_map = [
+            (l.sku, l.title.lower(), l.listing_id, l.price_usd) for l in listings
+        ]
+
+        assigned = 0
+        skipped = 0
+        results = []
+        for proc in procs:
+            models = extract_models(proc.title)
+            if not models:
+                skipped += 1
+                continue
+            best = None
+            best_len = 0
+            for model in models:
+                ml = model.lower()
+                if len(ml) < 4:
+                    continue
+                for sku, lt, listing_id, price_usd in listing_map:
+                    if ml in lt:
+                        if len(ml) > best_len:
+                            best = (sku, listing_id, price_usd, model)
+                            best_len = len(ml)
+                        break
+            if best:
+                proc.sku = best[0]
+                proc.ebay_item_id = best[1] or ""
+                proc.ebay_price_usd = best[2] or 0
+                assigned += 1
+                results.append(
+                    {
+                        "id": proc.id,
+                        "title": proc.title[:50],
+                        "matched_model": best[3],
+                        "sku": best[0],
+                    }
+                )
+            else:
+                skipped += 1
+        db.commit()
+        return JSONResponse(
+            {
+                "assigned": assigned,
+                "skipped": skipped,
+                "total": len(procs),
+                "matches": results[:20],
+            }
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements")
 async def create_procurement(request: Request):
     """仕入れ実績を記録"""
