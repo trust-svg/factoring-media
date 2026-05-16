@@ -51,3 +51,45 @@ def test_procurement_new_fields_default(db):
     assert fetched.quantity == 1
     assert fetched.seller_id == ""
     assert fetched.category == ""
+
+
+def test_migrate_procurement_columns_idempotent():
+    """_migrate_procurement_columns が既存DBに対して冪等に動作することを確認"""
+    from sqlalchemy import create_engine, text
+    from database.models import _migrate_procurement_columns
+
+    # カラムなしのスキーマからスタート（Procurementテーブルのみ最小構成で作成）
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}
+    )
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE procurements ("
+                "id INTEGER PRIMARY KEY, "
+                "sku VARCHAR(128), "
+                "title VARCHAR(512), "
+                "purchase_price_jpy INTEGER DEFAULT 0, "
+                "created_at DATETIME"
+                ")"
+            )
+        )
+        conn.commit()
+
+    # 1回目: カラム追加
+    _migrate_procurement_columns(engine)
+    with engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(procurements)"))
+        cols = {row[1] for row in result.fetchall()}
+    assert "quantity" in cols
+    assert "seller_id" in cols
+    assert "seller_url" in cols
+    assert "screenshot_path" in cols
+    assert "category" in cols
+
+    # 2回目: 冪等（エラーなし）
+    _migrate_procurement_columns(engine)
+    with engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(procurements)"))
+        cols2 = {row[1] for row in result.fetchall()}
+    assert cols == cols2  # 同じカラムセットのまま

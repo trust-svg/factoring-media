@@ -126,7 +126,7 @@ class Procurement(Base):
         Integer, default=0
     )  # 消費税額（輸出免税還付用）
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # ── 古物台帳対応フィールド ──
+    # ── 古物台帳対応フィールド（InventoryItem にも同名フィールドあり: 元帳統合移行期の過渡的二重管理）──
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     seller_id: Mapped[str] = mapped_column(String(128), default="")
     seller_url: Mapped[str] = mapped_column(Text, default="")
