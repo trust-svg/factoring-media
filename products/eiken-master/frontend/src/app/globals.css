@@ -19,105 +19,158 @@
   }
 }
 
-/* ── Animations ─────────────────────────────────── */
+/* ── Core animations ──────────────────────────── */
 @keyframes float {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
   33%       { transform: translateY(-8px) rotate(-2deg); }
   66%       { transform: translateY(-4px) rotate(2deg); }
 }
-
 @keyframes float-slow {
   0%, 100% { transform: translateY(0px); }
   50%       { transform: translateY(-10px); }
 }
-
 @keyframes fire {
   0%, 100% { transform: scaleY(1) rotate(-3deg); }
-  25%       { transform: scaleY(1.08) rotate(3deg); }
-  50%       { transform: scaleY(0.95) rotate(-2deg); }
-  75%       { transform: scaleY(1.05) rotate(2deg); }
+  25%       { transform: scaleY(1.1) rotate(4deg); }
+  50%       { transform: scaleY(0.94) rotate(-2deg); }
+  75%       { transform: scaleY(1.06) rotate(3deg); }
 }
-
 @keyframes sparkle {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.4; transform: scale(0.7); }
+  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  50%       { opacity: 0.4; transform: scale(0.65) rotate(20deg); }
 }
-
 @keyframes ring-fill {
-  from { stroke-dashoffset: 314; }
+  from { stroke-dashoffset: 326; }
 }
-
 @keyframes count-up {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes pop-in {
-  0%   { opacity: 0; transform: scale(0.8); }
-  70%  { transform: scale(1.05); }
+  0%   { opacity: 0; transform: scale(0.75); }
+  70%  { transform: scale(1.06); }
   100% { opacity: 1; transform: scale(1); }
 }
 
-@keyframes shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
+/* Card shimmer — slides across on hover */
+@keyframes card-shimmer {
+  from { left: -100%; }
+  to   { left: 150%; }
+}
+
+/* Subtle animated background gradient */
+@keyframes bg-pulse {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+/* Skill bar fill */
+@keyframes bar-fill {
+  from { width: 0%; }
 }
 
 .animate-float        { animation: float 4s ease-in-out infinite; }
 .animate-float-slow   { animation: float-slow 6s ease-in-out infinite; }
-.animate-fire         { animation: fire 0.8s ease-in-out infinite; }
-.animate-sparkle      { animation: sparkle 1.5s ease-in-out infinite; }
-.animate-ring-fill    { animation: ring-fill 1.2s ease-out forwards; }
-.animate-count-up     { animation: count-up 0.6s ease-out both; }
-.animate-slide-up     { animation: slide-up 0.5s ease-out both; }
-.animate-pop-in       { animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.animate-fire         { animation: fire 0.75s ease-in-out infinite; }
+.animate-sparkle      { animation: sparkle 1.8s ease-in-out infinite; }
+.animate-ring-fill    { animation: ring-fill 1.4s cubic-bezier(0.4,0,0.2,1) forwards; }
+.animate-count-up     { animation: count-up 0.7s ease-out both; }
+.animate-slide-up     { animation: slide-up 0.55s ease-out both; }
+.animate-pop-in       { animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.animate-bar-fill     { animation: bar-fill 1s ease-out both; }
 
+.delay-50  { animation-delay: 0.05s; }
 .delay-100 { animation-delay: 0.1s; }
 .delay-150 { animation-delay: 0.15s; }
 .delay-200 { animation-delay: 0.2s; }
+.delay-250 { animation-delay: 0.25s; }
 .delay-300 { animation-delay: 0.3s; }
 .delay-400 { animation-delay: 0.4s; }
 .delay-500 { animation-delay: 0.5s; }
 .delay-600 { animation-delay: 0.6s; }
 .delay-700 { animation-delay: 0.7s; }
+.delay-800 { animation-delay: 0.8s; }
 
-/* Shimmer effect for loading states */
-.shimmer {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% auto;
-  animation: shimmer 1.5s linear infinite;
-}
-
-/* Glass card */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-}
-
-/* Gradient border card */
-.card-glow {
+/* ── Premium card ──────────────────────────────── */
+.card-premium {
   position: relative;
+  overflow: hidden;
+  /* Multi-layer shadow for depth */
+  box-shadow:
+    0 1px 1px rgba(0,0,0,0.25),
+    0 4px 8px rgba(0,0,0,0.12),
+    0 16px 32px rgba(0,0,0,0.1),
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -1px 0 rgba(0,0,0,0.1);
+  transition:
+    transform 0.2s cubic-bezier(0.34,1.2,0.64,1),
+    box-shadow 0.2s ease;
 }
-.card-glow::before {
+.card-premium:hover {
+  box-shadow:
+    0 2px 2px rgba(0,0,0,0.2),
+    0 8px 16px rgba(0,0,0,0.15),
+    0 24px 48px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.3),
+    inset 0 -1px 0 rgba(0,0,0,0.1);
+}
+
+/* Shimmer sweep on hover */
+.card-premium::before {
   content: '';
   position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  padding: 2px;
-  background: linear-gradient(135deg, #a78bfa, #f472b6, #fb923c);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.3s;
+  top: 0;
+  left: -100%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255,255,255,0.18) 50%,
+    transparent 80%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  z-index: 2;
 }
-.card-glow:hover::before {
-  opacity: 1;
+.card-premium:hover::before {
+  animation: card-shimmer 0.65s ease forwards;
+}
+
+/* Top edge highlight line */
+.card-premium::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Animated page background ───────────────── */
+.bg-animated {
+  background: linear-gradient(-45deg, #F5F3FF, #EDE9FE, #E8F5FF, #F0FDF4, #F5F3FF);
+  background-size: 400% 400%;
+  animation: bg-pulse 20s ease infinite;
+}
+
+/* ── Glass card ──────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+.glass-dark {
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.15);
 }
