@@ -311,6 +311,10 @@ function renderProc() {
                         <div>${t('Purchased','購入日')}: ${p.purchase_date?p.purchase_date.slice(0,10):'-'}</div>
                         <div>${t('Received','受取日')}: ${p.received_date?p.received_date.slice(0,10):'-'}</div>
                         ${p.url?`<div style="margin-top:4px;"><a href="${esc(p.url)}" target="_blank" style="color:var(--accent-blue);">${t('Source link','仕入先リンク')} ↗</a></div>`:''}
+                        ${p.seller_id?`<div style="margin-top:4px;">👤 ${esc(p.seller_id)}${p.seller_url?` <a href="${esc(p.seller_url)}" target="_blank" style="color:var(--accent-blue);">↗</a>`:''}</div>`:''}
+                        ${p.category?`<div style="margin-top:4px;">🏷️ ${esc(p.category)}</div>`:''}
+                        ${(p.quantity&&p.quantity>1)?`<div>${t('Qty','数量')}: ${p.quantity}</div>`:''}
+                        ${p.screenshot_path?`<div style="margin-top:4px;">📸 <a href="${esc(p.screenshot_path)}" target="_blank" style="color:var(--accent-blue);">${t('Receipt','取引証跡')}</a></div>`:''}
                         ${p.notes?`<div style="margin-top:4px;color:var(--text-secondary);">📝 ${esc(p.notes)}</div>`:''}
                     </div>
                     <div>

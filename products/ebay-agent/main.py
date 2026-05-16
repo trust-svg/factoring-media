@@ -3761,6 +3761,10 @@ async def bulk_import_stock(request: Request):
                     consumption_tax_jpy=kwargs.get("consumption_tax_jpy", 0),
                     shipping_cost_jpy=kwargs.get("shipping_cost_jpy", 0),
                     seller_id=kwargs.get("seller_id", ""),
+                    seller_url=row.get("seller_url", ""),
+                    screenshot_path=row.get("screenshot_path", ""),
+                    quantity=int(row.get("quantity", 1) or 1),
+                    category=row.get("category", ""),
                     **(
                         {"purchase_date": kwargs["purchase_date"]}
                         if "purchase_date" in kwargs
