@@ -15,8 +15,10 @@ import os
 import sys
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+JST = timezone(timedelta(hours=9))
 
 import uvicorn
 from fastapi import FastAPI, Form, HTTPException, Request
@@ -2103,7 +2105,8 @@ async def upload_procurement_screenshot(proc_id: int, request: Request):
         if not file:
             raise HTTPException(400, "No file uploaded")
 
-        year = str(datetime.now().year)
+        now = datetime.now(JST)
+        year = str(now.year)
         platform = proc.platform or "other"
         platform_dir = (
             SCREENSHOT_DIR / year / platform.replace("/", "_").replace(" ", "_")
@@ -2114,9 +2117,7 @@ async def upload_procurement_screenshot(proc_id: int, request: Request):
         safe_title = "".join(
             c for c in (proc.title or "item")[:30] if c.isalnum() or c in "-_ "
         ).strip()
-        filename = (
-            f"proc{proc.id}_{datetime.now().strftime('%Y%m%d')}_{safe_title}.{ext}"
-        )
+        filename = f"proc{proc.id}_{now.strftime('%Y%m%d')}_{safe_title}.{ext}"
         filepath = platform_dir / filename
 
         with open(filepath, "wb") as f:
@@ -2130,6 +2131,7 @@ async def upload_procurement_screenshot(proc_id: int, request: Request):
             {
                 "status": "uploaded",
                 "path": str(filepath),
+                "platform_dir": str(platform_dir),
             }
         )
     finally:
