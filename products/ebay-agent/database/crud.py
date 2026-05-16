@@ -1,4 +1,5 @@
 """CRUD操作"""
+
 from __future__ import annotations
 
 import json
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── Listing ───────────────────────────────────────────────
+
 
 def upsert_listing(db: Session, **kwargs) -> Listing:
     """出品データをupsert"""
@@ -58,6 +60,7 @@ def get_out_of_stock_listings(db: Session) -> list[Listing]:
 
 # ── SourceCandidate ───────────────────────────────────────
 
+
 def add_source_candidate(db: Session, **kwargs) -> SourceCandidate:
     candidate = SourceCandidate(**kwargs)
     db.add(candidate)
@@ -65,7 +68,9 @@ def add_source_candidate(db: Session, **kwargs) -> SourceCandidate:
     return candidate
 
 
-def get_source_candidates(db: Session, sku: str = "", keyword: str = "") -> list[SourceCandidate]:
+def get_source_candidates(
+    db: Session, sku: str = "", keyword: str = ""
+) -> list[SourceCandidate]:
     q = db.query(SourceCandidate)
     if sku:
         q = q.filter(SourceCandidate.sku == sku)
@@ -75,13 +80,16 @@ def get_source_candidates(db: Session, sku: str = "", keyword: str = "") -> list
 
 
 def update_candidate_status(db: Session, candidate_id: int, status: str):
-    candidate = db.query(SourceCandidate).filter(SourceCandidate.id == candidate_id).first()
+    candidate = (
+        db.query(SourceCandidate).filter(SourceCandidate.id == candidate_id).first()
+    )
     if candidate:
         candidate.status = status
         db.commit()
 
 
 # ── Procurement ──────────────────────────────────────────
+
 
 def add_procurement(db: Session, **kwargs) -> Procurement:
     """仕入れ実績を記録"""
@@ -146,7 +154,36 @@ def update_procurement(db: Session, proc_id: int, **kwargs) -> Optional[Procurem
     return proc
 
 
+def get_procurement_stats(db: Session) -> dict:
+    """仕入れ記録のKPI統計"""
+    from sqlalchemy import func as _func
+
+    total = db.query(Procurement).count()
+    purchased = db.query(Procurement).filter(Procurement.status == "purchased").count()
+    received = db.query(Procurement).filter(Procurement.status == "received").count()
+    listed = db.query(Procurement).filter(Procurement.status == "listed").count()
+    sold = db.query(Procurement).filter(Procurement.status == "sold").count()
+    shipped = db.query(Procurement).filter(Procurement.status == "shipped").count()
+    returned = db.query(Procurement).filter(Procurement.status == "returned").count()
+    cancelled = db.query(Procurement).filter(Procurement.status == "cancelled").count()
+    total_cost = db.query(_func.sum(Procurement.total_cost_jpy)).scalar() or 0
+    total_tax = db.query(_func.sum(Procurement.consumption_tax_jpy)).scalar() or 0
+    return {
+        "total": total,
+        "purchased": purchased,
+        "received": received,
+        "listed": listed,
+        "sold": sold,
+        "shipped": shipped,
+        "returned": returned,
+        "cancelled": cancelled,
+        "total_cost_jpy": int(total_cost),
+        "total_tax_jpy": int(total_tax),
+    }
+
+
 # ── PriceHistory ──────────────────────────────────────────
+
 
 def add_price_history(db: Session, **kwargs) -> PriceHistory:
     record = PriceHistory(**kwargs)
@@ -167,10 +204,16 @@ def get_price_history(db: Session, sku: str, days: int = 30) -> list[PriceHistor
 
 # ── SalesRecord ───────────────────────────────────────────
 
+
 def calculate_net_profit(record: SalesRecord) -> SalesRecord:
     """SalesRecordの純利益を自動計算"""
     # キャンセル/返金系 → 売上・手数料ゼロ
-    if getattr(record, 'progress', '') in ('キャンセル', '返品・返金', '返品なし返金', '未着返金'):
+    if getattr(record, "progress", "") in (
+        "キャンセル",
+        "返品・返金",
+        "返品なし返金",
+        "未着返金",
+    ):
         record.sale_price_usd = 0
         record.ebay_fees_usd = 0
         record.payoneer_fee_usd = 0
@@ -183,7 +226,7 @@ def calculate_net_profit(record: SalesRecord) -> SalesRecord:
         + (record.consumption_tax_jpy or 0)
         + (record.shipping_cost_jpy or 0)
         + (record.intl_shipping_cost_jpy or 0)
-        + (getattr(record, 'customs_duty_jpy', 0) or 0)
+        + (getattr(record, "customs_duty_jpy", 0) or 0)
         + (record.other_cost_jpy or 0)
     )
 
@@ -196,7 +239,10 @@ def calculate_net_profit(record: SalesRecord) -> SalesRecord:
     record.net_profit_usd = round(record.sale_price_usd - record.total_cost_usd, 2)
     record.net_profit_jpy = round(record.net_profit_usd * rate)
     record.profit_margin_pct = round(
-        (record.net_profit_usd / record.sale_price_usd * 100) if record.sale_price_usd else 0, 1
+        (record.net_profit_usd / record.sale_price_usd * 100)
+        if record.sale_price_usd
+        else 0,
+        1,
     )
 
     # 旧互換フィールド
@@ -252,17 +298,25 @@ def get_sales_summary(db: Session, days: int = 30) -> dict:
         "total_revenue_usd": round(total_revenue, 2),
         "total_profit_usd": round(total_profit, 2),
         "total_source_cost_jpy": total_cost_jpy,
-        "avg_profit_per_sale_usd": round(total_profit / len(records), 2) if records else 0,
-        "avg_margin_pct": round((total_profit / total_revenue * 100), 1) if total_revenue else 0,
+        "avg_profit_per_sale_usd": round(total_profit / len(records), 2)
+        if records
+        else 0,
+        "avg_margin_pct": round((total_profit / total_revenue * 100), 1)
+        if total_revenue
+        else 0,
     }
 
 
 def get_sales_summary_range(db: Session, start_dt, end_dt) -> dict:
     """日付範囲指定の売上サマリー"""
-    records = db.query(SalesRecord).filter(
-        SalesRecord.sold_at >= start_dt,
-        SalesRecord.sold_at <= end_dt,
-    ).all()
+    records = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.sold_at >= start_dt,
+            SalesRecord.sold_at <= end_dt,
+        )
+        .all()
+    )
 
     total_revenue = sum(r.sale_price_usd for r in records)
     total_profit = sum(r.net_profit_usd for r in records)
@@ -275,8 +329,12 @@ def get_sales_summary_range(db: Session, start_dt, end_dt) -> dict:
         "total_revenue_usd": round(total_revenue, 2),
         "total_profit_usd": round(total_profit, 2),
         "total_source_cost_jpy": total_cost_jpy,
-        "avg_profit_per_sale_usd": round(total_profit / len(records), 2) if records else 0,
-        "avg_margin_pct": round((total_profit / total_revenue * 100), 1) if total_revenue else 0,
+        "avg_profit_per_sale_usd": round(total_profit / len(records), 2)
+        if records
+        else 0,
+        "avg_margin_pct": round((total_profit / total_revenue * 100), 1)
+        if total_revenue
+        else 0,
     }
 
 
@@ -290,12 +348,19 @@ def get_profit_summary(db: Session, months: int = 6) -> list[dict]:
         ym = r.sold_at.strftime("%Y-%m")
         if ym not in monthly:
             monthly[ym] = {
-                "year_month": ym, "sales_count": 0,
-                "revenue_usd": 0, "revenue_jpy": 0,
-                "ebay_fees_usd": 0, "payoneer_fees_usd": 0,
-                "source_cost_jpy": 0, "shipping_jpy": 0,
-                "intl_shipping_jpy": 0, "other_cost_jpy": 0,
-                "total_cost_jpy": 0, "net_profit_usd": 0, "net_profit_jpy": 0,
+                "year_month": ym,
+                "sales_count": 0,
+                "revenue_usd": 0,
+                "revenue_jpy": 0,
+                "ebay_fees_usd": 0,
+                "payoneer_fees_usd": 0,
+                "source_cost_jpy": 0,
+                "shipping_jpy": 0,
+                "intl_shipping_jpy": 0,
+                "other_cost_jpy": 0,
+                "total_cost_jpy": 0,
+                "net_profit_usd": 0,
+                "net_profit_jpy": 0,
                 "consumption_tax_jpy": 0,
             }
         m = monthly[ym]
@@ -316,7 +381,9 @@ def get_profit_summary(db: Session, months: int = 6) -> list[dict]:
 
     # 固定費を加味
     for ym, m in monthly.items():
-        expenses = db.query(MonthlyExpense).filter(MonthlyExpense.year_month == ym).all()
+        expenses = (
+            db.query(MonthlyExpense).filter(MonthlyExpense.year_month == ym).all()
+        )
         fixed_cost_jpy = sum(e.amount_jpy for e in expenses)
         m["fixed_cost_jpy"] = fixed_cost_jpy
         m["net_profit_jpy"] -= fixed_cost_jpy
@@ -331,7 +398,9 @@ def get_profit_summary(db: Session, months: int = 6) -> list[dict]:
 def get_profit_breakdown(db: Session, year_month: str) -> dict:
     """特定月の費用内訳"""
     records = get_all_sales(db, year_month=year_month)
-    expenses = db.query(MonthlyExpense).filter(MonthlyExpense.year_month == year_month).all()
+    expenses = (
+        db.query(MonthlyExpense).filter(MonthlyExpense.year_month == year_month).all()
+    )
 
     source_cost = sum(r.source_cost_jpy for r in records)
     domestic_ship = sum(r.shipping_cost_jpy for r in records)
@@ -358,14 +427,20 @@ def get_profit_breakdown(db: Session, year_month: str) -> dict:
             "fixed_cost_jpy": fixed,
         },
         "expenses": [
-            {"id": e.id, "category": e.category, "description": e.description,
-             "amount_jpy": e.amount_jpy, "is_recurring": bool(e.is_recurring)}
+            {
+                "id": e.id,
+                "category": e.category,
+                "description": e.description,
+                "amount_jpy": e.amount_jpy,
+                "is_recurring": bool(e.is_recurring),
+            }
             for e in expenses
         ],
     }
 
 
 # ── MonthlyExpense ───────────────────────────────────────
+
 
 def add_expense(db: Session, **kwargs) -> MonthlyExpense:
     expense = MonthlyExpense(**kwargs)
@@ -403,27 +478,36 @@ def delete_expense(db: Session, expense_id: int) -> bool:
 
 def copy_recurring_expenses(db: Session, from_month: str, to_month: str) -> int:
     """前月の繰り返し固定費を今月にコピー"""
-    existing = db.query(MonthlyExpense).filter(MonthlyExpense.year_month == to_month).count()
+    existing = (
+        db.query(MonthlyExpense).filter(MonthlyExpense.year_month == to_month).count()
+    )
     if existing > 0:
         return 0  # 既にある場合はスキップ
-    recurring = db.query(MonthlyExpense).filter(
-        MonthlyExpense.year_month == from_month,
-        MonthlyExpense.is_recurring == 1,
-    ).all()
+    recurring = (
+        db.query(MonthlyExpense)
+        .filter(
+            MonthlyExpense.year_month == from_month,
+            MonthlyExpense.is_recurring == 1,
+        )
+        .all()
+    )
     for e in recurring:
-        db.add(MonthlyExpense(
-            year_month=to_month,
-            category=e.category,
-            description=e.description,
-            amount_jpy=e.amount_jpy,
-            amount_usd=e.amount_usd,
-            is_recurring=1,
-        ))
+        db.add(
+            MonthlyExpense(
+                year_month=to_month,
+                category=e.category,
+                description=e.description,
+                amount_jpy=e.amount_jpy,
+                amount_usd=e.amount_usd,
+                is_recurring=1,
+            )
+        )
     db.commit()
     return len(recurring)
 
 
 # ── Optimization ──────────────────────────────────────────
+
 
 def add_optimization(db: Session, **kwargs) -> Optimization:
     opt = Optimization(**kwargs)
@@ -433,10 +517,16 @@ def add_optimization(db: Session, **kwargs) -> Optimization:
 
 
 def get_pending_optimizations(db: Session) -> list[Optimization]:
-    return db.query(Optimization).filter(Optimization.status == "pending").order_by(desc(Optimization.created_at)).all()
+    return (
+        db.query(Optimization)
+        .filter(Optimization.status == "pending")
+        .order_by(desc(Optimization.created_at))
+        .all()
+    )
 
 
 # ── ResearchResult ────────────────────────────────────────
+
 
 def add_research_result(db: Session, **kwargs) -> ResearchResult:
     result = ResearchResult(**kwargs)
@@ -446,12 +536,26 @@ def add_research_result(db: Session, **kwargs) -> ResearchResult:
 
 
 def get_recent_research(db: Session, limit: int = 20) -> list[ResearchResult]:
-    return db.query(ResearchResult).order_by(desc(ResearchResult.researched_at)).limit(limit).all()
+    return (
+        db.query(ResearchResult)
+        .order_by(desc(ResearchResult.researched_at))
+        .limit(limit)
+        .all()
+    )
 
 
 # ── ChangeHistory ─────────────────────────────────────────
 
-def log_change(db: Session, sku: str, field: str, old_val: str, new_val: str, success: bool = True, error: str = ""):
+
+def log_change(
+    db: Session,
+    sku: str,
+    field: str,
+    old_val: str,
+    new_val: str,
+    success: bool = True,
+    error: str = "",
+):
     entry = ChangeHistory(
         sku=sku,
         field_changed=field,
@@ -466,9 +570,13 @@ def log_change(db: Session, sku: str, field: str, old_val: str, new_val: str, su
 
 # ── 有在庫管理 ────────────────────────────────────────────
 
-def get_all_inventory_items(db: Session, status: str = "", date_from: str = "", date_to: str = "") -> list[InventoryItem]:
+
+def get_all_inventory_items(
+    db: Session, status: str = "", date_from: str = "", date_to: str = ""
+) -> list[InventoryItem]:
     """有在庫アイテム一覧（期間フィルター対応）"""
     from datetime import datetime as _dt
+
     q = db.query(InventoryItem)
     if status:
         q = q.filter(InventoryItem.status == status)
@@ -490,9 +598,13 @@ def get_all_inventory_items(db: Session, status: str = "", date_from: str = "", 
 def _next_stock_number(db: Session) -> str:
     """次の在庫管理番号を生成（S-0001形式）"""
     import re as _re
-    latest = db.query(InventoryItem.stock_number).filter(
-        InventoryItem.stock_number.like("S-%")
-    ).order_by(desc(InventoryItem.stock_number)).first()
+
+    latest = (
+        db.query(InventoryItem.stock_number)
+        .filter(InventoryItem.stock_number.like("S-%"))
+        .order_by(desc(InventoryItem.stock_number))
+        .first()
+    )
     if latest and latest[0]:
         m = _re.search(r"S-(\d+)", latest[0])
         num = int(m.group(1)) + 1 if m else 1
@@ -512,7 +624,9 @@ def add_inventory_item(db: Session, **kwargs) -> InventoryItem:
     return item
 
 
-def update_inventory_item(db: Session, item_id: int, **kwargs) -> Optional[InventoryItem]:
+def update_inventory_item(
+    db: Session, item_id: int, **kwargs
+) -> Optional[InventoryItem]:
     """有在庫アイテムを更新"""
     item = db.query(InventoryItem).filter(InventoryItem.id == item_id).first()
     if not item:
@@ -540,24 +654,43 @@ def get_inventory_stats(db: Session) -> dict:
     """仕入れ台帳の統計"""
     total = db.query(InventoryItem).count()
     ordered = db.query(InventoryItem).filter(InventoryItem.status == "ordered").count()
-    received = db.query(InventoryItem).filter(InventoryItem.status == "received").count()
-    in_stock = db.query(InventoryItem).filter(InventoryItem.status == "in_stock").count()
+    received = (
+        db.query(InventoryItem).filter(InventoryItem.status == "received").count()
+    )
+    in_stock = (
+        db.query(InventoryItem).filter(InventoryItem.status == "in_stock").count()
+    )
     listed = db.query(InventoryItem).filter(InventoryItem.status == "listed").count()
     sold = db.query(InventoryItem).filter(InventoryItem.status == "sold").count()
     shipped = db.query(InventoryItem).filter(InventoryItem.status == "shipped").count()
-    returned = db.query(InventoryItem).filter(InventoryItem.status == "returned").count()
-    cancelled = db.query(InventoryItem).filter(InventoryItem.status == "cancelled").count()
+    returned = (
+        db.query(InventoryItem).filter(InventoryItem.status == "returned").count()
+    )
+    cancelled = (
+        db.query(InventoryItem).filter(InventoryItem.status == "cancelled").count()
+    )
 
-    stock_value = db.query(func.sum(InventoryItem.purchase_price_jpy + InventoryItem.consumption_tax_jpy)).filter(
-        InventoryItem.status.in_(["in_stock", "received", "listed", "ordered"])
-    ).scalar() or 0
+    stock_value = (
+        db.query(
+            func.sum(
+                InventoryItem.purchase_price_jpy + InventoryItem.consumption_tax_jpy
+            )
+        )
+        .filter(InventoryItem.status.in_(["in_stock", "received", "listed", "ordered"]))
+        .scalar()
+        or 0
+    )
 
     # 平均在庫日数（received + in_stock + listed）
     now = datetime.utcnow()
-    active_items = db.query(InventoryItem).filter(
-        InventoryItem.status.in_(["in_stock", "received", "listed"]),
-        InventoryItem.purchase_date.isnot(None),
-    ).all()
+    active_items = (
+        db.query(InventoryItem)
+        .filter(
+            InventoryItem.status.in_(["in_stock", "received", "listed"]),
+            InventoryItem.purchase_date.isnot(None),
+        )
+        .all()
+    )
     if active_items:
         total_days = sum((now - i.purchase_date).days for i in active_items)
         avg_days = round(total_days / len(active_items))
@@ -581,43 +714,48 @@ def get_inventory_stats(db: Session) -> dict:
 
 # ── 利益候補レコメンド ────────────────────────────────────
 
+
 def get_unlisted_candidates(db: Session) -> list[dict]:
     """未出品の有在庫 + 未在庫登録の受取済み仕入れを候補として収集"""
     candidates = []
 
     # 1) 有在庫で未出品（in_stock）
-    inv_items = db.query(InventoryItem).filter(
-        InventoryItem.status == "in_stock"
-    ).all()
+    inv_items = db.query(InventoryItem).filter(InventoryItem.status == "in_stock").all()
     for i in inv_items:
-        candidates.append({
-            "source": "inventory",
-            "source_id": i.id,
-            "title": i.title,
-            "cost_jpy": i.purchase_price_jpy + i.consumption_tax_jpy,
-            "purchase_date": i.purchase_date.strftime("%Y-%m-%d") if i.purchase_date else "",
-            "platform": i.purchase_source,
-            "condition": i.condition,
-            "sku": i.sku,
-        })
+        candidates.append(
+            {
+                "source": "inventory",
+                "source_id": i.id,
+                "title": i.title,
+                "cost_jpy": i.purchase_price_jpy + i.consumption_tax_jpy,
+                "purchase_date": i.purchase_date.strftime("%Y-%m-%d")
+                if i.purchase_date
+                else "",
+                "platform": i.purchase_source,
+                "condition": i.condition,
+                "sku": i.sku,
+            }
+        )
 
     # 2) 受取済み仕入れで有在庫未登録のもの
     inv_titles = {i.title for i in inv_items}
-    procs = db.query(Procurement).filter(
-        Procurement.status == "received"
-    ).all()
+    procs = db.query(Procurement).filter(Procurement.status == "received").all()
     for p in procs:
         if p.title not in inv_titles:
-            candidates.append({
-                "source": "procurement",
-                "source_id": p.id,
-                "title": p.title,
-                "cost_jpy": p.total_cost_jpy,
-                "purchase_date": p.purchase_date.strftime("%Y-%m-%d") if p.purchase_date else "",
-                "platform": p.platform,
-                "condition": "",
-                "sku": p.sku,
-            })
+            candidates.append(
+                {
+                    "source": "procurement",
+                    "source_id": p.id,
+                    "title": p.title,
+                    "cost_jpy": p.total_cost_jpy,
+                    "purchase_date": p.purchase_date.strftime("%Y-%m-%d")
+                    if p.purchase_date
+                    else "",
+                    "platform": p.platform,
+                    "condition": "",
+                    "sku": p.sku,
+                }
+            )
 
     return candidates
 
@@ -625,9 +763,7 @@ def get_unlisted_candidates(db: Session) -> list[dict]:
 def get_past_sales_by_keyword(db: Session, keywords: list[str]) -> list[dict]:
     """キーワードリストに部分一致する過去の売上実績を取得"""
     results = []
-    all_sales = db.query(SalesRecord).filter(
-        SalesRecord.sale_price_usd > 0
-    ).all()
+    all_sales = db.query(SalesRecord).filter(SalesRecord.sale_price_usd > 0).all()
     for kw in keywords:
         kw_lower = kw.lower()
         matching = [s for s in all_sales if kw_lower in (s.title or "").lower()]
@@ -635,30 +771,42 @@ def get_past_sales_by_keyword(db: Session, keywords: list[str]) -> list[dict]:
             avg_price = sum(s.sale_price_usd for s in matching) / len(matching)
             avg_profit = sum(s.net_profit_jpy for s in matching) / len(matching)
             avg_margin = sum(s.profit_margin_pct for s in matching) / len(matching)
-            results.append({
-                "keyword": kw,
-                "count": len(matching),
-                "avg_price_usd": round(avg_price, 2),
-                "avg_profit_jpy": round(avg_profit),
-                "avg_margin_pct": round(avg_margin, 1),
-            })
+            results.append(
+                {
+                    "keyword": kw,
+                    "count": len(matching),
+                    "avg_price_usd": round(avg_price, 2),
+                    "avg_profit_jpy": round(avg_profit),
+                    "avg_margin_pct": round(avg_margin, 1),
+                }
+            )
     return results
 
 
 # ── ダッシュボード用集計 ──────────────────────────────────
 
+
 def get_dashboard_stats(db: Session) -> dict:
     """ダッシュボード用の統計データ"""
     total_listings = db.query(Listing).count()
     out_of_stock = db.query(Listing).filter(Listing.quantity == 0).count()
-    total_candidates = db.query(SourceCandidate).filter(SourceCandidate.status == "found").count()
-    pending_opts = db.query(Optimization).filter(Optimization.status == "pending").count()
-    pending_procurements = db.query(Procurement).filter(
-        Procurement.status.in_(["purchased", "shipped"])
-    ).count()
-    total_procurement_cost = db.query(func.sum(Procurement.total_cost_jpy)).filter(
-        Procurement.status == "received"
-    ).scalar() or 0
+    total_candidates = (
+        db.query(SourceCandidate).filter(SourceCandidate.status == "found").count()
+    )
+    pending_opts = (
+        db.query(Optimization).filter(Optimization.status == "pending").count()
+    )
+    pending_procurements = (
+        db.query(Procurement)
+        .filter(Procurement.status.in_(["purchased", "shipped"]))
+        .count()
+    )
+    total_procurement_cost = (
+        db.query(func.sum(Procurement.total_cost_jpy))
+        .filter(Procurement.status == "received")
+        .scalar()
+        or 0
+    )
     sales_30d = get_sales_summary(db, days=30)
     inventory_stats = get_inventory_stats(db)
 
@@ -677,24 +825,35 @@ def get_dashboard_stats(db: Session) -> dict:
 
 # ── Overview ダッシュボード用クエリ ───────────────────────
 
+
 def get_monthly_achievement(db: Session, year: int, month: int) -> dict:
     """当月の売上・利益・利益率を集計し、目標との比較を返す"""
     from calendar import monthrange
     from datetime import datetime, date
-    from config import MONTHLY_REVENUE_TARGET_JPY, MONTHLY_MARGIN_TARGET_PCT, MONTHLY_PROFIT_TARGET_JPY
+    from config import (
+        MONTHLY_REVENUE_TARGET_JPY,
+        MONTHLY_MARGIN_TARGET_PCT,
+        MONTHLY_PROFIT_TARGET_JPY,
+    )
 
     _, last_day = monthrange(year, month)
     start = datetime(year, month, 1)
     end = datetime(year, month, last_day, 23, 59, 59)
 
-    records = db.query(SalesRecord).filter(
-        SalesRecord.sold_at >= start,
-        SalesRecord.sold_at <= end,
-    ).all()
+    records = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.sold_at >= start,
+            SalesRecord.sold_at <= end,
+        )
+        .all()
+    )
 
     today = date.today()
     # elapsed_days: 当月1日 = 1, 2日 = 2...（当月内の場合）
-    elapsed_days = today.day if (today.year == year and today.month == month) else last_day
+    elapsed_days = (
+        today.day if (today.year == year and today.month == month) else last_day
+    )
 
     # 売上JPY: received_jpy > 0 ならそれ、なければ sale_price_usd * exchange_rate
     def _rev(r: SalesRecord) -> int:
@@ -705,11 +864,15 @@ def get_monthly_achievement(db: Session, year: int, month: int) -> dict:
         return 0
 
     revenue_jpy = sum(_rev(r) for r in records)
-    profit_jpy  = sum(r.net_profit_jpy for r in records)
-    margin_pct  = round(profit_jpy / revenue_jpy * 100, 1) if revenue_jpy > 0 else 0.0
+    profit_jpy = sum(r.net_profit_jpy for r in records)
+    margin_pct = round(profit_jpy / revenue_jpy * 100, 1) if revenue_jpy > 0 else 0.0
 
-    projected_revenue = int(revenue_jpy / elapsed_days * last_day) if elapsed_days > 0 else 0
-    projected_profit  = int(profit_jpy  / elapsed_days * last_day) if elapsed_days > 0 else 0
+    projected_revenue = (
+        int(revenue_jpy / elapsed_days * last_day) if elapsed_days > 0 else 0
+    )
+    projected_profit = (
+        int(profit_jpy / elapsed_days * last_day) if elapsed_days > 0 else 0
+    )
 
     # 利益率の前月同日比
     if month == 1:
@@ -719,10 +882,14 @@ def get_monthly_achievement(db: Session, year: int, month: int) -> dict:
 
     _, pm_last = monthrange(pm_year, pm_month)
     pm_day = min(elapsed_days, pm_last)
-    pm_records = db.query(SalesRecord).filter(
-        SalesRecord.sold_at >= datetime(pm_year, pm_month, 1),
-        SalesRecord.sold_at <= datetime(pm_year, pm_month, pm_day, 23, 59, 59),
-    ).all()
+    pm_records = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.sold_at >= datetime(pm_year, pm_month, 1),
+            SalesRecord.sold_at <= datetime(pm_year, pm_month, pm_day, 23, 59, 59),
+        )
+        .all()
+    )
     pm_rev = sum(_rev(r) for r in pm_records)
     pm_profit = sum(r.net_profit_jpy for r in pm_records)
     pm_margin = round(pm_profit / pm_rev * 100, 1) if pm_rev > 0 else 0.0
@@ -734,7 +901,9 @@ def get_monthly_achievement(db: Session, year: int, month: int) -> dict:
         "revenue": {
             "actual": revenue_jpy,
             "target": MONTHLY_REVENUE_TARGET_JPY,
-            "rate": round(revenue_jpy / MONTHLY_REVENUE_TARGET_JPY * 100, 1) if MONTHLY_REVENUE_TARGET_JPY > 0 else 0.0,
+            "rate": round(revenue_jpy / MONTHLY_REVENUE_TARGET_JPY * 100, 1)
+            if MONTHLY_REVENUE_TARGET_JPY > 0
+            else 0.0,
             "projected_eom": projected_revenue,
         },
         "profit_margin": {
@@ -745,7 +914,9 @@ def get_monthly_achievement(db: Session, year: int, month: int) -> dict:
         "profit": {
             "actual": profit_jpy,
             "target": MONTHLY_PROFIT_TARGET_JPY,
-            "rate": round(profit_jpy / MONTHLY_PROFIT_TARGET_JPY * 100, 1) if MONTHLY_PROFIT_TARGET_JPY > 0 else 0.0,
+            "rate": round(profit_jpy / MONTHLY_PROFIT_TARGET_JPY * 100, 1)
+            if MONTHLY_PROFIT_TARGET_JPY > 0
+            else 0.0,
             "projected_eom": projected_profit,
         },
     }
@@ -760,10 +931,14 @@ def get_monthly_calendar(db: Session, year: int, month: int) -> dict:
     start = datetime(year, month, 1)
     end = datetime(year, month, last_day, 23, 59, 59)
 
-    records = db.query(SalesRecord).filter(
-        SalesRecord.sold_at >= start,
-        SalesRecord.sold_at <= end,
-    ).all()
+    records = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.sold_at >= start,
+            SalesRecord.sold_at <= end,
+        )
+        .all()
+    )
 
     def _rev(r: SalesRecord) -> int:
         if r.received_jpy > 0:
@@ -779,8 +954,8 @@ def get_monthly_calendar(db: Session, year: int, month: int) -> dict:
         if d not in daily:
             daily[d] = {"revenue": 0, "orders": 0, "profit": 0}
         daily[d]["revenue"] += _rev(r)
-        daily[d]["orders"]  += 1
-        daily[d]["profit"]  += r.net_profit_jpy
+        daily[d]["orders"] += 1
+        daily[d]["profit"] += r.net_profit_jpy
 
     days = []
     for day in range(1, last_day + 1):
@@ -794,14 +969,21 @@ def get_monthly_calendar(db: Session, year: int, month: int) -> dict:
 def get_overview_alerts(db: Session) -> dict:
     """要対応件数（在庫切れ・未読メッセージ・価格アラート）"""
     out_of_stock = db.query(Listing).filter(Listing.quantity == 0).count()
-    unread_messages = db.query(BuyerMessage).filter(
-        BuyerMessage.is_read == 0,
-        BuyerMessage.direction == "inbound",
-    ).count()
+    unread_messages = (
+        db.query(BuyerMessage)
+        .filter(
+            BuyerMessage.is_read == 0,
+            BuyerMessage.direction == "inbound",
+        )
+        .count()
+    )
 
     # 価格アラート: 最新の価格履歴で競合最安値が自社より10%以上安い出品
     from sqlalchemy import text as sa_text
-    price_alerts = db.execute(sa_text("""
+
+    price_alerts = (
+        db.execute(
+            sa_text("""
         SELECT COUNT(*) FROM price_history ph
         INNER JOIN (
             SELECT sku, MAX(recorded_at) AS max_at FROM price_history GROUP BY sku
@@ -809,12 +991,19 @@ def get_overview_alerts(db: Session) -> dict:
         INNER JOIN listings l ON ph.sku = l.sku
         WHERE ph.lowest_competitor_price_usd > 0
           AND ph.lowest_competitor_price_usd < l.price_usd * 0.9
-    """)).scalar() or 0
+    """)
+        ).scalar()
+        or 0
+    )
 
     # 未注文（仕入れ未対応の売上）
-    unordered = db.query(SalesRecord).filter(
-        SalesRecord.progress.in_(["", "未注文"]),
-    ).count()
+    unordered = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.progress.in_(["", "未注文"]),
+        )
+        .count()
+    )
 
     severity = "ok"
     if out_of_stock >= 10 or unread_messages >= 5 or unordered >= 5:
@@ -838,7 +1027,7 @@ def get_overview_pace(db: Session) -> dict:
 
     today = date.today()
     today_start = datetime(today.year, today.month, today.day, 0, 0, 0)
-    today_end   = datetime(today.year, today.month, today.day, 23, 59, 59)
+    today_end = datetime(today.year, today.month, today.day, 23, 59, 59)
 
     def _rev(r: SalesRecord) -> int:
         if r.received_jpy > 0:
@@ -848,29 +1037,39 @@ def get_overview_pace(db: Session) -> dict:
         return 0
 
     # ── 今日 ──
-    today_records = db.query(SalesRecord).filter(
-        SalesRecord.sold_at >= today_start,
-        SalesRecord.sold_at <= today_end,
-    ).all()
+    today_records = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.sold_at >= today_start,
+            SalesRecord.sold_at <= today_end,
+        )
+        .all()
+    )
     today_revenue = sum(_rev(r) for r in today_records)
-    today_orders  = len(today_records)
+    today_orders = len(today_records)
 
     # ── 当月累計（今日を含む）──
     month_start = datetime(today.year, today.month, 1)
-    month_records = db.query(SalesRecord).filter(
-        SalesRecord.sold_at >= month_start,
-        SalesRecord.sold_at <= today_end,
-    ).all()
+    month_records = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.sold_at >= month_start,
+            SalesRecord.sold_at <= today_end,
+        )
+        .all()
+    )
     month_revenue = sum(_rev(r) for r in month_records)
     month_order_count = len(month_records)
 
     # 当月利益率（加重平均）
     total_profit = sum(r.net_profit_jpy for r in month_records)
-    profit_margin_actual = round(total_profit / month_revenue * 100, 1) if month_revenue > 0 else 0.0
+    profit_margin_actual = (
+        round(total_profit / month_revenue * 100, 1) if month_revenue > 0 else 0.0
+    )
 
     # ── 日次平均（今日を除く前の日数）──
     elapsed_before = today.day - 1
-    prior_revenue  = month_revenue - today_revenue
+    prior_revenue = month_revenue - today_revenue
     daily_avg = int(prior_revenue / elapsed_before) if elapsed_before > 0 else 0
 
     # ── 前月同日時点 ──
@@ -882,39 +1081,45 @@ def get_overview_pace(db: Session) -> dict:
     _, pm_last = monthrange(pm_year, pm_month)
     pm_day = min(today.day, pm_last)
     pm_end = datetime(pm_year, pm_month, pm_day, 23, 59, 59)
-    pm_records = db.query(SalesRecord).filter(
-        SalesRecord.sold_at >= datetime(pm_year, pm_month, 1),
-        SalesRecord.sold_at <= pm_end,
-    ).all()
+    pm_records = (
+        db.query(SalesRecord)
+        .filter(
+            SalesRecord.sold_at >= datetime(pm_year, pm_month, 1),
+            SalesRecord.sold_at <= pm_end,
+        )
+        .all()
+    )
     pm_revenue = sum(_rev(r) for r in pm_records)
     prev_month_order_count = len(pm_records)
 
     pm_total_rev = pm_revenue
     pm_total_profit = sum(r.net_profit_jpy for r in pm_records)
-    profit_margin_prev = round(pm_total_profit / pm_total_rev * 100, 1) if pm_total_rev > 0 else 0.0
+    profit_margin_prev = (
+        round(pm_total_profit / pm_total_rev * 100, 1) if pm_total_rev > 0 else 0.0
+    )
 
     # 前月同日比
-    rev_diff     = month_revenue - pm_revenue
+    rev_diff = month_revenue - pm_revenue
     rev_diff_pct = round(rev_diff / pm_revenue * 100, 1) if pm_revenue > 0 else 0.0
 
     # ── 出品数・在庫切れ ──
-    listing_count      = db.query(Listing).count()
+    listing_count = db.query(Listing).count()
     out_of_stock_count = db.query(Listing).filter(Listing.quantity == 0).count()
 
     return {
-        "today_revenue":   today_revenue,
-        "today_orders":    today_orders,
-        "daily_avg":       daily_avg,
-        "month_revenue":   month_revenue,
+        "today_revenue": today_revenue,
+        "today_orders": today_orders,
+        "daily_avg": daily_avg,
+        "month_revenue": month_revenue,
         "month_order_count": month_order_count,
         "prev_month_order_count": prev_month_order_count,
         "prev_month_same_day_revenue": pm_revenue,
         "profit_margin_actual": profit_margin_actual,
-        "profit_margin_prev":   profit_margin_prev,
-        "listing_count":       listing_count,
-        "out_of_stock_count":  out_of_stock_count,
+        "profit_margin_prev": profit_margin_prev,
+        "listing_count": listing_count,
+        "out_of_stock_count": out_of_stock_count,
         "prev_month_comparison": {
-            "revenue_diff":     rev_diff,
+            "revenue_diff": rev_diff,
             "revenue_diff_pct": rev_diff_pct,
         },
     }
@@ -945,13 +1150,15 @@ def get_out_of_stock_items(db: Session, limit: int = 10) -> list[dict]:
         last_sold_at = last_sale.sold_at.date() if last_sale else None
         days_out_of_stock = (today - last_sold_at).days if last_sold_at else None
 
-        result.append({
-            "sku":                 listing.sku,
-            "title":               listing.title,
-            "price_usd":           listing.price_usd,
-            "last_sale_price_jpy": last_sale_price_jpy,
-            "days_out_of_stock":   days_out_of_stock,
-        })
+        result.append(
+            {
+                "sku": listing.sku,
+                "title": listing.title,
+                "price_usd": listing.price_usd,
+                "last_sale_price_jpy": last_sale_price_jpy,
+                "days_out_of_stock": days_out_of_stock,
+            }
+        )
     return result
 
 
@@ -985,23 +1192,37 @@ def get_category_profit(db: Session, year: int, month: int) -> list[dict]:
         cat = sku_to_category.get(rec.sku, "その他")
         if cat not in cat_data:
             cat_data[cat] = {"revenue": 0, "profit": 0}
-        rev = rec.received_jpy if rec.received_jpy > 0 else (int(rec.sale_price_usd * rec.exchange_rate) if rec.exchange_rate > 0 else 0)
+        rev = (
+            rec.received_jpy
+            if rec.received_jpy > 0
+            else (
+                int(rec.sale_price_usd * rec.exchange_rate)
+                if rec.exchange_rate > 0
+                else 0
+            )
+        )
         cat_data[cat]["revenue"] += rev
-        cat_data[cat]["profit"]  += rec.net_profit_jpy
+        cat_data[cat]["profit"] += rec.net_profit_jpy
 
     total_profit = sum(v["profit"] for v in cat_data.values())
 
     result = []
     for cat, data in sorted(cat_data.items(), key=lambda x: -x[1]["profit"]):
-        margin = round(data["profit"] / data["revenue"] * 100, 1) if data["revenue"] > 0 else 0.0
-        pct    = round(data["profit"] / total_profit * 100, 1) if total_profit > 0 else 0.0
-        result.append({
-            "category":     cat,
-            "revenue":      data["revenue"],
-            "profit":       data["profit"],
-            "margin":       margin,
-            "pct_of_total": pct,
-        })
+        margin = (
+            round(data["profit"] / data["revenue"] * 100, 1)
+            if data["revenue"] > 0
+            else 0.0
+        )
+        pct = round(data["profit"] / total_profit * 100, 1) if total_profit > 0 else 0.0
+        result.append(
+            {
+                "category": cat,
+                "revenue": data["revenue"],
+                "profit": data["profit"],
+                "margin": margin,
+                "pct_of_total": pct,
+            }
+        )
     return result
 
 
@@ -1013,8 +1234,8 @@ def get_recent_sales(db, year: int, month: int, limit: int = 15):
     records = (
         db.query(SalesRecord)
         .filter(
-            extract('year',  SalesRecord.sold_at) == year,
-            extract('month', SalesRecord.sold_at) == month,
+            extract("year", SalesRecord.sold_at) == year,
+            extract("month", SalesRecord.sold_at) == month,
         )
         .order_by(SalesRecord.sold_at.desc())
         .limit(limit)
@@ -1024,8 +1245,8 @@ def get_recent_sales(db, year: int, month: int, limit: int = 15):
     total_count = (
         db.query(SalesRecord)
         .filter(
-            extract('year',  SalesRecord.sold_at) == year,
-            extract('month', SalesRecord.sold_at) == month,
+            extract("year", SalesRecord.sold_at) == year,
+            extract("month", SalesRecord.sold_at) == month,
         )
         .count()
     )
@@ -1035,20 +1256,22 @@ def get_recent_sales(db, year: int, month: int, limit: int = 15):
         rate = r.exchange_rate if r.exchange_rate and r.exchange_rate > 0 else 152.0
         sale_price_jpy = round(r.sale_price_usd * rate) if r.sale_price_usd else 0
         status_map = {
-            '発送済': '発送済',
-            '納品済': '決済済',
-            '未注文': '未発送',
-            '注文済': '未発送',
-            '':       '未発送',
+            "発送済": "発送済",
+            "納品済": "決済済",
+            "未注文": "未発送",
+            "注文済": "未発送",
+            "": "未発送",
         }
-        status = status_map.get(r.progress, r.progress or '未発送')
-        result.append({
-            "title":          r.title or '—',
-            "sale_price_jpy": sale_price_jpy,
-            "profit_jpy":     r.net_profit_jpy or 0,
-            "profit_margin":  round(r.profit_margin_pct or 0, 1),
-            "status":         status,
-            "sold_at":        r.sold_at.strftime("%-m/%-d") if r.sold_at else '—',
-        })
+        status = status_map.get(r.progress, r.progress or "未発送")
+        result.append(
+            {
+                "title": r.title or "—",
+                "sale_price_jpy": sale_price_jpy,
+                "profit_jpy": r.net_profit_jpy or 0,
+                "profit_margin": round(r.profit_margin_pct or 0, 1),
+                "status": status,
+                "sold_at": r.sold_at.strftime("%-m/%-d") if r.sold_at else "—",
+            }
+        )
 
     return {"records": result, "total_count": total_count}

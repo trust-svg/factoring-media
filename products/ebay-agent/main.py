@@ -1863,6 +1863,16 @@ async def list_procurements(status: str = ""):
         db.close()
 
 
+@app.get("/api/procurements/stats")
+async def procurement_stats():
+    """仕入れ記録KPI統計"""
+    db = get_db()
+    try:
+        return JSONResponse(crud.get_procurement_stats(db))
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements")
 async def create_procurement(request: Request):
     """仕入れ実績を記録"""

@@ -336,3 +336,35 @@ def test_procurement_updated_at_auto_sets(db):
     proc = add_procurement(db, title="更新テスト", purchase_price_jpy=1000)
     assert proc.updated_at is not None
     assert proc.title == "更新テスト"
+
+
+def test_procurement_stats(db):
+    """stats エンドポイントが件数・原価・ステータス別を正しく返す"""
+    from database.crud import get_procurement_stats
+
+    add_procurement(
+        db,
+        title="A",
+        purchase_price_jpy=3000,
+        consumption_tax_jpy=300,
+        platform="メルカリ",
+        status="listed",
+    )
+    add_procurement(
+        db,
+        title="B",
+        purchase_price_jpy=5000,
+        consumption_tax_jpy=500,
+        platform="ヤフオク",
+        status="sold",
+    )
+    add_procurement(
+        db, title="C", purchase_price_jpy=2000, platform="ラクマ", status="purchased"
+    )
+
+    s = get_procurement_stats(db)
+    assert s["total"] == 3
+    assert s["listed"] == 1
+    assert s["sold"] == 1
+    assert s["purchased"] == 1
+    assert s["total_cost_jpy"] == 3000 + 300 + 5000 + 500 + 2000
