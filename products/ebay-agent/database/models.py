@@ -126,6 +126,12 @@ class Procurement(Base):
         Integer, default=0
     )  # 消費税額（輸出免税還付用）
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # ── 古物台帳対応フィールド ──
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    seller_id: Mapped[str] = mapped_column(String(128), default="")
+    seller_url: Mapped[str] = mapped_column(Text, default="")
+    screenshot_path: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(32), default="")  # 古物13区分
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -902,6 +908,40 @@ def _migrate_shopify_columns(engine_instance) -> None:
             conn.commit()
 
 
+def _migrate_procurement_columns(engine_instance) -> None:
+    """procurements テーブルに古物台帳対応カラムを追加（冪等）"""
+    from sqlalchemy import text
+
+    with engine_instance.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(procurements)"))
+        existing = {row[1] for row in result.fetchall()}
+        stmts: list[str] = []
+        if "quantity" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1"
+            )
+        if "seller_id" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN seller_id VARCHAR(128) NOT NULL DEFAULT ''"
+            )
+        if "seller_url" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN seller_url TEXT NOT NULL DEFAULT ''"
+            )
+        if "screenshot_path" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN screenshot_path TEXT NOT NULL DEFAULT ''"
+            )
+        if "category" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN category VARCHAR(32) NOT NULL DEFAULT ''"
+            )
+        for stmt in stmts:
+            conn.execute(text(stmt))
+        if stmts:
+            conn.commit()
+
+
 def _migrate_repeat_engine(engine_instance) -> None:
     """sales_records にリピート購入エンジン Phase 1 用カラムを追加（冪等）。
 
@@ -1002,6 +1042,7 @@ def init_db():
     """テーブル作成"""
     Base.metadata.create_all(engine)
     _migrate_shopify_columns(engine)
+    _migrate_procurement_columns(engine)  # ← 古物台帳対応
     _migrate_repeat_engine(engine)
 
 
