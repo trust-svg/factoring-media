@@ -169,6 +169,19 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Mock exam */}
+        <button
+          onClick={() => router.push('/mock-exam')}
+          className="w-full bg-slate-700 hover:bg-slate-800 text-white rounded-2xl shadow-sm p-4 flex items-center gap-4 transition-colors"
+        >
+          <span className="text-4xl">📝</span>
+          <div className="text-left">
+            <div className="font-bold text-base">模擬試験</div>
+            <div className="text-slate-300 text-sm">4技能 · 本番形式</div>
+          </div>
+          <span className="ml-auto text-slate-400 text-xl">›</span>
+        </button>
+
       </div>
     </main>
   )
