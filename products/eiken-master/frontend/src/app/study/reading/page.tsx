@@ -41,6 +41,15 @@ function playSound(type: 'correct' | 'wrong') {
   }
 }
 
+function speakText(text: string): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = 'en-US'
+  utterance.rate = 0.85
+  window.speechSynthesis.speak(utterance)
+}
+
 interface WordPopup {
   word: string
   hint: VocabHintResponse | null
@@ -69,6 +78,7 @@ export default function ReadingPage() {
   const endedRef = useRef(false)
   const sessionIdRef = useRef<string | null>(null)
   const latestRef = useRef({ correctCount: 0, attempted: 0 })
+  const wrongOnce = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     Promise.all([apiStartSession('reading'), apiGetQuestions('reading', 5)])
@@ -131,6 +141,10 @@ export default function ReadingPage() {
       latestRef.current.correctCount += 1
     }
     playSound(isCorrect ? 'correct' : 'wrong')
+    if (!isCorrect && !wrongOnce.current.has(questions[index].id)) {
+      wrongOnce.current.add(questions[index].id)
+      setQuestions((prev) => [...prev, prev[index]])
+    }
     const timeSpent = Math.round((Date.now() - questionStartRef.current) / 1000)
     await apiRecordAttempt(sessionId, {
       question_id: questions[index].id,
@@ -401,7 +415,16 @@ export default function ReadingPage() {
             <>
               {/* English explanation */}
               <div className="bg-indigo-50 rounded-2xl p-5 border-l-4 border-indigo-400">
-                <p className="text-xs text-indigo-500 font-black uppercase tracking-wider mb-2">解説（英語）</p>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-xs text-indigo-500 font-black uppercase tracking-wider">解説（英語）</p>
+                  <button
+                    onClick={() => speakText(content.explanation)}
+                    className="text-indigo-400 hover:text-indigo-600 text-lg p-1"
+                    aria-label="音声で読む"
+                  >
+                    🔊
+                  </button>
+                </div>
                 <p className="text-base text-indigo-800 leading-relaxed">{content.explanation}</p>
               </div>
 

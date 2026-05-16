@@ -377,6 +377,73 @@ def explain_in_japanese(
     return json.loads(text.strip())
 
 
+_DAILY_PLAN_PROMPT = """\
+あなたは英検コーチです。以下のデータをもとに、今日の学習タスクリストをJSONで返してください。
+
+目標: 英検{grade_label}
+試験まで: {days}日
+1日の目標学習時間: {daily_minutes}分
+最近の技能別正答率:
+  リーディング: {reading}
+  リスニング: {listening}
+  ライティング: {writing}
+  スピーキング: {speaking}
+
+ルール:
+1. 合計時間が {daily_minutes} 分以内に収まるようにする
+2. 弱い技能（正答率が低いもの）を優先する
+3. 単語カード（flashcards）を毎日5〜10分含める
+4. 残り日数が30日以内なら全技能を満遍なく、それ以上なら弱点集中
+5. 1タスク5〜20分の範囲に収める
+
+以下のJSON形式のみで返してください（マークダウン不要）:
+{{
+  "message": "今日の学習への一言アドバイス（日本語、1〜2文）",
+  "tasks": [
+    {{"skill": "reading|listening|writing|speaking|flashcards", "description": "具体的な内容（日本語、20字以内）", "minutes": 10}},
+    ...
+  ]
+}}
+"""
+
+
+def generate_daily_plan(
+    grade: str,
+    days_remaining: int | None,
+    daily_minutes: int,
+    skill_breakdown: dict,
+) -> dict:
+    def fmt(v: float | None) -> str:
+        return f"{round(v * 100)}%" if v is not None else "データなし"
+
+    grade_label = "準2級" if grade == "pre2" else "2級"
+    days_str = f"{days_remaining}" if days_remaining is not None else "未設定"
+    msg = _get_anthropic().messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=400,
+        messages=[
+            {
+                "role": "user",
+                "content": _DAILY_PLAN_PROMPT.format(
+                    grade_label=grade_label,
+                    days=days_str,
+                    daily_minutes=daily_minutes,
+                    reading=fmt(skill_breakdown.get("reading")),
+                    listening=fmt(skill_breakdown.get("listening")),
+                    writing=fmt(skill_breakdown.get("writing")),
+                    speaking=fmt(skill_breakdown.get("speaking")),
+                ),
+            }
+        ],
+    )
+    text = msg.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return json.loads(text.strip())
+
+
 def generate_advice(
     grade: str,
     days_remaining: int | None,

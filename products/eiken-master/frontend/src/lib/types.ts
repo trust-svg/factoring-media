@@ -176,3 +176,14 @@ export interface VocabHintResponse {
   meaning: string
   example: string
 }
+
+export interface DailyTask {
+  skill: 'reading' | 'listening' | 'writing' | 'speaking' | 'flashcards'
+  description: string
+  minutes: number
+}
+
+export interface DailyPlan {
+  message: string
+  tasks: DailyTask[]
+}

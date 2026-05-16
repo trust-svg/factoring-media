@@ -74,6 +74,7 @@ export default function ListeningPage() {
   const endedRef = useRef(false)
   const sessionIdRef = useRef<string | null>(null)
   const latestRef = useRef({ correctCount: 0, attempted: 0 })
+  const wrongOnce = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     Promise.all([apiStartSession('listening'), apiGetQuestions('listening', 5)])
@@ -150,6 +151,10 @@ export default function ListeningPage() {
       latestRef.current.correctCount += 1
     }
     playSound(isCorrect ? 'correct' : 'wrong')
+    if (!isCorrect && !wrongOnce.current.has(questions[index].id)) {
+      wrongOnce.current.add(questions[index].id)
+      setQuestions((prev) => [...prev, prev[index]])
+    }
     const timeSpent = Math.round((Date.now() - questionStartRef.current) / 1000)
     await apiRecordAttempt(sessionId, {
       question_id: questions[index].id,
@@ -389,7 +394,16 @@ export default function ListeningPage() {
           {revealed && (
             <>
               <div className="bg-green-50 rounded-2xl p-5 border-l-4 border-green-400">
-                <p className="text-xs text-green-600 font-black uppercase tracking-wider mb-2">解説（英語）</p>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-xs text-green-600 font-black uppercase tracking-wider">解説（英語）</p>
+                  <button
+                    onClick={() => speakText(content.explanation)}
+                    className="text-green-400 hover:text-green-600 text-lg p-1"
+                    aria-label="音声で読む"
+                  >
+                    🔊
+                  </button>
+                </div>
                 <p className="text-base text-green-800 leading-relaxed">{content.explanation}</p>
               </div>
 

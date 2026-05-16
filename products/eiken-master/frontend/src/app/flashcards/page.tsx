@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiGetDueFlashcards, apiReviewFlashcard } from '@/lib/api'
+import { apiGetDueFlashcards, apiReviewFlashcard, apiSeedVocab } from '@/lib/api'
 import type { Flashcard } from '@/lib/types'
+import { useAuth } from '@/providers/AuthProvider'
 
 interface QualityOption {
   q: number
@@ -22,6 +23,7 @@ const QUALITY_OPTIONS: QualityOption[] = [
 
 export default function FlashcardsPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [cards, setCards] = useState<Flashcard[]>([])
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
@@ -30,6 +32,8 @@ export default function FlashcardsPage() {
   const [reviewError, setReviewError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+  const [seedDone, setSeedDone] = useState(false)
 
   useEffect(() => {
     apiGetDueFlashcards()
@@ -85,9 +89,27 @@ export default function FlashcardsPage() {
     )
   }
 
+  const handleSeedVocab = async () => {
+    if (!user || seeding) return
+    setSeeding(true)
+    try {
+      const result = await apiSeedVocab(user.grade)
+      setSeedDone(true)
+      if (result.created > 0) {
+        const fresh = await apiGetDueFlashcards()
+        setCards(fresh)
+        setIndex(0)
+        setDone(false)
+      }
+    } catch {
+      // silently ignore
+    }
+    setSeeding(false)
+  }
+
   if (done || cards.length === 0) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-indigo-50 gap-5">
+      <main className="min-h-screen flex flex-col items-center justify-center bg-indigo-50 gap-5 px-4">
         <div className="text-6xl">{cards.length === 0 ? '😴' : '🎉'}</div>
         <h2 className="text-xl font-bold text-gray-700">
           {cards.length === 0
@@ -98,6 +120,21 @@ export default function FlashcardsPage() {
           <p className="text-gray-400 text-sm">
             {cards.length} 枚のカードを復習しました
           </p>
+        )}
+        {cards.length === 0 && !seedDone && (
+          <div className="text-center space-y-3">
+            <p className="text-gray-400 text-sm">英検レベルの単語リストをインポートして始めよう！</p>
+            <button
+              onClick={handleSeedVocab}
+              disabled={seeding}
+              className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold text-sm disabled:opacity-50"
+            >
+              {seeding ? '追加中...' : '📚 英検単語をインポート'}
+            </button>
+          </div>
+        )}
+        {seedDone && cards.length === 0 && (
+          <p className="text-green-600 text-sm font-bold">✓ 単語を追加しました！明日から復習できます</p>
         )}
         <button
           onClick={() => router.push('/home')}

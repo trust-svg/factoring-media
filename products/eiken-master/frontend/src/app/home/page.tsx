@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiGetProgress } from '@/lib/api'
+import { apiGetProgress, apiGetTodayPlan } from '@/lib/api'
 import { useAuth } from '@/providers/AuthProvider'
-import type { ProgressData, Skill } from '@/lib/types'
+import type { DailyPlan, DailyTask, ProgressData, Skill } from '@/lib/types'
 import TutorialModal from '@/components/TutorialModal'
 
 /* ── Circular progress ring ─────────────────── */
@@ -239,6 +239,49 @@ function BigCta({
   )
 }
 
+/* ── Daily plan card ─────────────────────────── */
+const SKILL_TASK_META: Record<string, { emoji: string; color: string }> = {
+  reading:   { emoji: '📖', color: 'text-blue-600' },
+  listening: { emoji: '🎧', color: 'text-teal-600' },
+  writing:   { emoji: '✍️', color: 'text-orange-600' },
+  speaking:  { emoji: '🎤', color: 'text-pink-600' },
+  flashcards: { emoji: '🃏', color: 'text-indigo-600' },
+}
+
+function DailyPlanCard({ plan }: { plan: DailyPlan }) {
+  const total = plan.tasks.reduce((s, t) => s + t.minutes, 0)
+  return (
+    <div
+      className="card-premium rounded-3xl p-5 animate-slide-up"
+      style={{
+        background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE, #EDE9FE)',
+        boxShadow: '0 4px 20px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.9)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🤖</span>
+          <p className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">今日のAIプラン</p>
+        </div>
+        <span className="text-xs text-indigo-400 font-bold">{total}分</span>
+      </div>
+      <p className="text-indigo-800 text-sm font-semibold leading-relaxed mb-4">{plan.message}</p>
+      <div className="space-y-2">
+        {plan.tasks.map((task: DailyTask, i: number) => {
+          const meta = SKILL_TASK_META[task.skill] ?? { emoji: '📌', color: 'text-gray-600' }
+          return (
+            <div key={i} className="flex items-center gap-3 bg-white/70 rounded-2xl px-4 py-2.5">
+              <span className="text-base shrink-0">{meta.emoji}</span>
+              <p className={`text-sm font-bold flex-1 ${meta.color}`}>{task.description}</p>
+              <span className="text-xs text-gray-400 font-bold shrink-0">{task.minutes}分</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /* ── Days until exam ──────────────────────────── */
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null
@@ -251,6 +294,7 @@ export default function HomePage() {
   const { user, loading, logout } = useAuth()
   const router = useRouter()
   const [progress, setProgress] = useState<ProgressData | null>(null)
+  const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null)
   const hasRedirected = useRef(false)
 
   useEffect(() => {
@@ -263,6 +307,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!loading && user) {
       apiGetProgress().then(setProgress).catch(() => {})
+      apiGetTodayPlan().then(setDailyPlan).catch(() => {})
     }
   }, [loading, user])
 
@@ -308,7 +353,7 @@ export default function HomePage() {
         </div>
 
         {/* Content — desktop: 2-col grid; mobile: stack */}
-        <div className="relative max-w-5xl mx-auto px-4 lg:px-8 pt-10 pb-16 lg:pb-20">
+        <div className="relative max-w-5xl mx-auto px-4 lg:px-8 pt-10 pb-8 lg:pb-10">
 
           {/* Top bar */}
           <div className="flex items-start justify-between mb-6 lg:mb-8 animate-slide-up">
@@ -390,10 +435,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Wave divider — inside hero so transparent arc shows hero purple, not bg-animated */}
-        <svg viewBox="0 0 1440 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute bottom-0 left-0 w-full" style={{ display: 'block' }}>
-          <path d="M0 0 C360 48 1080 48 1440 0 L1440 48 L0 48 Z" fill="#EDE9FE" />
-        </svg>
       </div>
 
       {/* ══════════ MAIN CONTENT ══════════ */}
@@ -404,6 +445,9 @@ export default function HomePage() {
 
           {/* ── Left column (utility) — shown after missions on mobile ── */}
           <div className="space-y-4 order-2 lg:order-1">
+
+            {/* Daily AI plan */}
+            {dailyPlan && <DailyPlanCard plan={dailyPlan} />}
 
             {/* AI praise */}
             {progress?.praise && (

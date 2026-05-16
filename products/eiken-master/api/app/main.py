@@ -12,6 +12,7 @@ from app.routers import (
     flashcards,
     push,
     questions,
+    schedule,
     sessions,
     vocabulary,
 )
@@ -46,6 +47,7 @@ app.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
 app.include_router(ai.router, prefix="/ai", tags=["ai"])
 app.include_router(vocabulary.router, prefix="/vocabulary", tags=["vocabulary"])
 app.include_router(push.router, prefix="/push", tags=["push"])
+app.include_router(schedule.router, prefix="/schedule", tags=["schedule"])
 
 
 @app.get("/health")

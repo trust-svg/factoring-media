@@ -64,6 +64,33 @@ def review_flashcard(
     return card
 
 
+@router.post("/seed-vocab")
+def seed_vocab(
+    grade: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    from app.data.eiken_vocab import EIKEN_VOCAB_PRE2, EIKEN_VOCAB_2
+
+    if grade not in ("pre2", "2"):
+        raise HTTPException(status_code=400, detail="grade must be 'pre2' or '2'")
+    vocab = EIKEN_VOCAB_PRE2 if grade == "pre2" else EIKEN_VOCAB_2
+    created = 0
+    for word, meaning in vocab:
+        exists = (
+            db.query(Flashcard)
+            .filter(Flashcard.user_id == user.id, Flashcard.front == word)
+            .first()
+        )
+        if not exists:
+            db.add(
+                Flashcard(user_id=user.id, front=word, back=meaning, source="builtin")
+            )
+            created += 1
+    db.commit()
+    return {"created": created}
+
+
 @router.post("/mine", status_code=201)
 def mine_words(
     body: MineRequest,

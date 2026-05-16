@@ -1,5 +1,6 @@
 import type {
   AudioResponse,
+  DailyPlan,
   ErrorData,
   ExplainJaResponse,
   Flashcard,
@@ -178,6 +179,11 @@ export const apiVocabHint = (word: string) =>
     method: 'POST',
     body: JSON.stringify({ word }),
   })
+
+export const apiSeedVocab = (grade: Grade) =>
+  request<{ created: number }>(`/flashcards/seed-vocab?grade=${grade}`, { method: 'POST' })
+
+export const apiGetTodayPlan = () => request<DailyPlan>('/schedule/today')
 
 export const apiGetVocabClusters = (grade?: string) =>
   request<VocabClustersResponse>(
