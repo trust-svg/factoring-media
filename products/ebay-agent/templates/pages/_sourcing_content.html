@@ -343,7 +343,7 @@ function renderProc() {
                         ${p.condition?`<div style="margin-top:4px;">📦 ${esc(p.condition)}</div>`:''}
                         ${p.stock_number ? `<div style="margin-top:4px;">🔢 ${esc(p.stock_number)}</div>` : ''}
                         ${p.location ? `<div style="margin-top:4px;">📍 ${esc(p.location)}</div>` : ''}
-                        ${p.ebay_item_id ? `<div style="margin-top:4px;">🏷 eBay: <a href="https://www.ebay.com/itm/${esc(p.ebay_item_id)}" target="_blank" style="color:var(--accent-blue);">${esc(p.ebay_item_id)}</a></div>` : ''}
+                        ${p.ebay_item_id ? `<div style="margin-top:4px;">🏷 eBay: <a href="https://www.ebay.com/itm/${encodeURIComponent(p.ebay_item_id)}" target="_blank" style="color:var(--accent-blue);">${esc(p.ebay_item_id)}</a></div>` : ''}
                         ${p.ebay_price_usd ? `<div style="margin-top:4px;">💵 $${p.ebay_price_usd.toFixed(2)}</div>` : ''}
                         ${p.seller_id?`<div style="margin-top:4px;">👤 ${esc(p.seller_id)}${p.seller_url?` <a href="${esc(p.seller_url)}" target="_blank" style="color:var(--accent-blue);">↗</a>`:''}</div>`:''}
                         ${p.category?`<div style="margin-top:4px;">🏷️ ${esc(p.category)}</div>`:''}
@@ -398,12 +398,26 @@ function toggleProcDetail(id) {
     else{d.style.display='none';c.style.transform='';}
 }
 function filterProc(tab) { currentFilter=tab; document.querySelectorAll('.filter-pills .pill').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); renderProc(); }
-function toggleAddForm() { const f=document.getElementById('addForm'); f.style.display=f.style.display==='none'?'block':'none'; }
+function toggleAddForm() {
+    const f=document.getElementById('addForm');
+    const opening=f.style.display==='none';
+    f.style.display=opening?'block':'none';
+    if(!opening){
+        pendingProcScreenshot=null;
+        document.getElementById('procScreenshotPreview').style.display='none';
+        document.getElementById('procScreenshotPrompt').style.display='block';
+        document.getElementById('procScreenshotInput').value='';
+        document.getElementById('procUrlDetectStatus').innerHTML='';
+    }
+}
 
 async function submitProcurement() {
     const body = { platform:document.getElementById('procPlatform').value, title:document.getElementById('procTitle').value, sku:document.getElementById('procSku').value, purchase_price_jpy:parseInt(document.getElementById('procPrice').value)||0, consumption_tax_jpy:parseInt(document.getElementById('procTax').value)||0, shipping_cost_jpy:parseInt(document.getElementById('procShipping').value)||0, other_cost_jpy:parseInt(document.getElementById('procOther').value)||0, purchase_date:document.getElementById('procDate').value, url:document.getElementById('procUrl').value, notes:document.getElementById('procNotes').value, seller_id:document.getElementById('procSellerId').value, quantity:parseInt(document.getElementById('procQty').value)||1, category:document.getElementById('procCategory').value, condition:document.getElementById('procCondition').value, stock_number:document.getElementById('procStockNo').value, location:document.getElementById('procLocation').value, ebay_item_id:document.getElementById('procEbayItemId').value, ebay_price_usd:parseFloat(document.getElementById('procEbayPrice').value)||0 };
     if(!body.title||!body.purchase_price_jpy){alert(t('Title and price required','商品名と仕入価格は必須です'));return;}
-    const result = await apiFetch('/api/procurements',{method:'POST',body:JSON.stringify(body)});
+    let result;
+    try {
+        result = await apiFetch('/api/procurements',{method:'POST',body:JSON.stringify(body)});
+    } catch(e) { alert(t('Save failed','保存に失敗しました: ')+e.message); return; }
     if (pendingProcScreenshot && result && result.id) await uploadProcScreenshot(result.id);
     document.getElementById('addForm').style.display='none';
     ['procTitle','procSku','procPrice','procTax','procShipping','procOther','procUrl','procNotes','procSellerId'].forEach(id=>{const el=document.getElementById(id);if(el.type==='number')el.value='0';else el.value='';});
@@ -453,7 +467,8 @@ function closeEditProc(){document.getElementById('editProcModal').style.display=
 async function saveEditProc() {
     const id=document.getElementById('editProcId').value;
     const body={platform:document.getElementById('editProcPlatform').value,status:document.getElementById('editProcStatus').value,title:document.getElementById('editProcTitle').value,sku:document.getElementById('editProcSku').value,purchase_price_jpy:parseInt(document.getElementById('editProcPrice').value)||0,consumption_tax_jpy:parseInt(document.getElementById('editProcTax').value)||0,shipping_cost_jpy:parseInt(document.getElementById('editProcShip').value)||0,other_cost_jpy:parseInt(document.getElementById('editProcOther').value)||0,purchase_date:document.getElementById('editProcDate').value,received_date:document.getElementById('editProcRecvDate').value,url:document.getElementById('editProcUrl').value,notes:document.getElementById('editProcNotes').value,seller_id:document.getElementById('editProcSellerId').value,quantity:parseInt(document.getElementById('editProcQty').value)||1,category:document.getElementById('editProcCategory').value,condition:document.getElementById('editProcCondition').value,stock_number:document.getElementById('editProcStockNo').value,location:document.getElementById('editProcLocation').value,ebay_item_id:document.getElementById('editProcEbayItemId').value,ebay_order_id:document.getElementById('editProcEbayOrderId').value,ebay_price_usd:parseFloat(document.getElementById('editProcEbayPrice').value)||0};
-    await apiFetch(`/api/procurements/${id}`,{method:'PUT',body:JSON.stringify(body)});
+    try { await apiFetch(`/api/procurements/${id}`,{method:'PUT',body:JSON.stringify(body)}); }
+    catch(e) { alert(t('Save failed','保存に失敗しました: ')+e.message); return; }
     closeEditProc(); loadProcurements();
 }
 async function deleteProcurement(){const id=document.getElementById('editProcId').value;if(!confirm(t('Delete this record?','この仕入れ記録を削除しますか？')))return;await apiFetch(`/api/procurements/${id}`,{method:'DELETE'});closeEditProc();loadProcurements();}
@@ -534,7 +549,9 @@ async function uploadProcScreenshot(procId) {
     if (!pendingProcScreenshot) return;
     const fd = new FormData();
     fd.append('file', pendingProcScreenshot, pendingProcScreenshot.name);
-    await fetch(`/api/procurements/${procId}/screenshot`, { method: 'POST', body: fd });
+    try {
+        await fetch(`/api/procurements/${procId}/screenshot`, { method: 'POST', body: fd });
+    } catch(e) { console.error('Screenshot upload failed:', e); }
     pendingProcScreenshot = null;
 }
 </script>

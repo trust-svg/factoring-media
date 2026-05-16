@@ -114,6 +114,15 @@
     .proc-btn.danger { background: #EF4444; }
     .proc-btn.danger:hover { background: #DC2626; }
 
+    /* 在庫台帳タブ (stock.js) と共通 */
+    .proc-edit-btn {
+        background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 5px;
+        padding: 3px 10px; font-size: 11px; font-weight: 600;
+        cursor: pointer; color: #475569; white-space: nowrap;
+        font-family: 'Inter', sans-serif;
+    }
+    .proc-edit-btn:hover { background: #EFF6FF; border-color: #93C5FD; color: #2563EB; }
+
     /* ── Table ── */
     .proc-table { width: 100%; border-collapse: collapse; }
     .proc-table th {
@@ -160,6 +169,9 @@
     .ps-received   { background: #ECFDF5; color: #15803D; }
     .ps-listed     { background: #F3F0FF; color: #7C3AED; }
     .ps-sold       { background: #DCFCE7; color: #15803D; }
+    .ps-returned   { background: #FEF2F2; color: #B91C1C; }
+    .ps-cancelled  { background: #F3F4F6; color: #6B7280; }
+    .ps-other      { background: #F9FAFB; color: #374151; }
 
     /* ── Margin calc card ── */
     .calc-card {
@@ -221,6 +233,14 @@
 {% endblock %}
 
 {% block content %}
+
+<!-- タブバー -->
+<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px;">
+    <button id="tabRecords" onclick="switchTab('records')" style="padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:#2563EB;border-bottom:2px solid #2563EB;margin-bottom:-2px;">仕入れ記録</button>
+    <button id="tabLedger"  onclick="switchTab('ledger')"  style="padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:#64748B;border-bottom:2px solid transparent;margin-bottom:-2px;">在庫台帳</button>
+</div>
+
+<div id="panelRecords">
 
 <!-- KPI strip -->
 <div class="proc-kpi-row" id="procKpi">
@@ -469,6 +489,12 @@
             </div>
         </div>
     </div>
+</div>
+
+</div><!-- /panelRecords -->
+
+<div id="panelLedger" style="display:none;">
+{% include "pages/_ledger_content.html" %}
 </div>
 
 {% endblock %}
@@ -790,6 +816,16 @@ function esc(text) {
     const div = document.createElement('div');
     div.textContent = text || '';
     return div.innerHTML;
+}
+
+function switchTab(tab) {
+    const isRecords = tab === 'records';
+    document.getElementById('panelRecords').style.display = isRecords ? '' : 'none';
+    document.getElementById('panelLedger').style.display  = isRecords ? 'none' : '';
+    const activeStyle   = 'padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:#2563EB;border-bottom:2px solid #2563EB;margin-bottom:-2px;';
+    const inactiveStyle = 'padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:#64748B;border-bottom:2px solid transparent;margin-bottom:-2px;';
+    document.getElementById('tabRecords').style.cssText = isRecords ? activeStyle : inactiveStyle;
+    document.getElementById('tabLedger').style.cssText  = isRecords ? inactiveStyle : activeStyle;
 }
 </script>
 {% endblock %}
