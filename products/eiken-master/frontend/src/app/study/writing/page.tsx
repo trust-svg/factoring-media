@@ -6,6 +6,7 @@ import {
   apiEndSession,
   apiGenerateQuestion,
   apiGetQuestions,
+  apiPraise,
   apiRecordAttempt,
   apiScoreWriting,
   apiStartSession,
@@ -26,6 +27,7 @@ export default function WritingPage() {
   const [loading, setLoading] = useState(true)
   const [scoring, setScoring] = useState(false)
   const [error, setError] = useState('')
+  const [praise, setPraise] = useState<string | null>(null)
   const [breakDialog, setBreakDialog] = useState(false)
   const startRef = useRef<number>(Date.now())
   const endedRef = useRef(false)
@@ -97,6 +99,9 @@ export default function WritingPage() {
         correct_count: result.is_passing ? 1 : 0,
       }).catch(() => {})
       endedRef.current = true
+      apiPraise({ skill: 'writing', is_passing: result.is_passing, score_pct: result.score / result.max_score, streak: 0 })
+        .then((r) => setPraise(r.praise))
+        .catch(() => {})
     } catch (err) {
       setError(err instanceof Error ? err.message : '採点に失敗しました')
     }
@@ -224,6 +229,13 @@ export default function WritingPage() {
                   </div>
                 ))}
               </div>
+
+              {praise && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start">
+                  <span className="text-xl">🌟</span>
+                  <p className="text-sm text-amber-800 leading-relaxed">{praise}</p>
+                </div>
+              )}
 
               <button onClick={() => router.push('/home')} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">
                 ホームへ

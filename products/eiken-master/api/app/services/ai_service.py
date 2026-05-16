@@ -240,6 +240,81 @@ def generate_question(skill: str, grade: str) -> dict:
     return json.loads(text.strip())
 
 
+_PRAISE_PROMPT = """\
+あなたは英検コーチです。学習者が今セッションを完了しました。以下のデータを参考に、\
+1〜2文の温かい日本語で褒めてください。具体的な数字（スコアや連続日数）を使い、\
+自信が持てる言葉で締めてください。文章のみで返してください。
+
+技能: {skill_ja}
+結果: {result}（スコア {score_pct}%）
+連続学習日数: {streak}日
+"""
+
+_PRAISE_STREAK_PROMPT = """\
+あなたは英検コーチです。学習者の進捗をほめる1〜2文の日本語メッセージを返してください。\
+連続学習日数や合格確率を具体的に使い、明るく励ましてください。文章のみ。
+
+連続学習日数: {streak}日
+合格確率: {prob}
+目標: 英検{grade_label}
+"""
+
+_SKILL_JA = {
+    "reading": "リーディング",
+    "listening": "リスニング",
+    "writing": "ライティング",
+    "speaking": "スピーキング",
+}
+
+
+def generate_praise_for_result(
+    skill: str, is_passing: bool, score_pct: float, streak: int
+) -> str:
+    result_str = "合格ライン達成" if is_passing else "惜しい！もう少し"
+    msg = _get_anthropic().messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=120,
+        messages=[
+            {
+                "role": "user",
+                "content": _PRAISE_PROMPT.format(
+                    skill_ja=_SKILL_JA.get(skill, skill),
+                    result=result_str,
+                    score_pct=round(score_pct * 100),
+                    streak=streak,
+                ),
+            }
+        ],
+    )
+    return msg.content[0].text.strip()
+
+
+def generate_praise_for_progress(
+    grade: str, streak: int, pass_probability: float | None
+) -> str:
+    grade_label = "準2級" if grade == "pre2" else "2級"
+    prob_str = (
+        f"{round(pass_probability * 100)}%"
+        if pass_probability is not None
+        else "計測中"
+    )
+    msg = _get_anthropic().messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=120,
+        messages=[
+            {
+                "role": "user",
+                "content": _PRAISE_STREAK_PROMPT.format(
+                    streak=streak,
+                    prob=prob_str,
+                    grade_label=grade_label,
+                ),
+            }
+        ],
+    )
+    return msg.content[0].text.strip()
+
+
 def generate_advice(
     grade: str,
     days_remaining: int | None,

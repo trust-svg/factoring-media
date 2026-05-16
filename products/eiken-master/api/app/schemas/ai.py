@@ -34,3 +34,14 @@ class AudioRequest(BaseModel):
 class AudioResponse(BaseModel):
     audio_base64: str
     duration_hint_seconds: Optional[float] = None
+
+
+class PraiseRequest(BaseModel):
+    skill: str
+    is_passing: bool
+    score_pct: float  # 0.0-1.0
+    streak: int = 0
+
+
+class PraiseResponse(BaseModel):
+    praise: str

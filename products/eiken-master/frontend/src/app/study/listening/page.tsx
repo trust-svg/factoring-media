@@ -7,6 +7,7 @@ import {
   apiGenerateAudio,
   apiGenerateQuestion,
   apiGetQuestions,
+  apiPraise,
   apiRecordAttempt,
   apiStartSession,
 } from '@/lib/api'
@@ -34,6 +35,7 @@ export default function ListeningPage() {
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const [breakDialog, setBreakDialog] = useState(false)
+  const [praise, setPraise] = useState<string | null>(null)
   const startRef = useRef<number>(Date.now())
   const questionStartRef = useRef<number>(Date.now())
   const prevAudioUrl = useRef<string | null>(null)
@@ -112,6 +114,13 @@ export default function ListeningPage() {
       correct_count: latestRef.current.correctCount,
       pomodoro_completed: pomodoro,
     }).catch(() => {})
+    const total = latestRef.current.attempted
+    if (total > 0) {
+      const pct = latestRef.current.correctCount / total
+      apiPraise({ skill: 'listening', is_passing: pct >= 0.6, score_pct: pct, streak: 0 })
+        .then((r) => setPraise(r.praise))
+        .catch(() => {})
+    }
     setDone(true)
   }
 
@@ -201,6 +210,12 @@ export default function ListeningPage() {
         </h2>
         {questions.length > 0 && (
           <p className="text-gray-500 text-sm">{questions.length}問中 {correctCount}問正解</p>
+        )}
+        {praise && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 max-w-xs flex gap-3 items-start">
+            <span className="text-xl">🌟</span>
+            <p className="text-sm text-amber-800 leading-relaxed">{praise}</p>
+          </div>
         )}
         <button onClick={() => router.push('/home')} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold">
           ホームへ

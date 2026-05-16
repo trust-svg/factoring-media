@@ -2,6 +2,7 @@ import type {
   AudioResponse,
   Flashcard,
   Grade,
+  PraiseResponse,
   ProgressData,
   Question,
   Session,
@@ -71,6 +72,17 @@ export const apiGetProgress = () => request<ProgressData>('/analytics/progress')
 // Question generation
 export const apiGenerateQuestion = (skill: Skill) =>
   request<Question>(`/questions/generate?skill=${skill}`, { method: 'POST' })
+
+export const apiPraise = (data: {
+  skill: Skill
+  is_passing: boolean
+  score_pct: number
+  streak: number
+}) =>
+  request<PraiseResponse>('/ai/praise', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
 
 // Flashcards
 export const apiGetDueFlashcards = () =>

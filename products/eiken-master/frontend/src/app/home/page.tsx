@@ -123,6 +123,14 @@ export default function HomePage() {
           )}
         </button>
 
+        {/* Praise card */}
+        {progress?.praise && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex gap-3 items-start">
+            <span className="text-xl mt-0.5">🌟</span>
+            <p className="text-sm text-amber-800 leading-relaxed">{progress.praise}</p>
+          </div>
+        )}
+
         {/* AI Advice */}
         {progress?.advice && (
           <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3">

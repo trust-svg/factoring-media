@@ -262,6 +262,17 @@ export default function ProgressPage() {
           </div>
         )}
 
+        {/* Praise card */}
+        {data?.praise && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start">
+            <span className="text-2xl">🌟</span>
+            <div>
+              <p className="text-xs text-amber-500 mb-1">今日のひとこと</p>
+              <p className="text-sm text-amber-800 leading-relaxed">{data.praise}</p>
+            </div>
+          </div>
+        )}
+
         {/* AI Advice */}
         {data?.advice && (
           <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">

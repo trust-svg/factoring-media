@@ -98,8 +98,9 @@ def get_progress(user: User = Depends(current_user), db: Session = Depends(get_d
         db.query(StudySession).filter(StudySession.user_id == user.id).count()
     )
 
-    # AI advice (Claude Haiku) — returns None if API unavailable
+    # AI advice + praise (Claude Haiku) — returns None if API unavailable
     advice: Optional[str] = None
+    praise: Optional[str] = None
     try:
         advice = ai_service.generate_advice(
             grade=user.grade,
@@ -107,6 +108,14 @@ def get_progress(user: User = Depends(current_user), db: Session = Depends(get_d
             pass_probability=pass_probability,
             skill_breakdown=skill_breakdown,
             streak=streak,
+        )
+    except Exception:
+        pass
+    try:
+        praise = ai_service.generate_praise_for_progress(
+            grade=user.grade,
+            streak=streak,
+            pass_probability=pass_probability,
         )
     except Exception:
         pass
@@ -120,5 +129,6 @@ def get_progress(user: User = Depends(current_user), db: Session = Depends(get_d
         "total_sessions": total_sessions,
         "grade": user.grade,
         "advice": advice,
+        "praise": praise,
         "recent_dates": recent_dates,
     }

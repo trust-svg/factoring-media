@@ -9,6 +9,8 @@ from app.models.user import User
 from app.schemas.ai import (
     AudioRequest,
     AudioResponse,
+    PraiseRequest,
+    PraiseResponse,
     WritingScoreRequest,
     WritingScoreResponse,
     SpeakingScoreResponse,
@@ -56,6 +58,26 @@ def generate_audio(
         logger.exception("generate_audio failed")
         raise HTTPException(
             status_code=502, detail="Audio generation temporarily unavailable"
+        )
+
+
+@router.post("/praise", response_model=PraiseResponse)
+def praise(
+    body: PraiseRequest,
+    user: User = Depends(current_user),
+):
+    try:
+        text = ai_service.generate_praise_for_result(
+            skill=body.skill,
+            is_passing=body.is_passing,
+            score_pct=body.score_pct,
+            streak=body.streak,
+        )
+        return PraiseResponse(praise=text)
+    except Exception:
+        logger.exception("praise failed for skill=%s", body.skill)
+        raise HTTPException(
+            status_code=502, detail="Praise generation temporarily unavailable"
         )
 
 

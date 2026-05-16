@@ -122,5 +122,10 @@ export interface ProgressData {
   total_sessions: number
   grade: string
   advice: string | null
+  praise: string | null
   recent_dates: string[]
+}
+
+export interface PraiseResponse {
+  praise: string
 }
