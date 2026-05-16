@@ -1,0 +1,6 @@
+.env
+.gsc_token.json
+venv/
+logs/
+__pycache__/
+*.pyc
