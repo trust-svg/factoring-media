@@ -248,7 +248,7 @@ const SKILL_TASK_META: Record<string, { emoji: string; color: string }> = {
   flashcards: { emoji: '🃏', color: 'text-indigo-600' },
 }
 
-function DailyPlanCard({ plan }: { plan: DailyPlan }) {
+function DailyPlanCard({ plan, onRefresh, refreshing }: { plan: DailyPlan; onRefresh: () => void; refreshing: boolean }) {
   const total = plan.tasks.reduce((s, t) => s + t.minutes, 0)
   return (
     <div
@@ -263,7 +263,18 @@ function DailyPlanCard({ plan }: { plan: DailyPlan }) {
           <span className="text-lg">🤖</span>
           <p className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">今日のAIプラン</p>
         </div>
-        <span className="text-xs text-indigo-400 font-bold">{total}分</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-indigo-400 font-bold">{total}分</span>
+          <button
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="text-indigo-400 hover:text-indigo-600 disabled:opacity-40 text-base transition-colors leading-none"
+            aria-label="プランを再生成"
+            title="プランを再生成"
+          >
+            {refreshing ? '…' : '↻'}
+          </button>
+        </div>
       </div>
       <p className="text-indigo-800 text-sm font-semibold leading-relaxed mb-4">{plan.message}</p>
       <div className="space-y-2">
@@ -295,6 +306,7 @@ export default function HomePage() {
   const router = useRouter()
   const [progress, setProgress] = useState<ProgressData | null>(null)
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null)
+  const [planRefreshing, setPlanRefreshing] = useState(false)
   const hasRedirected = useRef(false)
 
   useEffect(() => {
@@ -447,7 +459,23 @@ export default function HomePage() {
           <div className="space-y-4 order-2 lg:order-1">
 
             {/* Daily AI plan */}
-            {dailyPlan && <DailyPlanCard plan={dailyPlan} />}
+            {dailyPlan && (
+              <DailyPlanCard
+                plan={dailyPlan}
+                refreshing={planRefreshing}
+                onRefresh={async () => {
+                  setPlanRefreshing(true)
+                  try {
+                    const fresh = await apiGetTodayPlan()
+                    setDailyPlan(fresh)
+                  } catch {
+                    // silently ignore
+                  } finally {
+                    setPlanRefreshing(false)
+                  }
+                }}
+              />
+            )}
 
             {/* AI praise */}
             {progress?.praise && (

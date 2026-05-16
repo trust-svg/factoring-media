@@ -23,6 +23,7 @@ function extractKeys(sub: PushSubscription): { p256dh: string; auth: string } {
 export default function SettingsPage() {
   const router = useRouter()
   const { user, setUser } = useAuth()
+  const [grade, setGrade] = useState<'pre2' | '2'>(user?.grade ?? 'pre2')
   const [examDate, setExamDate] = useState(user?.exam_date ?? '')
   const [dailyGoal, setDailyGoal] = useState(user?.daily_goal_minutes ?? 30)
   const [saving, setSaving] = useState(false)
@@ -110,7 +111,6 @@ export default function SettingsPage() {
 
   if (!user) return null
 
-  const gradeLabel = user.grade === 'pre2' ? '準2級' : '2級'
   const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
 
   const handleSave = async () => {
@@ -118,6 +118,7 @@ export default function SettingsPage() {
     setSaved(false)
     try {
       const updated = await apiUpdateMe({
+        grade,
         exam_date: examDate || null,
         daily_goal_minutes: dailyGoal,
       })
@@ -142,11 +143,28 @@ export default function SettingsPage() {
         <div className="bg-white rounded-2xl p-5 shadow-sm">
           <p className="text-xs text-gray-400 mb-1">ユーザー名</p>
           <p className="font-semibold text-gray-800">{user.username}</p>
-          <p className="text-xs text-gray-400 mt-3 mb-1">目標</p>
-          <p className="font-semibold text-gray-800">英検 {gradeLabel}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+          <div>
+            <label className="text-xs text-gray-400 block mb-1.5">目標級</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([['pre2', '準2級'], ['2', '2級']] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setGrade(val)}
+                  className={`py-2.5 rounded-xl text-sm font-bold border-2 transition-colors ${
+                    grade === val
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                  }`}
+                >
+                  英検 {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <label className="text-xs text-gray-400 block mb-1.5">試験日</label>
             <input

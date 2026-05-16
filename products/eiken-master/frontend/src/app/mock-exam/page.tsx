@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   apiEndSession,
-  apiGenerateAudio,
   apiGenerateQuestion,
   apiGetQuestions,
   apiPraise,
@@ -109,9 +108,6 @@ function TimerBar({
             style={{ width: `${pct}%` }}
           />
         </div>
-        {paused && (
-          <span className="text-xs text-gray-400 whitespace-nowrap">音声生成中…</span>
-        )}
       </div>
     </div>
   )
@@ -274,11 +270,13 @@ function ReadingSection({ onDone }: { onDone: (r: SectionResult) => void }) {
 }
 
 // ─── Listening Section ──────────────────────────────────────────────────────
-function base64ToAudioUrl(b64: string): string {
-  const bytes = atob(b64)
-  const arr = new Uint8Array(bytes.length)
-  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
-  return URL.createObjectURL(new Blob([arr], { type: 'audio/mpeg' }))
+function speakText(text: string): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = 'en-US'
+  utterance.rate = 0.85
+  window.speechSynthesis.speak(utterance)
 }
 
 function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
@@ -286,8 +284,6 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
   const [index, setIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [revealed, setRevealed] = useState(false)
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [audioLoading, setAudioLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [expired, setExpired] = useState(false)
@@ -295,8 +291,6 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
   const startRef = useRef(Date.now())
   const endedRef = useRef(false)
   const resultRef = useRef({ correct: 0, total: 0 })
-  const mountedRef = useRef(true)
-  const audioUrlRef = useRef<string | null>(null)
 
   const finish = useCallback(async () => {
     if (endedRef.current) return
@@ -313,28 +307,6 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
     onDone({ skill: 'listening', score_pct, is_passing: score_pct >= 0.6 })
   }, [onDone])
 
-  const loadAudio = useCallback(async (q: Question) => {
-    const content = q.content as ListeningContent
-    const text = q.audio_text || content.question
-    setAudioLoading(true)
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current)
-      audioUrlRef.current = null
-      setAudioUrl(null)
-    }
-    try {
-      const res = await apiGenerateAudio(text)
-      if (!mountedRef.current) return
-      const url = base64ToAudioUrl(res.audio_base64)
-      audioUrlRef.current = url
-      setAudioUrl(url)
-    } catch {
-      // non-fatal
-    } finally {
-      if (mountedRef.current) setAudioLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
     Promise.all([apiStartSession('listening'), apiGetQuestions('listening', 5)])
       .then(async ([session, qs]) => {
@@ -342,13 +314,11 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
         const finalQs =
           qs.length > 0 ? qs : [await apiGenerateQuestion('listening')]
         setQuestions(finalQs)
-        if (finalQs.length > 0) loadAudio(finalQs[0])
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
     return () => {
-      mountedRef.current = false
-      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+      window.speechSynthesis?.cancel()
       if (!endedRef.current && sessionIdRef.current) {
         endedRef.current = true
         apiEndSession(sessionIdRef.current, {
@@ -358,7 +328,7 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
         }).catch(() => {})
       }
     }
-  }, [loadAudio])
+  }, [])
 
   const handleExpire = useCallback(() => {
     setExpired(true)
@@ -384,14 +354,13 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
   }
 
   const next = () => {
+    window.speechSynthesis?.cancel()
     if (index + 1 >= questions.length) {
       finish()
     } else {
-      const ni = index + 1
-      setIndex(ni)
+      setIndex((i) => i + 1)
       setSelected(null)
       setRevealed(false)
-      loadAudio(questions[ni])
     }
   }
 
@@ -411,29 +380,24 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
 
   const q = questions[index]
   const content = q.content as ListeningContent
+  const audioText = q.audio_text || content.question
 
   return (
     <>
-      {/* ② タイマーはTTS生成中にポーズ */}
-      <TimerBar
-        key="listening-timer"
-        totalSeconds={600}
-        onExpire={handleExpire}
-        paused={audioLoading}
-      />
+      <TimerBar key="listening-timer" totalSeconds={600} onExpire={handleExpire} />
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="max-w-lg mx-auto space-y-4">
           <p className="text-xs text-gray-400 text-right">
             {index + 1} / {questions.length}
           </p>
-          <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
-            {audioLoading ? (
-              <p className="text-gray-400 text-sm py-2">音声生成中...</p>
-            ) : audioUrl ? (
-              <audio controls src={audioUrl} className="w-full" />
-            ) : (
-              <p className="text-gray-400 text-sm py-2">音声なし</p>
-            )}
+          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
+            <p className="text-xs text-gray-400 mb-3">音声を再生してください</p>
+            <button
+              onClick={() => speakText(audioText)}
+              className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center mx-auto shadow-md"
+            >
+              <span className="text-white text-2xl ml-1">▶</span>
+            </button>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <p className="text-sm font-semibold text-gray-800 mb-3">{content.question}</p>
