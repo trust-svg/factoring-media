@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from 'next'
+import { Nunito } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/providers/AuthProvider'
+
+const nunito = Nunito({
+  subsets: ['latin'],
+  weight: ['400', '600', '700', '800', '900'],
+  variable: '--font-nunito',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: '英検マスター',
@@ -26,8 +34,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ja">
-      <body>
+    <html lang="ja" className={nunito.variable}>
+      <body className="font-nunito">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
