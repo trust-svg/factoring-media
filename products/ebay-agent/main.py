@@ -1876,7 +1876,7 @@ async def procurement_stats():
 @app.post("/api/procurements/auto-sku")
 async def proc_auto_sku():
     """SKUなしの仕入れ記録にeBay出品とのマッチングでSKU/eBay IDを自動付与"""
-    import re as _re
+    import re
 
     def extract_models(title: str) -> list:
         models = []
@@ -1889,17 +1889,17 @@ async def proc_auto_sku():
         for m in brand_pats:
             if len(m) >= 3:
                 models.append(m)
-        hyphen = _re.findall(
+        hyphen = re.findall(
             r"[A-Za-z]{1,10}[\-][A-Za-z0-9]{1,10}(?:[\-][A-Za-z0-9]+)*", title
         )
         for m in hyphen:
             if len(m) >= 4 and m not in models:
                 models.append(m)
-        alnum = _re.findall(r"[A-Za-z]{1,6}\d{2,5}[A-Za-z]*", title)
+        alnum = re.findall(r"[A-Za-z]{1,6}\d{2,5}[A-Za-z]*", title)
         for m in alnum:
             if len(m) >= 4 and m not in models:
                 models.append(m)
-        numalpha = _re.findall(r"\d{3,5}[A-Za-z]{2,}", title)
+        numalpha = re.findall(r"\d{3,5}[A-Za-z]{2,}", title)
         for m in numalpha:
             if len(m) >= 4 and m not in models:
                 models.append(m)
@@ -1910,8 +1910,6 @@ async def proc_auto_sku():
             if m not in junk and not m.startswith("N1") and not m.startswith("w2")
         ]
         return models
-
-    import re
 
     db = get_db()
     try:
