@@ -287,7 +287,7 @@ async def _kick_review_for_channel(channel_id: str, channel_name: str) -> str:
             skill_hits_path=config.SKILL_HITS_PATH,
         )
 
-    res = await asyncio.get_event_loop().run_in_executor(None, _do)
+    res = await asyncio.get_running_loop().run_in_executor(None, _do)
     mode = "ドライラン" if config.LEARNING_REVIEW_DRYRUN else "本番"
     out = f"🧠 即レビュー（{mode}）完了: {res['status']} — {res['note'][:300]}"
     if res.get("out_of_bounds"):
@@ -499,7 +499,6 @@ def _evaluate_idea_sync(original_idea: str, replies: str) -> str | None:
                 "text",
                 "--max-turns",
                 "1",
-                "--dangerously-skip-permissions",
             ],
             capture_output=True,
             text=True,
@@ -530,7 +529,7 @@ async def _ideas_thread_reply(message: discord.Message) -> None:
         if starter is None
         else (starter.content or thread.name)
     )
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     evaluation = await loop.run_in_executor(
         None, _evaluate_idea_sync, original_idea, message.content
     )
@@ -921,7 +920,7 @@ async def on_message(message: discord.Message):
             )
             from learning import reviewer
 
-            res = await asyncio.get_event_loop().run_in_executor(
+            res = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: reviewer.run_review(
                     db_path=db,
@@ -982,7 +981,7 @@ async def on_message(message: discord.Message):
             target = _dt.date.today().strftime("%Y-%m-%d")
 
         if "--run" in parts:
-            run = await asyncio.get_event_loop().run_in_executor(
+            run = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: kdigest.build_daily_digests(
                     date=target,
@@ -1006,7 +1005,7 @@ async def on_message(message: discord.Message):
             )
             return
 
-        rows = await asyncio.get_event_loop().run_in_executor(
+        rows = await asyncio.get_running_loop().run_in_executor(
             None, kstore.get_digests, config.KNOWLEDGE_DB_PATH, target
         )
         if not rows:
@@ -1112,7 +1111,7 @@ async def on_message(message: discord.Message):
         )
         return
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         response = await loop.run_in_executor(
             None,
@@ -1156,7 +1155,7 @@ async def _run_dispatched_task(
     agent: str, task: str, channel_name: str, is_coding: bool
 ):
     """Background: execute a dispatched task and report result to channel."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     logger.info(f"Dispatched task starting: {agent} → {task[:60]}")
 
     # Notify the target channel that work has started
