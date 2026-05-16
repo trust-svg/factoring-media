@@ -159,3 +159,53 @@ def test_ledger_csv_columns(db):
     assert rows[0]["品名"] == "テスト品"
     assert rows[0]["古物区分"] == "道具類"
     assert rows[0]["出品者ID"] == "seller001"
+
+
+def test_bulk_import_logic_creates_procurement(db):
+    """一括インポートと同じロジックでProcurementが同時作成されることを確認"""
+    from database.models import InventoryItem
+    from database.crud import add_inventory_item
+
+    row = {
+        "title": "一括テスト商品",
+        "purchase_price_jpy": 4000,
+        "purchase_source": "メルカリ",
+        "purchase_url": "https://jp.mercari.com/item/m000001",
+        "seller_id": "bulk_seller",
+        "consumption_tax_jpy": 363,
+        "shipping_cost_jpy": 500,
+    }
+
+    # InventoryItem 作成
+    add_inventory_item(db, **row)
+
+    # 同時に Procurement 作成（重複チェック後）
+    existing = (
+        db.query(Procurement)
+        .filter(
+            Procurement.title == row["title"],
+            Procurement.purchase_price_jpy == row["purchase_price_jpy"],
+            Procurement.platform == row["purchase_source"],
+        )
+        .first()
+    )
+    if not existing:
+        add_procurement(
+            db,
+            title=row["title"],
+            platform=row["purchase_source"],
+            url=row["purchase_url"],
+            purchase_price_jpy=row["purchase_price_jpy"],
+            consumption_tax_jpy=row["consumption_tax_jpy"],
+            shipping_cost_jpy=row["shipping_cost_jpy"],
+            seller_id=row["seller_id"],
+        )
+
+    inv_count = (
+        db.query(InventoryItem).filter(InventoryItem.title == "一括テスト商品").count()
+    )
+    proc_count = (
+        db.query(Procurement).filter(Procurement.title == "一括テスト商品").count()
+    )
+    assert inv_count == 1
+    assert proc_count == 1

@@ -3686,6 +3686,8 @@ async def bulk_import_stock(request: Request):
     """購入履歴テキスト/CSVから一括登録。
     rows: [{title, price, date, source, url, condition, ...}, ...]
     """
+    from database.models import Procurement
+
     body = await request.json()
     rows = body.get("rows", [])
     platform = body.get("platform", "")  # 一括指定
@@ -3740,6 +3742,33 @@ async def bulk_import_stock(request: Request):
 
             crud.add_inventory_item(db, **kwargs)
             created += 1
+
+            # ── Procurement 同時作成（古物台帳元帳） ──
+            proc_exists = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                    Procurement.platform == source,
+                )
+                .first()
+            )
+            if not proc_exists:
+                crud.add_procurement(
+                    db,
+                    title=title,
+                    platform=source,
+                    url=kwargs.get("purchase_url", ""),
+                    purchase_price_jpy=price,
+                    consumption_tax_jpy=kwargs.get("consumption_tax_jpy", 0),
+                    shipping_cost_jpy=kwargs.get("shipping_cost_jpy", 0),
+                    seller_id=kwargs.get("seller_id", ""),
+                    **(
+                        {"purchase_date": kwargs["purchase_date"]}
+                        if "purchase_date" in kwargs
+                        else {}
+                    ),
+                )
 
         return JSONResponse(
             {
