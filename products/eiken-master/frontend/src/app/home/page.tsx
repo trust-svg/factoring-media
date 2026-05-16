@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { apiGetProgress } from '@/lib/api'
 import { useAuth } from '@/providers/AuthProvider'
 import type { ProgressData, Skill } from '@/lib/types'
+import TutorialModal from '@/components/TutorialModal'
 
 /* ── Circular progress ring ─────────────────── */
 function RingProgress({ pct, size = 140 }: { pct: number; size?: number }) {
@@ -292,6 +293,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-animated">
+      <TutorialModal />
 
       {/* ══════════ HERO HEADER ══════════ */}
       <div
@@ -306,7 +308,7 @@ export default function HomePage() {
         </div>
 
         {/* Content — desktop: 2-col grid; mobile: stack */}
-        <div className="relative max-w-5xl mx-auto px-4 lg:px-8 pt-10 pb-8 lg:pb-10">
+        <div className="relative max-w-5xl mx-auto px-4 lg:px-8 pt-10 pb-16 lg:pb-20">
 
           {/* Top bar */}
           <div className="flex items-start justify-between mb-6 lg:mb-8 animate-slide-up">
@@ -387,22 +389,15 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+
+        {/* Wave divider — inside hero so transparent arc shows hero purple, not bg-animated */}
+        <svg viewBox="0 0 1440 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute bottom-0 left-0 w-full" style={{ display: 'block' }}>
+          <path d="M0 0 C360 48 1080 48 1440 0 L1440 48 L0 48 Z" fill="#EDE9FE" />
+        </svg>
       </div>
 
-      {/* Wave divider */}
-      <svg viewBox="0 0 1440 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', width: '100%', marginTop: -1 }}>
-        <path d="M0 0 C360 40 1080 40 1440 0 L1440 40 L0 40 Z" fill="url(#waveGrad)" />
-        <defs>
-          <linearGradient id="waveGrad" x1="0" y1="0" x2="1440" y2="0" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#5B21B6" />
-            <stop offset="50%" stopColor="#7C3AED" />
-            <stop offset="100%" stopColor="#EC4899" />
-          </linearGradient>
-        </defs>
-      </svg>
-
       {/* ══════════ MAIN CONTENT ══════════ */}
-      <div className="max-w-5xl mx-auto px-4 lg:px-8 pt-6 pb-14" style={{ marginTop: -4 }}>
+      <div className="max-w-5xl mx-auto px-4 lg:px-8 pt-6 pb-14">
 
         {/* Desktop: 2-col; Mobile: missions first, then utilities */}
         <div className="flex flex-col lg:grid lg:grid-cols-[1fr_1.5fr] lg:gap-8 lg:items-start gap-5 lg:gap-0">

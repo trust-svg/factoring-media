@@ -315,6 +315,68 @@ def generate_praise_for_progress(
     return msg.content[0].text.strip()
 
 
+_VOCAB_HINT_PROMPT = """\
+あなたは英語辞書アシスタントです。以下の英単語またはフレーズについて、中学生向けに簡潔に説明してください。
+
+単語/フレーズ: {word}
+
+以下のJSON形式のみで返してください（マークダウン不要）:
+{{"reading": "カタカナ読み（なければ空文字）", "meaning": "日本語の意味（20文字以内）", "example": "短い英語の例文（なければ空文字）"}}
+"""
+
+
+def get_vocab_hint(word: str) -> dict:
+    msg = _get_anthropic().messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=150,
+        messages=[{"role": "user", "content": _VOCAB_HINT_PROMPT.format(word=word)}],
+    )
+    text = msg.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return json.loads(text.strip())
+
+
+_EXPLAIN_JA_PROMPT = """\
+あなたは英検の日本語解説担当の先生です。中学生向けに、以下の英語問題の解説を日本語で書いてください。
+
+問題: {question}
+正答: {correct_answer}
+英語の解説: {explanation}
+
+以下のJSON形式のみで返してください（マークダウン不要）:
+{{"answer_ja": "正答の日本語訳または意味（30文字以内）", "explanation_ja": "なぜこの答えが正しいかの日本語解説（中学生向け、2〜3文）"}}
+"""
+
+
+def explain_in_japanese(
+    question: str, choices: list[str], answer_index: int, explanation: str
+) -> dict:
+    correct_answer = choices[answer_index] if answer_index < len(choices) else ""
+    msg = _get_anthropic().messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        messages=[
+            {
+                "role": "user",
+                "content": _EXPLAIN_JA_PROMPT.format(
+                    question=question,
+                    correct_answer=correct_answer,
+                    explanation=explanation,
+                ),
+            }
+        ],
+    )
+    text = msg.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return json.loads(text.strip())
+
+
 def generate_advice(
     grade: str,
     days_remaining: int | None,

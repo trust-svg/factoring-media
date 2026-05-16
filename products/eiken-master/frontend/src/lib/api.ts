@@ -1,6 +1,7 @@
 import type {
   AudioResponse,
   ErrorData,
+  ExplainJaResponse,
   Flashcard,
   Grade,
   PraiseResponse,
@@ -13,6 +14,7 @@ import type {
   UpdateUserRequest,
   User,
   VocabClustersResponse,
+  VocabHintResponse,
   WritingScore,
 } from './types'
 import { getToken } from './auth'
@@ -158,6 +160,23 @@ export const apiGenerateAudio = (text: string) =>
   request<AudioResponse>('/ai/generate-audio', {
     method: 'POST',
     body: JSON.stringify({ text }),
+  })
+
+export const apiExplainJa = (data: {
+  question: string
+  choices: string[]
+  answer_index: number
+  explanation: string
+}) =>
+  request<ExplainJaResponse>('/ai/explain-ja', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+export const apiVocabHint = (word: string) =>
+  request<VocabHintResponse>('/ai/vocab-hint', {
+    method: 'POST',
+    body: JSON.stringify({ word }),
   })
 
 export const apiGetVocabClusters = (grade?: string) =>

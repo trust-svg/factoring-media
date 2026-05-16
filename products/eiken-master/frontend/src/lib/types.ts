@@ -165,3 +165,14 @@ export interface VocabClustersResponse {
   clusters: VocabCluster[]
   total: number
 }
+
+export interface ExplainJaResponse {
+  answer_ja: string
+  explanation_ja: string
+}
+
+export interface VocabHintResponse {
+  reading: string
+  meaning: string
+  example: string
+}

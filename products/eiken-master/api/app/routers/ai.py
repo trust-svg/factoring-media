@@ -10,8 +10,12 @@ from app.models.user import User
 from app.schemas.ai import (
     AudioRequest,
     AudioResponse,
+    ExplainJaRequest,
+    ExplainJaResponse,
     PraiseRequest,
     PraiseResponse,
+    VocabHintRequest,
+    VocabHintResponse,
     WritingScoreRequest,
     WritingScoreResponse,
     SpeakingScoreResponse,
@@ -79,6 +83,38 @@ def praise(
         logger.exception("praise failed for skill=%s", body.skill)
         raise HTTPException(
             status_code=502, detail="Praise generation temporarily unavailable"
+        )
+
+
+@router.post("/explain-ja", response_model=ExplainJaResponse)
+def explain_ja(
+    body: ExplainJaRequest,
+    user: User = Depends(current_user),
+):
+    try:
+        result = ai_service.explain_in_japanese(
+            body.question, body.choices, body.answer_index, body.explanation
+        )
+        return ExplainJaResponse(**result)
+    except Exception:
+        logger.exception("explain_ja failed")
+        raise HTTPException(
+            status_code=502, detail="Japanese explanation temporarily unavailable"
+        )
+
+
+@router.post("/vocab-hint", response_model=VocabHintResponse)
+def vocab_hint(
+    body: VocabHintRequest,
+    user: User = Depends(current_user),
+):
+    try:
+        result = ai_service.get_vocab_hint(body.word)
+        return VocabHintResponse(**result)
+    except Exception:
+        logger.exception("vocab_hint failed for word=%s", body.word)
+        raise HTTPException(
+            status_code=502, detail="Vocabulary hint temporarily unavailable"
         )
 
 

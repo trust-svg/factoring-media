@@ -45,3 +45,25 @@ class PraiseRequest(BaseModel):
 
 class PraiseResponse(BaseModel):
     praise: str
+
+
+class ExplainJaRequest(BaseModel):
+    question: str
+    choices: list[str]
+    answer_index: int
+    explanation: str
+
+
+class ExplainJaResponse(BaseModel):
+    answer_ja: str
+    explanation_ja: str
+
+
+class VocabHintRequest(BaseModel):
+    word: str = Field(..., min_length=1, max_length=200)
+
+
+class VocabHintResponse(BaseModel):
+    reading: str
+    meaning: str
+    example: str
