@@ -307,7 +307,9 @@
     {
       "date": "2026-05-17",
       "slug": "best-factor-ayashii",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/ncbc17be6757a",
+      "published_at": "2026-05-17"
     },
     {
       "date": "2026-05-18",
