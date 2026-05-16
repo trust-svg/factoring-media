@@ -402,13 +402,13 @@ export default function HomePage() {
       </svg>
 
       {/* ══════════ MAIN CONTENT ══════════ */}
-      <div className="max-w-5xl mx-auto px-4 lg:px-8 pb-10" style={{ marginTop: -4 }}>
+      <div className="max-w-5xl mx-auto px-4 lg:px-8 pt-6 pb-14" style={{ marginTop: -4 }}>
 
-        {/* Desktop: 2-col; Mobile: stack */}
-        <div className="lg:grid lg:grid-cols-[1fr_1.5fr] lg:gap-8 lg:items-start space-y-5 lg:space-y-0">
+        {/* Desktop: 2-col; Mobile: missions first, then utilities */}
+        <div className="flex flex-col lg:grid lg:grid-cols-[1fr_1.5fr] lg:gap-8 lg:items-start gap-5 lg:gap-0">
 
-          {/* ── Left column ── */}
-          <div className="space-y-4">
+          {/* ── Left column (utility) — shown after missions on mobile ── */}
+          <div className="space-y-4 order-2 lg:order-1">
 
             {/* AI praise */}
             {progress?.praise && (
@@ -451,34 +451,60 @@ export default function HomePage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => router.push('/mock-exam')}
-                className="card-premium rounded-3xl p-5 text-left animate-slide-up delay-500"
+                className="card-premium rounded-3xl p-5 text-left animate-slide-up delay-500 min-h-[130px] flex flex-col"
                 style={{
                   background: 'linear-gradient(135deg, #111827, #1F2937, #374151)',
                   boxShadow: '0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)',
                 }}
               >
-                <div className="text-3xl mb-3" style={{ animation: 'float-slow 6s ease-in-out infinite', animationDelay: '1s' }}>📝</div>
-                <p className="font-black text-white text-sm">模擬試験</p>
-                <p className="text-gray-500 text-[10px] font-bold mt-1">4技能 · 本番形式</p>
+                <div className="text-3xl" style={{ animation: 'float-slow 6s ease-in-out infinite', animationDelay: '1s' }}>📝</div>
+                <div className="mt-auto">
+                  <p className="font-black text-white text-sm">模擬試験</p>
+                  <p className="text-gray-500 text-[10px] font-bold mt-0.5">4技能 · 本番形式</p>
+                </div>
               </button>
 
               <button
                 onClick={() => router.push('/vocabulary')}
-                className="card-premium rounded-3xl p-5 text-left animate-slide-up delay-600"
+                className="card-premium rounded-3xl p-5 text-left animate-slide-up delay-600 min-h-[130px] flex flex-col"
                 style={{
                   background: 'linear-gradient(135deg, #4C1D95, #6D28D9, #7C3AED)',
                   boxShadow: '0 4px 20px rgba(109,40,217,0.4), inset 0 1px 0 rgba(255,255,255,0.15)',
                 }}
               >
-                <div className="text-3xl mb-3" style={{ animation: 'float-slow 7s ease-in-out infinite', animationDelay: '1.6s' }}>🔗</div>
-                <p className="font-black text-white text-sm">語彙ネット</p>
-                <p className="text-purple-300 text-[10px] font-bold mt-1">語根クラスター</p>
+                <div className="text-3xl" style={{ animation: 'float-slow 7s ease-in-out infinite', animationDelay: '1.6s' }}>🔗</div>
+                <div className="mt-auto">
+                  <p className="font-black text-white text-sm">語彙ネット</p>
+                  <p className="text-purple-300 text-[10px] font-bold mt-0.5">語根クラスター</p>
+                </div>
               </button>
+            </div>
+
+            {/* Daily goal motivational card — always visible */}
+            <div
+              className="card-premium rounded-3xl p-5 animate-slide-up delay-700"
+              style={{
+                background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #D1FAE5 100%)',
+                boxShadow: '0 4px 20px rgba(16,185,129,0.15), inset 0 1px 0 rgba(255,255,255,0.9)',
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <span className="text-2xl shrink-0">🎯</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">今日の目標</p>
+                  <p className="text-emerald-900 text-sm font-black">{user.daily_goal_minutes}分学習</p>
+                  <p className="text-emerald-700 text-xs font-semibold mt-1.5 leading-relaxed">
+                    {days !== null && days > 0
+                      ? `試験まであと${days}日。今日も1問ずつ積み上げよう！`
+                      : '毎日コツコツが合格への近道！'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* ── Right column: Mission cards ── */}
-          <div>
+          {/* ── Right column: Mission cards — shown FIRST on mobile ── */}
+          <div className="order-1 lg:order-2">
             <div className="flex items-center gap-2 mb-4 lg:mb-5 animate-slide-up delay-200">
               <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(#7C3AED, #EC4899)' }} />
               <h2 className="font-black text-gray-800 text-sm tracking-widest uppercase">4技能ミッション</h2>
@@ -492,7 +518,7 @@ export default function HomePage() {
         </div>
 
         {/* Logout */}
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center mt-10 pt-6 border-t border-gray-200/50">
           <button
             onClick={logout}
             className="text-gray-400 text-xs font-bold hover:text-gray-600 transition-colors px-6 py-2.5 rounded-2xl hover:bg-white/60"

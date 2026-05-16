@@ -16,7 +16,7 @@ router = APIRouter()
 SEED_PATH = Path(__file__).parent.parent.parent / "data" / "seed_questions.json"
 
 
-@router.get("/", response_model=list[QuestionOut])
+@router.get("", response_model=list[QuestionOut])
 def get_questions(
     skill: str = Query(..., pattern=r"^(reading|listening|writing|speaking)$"),
     count: int = Query(5, ge=1, le=20),
