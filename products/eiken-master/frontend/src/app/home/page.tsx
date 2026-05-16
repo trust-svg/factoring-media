@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/providers/AuthProvider'
 import type { Skill } from '@/lib/types'
@@ -29,6 +30,12 @@ export default function HomePage() {
   const { user, loading, logout } = useAuth()
   const router = useRouter()
 
+  useEffect(() => {
+    if (!loading && user && !user.exam_date) {
+      router.replace('/onboarding')
+    }
+  }, [loading, user, router])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-indigo-50">
@@ -53,12 +60,21 @@ export default function HomePage() {
               {gradeLabel} · {user.username}
             </p>
           </div>
-          <button
-            onClick={logout}
-            className="text-indigo-200 text-sm px-3 py-1 rounded-lg hover:bg-indigo-600"
-          >
-            ログアウト
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/settings')}
+              className="text-indigo-200 text-xl px-2 py-1 rounded-lg hover:bg-indigo-600"
+              aria-label="設定"
+            >
+              ⚙️
+            </button>
+            <button
+              onClick={logout}
+              className="text-indigo-200 text-sm px-3 py-1 rounded-lg hover:bg-indigo-600"
+            >
+              ログアウト
+            </button>
+          </div>
         </div>
       </header>
 
@@ -104,18 +120,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Onboarding shortcut — shown if exam_date is not set */}
-        {!user.exam_date && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
-            <p className="text-amber-700 text-sm mb-2">試験日が未設定です</p>
-            <button
-              onClick={() => router.push('/onboarding')}
-              className="bg-amber-500 text-white text-sm px-4 py-1.5 rounded-lg font-semibold"
-            >
-              設定する
-            </button>
-          </div>
-        )}
       </div>
     </main>
   )

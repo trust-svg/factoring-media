@@ -4,30 +4,20 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiUpdateMe } from '@/lib/api'
 import { useAuth } from '@/providers/AuthProvider'
-import type { Grade } from '@/lib/types'
-
-type Step = 'grade' | 'exam_date'
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const { setUser } = useAuth()
-  const [step, setStep] = useState<Step>('grade')
-  const [grade, setGrade] = useState<Grade>('pre2')
+  const { user, setUser } = useAuth()
   const [examDate, setExamDate] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleGradeSelect = (g: Grade) => {
-    setGrade(g)
-    setStep('exam_date')
-  }
+  const gradeLabel = user?.grade === 'pre2' ? '準2級' : '2級'
+  const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
 
   const handleFinish = async () => {
     setLoading(true)
     try {
-      const updated = await apiUpdateMe({
-        grade,
-        exam_date: examDate || null,
-      })
+      const updated = await apiUpdateMe({ exam_date: examDate || null })
       setUser(updated)
     } catch (err) {
       console.error('onboarding update failed:', err)
@@ -37,52 +27,27 @@ export default function OnboardingPage() {
     }
   }
 
-  const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
-
-  if (step === 'grade') {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-indigo-50 px-6">
-        <h1 className="text-2xl font-bold text-indigo-700 mb-2">英検マスター</h1>
-        <p className="text-gray-500 mb-8 text-center">
-          目指す級を選んでください
-        </p>
-        <div className="flex flex-col gap-4 w-full max-w-xs">
-          <button
-            onClick={() => handleGradeSelect('pre2')}
-            className="bg-white border-2 border-indigo-200 rounded-2xl p-6 text-center shadow-sm hover:border-indigo-500 transition-colors"
-          >
-            <div className="text-4xl font-bold text-indigo-600">準2級</div>
-            <div className="text-sm text-gray-400 mt-1">高校入試レベル</div>
-          </button>
-          <button
-            onClick={() => handleGradeSelect('2')}
-            className="bg-white border-2 border-emerald-200 rounded-2xl p-6 text-center shadow-sm hover:border-emerald-500 transition-colors"
-          >
-            <div className="text-4xl font-bold text-emerald-600">2級</div>
-            <div className="text-sm text-gray-400 mt-1">高校卒業レベル</div>
-          </button>
-        </div>
-      </main>
-    )
-  }
-
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-indigo-50 px-6">
-      <h1 className="text-2xl font-bold text-indigo-700 mb-2">試験日を設定</h1>
-      <p className="text-gray-500 mb-6 text-center">
-        AIがスケジュールを自動で作ります
+      <div className="text-5xl mb-4">🎯</div>
+      <h1 className="text-2xl font-bold text-indigo-700 mb-1">試験日を設定しよう</h1>
+      <p className="text-gray-500 text-sm mb-1 text-center">
+        目標: 英検 <span className="font-semibold text-indigo-600">{gradeLabel}</span>
+      </p>
+      <p className="text-gray-400 text-xs mb-8 text-center">
+        試験日を入れると残り日数と合格確率を表示します
       </p>
       <input
         type="date"
         value={examDate}
         onChange={(e) => setExamDate(e.target.value)}
         min={todayStr}
-        className="border border-gray-300 rounded-xl px-4 py-3 text-lg mb-6 text-center"
+        className="border-2 border-gray-200 focus:border-indigo-400 outline-none rounded-xl px-4 py-3 text-lg mb-6 text-center w-full max-w-xs"
       />
       <button
         onClick={handleFinish}
         disabled={!examDate || loading}
-        className="bg-indigo-600 text-white px-10 py-3 rounded-xl font-bold disabled:opacity-50 active:bg-indigo-700"
+        className="w-full max-w-xs bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-base disabled:opacity-50 active:bg-indigo-700"
       >
         {loading ? '保存中...' : 'スタート！'}
       </button>
@@ -90,7 +55,7 @@ export default function OnboardingPage() {
         onClick={() => router.replace('/home')}
         className="mt-4 text-sm text-gray-400 underline"
       >
-        スキップ
+        あとで設定する
       </button>
     </main>
   )
