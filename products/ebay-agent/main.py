@@ -1846,6 +1846,14 @@ async def list_procurements(status: str = ""):
                 "category": p.category,
                 "image_url": p.image_url,
                 "condition": p.condition,
+                "stock_number": p.stock_number,
+                "location": p.location,
+                "ebay_item_id": p.ebay_item_id,
+                "ebay_order_id": p.ebay_order_id,
+                "ebay_price_usd": p.ebay_price_usd,
+                "listed_at": p.listed_at.isoformat() if p.listed_at else None,
+                "sold_at": p.sold_at.isoformat() if p.sold_at else None,
+                "shipped_at": p.shipped_at.isoformat() if p.shipped_at else None,
                 "sale": sales_by_sku.get(p.sku),
             }
             result.append(item)
@@ -1884,6 +1892,11 @@ async def create_procurement(request: Request):
             category=body.get("category", ""),
             image_url=body.get("image_url", ""),
             condition=body.get("condition", ""),
+            stock_number=body.get("stock_number", ""),
+            location=body.get("location", ""),
+            ebay_item_id=body.get("ebay_item_id", ""),
+            ebay_order_id=body.get("ebay_order_id", ""),
+            ebay_price_usd=float(body.get("ebay_price_usd", 0) or 0),
             **({"purchase_date": purchase_date} if purchase_date else {}),
         )
         return JSONResponse(
@@ -2000,6 +2013,10 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         "category",
         "image_url",
         "condition",
+        "stock_number",
+        "location",
+        "ebay_item_id",
+        "ebay_order_id",
     ]:
         if key in body:
             kwargs[key] = body[key]
@@ -2015,6 +2032,11 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
                 kwargs[key] = int(body[key])
             except (TypeError, ValueError):
                 pass
+    if "ebay_price_usd" in body:
+        try:
+            kwargs["ebay_price_usd"] = float(body["ebay_price_usd"])
+        except (TypeError, ValueError):
+            pass
     if body.get("purchase_date"):
         try:
             kwargs["purchase_date"] = datetime.strptime(
