@@ -4540,65 +4540,6 @@ async def set_screenshot_dir(request: Request):
     return JSONResponse({"status": "updated", "path": new_path})
 
 
-# ── 仕入れ→台帳連携 ──────────────────────────────────────
-
-
-@app.post("/api/stock/from-procurement/{proc_id}")
-async def stock_from_procurement(proc_id: int):
-    """仕入れ記録から台帳にワンクリック登録"""
-    from database.models import Procurement, InventoryItem
-
-    db = get_db()
-    try:
-        proc = db.query(Procurement).filter(Procurement.id == proc_id).first()
-        if not proc:
-            raise HTTPException(404, "Procurement not found")
-
-        existing = (
-            db.query(InventoryItem)
-            .filter(
-                InventoryItem.title == proc.title,
-                InventoryItem.purchase_price_jpy == proc.purchase_price_jpy,
-                InventoryItem.purchase_source == proc.platform,
-            )
-            .first()
-        )
-        if existing:
-            return JSONResponse(
-                {
-                    "status": "already_exists",
-                    "id": existing.id,
-                    "message": "この仕入れは既に台帳登録済みです",
-                }
-            )
-
-        # ステータスは仕入れの状態に合わせる
-        status_map = {
-            "purchased": "ordered",
-            "shipped": "ordered",
-            "received": "received",
-            "listed": "listed",
-        }
-        mapped_status = status_map.get(proc.status, "ordered")
-
-        item = crud.add_inventory_item(
-            db,
-            sku=proc.sku or "",
-            title=proc.title,
-            purchase_price_jpy=proc.purchase_price_jpy,
-            consumption_tax_jpy=proc.consumption_tax_jpy,
-            purchase_date=proc.purchase_date,
-            purchase_source=proc.platform,
-            purchase_url=proc.url or "",
-            location="自宅" if mapped_status == "received" else "未着",
-            status=mapped_status,
-            notes=proc.notes or "",
-        )
-        return JSONResponse({"status": "created", "id": item.id})
-    finally:
-        db.close()
-
-
 # ── 一括インポート ────────────────────────────────────────
 
 
