@@ -119,9 +119,12 @@ InventoryItem のステータス値を Procurement に取り込む：
 
 `GET /api/stock/scrape/status/{job_id}` はジョブIDがグローバルなため新規作成不要。Procurement スクレイプでもそのまま使用する。
 
-### Phase 3 で削除するエンドポイント
+### Phase 3 で削除するもの
 
-- `POST /api/stock/from-procurement/{proc_id}` → 在庫台帳廃止により不要
+- `POST /api/stock/from-procurement/{proc_id}` エンドポイント → 在庫台帳廃止により不要
+- `sourcing.html` の「→ 在庫登録」ボタン（`registerToStock()` 呼び出し） → 同上
+- `templates/pages/_sourcing_content.html` → デッドコード
+- `templates/pages/procurement.html` → デッドコード
 
 ### `/api/stock/*` 全体の削除はPhase 4
 
@@ -145,14 +148,26 @@ InventoryItem のステータス値を Procurement に取り込む：
 
 ## セクション3: UI・JS構成
 
+### ページ構成の現状（重要）
+
+- `/sourcing` → `sourcing.html` — ユーザーが実際にアクセスするページ（2タブ構成）
+  - 仕入れ記録タブ: Procurement UI（カードUI、古い状態）
+  - 在庫台帳タブ: `{% include "pages/_ledger_content.html" %}` 経由
+- `/procurement` → `/sourcing` に301リダイレクト済み（統合済み）
+- `procurement.html` / `_sourcing_content.html` → **デッドコード**（`/procurement` がリダイレクトされるため未使用）
+  - Phase 2 の UI 変更（D&D、auto-detect、新フィールド）はここに実装されたがユーザーには見えていない
+
+Phase 3 では `sourcing.html` を直接改修することで、Phase 2 UI 機能も含めて全て実装する。
+
 ### ファイル一覧
 
 | ファイル | アクション | 内容 |
 |---|---|---|
-| `static/js/procurement-table.js` | **新規作成** | 仕入れ記録テーブル専用JS（~1000行） |
-| `templates/pages/_sourcing_content.html` | **大幅改修** | カードUIをテーブルUIに置換 |
-| `templates/pages/sourcing.html` | **修正** | 在庫台帳タブを `display:none` で非表示 |
-| `main.py` | **追記** | 新エンドポイント群（stats/auto-sku/bulk/scrape） |
+| `static/js/procurement-table.js` | **新規作成** | 仕入れ記録テーブル専用JS（~1200行）|
+| `templates/pages/sourcing.html` | **大幅改修** | 仕入れ記録タブをテーブルUIに全面置換（Phase 2 UI機能も統合）+ 在庫台帳タブを非表示 |
+| `templates/pages/_sourcing_content.html` | **削除** | デッドコード（`procurement.html` とともに不要） |
+| `templates/pages/procurement.html` | **削除** | デッドコード |
+| `main.py` | **追記** | 新エンドポイント群（stats/auto-sku/bulk/scrape）+ `/api/stock/from-procurement` 削除 |
 | `database/models.py` | **修正** | Procurementに `updated_at` を追加 |
 | `tests/test_procurement_integration.py` | **追記** | 新機能テスト（stats/auto-sku/bulk-delete/scrape） |
 
