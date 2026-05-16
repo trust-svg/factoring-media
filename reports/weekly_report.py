@@ -4,6 +4,7 @@ FACCEL 週次SEOレポート + Claude改善案
 毎週月曜08:00にDiscord #マーケティング-ユウ-marketing に送信する
 """
 
+import json
 import os
 from datetime import date, timedelta
 from pathlib import Path
@@ -12,6 +13,21 @@ import anthropic
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
+
+DATA_DIR = Path(__file__).parent / "data"
+
+
+def _load_a8_data(week_start: date) -> dict | None:
+    path = DATA_DIR / "a8_weekly.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text())
+    week_str = week_start.isoformat()
+    for entry in reversed(data.get("entries", [])):
+        if entry["week_start"] == week_str:
+            return entry
+    return None
+
 
 from discord_notify import send_discord
 from gsc_client import (
@@ -104,6 +120,9 @@ def main() -> None:
         service, start_last.isoformat(), end_last.isoformat()
     )
 
+    week_start = today - timedelta(days=7)
+    a8 = _load_a8_data(week_start)
+
     suggestions = get_claude_suggestions(
         last_week, top_queries, opportunities, top_pages
     )
@@ -135,7 +154,21 @@ def main() -> None:
                 f"  - {q['query']} — 順位{q['position']:.0f}位 / 表示{q['impressions']}回"
             )
 
+    lines += ["", "**💴 A8成約（先週）**"]
+    if a8:
+        lines += [
+            f"  成約数: {a8.get('conversions', 0)}件",
+            f"  収益:   {a8.get('revenue_jpy', 0):,}円",
+        ]
+        if a8.get("notes"):
+            lines.append(f"  備考: {a8['notes']}")
+    else:
+        lines.append("  ⚠️ 未入力 — data/a8_weekly.json を更新してください")
+
     lines += ["", "**💡 今週の改善案（ユウ分析）**", suggestions]
+    lines.append(
+        "\n📌 A8成約を記録: `products/factoring-media/reports/data/a8_weekly.json`"
+    )
 
     send_discord("\n".join(lines))
     print(f"Weekly report sent ({period}).")
