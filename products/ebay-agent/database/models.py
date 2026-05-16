@@ -7,12 +7,12 @@ ebay-listing-optimizer の既存モデルを拡張し、
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-JST = timezone(timedelta(hours=9))
-
 from sqlalchemy import DateTime, Float, Integer, String, Text, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from config import DATABASE_URL
+
+JST = timezone(timedelta(hours=9))
 
 
 class Base(DeclarativeBase):
@@ -150,10 +150,11 @@ class Procurement(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(JST)
     )
-    updated_at: Mapped[datetime] = mapped_column(
+    updated_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime,
         default=lambda: datetime.now(JST),
         onupdate=lambda: datetime.now(JST),
+        nullable=True,
     )
 
 
