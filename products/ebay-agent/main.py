@@ -2087,6 +2087,55 @@ async def delete_procurement(proc_id: int):
         db.close()
 
 
+@app.post("/api/procurements/{proc_id}/screenshot")
+async def upload_procurement_screenshot(proc_id: int, request: Request):
+    """仕入れ記録スクリーンショットをアップロード"""
+    from config import SCREENSHOT_DIR
+
+    db = get_db()
+    try:
+        proc = db.query(Procurement).filter(Procurement.id == proc_id).first()
+        if not proc:
+            raise HTTPException(404, "Procurement not found")
+
+        form = await request.form()
+        file = form.get("file")
+        if not file:
+            raise HTTPException(400, "No file uploaded")
+
+        year = str(datetime.now().year)
+        platform = proc.platform or "other"
+        platform_dir = (
+            SCREENSHOT_DIR / year / platform.replace("/", "_").replace(" ", "_")
+        )
+        platform_dir.mkdir(parents=True, exist_ok=True)
+
+        ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "png"
+        safe_title = "".join(
+            c for c in (proc.title or "item")[:30] if c.isalnum() or c in "-_ "
+        ).strip()
+        filename = (
+            f"proc{proc.id}_{datetime.now().strftime('%Y%m%d')}_{safe_title}.{ext}"
+        )
+        filepath = platform_dir / filename
+
+        with open(filepath, "wb") as f:
+            content = await file.read()
+            f.write(content)
+
+        proc.screenshot_path = str(filepath)
+        db.commit()
+
+        return JSONResponse(
+            {
+                "status": "uploaded",
+                "path": str(filepath),
+            }
+        )
+    finally:
+        db.close()
+
+
 # ── Instagram API ─────────────────────────────────────────
 
 
