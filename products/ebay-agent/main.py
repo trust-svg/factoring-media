@@ -2197,6 +2197,92 @@ async def delete_procurement(proc_id: int):
         db.close()
 
 
+@app.post("/api/procurements/bulk-delete-ids")
+async def bulk_delete_procurements(request: Request):
+    """IDリストで仕入れ記録を一括削除"""
+    body = await request.json()
+    ids = body.get("ids", [])
+    if not ids:
+        raise HTTPException(400, "ids must not be empty")
+    db = get_db()
+    try:
+        count = (
+            db.query(Procurement)
+            .filter(Procurement.id.in_(ids))
+            .delete(synchronize_session="fetch")
+        )
+        db.commit()
+        return JSONResponse({"status": "deleted", "count": count})
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/bulk-import")
+async def bulk_import_procurements(request: Request):
+    """購入履歴テキストから仕入れ記録を一括登録。
+    rows: [{title, price, date, source, url, condition, seller, notes, tax, shipping}, ...]
+    """
+    body = await request.json()
+    rows = body.get("rows", [])
+    platform = body.get("platform", "")
+    if not rows:
+        return JSONResponse({"error": "rows is empty"}, status_code=400)
+
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in rows:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            price = int(row.get("price", 0) or 0)
+            source = row.get("source") or platform or ""
+            existing = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                    Procurement.platform == source,
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "consumption_tax_jpy": int(row.get("tax", 0) or 0),
+                "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
+                "platform": source,
+                "url": row.get("url", ""),
+                "seller_id": row.get("seller", ""),
+                "condition": row.get("condition", ""),
+                "status": "purchased",
+                "notes": row.get("notes", ""),
+                "image_url": row.get("image_url", ""),
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(rows),
+            }
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/{proc_id}/screenshot")
 async def upload_procurement_screenshot(proc_id: int, request: Request):
     """仕入れ記録スクリーンショットをアップロード"""

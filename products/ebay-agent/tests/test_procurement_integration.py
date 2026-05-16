@@ -377,3 +377,69 @@ def test_procurement_auto_sku_assigns(db):
     )
     assert proc.sku == "" or proc.sku is None
     assert proc.id is not None
+
+
+def test_procurement_bulk_delete(db):
+    """IDリストで複数件を一括削除できる"""
+    from database.models import Procurement as Proc
+
+    p1 = add_procurement(db, title="削除1", purchase_price_jpy=1000)
+    p2 = add_procurement(db, title="削除2", purchase_price_jpy=2000)
+    p3 = add_procurement(db, title="残す", purchase_price_jpy=3000)
+
+    ids = [p1.id, p2.id]
+    count = db.query(Proc).filter(Proc.id.in_(ids)).delete(synchronize_session="fetch")
+    db.commit()
+    assert count == 2
+    remaining = db.query(Proc).all()
+    assert len(remaining) == 1
+    assert remaining[0].title == "残す"
+
+
+def test_procurement_bulk_import(db):
+    """TSV行リストからProcurementを一括作成する"""
+    from database.models import Procurement as Proc
+
+    rows = [
+        {"title": "商品A", "price": 3000, "source": "メルカリ", "date": "2026-05-01"},
+        {"title": "商品B", "price": 5000, "source": "ヤフオク"},
+        {"title": "", "price": 1000},  # タイトルなし → スキップ
+    ]
+    created = 0
+    skipped = 0
+    for row in rows:
+        title = (row.get("title") or "").strip()
+        if not title:
+            skipped += 1
+            continue
+        price = int(row.get("price", 0) or 0)
+        platform = row.get("source") or ""
+        existing = (
+            db.query(Proc)
+            .filter(
+                Proc.title == title,
+                Proc.purchase_price_jpy == price,
+                Proc.platform == platform,
+            )
+            .first()
+        )
+        if existing:
+            skipped += 1
+            continue
+        from datetime import datetime
+
+        kwargs = {
+            "title": title,
+            "purchase_price_jpy": price,
+            "platform": platform,
+            "status": "purchased",
+        }
+        if row.get("date"):
+            try:
+                kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+            except ValueError:
+                pass
+        add_procurement(db, **kwargs)
+        created += 1
+    assert created == 2
+    assert skipped == 1
