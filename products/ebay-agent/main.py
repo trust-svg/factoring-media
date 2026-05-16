@@ -1839,13 +1839,11 @@ async def list_procurements(status: str = ""):
                 if p.received_date
                 else None,
                 "notes": p.notes or "",
-                "quantity": p.quantity if hasattr(p, "quantity") else 1,
-                "seller_id": p.seller_id if hasattr(p, "seller_id") else "",
-                "seller_url": p.seller_url if hasattr(p, "seller_url") else "",
-                "screenshot_path": p.screenshot_path
-                if hasattr(p, "screenshot_path")
-                else "",
-                "category": p.category if hasattr(p, "category") else "",
+                "quantity": p.quantity,
+                "seller_id": p.seller_id,
+                "seller_url": p.seller_url,
+                "screenshot_path": p.screenshot_path,
+                "category": p.category,
                 "sale": sales_by_sku.get(p.sku),
             }
             result.append(item)
@@ -1954,7 +1952,10 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         "quantity",
     ]:
         if key in body:
-            kwargs[key] = int(body[key])
+            try:
+                kwargs[key] = int(body[key])
+            except (TypeError, ValueError):
+                pass
     if body.get("purchase_date"):
         try:
             kwargs["purchase_date"] = datetime.strptime(
