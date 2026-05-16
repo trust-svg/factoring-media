@@ -38,7 +38,7 @@ from config import (
     MONTHLY_MARGIN_TARGET_PCT,
     MONTHLY_PROFIT_TARGET_JPY,
 )
-from database.models import get_db, init_db, InventoryItem, Listing
+from database.models import get_db, init_db, InventoryItem, Listing, Procurement
 from database import crud
 from agents.orchestrator import run_agent
 from tools.handlers import handle_tool_call
@@ -3686,8 +3686,6 @@ async def bulk_import_stock(request: Request):
     """購入履歴テキスト/CSVから一括登録。
     rows: [{title, price, date, source, url, condition, ...}, ...]
     """
-    from database.models import Procurement
-
     body = await request.json()
     rows = body.get("rows", [])
     platform = body.get("platform", "")  # 一括指定
@@ -3758,7 +3756,7 @@ async def bulk_import_stock(request: Request):
                     db,
                     title=title,
                     platform=source,
-                    url=kwargs.get("purchase_url", ""),
+                    url=kwargs["purchase_url"],
                     purchase_price_jpy=price,
                     consumption_tax_jpy=kwargs.get("consumption_tax_jpy", 0),
                     shipping_cost_jpy=kwargs.get("shipping_cost_jpy", 0),
