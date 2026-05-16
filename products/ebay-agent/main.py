@@ -493,8 +493,10 @@ async def listings_page(request: Request):
 
 @app.get("/procurement", response_class=HTMLResponse)
 async def procurement_page(request: Request):
-    """仕入れ管理（Ledger + Sales Management 統合）"""
-    return render(request, "pages/procurement.html")
+    """/procurement → /sourcing リダイレクト（統合済み）"""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/sourcing", status_code=301)
 
 
 @app.get("/research", response_class=HTMLResponse)
@@ -537,8 +539,9 @@ async def pricing_redirect():
 
 
 @app.get("/sourcing", response_class=HTMLResponse)
-async def sourcing_redirect():
-    return RedirectResponse(url="/procurement?tab=records", status_code=301)
+async def sourcing_page(request: Request):
+    """仕入れ管理（仕入れ記録 + 在庫台帳 統合ページ）"""
+    return render(request, "pages/sourcing.html")
 
 
 @app.get("/analytics")
@@ -1836,6 +1839,13 @@ async def list_procurements(status: str = ""):
                 if p.received_date
                 else None,
                 "notes": p.notes or "",
+                "quantity": p.quantity if hasattr(p, "quantity") else 1,
+                "seller_id": p.seller_id if hasattr(p, "seller_id") else "",
+                "seller_url": p.seller_url if hasattr(p, "seller_url") else "",
+                "screenshot_path": p.screenshot_path
+                if hasattr(p, "screenshot_path")
+                else "",
+                "category": p.category if hasattr(p, "category") else "",
                 "sale": sales_by_sku.get(p.sku),
             }
             result.append(item)
@@ -1867,6 +1877,11 @@ async def create_procurement(request: Request):
             other_cost_jpy=int(body.get("other_cost_jpy", 0)),
             consumption_tax_jpy=int(body.get("consumption_tax_jpy", 0)),
             notes=body.get("notes", ""),
+            quantity=int(body.get("quantity", 1) or 1),
+            seller_id=body.get("seller_id", ""),
+            seller_url=body.get("seller_url", ""),
+            screenshot_path=body.get("screenshot_path", ""),
+            category=body.get("category", ""),
             **({"purchase_date": purchase_date} if purchase_date else {}),
         )
         return JSONResponse(
@@ -1917,7 +1932,18 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
     """仕入れ実績を更新"""
     body = await request.json()
     kwargs = {}
-    for key in ["sku", "platform", "title", "url", "status", "notes"]:
+    for key in [
+        "sku",
+        "platform",
+        "title",
+        "url",
+        "status",
+        "notes",
+        "seller_id",
+        "seller_url",
+        "screenshot_path",
+        "category",
+    ]:
         if key in body:
             kwargs[key] = body[key]
     for key in [
@@ -1925,6 +1951,7 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         "shipping_cost_jpy",
         "other_cost_jpy",
         "consumption_tax_jpy",
+        "quantity",
     ]:
         if key in body:
             kwargs[key] = int(body[key])
@@ -3686,23 +3713,33 @@ _login_required_notified: dict[str, str] = {}
 
 
 def _notify_login_required(site_key: str, site_label: str):
-    """cookie期限切れをLINEに通知（1サイト1日1回まで）"""
+    """cookie期限切れをTelegramに通知（1サイト1日1回まで）"""
     today = datetime.now().strftime("%Y-%m-%d")
     if _login_required_notified.get(site_key) == today:
         return
     _login_required_notified[site_key] = today
     try:
-        from comms.line_notify import send_line_message
+        import requests as _requests
+        from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
-        send_line_message(
+        if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+            logging.getLogger(__name__).warning(
+                "Telegram credentials not configured — skipping cookie expiry notification"
+            )
+            return
+        text = (
             f"🔐 {site_label} のcookie期限切れ\n"
-            f"ローカルMacで再ログインしてください:\n"
+            f"ローカルMacで再ログイン:\n"
             f"  cd products/ebay-agent\n"
-            f"  python scripts/login_and_save_cookies.py {site_key}\n"
-            f"  bash scripts/sync_cookies_to_vps.sh"
+            f"  bash scripts/refresh_all_cookies.sh {site_key}"
+        )
+        _requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": TELEGRAM_CHAT_ID, "text": text},
+            timeout=10,
         )
     except Exception as e:
-        logging.getLogger(__name__).error(f"LINE通知失敗: {e}")
+        logging.getLogger(__name__).error(f"Telegram通知失敗: {e}")
 
 
 @app.post("/api/stock/scrape/yahoo")

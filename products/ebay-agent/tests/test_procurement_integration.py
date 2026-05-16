@@ -93,3 +93,14 @@ def test_migrate_procurement_columns_idempotent():
         result = conn.execute(text("PRAGMA table_info(procurements)"))
         cols2 = {row[1] for row in result.fetchall()}
     assert cols == cols2  # 同じカラムセットのまま
+
+
+def test_update_procurement_category(db):
+    from database.crud import update_procurement
+
+    proc = add_procurement(
+        db, sku="TEST-003", title="更新テスト", purchase_price_jpy=2000
+    )
+    updated = update_procurement(db, proc.id, category="機械工具類", quantity=3)
+    assert updated.category == "機械工具類"
+    assert updated.quantity == 3
