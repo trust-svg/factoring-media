@@ -156,29 +156,39 @@ def update_procurement(db: Session, proc_id: int, **kwargs) -> Optional[Procurem
 
 def get_procurement_stats(db: Session) -> dict:
     """仕入れ記録のKPI統計"""
-    from sqlalchemy import func as _func
+    from sqlalchemy import case
 
-    total = db.query(Procurement).count()
-    purchased = db.query(Procurement).filter(Procurement.status == "purchased").count()
-    received = db.query(Procurement).filter(Procurement.status == "received").count()
-    listed = db.query(Procurement).filter(Procurement.status == "listed").count()
-    sold = db.query(Procurement).filter(Procurement.status == "sold").count()
-    shipped = db.query(Procurement).filter(Procurement.status == "shipped").count()
-    returned = db.query(Procurement).filter(Procurement.status == "returned").count()
-    cancelled = db.query(Procurement).filter(Procurement.status == "cancelled").count()
-    total_cost = db.query(_func.sum(Procurement.total_cost_jpy)).scalar() or 0
-    total_tax = db.query(_func.sum(Procurement.consumption_tax_jpy)).scalar() or 0
+    row = db.query(
+        func.count(Procurement.id).label("total"),
+        func.sum(case((Procurement.status == "purchased", 1), else_=0)).label(
+            "purchased"
+        ),
+        func.sum(case((Procurement.status == "received", 1), else_=0)).label(
+            "received"
+        ),
+        func.sum(case((Procurement.status == "listed", 1), else_=0)).label("listed"),
+        func.sum(case((Procurement.status == "sold", 1), else_=0)).label("sold"),
+        func.sum(case((Procurement.status == "shipped", 1), else_=0)).label("shipped"),
+        func.sum(case((Procurement.status == "returned", 1), else_=0)).label(
+            "returned"
+        ),
+        func.sum(case((Procurement.status == "cancelled", 1), else_=0)).label(
+            "cancelled"
+        ),
+        func.sum(Procurement.total_cost_jpy).label("total_cost_jpy"),
+        func.sum(Procurement.consumption_tax_jpy).label("total_tax_jpy"),
+    ).one()
     return {
-        "total": total,
-        "purchased": purchased,
-        "received": received,
-        "listed": listed,
-        "sold": sold,
-        "shipped": shipped,
-        "returned": returned,
-        "cancelled": cancelled,
-        "total_cost_jpy": int(total_cost),
-        "total_tax_jpy": int(total_tax),
+        "total": row.total or 0,
+        "purchased": row.purchased or 0,
+        "received": row.received or 0,
+        "listed": row.listed or 0,
+        "sold": row.sold or 0,
+        "shipped": row.shipped or 0,
+        "returned": row.returned or 0,
+        "cancelled": row.cancelled or 0,
+        "total_cost_jpy": int(row.total_cost_jpy or 0),
+        "total_tax_jpy": int(row.total_tax_jpy or 0),
     }
 
 
