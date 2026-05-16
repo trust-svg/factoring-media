@@ -122,4 +122,5 @@ export interface ProgressData {
   total_sessions: number
   grade: string
   advice: string | null
+  recent_dates: string[]
 }

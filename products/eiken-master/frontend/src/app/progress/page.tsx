@@ -105,6 +105,52 @@ function RadarChart({ breakdown }: { breakdown: ProgressData['skill_breakdown'] 
   )
 }
 
+function StudyCalendar({ recentDates }: { recentDates: string[] }) {
+  const studiedSet = new Set(recentDates)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  // Build 35-day grid starting from 34 days ago (5 weeks)
+  const days: { date: string; studied: boolean; isToday: boolean }[] = []
+  for (let i = 34; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const iso = d.toISOString().slice(0, 10)
+    days.push({ date: iso, studied: studiedSet.has(iso), isToday: i === 0 })
+  }
+  const DOW = ['日', '月', '火', '水', '木', '金', '土']
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm">
+      <p className="text-xs text-gray-400 mb-3">学習カレンダー（直近35日）</p>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {DOW.map((d) => (
+          <div key={d} className="text-center text-xs text-gray-400">{d}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {/* leading empty cells to align with day-of-week */}
+        {Array.from({ length: new Date(days[0].date).getDay() }).map((_, i) => (
+          <div key={`e${i}`} />
+        ))}
+        {days.map(({ date, studied, isToday }) => (
+          <div
+            key={date}
+            title={date}
+            className={`aspect-square rounded-md flex items-center justify-center text-xs font-medium
+              ${studied ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-400'}
+              ${isToday ? 'ring-2 ring-indigo-400' : ''}`}
+          >
+            {new Date(date).getDate()}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 mt-3 justify-end">
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-indigo-500" /><span className="text-xs text-gray-500">学習あり</span></div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-gray-100" /><span className="text-xs text-gray-500">未学習</span></div>
+      </div>
+    </div>
+  )
+}
+
 export default function ProgressPage() {
   const router = useRouter()
   const [data, setData] = useState<ProgressData | null>(null)
@@ -176,6 +222,11 @@ export default function ProgressPage() {
             <p className="text-xs text-gray-400 mt-0.5">試験まで</p>
           </div>
         </div>
+
+        {/* Study calendar */}
+        {data && (
+          <StudyCalendar recentDates={data.recent_dates} />
+        )}
 
         {/* Radar chart */}
         {data && (

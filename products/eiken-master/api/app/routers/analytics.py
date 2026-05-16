@@ -86,6 +86,14 @@ def get_progress(user: User = Depends(current_user), db: Session = Depends(get_d
     if user.exam_date:
         days_remaining = max(0, (user.exam_date - today).days)
 
+    # Calendar: last 35 days with study activity
+    cal_start = today - timedelta(days=34)
+    recent_dates = [
+        (cal_start + timedelta(days=i)).isoformat()
+        for i in range(35)
+        if (cal_start + timedelta(days=i)) in session_dates
+    ]
+
     total_sessions = (
         db.query(StudySession).filter(StudySession.user_id == user.id).count()
     )
@@ -112,4 +120,5 @@ def get_progress(user: User = Depends(current_user), db: Session = Depends(get_d
         "total_sessions": total_sessions,
         "grade": user.grade,
         "advice": advice,
+        "recent_dates": recent_dates,
     }
