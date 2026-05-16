@@ -157,3 +157,56 @@ def score_speaking(
         is_passing=score >= 6.0,
         transcript=transcript,
     )
+
+
+_ADVICE_PROMPT = """\
+あなたは英検コーチです。以下のデータをもとに、学習者への短いアドバイスを2文以内の日本語で返してください。
+励ましと、最も弱いスキルへの具体的な改善アドバイスを含めてください。
+回答はアドバイス文のみ（JSONや箇条書き不要）。
+
+目標: 英検{grade}
+試験まで: {days}日
+合格確率: {prob}
+スキル別正答率（直近2週間）:
+  リーディング: {reading}
+  リスニング: {listening}
+  ライティング: {writing}
+  スピーキング: {speaking}
+連続学習日数: {streak}日
+"""
+
+
+def generate_advice(
+    grade: str,
+    days_remaining: int | None,
+    pass_probability: float | None,
+    skill_breakdown: dict,
+    streak: int,
+) -> str:
+    def fmt(v: float | None) -> str:
+        return f"{round(v * 100)}%" if v is not None else "データなし"
+
+    grade_label = "準2級" if grade == "pre2" else "2級"
+    days_str = f"{days_remaining}" if days_remaining is not None else "未設定"
+    prob_str = fmt(pass_probability)
+
+    msg = _get_anthropic().messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=150,
+        messages=[
+            {
+                "role": "user",
+                "content": _ADVICE_PROMPT.format(
+                    grade=grade_label,
+                    days=days_str,
+                    prob=prob_str,
+                    reading=fmt(skill_breakdown.get("reading")),
+                    listening=fmt(skill_breakdown.get("listening")),
+                    writing=fmt(skill_breakdown.get("writing")),
+                    speaking=fmt(skill_breakdown.get("speaking")),
+                    streak=streak,
+                ),
+            }
+        ],
+    )
+    return msg.content[0].text.strip()

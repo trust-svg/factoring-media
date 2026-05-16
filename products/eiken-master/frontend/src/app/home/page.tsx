@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { apiGetProgress } from '@/lib/api'
 import { useAuth } from '@/providers/AuthProvider'
-import type { Skill } from '@/lib/types'
+import type { ProgressData, Skill } from '@/lib/types'
 
 interface StudyMode {
   skill: Skill
@@ -29,12 +30,19 @@ function daysUntil(dateStr: string | null): number | null {
 export default function HomePage() {
   const { user, loading, logout } = useAuth()
   const router = useRouter()
+  const [progress, setProgress] = useState<ProgressData | null>(null)
 
   useEffect(() => {
     if (!loading && user && !user.exam_date) {
       router.replace('/onboarding')
     }
   }, [loading, user, router])
+
+  useEffect(() => {
+    if (!loading && user) {
+      apiGetProgress().then(setProgress).catch(() => {})
+    }
+  }, [loading, user])
 
   if (loading) {
     return (
@@ -79,14 +87,47 @@ export default function HomePage() {
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
-        {/* Exam countdown */}
-        {days !== null && (
-          <div className="bg-white rounded-2xl shadow-sm p-5 text-center">
-            <p className="text-gray-400 text-sm mb-1">試験まで</p>
-            <p className="text-5xl font-bold text-indigo-700">
-              {days}
-              <span className="text-2xl font-normal ml-1">日</span>
-            </p>
+        {/* Progress card */}
+        <button
+          onClick={() => router.push('/progress')}
+          className="w-full bg-white rounded-2xl shadow-sm p-5 text-left"
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xs text-gray-400 mb-1">合格確率</p>
+              {progress?.pass_probability != null ? (
+                <p className={`text-4xl font-bold ${progress.pass_probability >= 0.7 ? 'text-green-600' : progress.pass_probability >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>
+                  {Math.round(progress.pass_probability * 100)}%
+                </p>
+              ) : (
+                <p className="text-2xl font-bold text-gray-300">—%</p>
+              )}
+            </div>
+            <div className="text-right">
+              {days !== null && (
+                <div>
+                  <p className="text-xs text-gray-400">試験まで</p>
+                  <p className="text-2xl font-bold text-indigo-700">{days}<span className="text-sm font-normal ml-0.5">日</span></p>
+                </div>
+              )}
+              <p className="text-xs text-indigo-400 mt-1">詳細を見る ›</p>
+            </div>
+          </div>
+          {progress?.pass_probability != null && (
+            <div className="w-full bg-gray-100 rounded-full h-1.5 mt-3">
+              <div
+                className={`h-1.5 rounded-full ${progress.pass_probability >= 0.7 ? 'bg-green-500' : progress.pass_probability >= 0.5 ? 'bg-amber-400' : 'bg-red-400'}`}
+                style={{ width: `${Math.round(progress.pass_probability * 100)}%` }}
+              />
+            </div>
+          )}
+        </button>
+
+        {/* AI Advice */}
+        {progress?.advice && (
+          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3">
+            <p className="text-xs text-indigo-400 mb-1">AIコーチ</p>
+            <p className="text-sm text-indigo-800 leading-relaxed">{progress.advice}</p>
           </div>
         )}
 

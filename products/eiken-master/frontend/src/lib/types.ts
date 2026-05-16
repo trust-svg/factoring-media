@@ -105,3 +105,21 @@ export interface AudioResponse {
   audio_base64: string
   duration_hint_seconds: number | null
 }
+
+export interface SkillBreakdown {
+  reading: number | null
+  listening: number | null
+  writing: number | null
+  speaking: number | null
+}
+
+export interface ProgressData {
+  pass_probability: number | null
+  skill_breakdown: SkillBreakdown
+  streak: number
+  trend: 'up' | 'flat' | 'down'
+  days_remaining: number | null
+  total_sessions: number
+  grade: string
+  advice: string | null
+}

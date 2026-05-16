@@ -2,6 +2,7 @@ import type {
   AudioResponse,
   Flashcard,
   Grade,
+  ProgressData,
   Question,
   Session,
   Skill,
@@ -63,6 +64,9 @@ export const apiUpdateMe = (data: UpdateUserRequest) =>
     method: 'PUT',
     body: JSON.stringify(data),
   })
+
+// Analytics
+export const apiGetProgress = () => request<ProgressData>('/analytics/progress')
 
 // Flashcards
 export const apiGetDueFlashcards = () =>

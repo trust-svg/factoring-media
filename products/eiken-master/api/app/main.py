@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import init_db
-from app.routers import ai, auth, flashcards, questions, sessions
+from app.routers import ai, analytics, auth, flashcards, questions, sessions
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
@@ -29,6 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(flashcards.router, prefix="/flashcards", tags=["flashcards"])
 app.include_router(questions.router, prefix="/questions", tags=["questions"])
