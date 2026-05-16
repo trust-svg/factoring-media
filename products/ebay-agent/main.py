@@ -2283,6 +2283,237 @@ async def bulk_import_procurements(request: Request):
         db.close()
 
 
+@app.post("/api/procurements/scrape/mercari")
+async def proc_start_mercari_scrape():
+    """メルカリ購入履歴をスクレイプして仕入れ記録に取り込む"""
+    import uuid
+
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
+    }
+
+    async def run_scrape():
+        from scrapers.mercari import scrape_mercari_purchases
+
+        job = _scrape_jobs[job_id]
+        try:
+
+            def on_progress(msg, cur, total):
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_mercari_purchases(
+                on_progress=on_progress, headless=SCRAPER_HEADLESS
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
+        except RuntimeError as e:
+            if str(e) == "LOGIN_REQUIRED":
+                job["status"] = "login_required"
+                job["message"] = (
+                    "メルカリログインが必要です。ローカルで再ログイン→同期してください。"
+                )
+                _notify_login_required("mercari", "メルカリ")
+            else:
+                job["status"] = "error"
+                job["error"] = str(e)
+                job["message"] = f"エラー: {e}"
+        except Exception as e:
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/procurements/scrape/mercari/import/{job_id}")
+async def proc_import_mercari_results(job_id: str):
+    """メルカリスクレイプ結果を仕入れ記録に保存"""
+    job = _scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
+    results = sorted(job.get("results", []), key=lambda r: r.get("date", "") or "9999")
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            price = int(row.get("price", 0) or 0)
+            existing = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                    Procurement.platform == "メルカリ",
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
+                "platform": "メルカリ",
+                "url": row.get("item_url", "") or row.get("transaction_url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "purchased",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/scrape/yahoo")
+async def proc_start_yahoo_scrape(request: Request):
+    """ヤフオク落札一覧をスクレイプして仕入れ記録に取り込む"""
+    import uuid
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    max_pages = int(body.get("max_pages", 50))
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
+    }
+
+    async def run_scrape():
+        from scrapers.yahoo_auctions import scrape_yahoo_won
+
+        job = _scrape_jobs[job_id]
+        try:
+
+            def on_progress(msg, cur, total):
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_yahoo_won(
+                on_progress=on_progress, max_pages=max_pages, headless=SCRAPER_HEADLESS
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
+        except RuntimeError as e:
+            if str(e) == "LOGIN_REQUIRED":
+                job["status"] = "login_required"
+                job["message"] = (
+                    "Yahooログインが必要です。ローカルで再ログイン→同期してください。"
+                )
+                _notify_login_required("yahoo", "Yahoo!オークション")
+            else:
+                job["status"] = "error"
+                job["error"] = str(e)
+                job["message"] = f"エラー: {e}"
+        except Exception as e:
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/procurements/scrape/yahoo/import/{job_id}")
+async def proc_import_yahoo_results(job_id: str):
+    """ヤフオクスクレイプ結果を仕入れ記録に保存"""
+    job = _scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
+    results = sorted(job.get("results", []), key=lambda r: r.get("date", "") or "9999")
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            price = int(row.get("price", 0) or 0)
+            existing = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                    Procurement.platform == "ヤフオク",
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "platform": "ヤフオク",
+                "url": row.get("item_url", "") or row.get("url", ""),
+                "seller_id": row.get("seller_id", "") or row.get("seller", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "purchased",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/{proc_id}/screenshot")
 async def upload_procurement_screenshot(proc_id: int, request: Request):
     """仕入れ記録スクリーンショットをアップロード"""

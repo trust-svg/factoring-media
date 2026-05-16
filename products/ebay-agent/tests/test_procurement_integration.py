@@ -443,3 +443,59 @@ def test_procurement_bulk_import(db):
         created += 1
     assert created == 2
     assert skipped == 1
+
+
+def test_procurement_scrape_import_creates_procurement(db):
+    """スクレイプ結果をProcurementに保存できる（DBレイヤーのみ確認）"""
+    from database.models import Procurement as Proc
+
+    results = [
+        {
+            "title": "メルカリ商品A",
+            "price": 3000,
+            "date": "2026-05-01",
+            "item_url": "https://jp.mercari.com/item/m123",
+        },
+        {"title": "", "price": 500},  # タイトルなし → スキップ
+        {"title": "メルカリ商品A", "price": 3000},  # 重複 → スキップ
+    ]
+    created = 0
+    skipped = 0
+    for row in results:
+        title = (row.get("title") or "").strip()
+        if not title:
+            skipped += 1
+            continue
+        price = int(row.get("price", 0) or 0)
+        existing = (
+            db.query(Proc)
+            .filter(
+                Proc.title == title,
+                Proc.purchase_price_jpy == price,
+                Proc.platform == "メルカリ",
+            )
+            .first()
+        )
+        if existing:
+            skipped += 1
+            continue
+        from datetime import datetime
+
+        kwargs = {
+            "title": title,
+            "purchase_price_jpy": price,
+            "platform": "メルカリ",
+            "url": row.get("item_url", ""),
+            "status": "purchased",
+        }
+        if row.get("date"):
+            try:
+                kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+            except ValueError:
+                pass
+        add_procurement(db, **kwargs)
+        created += 1
+    assert created == 1
+    assert skipped == 2
+    procs = db.query(Proc).all()
+    assert procs[0].platform == "メルカリ"
