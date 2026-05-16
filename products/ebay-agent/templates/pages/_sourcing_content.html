@@ -48,10 +48,21 @@
             <div class="form-group" style="margin:0;"><label data-en="Shipping (JPY)" data-ja="国内送料">Shipping</label><input class="form-input" id="procShipping" type="number" style="padding:6px 10px;" placeholder="¥" value="0"></div>
             <div class="form-group" style="margin:0;"><label data-en="Other Cost" data-ja="その他経費">Other Cost</label><input class="form-input" id="procOther" type="number" style="padding:6px 10px;" placeholder="¥" value="0"></div>
             <div class="form-group" style="margin:0;"><label data-en="Purchase Date" data-ja="購入日">Purchase Date</label><input class="form-input" id="procDate" type="date" style="padding:6px 10px;"></div>
-            <div class="form-group" style="margin:0;"><label data-en="URL" data-ja="仕入先URL">URL</label><input class="form-input" id="procUrl" style="padding:6px 10px;" placeholder="https://..."></div>
+            <div class="form-group" style="margin:0;">
+              <label data-en="URL" data-ja="仕入先URL">URL</label>
+              <div style="display:flex;gap:6px;">
+                <input class="form-input" id="procUrl" style="padding:6px 10px;flex:1;" placeholder="https://..." oninput="autoDetectProcUrl()">
+                <button class="btn btn-sm btn-outline" onclick="autoDetectProcUrl()" style="white-space:nowrap;">自動取得</button>
+              </div>
+              <div id="procUrlDetectStatus" style="font-size:11px;margin-top:2px;"></div>
+            </div>
             <div class="form-group" style="margin:0;"><label data-en="Seller ID" data-ja="出品者ID">出品者ID</label><input class="form-input" id="procSellerId" style="padding:6px 10px;" placeholder="ユーザー名/ID"></div>
             <div class="form-group" style="margin:0;"><label data-en="Quantity" data-ja="数量">数量</label><input class="form-input" id="procQty" type="number" style="padding:6px 10px;" value="1" min="1"></div>
             <div class="form-group" style="margin:0;"><label data-en="Condition" data-ja="状態">状態</label><select class="form-input" id="procCondition" style="padding:6px 10px;"><option value="">-- 選択 --</option><option value="新品">新品</option><option value="中古A">中古A（美品）</option><option value="中古B">中古B（良品）</option><option value="中古C">中古C（傷あり）</option></select></div>
+            <div class="form-group" style="margin:0;"><label>管理番号</label><input class="form-input" id="procStockNo" style="padding:6px 10px;" placeholder="P-001"></div>
+            <div class="form-group" style="margin:0;"><label>保管場所</label><input class="form-input" id="procLocation" style="padding:6px 10px;" placeholder="棚A"></div>
+            <div class="form-group" style="margin:0;"><label>eBay Item ID</label><input class="form-input" id="procEbayItemId" style="padding:6px 10px;" placeholder="123456789012"></div>
+            <div class="form-group" style="margin:0;"><label>eBay価格(USD)</label><input class="form-input" id="procEbayPrice" type="number" style="padding:6px 10px;" step="0.01" min="0" value="0"></div>
             <div class="form-group" style="margin:0;"><label data-en="Kojyo Category" data-ja="古物区分">古物区分</label>
                 <select class="form-input" id="procCategory" style="padding:6px 10px;">
                     <option value="">-- 選択 --</option>
@@ -72,6 +83,14 @@
             </div>
         </div>
         <div class="form-group" style="margin:8px 0 0;"><label data-en="Notes" data-ja="メモ">Notes</label><input class="form-input" id="procNotes" style="padding:6px 10px;" placeholder="メモ（任意）"></div>
+        <div class="form-group" style="margin:8px 0 0;grid-column:1/-1;">
+          <label>仕入元スクリーンショット</label>
+          <div id="procScreenshotZone" ondrop="handleProcScreenshotDrop(event)" ondragover="event.preventDefault();event.currentTarget.style.borderColor='var(--accent-blue)';" ondragleave="event.currentTarget.style.borderColor='var(--border)';" style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;" onclick="document.getElementById('procScreenshotInput').click()">
+            <div id="procScreenshotPrompt" style="color:var(--text-tertiary);font-size:12px;">画像をドロップ or クリックして選択</div>
+            <div id="procScreenshotPreview" style="display:none;"></div>
+          </div>
+          <input type="file" id="procScreenshotInput" accept="image/*" style="display:none;" onchange="handleProcScreenshotSelect(event)">
+        </div>
         <div style="display:flex;gap:8px;margin-top:10px;">
             <button class="btn btn-sm" onclick="submitProcurement()" data-en="Save" data-ja="保存">Save</button>
             <button class="btn btn-sm btn-outline" onclick="toggleAddForm()" data-en="Cancel" data-ja="キャンセル">Cancel</button>
@@ -151,6 +170,9 @@
             <div class="form-group"><label data-en="Status" data-ja="ステータス">Status</label>
                 <select id="editProcStatus" class="form-input">
                     <option value="purchased">購入済</option><option value="shipped">輸送中</option><option value="received">受取済</option><option value="listed">出品済</option>
+                    <option value="sold">販売済み</option>
+                    <option value="returned">返品</option>
+                    <option value="cancelled">キャンセル</option>
                 </select>
             </div>
             <div class="form-group" style="grid-column:1/-1;"><label data-en="Title" data-ja="商品名">Title</label><input id="editProcTitle" class="form-input"></div>
@@ -166,6 +188,11 @@
             <div class="form-group"><label data-en="Seller ID" data-ja="出品者ID">出品者ID</label><input id="editProcSellerId" class="form-input"></div>
             <div class="form-group"><label data-en="Quantity" data-ja="数量">数量</label><input id="editProcQty" class="form-input" type="number" min="1"></div>
             <div class="form-group"><label data-en="Condition" data-ja="状態">状態</label><select id="editProcCondition" class="form-input"><option value="">-- 選択 --</option><option value="新品">新品</option><option value="中古A">中古A（美品）</option><option value="中古B">中古B（良品）</option><option value="中古C">中古C（傷あり）</option></select></div>
+            <div class="form-group"><label>管理番号</label><input id="editProcStockNo" class="form-input"></div>
+            <div class="form-group"><label>保管場所</label><input id="editProcLocation" class="form-input"></div>
+            <div class="form-group"><label>eBay Item ID</label><input id="editProcEbayItemId" class="form-input"></div>
+            <div class="form-group"><label>eBay Order ID</label><input id="editProcEbayOrderId" class="form-input"></div>
+            <div class="form-group"><label>eBay価格(USD)</label><input id="editProcEbayPrice" class="form-input" type="number" step="0.01" min="0"></div>
             <div class="form-group" style="grid-column:1/-1;">
                 <label data-en="Kojyo Category" data-ja="古物区分">古物区分</label>
                 <select id="editProcCategory" class="form-input">
@@ -269,8 +296,8 @@ function renderProc() {
     }
     if (!filtered.length) { document.getElementById('procBody').innerHTML = `<tr><td colspan="11" class="empty-state">${t('No records', 'データなし')}</td></tr>`; return; }
 
-    const statusCls = { purchased:'ps-purchased', shipped:'ps-shipped', received:'ps-received', listed:'ps-listed' };
-    const statusLabel = { purchased:'購入済', shipped:'輸送中', received:'受取済', listed:'出品済' };
+    const statusCls = { purchased:'ps-purchased', shipped:'ps-shipped', received:'ps-received', listed:'ps-listed', sold:'ps-sold', returned:'ps-returned', cancelled:'ps-cancelled' };
+    const statusLabel = { purchased:'購入済', shipped:'輸送中', received:'受取済', listed:'出品済', sold:'販売済み', returned:'返品', cancelled:'キャンセル' };
 
     let html = '';
     for (const p of filtered) {
@@ -314,6 +341,10 @@ function renderProc() {
                         <div>${t('Received','受取日')}: ${p.received_date?p.received_date.slice(0,10):'-'}</div>
                         ${p.url?`<div style="margin-top:4px;"><a href="${esc(p.url)}" target="_blank" style="color:var(--accent-blue);">${t('Source link','仕入先リンク')} ↗</a></div>`:''}
                         ${p.condition?`<div style="margin-top:4px;">📦 ${esc(p.condition)}</div>`:''}
+                        ${p.stock_number ? `<div style="margin-top:4px;">🔢 ${esc(p.stock_number)}</div>` : ''}
+                        ${p.location ? `<div style="margin-top:4px;">📍 ${esc(p.location)}</div>` : ''}
+                        ${p.ebay_item_id ? `<div style="margin-top:4px;">🏷 eBay: <a href="https://www.ebay.com/itm/${esc(p.ebay_item_id)}" target="_blank" style="color:var(--accent-blue);">${esc(p.ebay_item_id)}</a></div>` : ''}
+                        ${p.ebay_price_usd ? `<div style="margin-top:4px;">💵 $${p.ebay_price_usd.toFixed(2)}</div>` : ''}
                         ${p.seller_id?`<div style="margin-top:4px;">👤 ${esc(p.seller_id)}${p.seller_url?` <a href="${esc(p.seller_url)}" target="_blank" style="color:var(--accent-blue);">↗</a>`:''}</div>`:''}
                         ${p.category?`<div style="margin-top:4px;">🏷️ ${esc(p.category)}</div>`:''}
                         ${(p.quantity&&p.quantity>1)?`<div>${t('Qty','数量')}: ${p.quantity}</div>`:''}
@@ -370,15 +401,25 @@ function filterProc(tab) { currentFilter=tab; document.querySelectorAll('.filter
 function toggleAddForm() { const f=document.getElementById('addForm'); f.style.display=f.style.display==='none'?'block':'none'; }
 
 async function submitProcurement() {
-    const body = { platform:document.getElementById('procPlatform').value, title:document.getElementById('procTitle').value, sku:document.getElementById('procSku').value, purchase_price_jpy:parseInt(document.getElementById('procPrice').value)||0, consumption_tax_jpy:parseInt(document.getElementById('procTax').value)||0, shipping_cost_jpy:parseInt(document.getElementById('procShipping').value)||0, other_cost_jpy:parseInt(document.getElementById('procOther').value)||0, purchase_date:document.getElementById('procDate').value, url:document.getElementById('procUrl').value, notes:document.getElementById('procNotes').value, seller_id:document.getElementById('procSellerId').value, quantity:parseInt(document.getElementById('procQty').value)||1, category:document.getElementById('procCategory').value, condition:document.getElementById('procCondition').value };
+    const body = { platform:document.getElementById('procPlatform').value, title:document.getElementById('procTitle').value, sku:document.getElementById('procSku').value, purchase_price_jpy:parseInt(document.getElementById('procPrice').value)||0, consumption_tax_jpy:parseInt(document.getElementById('procTax').value)||0, shipping_cost_jpy:parseInt(document.getElementById('procShipping').value)||0, other_cost_jpy:parseInt(document.getElementById('procOther').value)||0, purchase_date:document.getElementById('procDate').value, url:document.getElementById('procUrl').value, notes:document.getElementById('procNotes').value, seller_id:document.getElementById('procSellerId').value, quantity:parseInt(document.getElementById('procQty').value)||1, category:document.getElementById('procCategory').value, condition:document.getElementById('procCondition').value, stock_number:document.getElementById('procStockNo').value, location:document.getElementById('procLocation').value, ebay_item_id:document.getElementById('procEbayItemId').value, ebay_price_usd:parseFloat(document.getElementById('procEbayPrice').value)||0 };
     if(!body.title||!body.purchase_price_jpy){alert(t('Title and price required','商品名と仕入価格は必須です'));return;}
-    await apiFetch('/api/procurements',{method:'POST',body:JSON.stringify(body)});
+    const result = await apiFetch('/api/procurements',{method:'POST',body:JSON.stringify(body)});
+    if (pendingProcScreenshot && result && result.id) await uploadProcScreenshot(result.id);
     document.getElementById('addForm').style.display='none';
     ['procTitle','procSku','procPrice','procTax','procShipping','procOther','procUrl','procNotes','procSellerId'].forEach(id=>{const el=document.getElementById(id);if(el.type==='number')el.value='0';else el.value='';});
     document.getElementById('procDate').value=new Date().toISOString().slice(0,10);
     document.getElementById('procQty').value='1';
     document.getElementById('procCategory').value='';
     document.getElementById('procCondition').value='';
+    document.getElementById('procStockNo').value='';
+    document.getElementById('procLocation').value='';
+    document.getElementById('procEbayItemId').value='';
+    document.getElementById('procEbayPrice').value='0';
+    pendingProcScreenshot = null;
+    document.getElementById('procScreenshotPreview').style.display='none';
+    document.getElementById('procScreenshotPrompt').style.display='block';
+    document.getElementById('procScreenshotInput').value='';
+    document.getElementById('procUrlDetectStatus').innerHTML='';
     loadProcurements();
 }
 
@@ -401,12 +442,17 @@ function openEditProc(id) {
     document.getElementById('editProcQty').value=p.quantity||1;
     document.getElementById('editProcCategory').value=p.category||'';
     document.getElementById('editProcCondition').value=p.condition||'';
+    document.getElementById('editProcStockNo').value=p.stock_number||'';
+    document.getElementById('editProcLocation').value=p.location||'';
+    document.getElementById('editProcEbayItemId').value=p.ebay_item_id||'';
+    document.getElementById('editProcEbayOrderId').value=p.ebay_order_id||'';
+    document.getElementById('editProcEbayPrice').value=p.ebay_price_usd||0;
     document.getElementById('editProcModal').style.display='flex';
 }
 function closeEditProc(){document.getElementById('editProcModal').style.display='none';}
 async function saveEditProc() {
     const id=document.getElementById('editProcId').value;
-    const body={platform:document.getElementById('editProcPlatform').value,status:document.getElementById('editProcStatus').value,title:document.getElementById('editProcTitle').value,sku:document.getElementById('editProcSku').value,purchase_price_jpy:parseInt(document.getElementById('editProcPrice').value)||0,consumption_tax_jpy:parseInt(document.getElementById('editProcTax').value)||0,shipping_cost_jpy:parseInt(document.getElementById('editProcShip').value)||0,other_cost_jpy:parseInt(document.getElementById('editProcOther').value)||0,purchase_date:document.getElementById('editProcDate').value,received_date:document.getElementById('editProcRecvDate').value,url:document.getElementById('editProcUrl').value,notes:document.getElementById('editProcNotes').value,seller_id:document.getElementById('editProcSellerId').value,quantity:parseInt(document.getElementById('editProcQty').value)||1,category:document.getElementById('editProcCategory').value,condition:document.getElementById('editProcCondition').value};
+    const body={platform:document.getElementById('editProcPlatform').value,status:document.getElementById('editProcStatus').value,title:document.getElementById('editProcTitle').value,sku:document.getElementById('editProcSku').value,purchase_price_jpy:parseInt(document.getElementById('editProcPrice').value)||0,consumption_tax_jpy:parseInt(document.getElementById('editProcTax').value)||0,shipping_cost_jpy:parseInt(document.getElementById('editProcShip').value)||0,other_cost_jpy:parseInt(document.getElementById('editProcOther').value)||0,purchase_date:document.getElementById('editProcDate').value,received_date:document.getElementById('editProcRecvDate').value,url:document.getElementById('editProcUrl').value,notes:document.getElementById('editProcNotes').value,seller_id:document.getElementById('editProcSellerId').value,quantity:parseInt(document.getElementById('editProcQty').value)||1,category:document.getElementById('editProcCategory').value,condition:document.getElementById('editProcCondition').value,stock_number:document.getElementById('editProcStockNo').value,location:document.getElementById('editProcLocation').value,ebay_item_id:document.getElementById('editProcEbayItemId').value,ebay_order_id:document.getElementById('editProcEbayOrderId').value,ebay_price_usd:parseFloat(document.getElementById('editProcEbayPrice').value)||0};
     await apiFetch(`/api/procurements/${id}`,{method:'PUT',body:JSON.stringify(body)});
     closeEditProc(); loadProcurements();
 }
@@ -430,4 +476,65 @@ function toggleSort(key) {
 }
 
 function esc(text){const div=document.createElement('div');div.textContent=text||'';return div.innerHTML;}
+
+function autoDetectProcUrl() {
+    const url = (document.getElementById('procUrl').value || '').trim();
+    if (!url) return;
+    const platformMap = [
+        { pattern: /jp\.mercari\.com|mercari\.com/, source: 'メルカリ' },
+        { pattern: /page\.auctions\.yahoo\.co\.jp|auctions\.yahoo/, source: 'ヤフオク' },
+        { pattern: /fril\.jp|rakuma/, source: 'ラクマ' },
+        { pattern: /amazon\.co\.jp/, source: 'Amazon' },
+        { pattern: /shopping\.yahoo\.co\.jp/, source: 'ヤフーショッピング' },
+        { pattern: /rakuten\.co\.jp/, source: '楽天' },
+        { pattern: /suruga-ya\.jp/, source: '駿河屋' },
+        { pattern: /paypayfleamarket|yahoo.*flea/, source: 'Yahooフリマ' },
+        { pattern: /netmall\.hardoff|ofmall/, source: 'ネットモール(OFFモール)' },
+    ];
+    const statusEl = document.getElementById('procUrlDetectStatus');
+    let detected = null;
+    for (const pm of platformMap) {
+        if (pm.pattern.test(url)) { detected = pm.source; break; }
+    }
+    if (detected) {
+        document.getElementById('procPlatform').value = detected;
+        statusEl.innerHTML = `<span style="color:var(--accent-green);">✓ ${detected} を検出</span>`;
+    } else {
+        statusEl.innerHTML = '<span style="color:#f59e0b;">プラットフォームを自動判別できませんでした</span>';
+    }
+    if (!document.getElementById('procDate').value) {
+        document.getElementById('procDate').value = new Date().toISOString().slice(0, 10);
+    }
+}
+
+let pendingProcScreenshot = null;
+
+function handleProcScreenshotDrop(event) {
+    event.preventDefault();
+    event.currentTarget.style.borderColor = 'var(--border)';
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) setProcScreenshotPreview(file);
+}
+function handleProcScreenshotSelect(event) {
+    const file = event.target.files[0];
+    if (file) setProcScreenshotPreview(file);
+}
+function setProcScreenshotPreview(file) {
+    pendingProcScreenshot = file;
+    const preview = document.getElementById('procScreenshotPreview');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:150px;border-radius:4px;">`;
+        preview.style.display = 'block';
+        document.getElementById('procScreenshotPrompt').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+async function uploadProcScreenshot(procId) {
+    if (!pendingProcScreenshot) return;
+    const fd = new FormData();
+    fd.append('file', pendingProcScreenshot, pendingProcScreenshot.name);
+    await fetch(`/api/procurements/${procId}/screenshot`, { method: 'POST', body: fd });
+    pendingProcScreenshot = null;
+}
 </script>
