@@ -134,7 +134,7 @@ class Procurement(Base):
     category: Mapped[str] = mapped_column(String(32), default="")  # 古物13区分
     # ── eBay連携・在庫管理フィールド ──
     stock_number: Mapped[str] = mapped_column(
-        String(32), default=""
+        String(32), index=True, default=""
     )  # 管理番号（例: P-001）
     location: Mapped[str] = mapped_column(String(128), default="")  # 保管場所
     ebay_item_id: Mapped[str] = mapped_column(String(64), default="")

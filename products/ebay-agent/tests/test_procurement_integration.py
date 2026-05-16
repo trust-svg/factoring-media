@@ -254,18 +254,37 @@ def test_procurement_ebay_fields(db_session):
 
 
 def test_migrate_new_columns_idempotent(db_engine):
-    """_migrate_procurement_columns が新カラムで冪等動作する"""
+    """_migrate_procurement_columns が新カラムを実際に追加し、2回呼んでも冪等に動作する"""
+    from sqlalchemy import text, create_engine
     from database.models import _migrate_procurement_columns
 
-    _migrate_procurement_columns(db_engine)
-    _migrate_procurement_columns(db_engine)
+    # 最小スキーマ（新カラムなし）のインメモリDBを作る
+    minimal_engine = create_engine("sqlite:///:memory:")
+    with minimal_engine.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE procurements ("
+                "id INTEGER PRIMARY KEY, sku VARCHAR(128), title VARCHAR(512), "
+                "created_at DATETIME)"
+            )
+        )
+        conn.commit()
 
-    from sqlalchemy import text
+    # 1回目: カラムが追加される
+    _migrate_procurement_columns(minimal_engine)
 
-    with db_engine.connect() as conn:
+    with minimal_engine.connect() as conn:
         result = conn.execute(text("PRAGMA table_info(procurements)"))
         cols = {row[1] for row in result.fetchall()}
-    for col in [
+
+    new_cols = [
+        "quantity",
+        "seller_id",
+        "seller_url",
+        "screenshot_path",
+        "category",
+        "image_url",
+        "condition",
         "stock_number",
         "location",
         "ebay_item_id",
@@ -274,5 +293,9 @@ def test_migrate_new_columns_idempotent(db_engine):
         "listed_at",
         "sold_at",
         "shipped_at",
-    ]:
-        assert col in cols, f"Missing column: {col}"
+    ]
+    for col in new_cols:
+        assert col in cols, f"Missing column after first migration: {col}"
+
+    # 2回目: 冪等（エラーにならない）
+    _migrate_procurement_columns(minimal_engine)
