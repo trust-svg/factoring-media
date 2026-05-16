@@ -145,3 +145,23 @@ export interface ErrorData {
   total_attempts: number
   total_errors: number
 }
+
+export interface VocabMember {
+  word: string
+  pos: string
+  meaning: string
+  example: string
+}
+
+export interface VocabCluster {
+  id: string
+  root: string
+  grade: string
+  color: string
+  members: VocabMember[]
+}
+
+export interface VocabClustersResponse {
+  clusters: VocabCluster[]
+  total: number
+}

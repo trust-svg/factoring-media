@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import init_db
-from app.routers import ai, analytics, auth, flashcards, questions, sessions
+from app.routers import ai, analytics, auth, flashcards, questions, sessions, vocabulary
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
@@ -35,6 +35,7 @@ app.include_router(flashcards.router, prefix="/flashcards", tags=["flashcards"])
 app.include_router(questions.router, prefix="/questions", tags=["questions"])
 app.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
 app.include_router(ai.router, prefix="/ai", tags=["ai"])
+app.include_router(vocabulary.router, prefix="/vocabulary", tags=["vocabulary"])
 
 
 @app.get("/health")

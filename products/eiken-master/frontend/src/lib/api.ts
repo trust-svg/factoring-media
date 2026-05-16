@@ -12,6 +12,7 @@ import type {
   TokenResponse,
   UpdateUserRequest,
   User,
+  VocabClustersResponse,
   WritingScore,
 } from './types'
 import { getToken } from './auth'
@@ -158,6 +159,11 @@ export const apiGenerateAudio = (text: string) =>
     method: 'POST',
     body: JSON.stringify({ text }),
   })
+
+export const apiGetVocabClusters = (grade?: string) =>
+  request<VocabClustersResponse>(
+    `/vocabulary/clusters${grade ? `?grade=${grade}` : ''}`,
+  )
 
 export async function apiScoreSpeaking(
   sessionId: string,
