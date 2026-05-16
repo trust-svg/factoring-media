@@ -1,13 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session as DbSession
 
-from app.db import get_db
+from app.db import SessionLocal, get_db
 from app.deps import current_user
 from app.models.session import StudySession, QuestionAttempt
 from app.models.user import User
 from app.schemas.session import SessionStart, SessionEnd, AttemptCreate, SessionOut
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _categorize_error_bg(attempt_id: str, skill: str, question_content: dict) -> None:
+    """Run in background: call Claude to assign a specific error category."""
+    from app.services import ai_service
+
+    db = SessionLocal()
+    try:
+        category = ai_service.categorize_error(skill, question_content)
+        attempt = (
+            db.query(QuestionAttempt).filter(QuestionAttempt.id == attempt_id).first()
+        )
+        if attempt:
+            attempt.error_category = category
+            db.commit()
+    except Exception:
+        logger.exception("_categorize_error_bg failed for attempt_id=%s", attempt_id)
+    finally:
+        db.close()
 
 
 @router.post("/start", response_model=SessionOut, status_code=201)
@@ -56,6 +78,7 @@ def end_session(
 def record_attempt(
     session_id: str,
     body: AttemptCreate,
+    background_tasks: BackgroundTasks,
     user: User = Depends(current_user),
     db: DbSession = Depends(get_db),
 ):
@@ -67,13 +90,12 @@ def record_attempt(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    _ERROR_CATEGORIES = {
-        "reading": "reading_comprehension",
-        "listening": "listening_comprehension",
+    # Static fallback category; AI will overwrite for reading/listening wrong answers
+    _STATIC_CATEGORIES = {
         "writing": "writing_expression",
         "speaking": "speaking_expression",
     }
-    error_category = _ERROR_CATEGORIES.get(body.skill) if not body.is_correct else None
+    error_category = _STATIC_CATEGORIES.get(body.skill) if not body.is_correct else None
 
     attempt = QuestionAttempt(
         user_id=user.id,
@@ -87,4 +109,15 @@ def record_attempt(
     )
     db.add(attempt)
     db.commit()
+
+    # Fire AI categorization in background for reading/listening wrong answers
+    if not body.is_correct and body.skill in ("reading", "listening"):
+        from app.models.question import Question
+
+        q = db.query(Question).filter(Question.id == body.question_id).first()
+        q_content = q.content if q else {}
+        background_tasks.add_task(
+            _categorize_error_bg, attempt.id, body.skill, q_content
+        )
+
     return {"id": attempt.id}

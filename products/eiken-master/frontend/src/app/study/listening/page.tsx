@@ -346,6 +346,11 @@ export default function ListeningPage() {
               問題
             </span>
             <p className="text-lg font-bold text-gray-800 leading-snug">{content.question}</p>
+            {revealed && jaExplain?.question_ja && (
+              <p className="text-sm text-green-700 mt-2 pt-2 border-t border-green-100 leading-relaxed">
+                🇯🇵 {jaExplain.question_ja}
+              </p>
+            )}
           </div>
 
           {/* Choices */}
@@ -379,7 +384,14 @@ export default function ListeningPage() {
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${labelCls}`}>
                     {labels[i]}
                   </span>
-                  <span className="text-base leading-snug flex-1">{choice}</span>
+                  <span className="leading-snug flex-1">
+                    <span className="text-base block">{choice}</span>
+                    {revealed && jaExplain?.choices_ja[i] && (
+                      <span className="text-sm text-gray-500 font-normal mt-0.5 block">
+                        {jaExplain.choices_ja[i]}
+                      </span>
+                    )}
+                  </span>
                   {icon && (
                     <span className={`text-2xl font-black shrink-0 ${i === content.answer ? 'text-green-500' : 'text-red-500'}`}>
                       {icon}
@@ -414,15 +426,15 @@ export default function ListeningPage() {
                 </div>
               ) : jaExplain ? (
                 <div className="bg-emerald-50 rounded-2xl p-5 border-l-4 border-emerald-400 space-y-3">
-                  <p className="text-xs text-emerald-600 font-black uppercase tracking-wider">日本語解説</p>
+                  <p className="text-xs text-emerald-600 font-black uppercase tracking-wider">🇯🇵 日本語解説</p>
                   <div className="bg-white rounded-xl px-4 py-3 flex items-center gap-3">
                     <span className="text-2xl">✅</span>
                     <div>
-                      <p className="text-xs text-gray-400 mb-0.5">正解の意味</p>
+                      <p className="text-xs text-gray-400 mb-0.5">正解</p>
                       <p className="text-base font-black text-gray-800">{jaExplain.answer_ja}</p>
                     </div>
                   </div>
-                  <p className="text-base text-emerald-900 leading-relaxed">{jaExplain.explanation_ja}</p>
+                  <p className="text-sm text-emerald-900 leading-relaxed whitespace-pre-line">{jaExplain.explanation_ja}</p>
                 </div>
               ) : null}
 

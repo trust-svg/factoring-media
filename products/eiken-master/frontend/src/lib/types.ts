@@ -167,6 +167,9 @@ export interface VocabClustersResponse {
 }
 
 export interface ExplainJaResponse {
+  question_ja: string
+  passage_ja: string | null
+  choices_ja: string[]
   answer_ja: string
   explanation_ja: string
 }

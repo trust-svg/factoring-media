@@ -52,9 +52,13 @@ class ExplainJaRequest(BaseModel):
     choices: list[str]
     answer_index: int
     explanation: str
+    passage: Optional[str] = None
 
 
 class ExplainJaResponse(BaseModel):
+    question_ja: str
+    passage_ja: Optional[str] = None
+    choices_ja: list[str]
     answer_ja: str
     explanation_ja: str
 

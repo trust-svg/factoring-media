@@ -168,6 +168,7 @@ export const apiExplainJa = (data: {
   choices: string[]
   answer_index: number
   explanation: string
+  passage?: string
 }) =>
   request<ExplainJaResponse>('/ai/explain-ja', {
     method: 'POST',

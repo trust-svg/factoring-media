@@ -340,29 +340,53 @@ def get_vocab_hint(word: str) -> dict:
 
 
 _EXPLAIN_JA_PROMPT = """\
-あなたは英検の日本語解説担当の先生です。中学生向けに、以下の英語問題の解説を日本語で書いてください。
+あなたは英検の解説担当の先生です。中学生・高校生向けに、以下の英語問題を丁寧に日本語で解説してください。
 
-問題: {question}
-正答: {correct_answer}
+{passage_section}問題（英語）: {question}
+
+選択肢:
+{choices_block}
+
+正答: {correct_letter}. {correct_answer}
 英語の解説: {explanation}
 
 以下のJSON形式のみで返してください（マークダウン不要）:
-{{"answer_ja": "正答の日本語訳または意味（30文字以内）", "explanation_ja": "なぜこの答えが正しいかの日本語解説（中学生向け、2〜3文）"}}
+{{
+  "question_ja": "問題文の完全な日本語訳",
+  "passage_ja": "パッセージの日本語訳（パッセージがない場合は null）",
+  "choices_ja": ["選択肢Aの日本語訳", "Bの日本語訳", "Cの日本語訳", "Dの日本語訳"],
+  "answer_ja": "正答の日本語訳（簡潔に）",
+  "explanation_ja": "詳しい解説：①なぜこの選択肢が正解か ②なぜ他の選択肢が間違いか ③覚えておくべき語句・文法ポイントを含めて5〜7文で"
+}}
 """
+
+_CHOICE_LETTERS = ["A", "B", "C", "D"]
 
 
 def explain_in_japanese(
-    question: str, choices: list[str], answer_index: int, explanation: str
+    question: str,
+    choices: list[str],
+    answer_index: int,
+    explanation: str,
+    passage: str | None = None,
 ) -> dict:
     correct_answer = choices[answer_index] if answer_index < len(choices) else ""
+    correct_letter = _CHOICE_LETTERS[answer_index] if answer_index < 4 else "A"
+    choices_block = "\n".join(
+        f"{_CHOICE_LETTERS[i]}. {c}" for i, c in enumerate(choices)
+    )
+    passage_section = f"英語パッセージ:\n{passage}\n\n" if passage else ""
     msg = _get_anthropic().messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=300,
+        max_tokens=900,
         messages=[
             {
                 "role": "user",
                 "content": _EXPLAIN_JA_PROMPT.format(
+                    passage_section=passage_section,
                     question=question,
+                    choices_block=choices_block,
+                    correct_letter=correct_letter,
                     correct_answer=correct_answer,
                     explanation=explanation,
                 ),
@@ -374,7 +398,79 @@ def explain_in_japanese(
         text = text.split("```")[1]
         if text.startswith("json"):
             text = text[4:]
-    return json.loads(text.strip())
+    data = json.loads(text.strip())
+    # ensure choices_ja has 4 elements
+    cja = data.get("choices_ja", [])
+    while len(cja) < len(choices):
+        cja.append("")
+    data["choices_ja"] = cja[: len(choices)]
+    return data
+
+
+# ── AI Error Categorization ──────────────────────────────────────────────────
+
+_ERROR_CATEGORY_PROMPTS = {
+    "reading": """\
+英検リーディング問題で学習者が誤答しました。最も当てはまるエラーカテゴリを1つだけ返してください。
+
+問題: {question}
+パッセージ: {passage}
+
+カテゴリ（このうち1つだけ返す、他のテキスト不要）:
+vocab_unknown | grammar_structure | inference_required | main_idea | detail_misread""",
+    "listening": """\
+英検リスニング問題で学習者が誤答しました。最も当てはまるエラーカテゴリを1つだけ返してください。
+
+問題: {question}
+
+カテゴリ（このうち1つだけ返す、他のテキスト不要）:
+vocab_unknown | inference_required | detail_missed | context_misread""",
+}
+
+_VALID_CATEGORIES = {
+    "reading": {
+        "vocab_unknown",
+        "grammar_structure",
+        "inference_required",
+        "main_idea",
+        "detail_misread",
+    },
+    "listening": {
+        "vocab_unknown",
+        "inference_required",
+        "detail_missed",
+        "context_misread",
+    },
+    "writing": {
+        "grammar_verb",
+        "grammar_preposition",
+        "vocab_choice",
+        "cohesion",
+        "word_count",
+    },
+    "speaking": {"pronunciation", "fluency", "content_coverage", "grammar"},
+}
+
+
+def categorize_error(skill: str, question_content: dict) -> str:
+    """Classify wrong-answer error type using Claude. Returns a category string."""
+    if skill not in _ERROR_CATEGORY_PROMPTS:
+        return f"{skill}_error"
+    prompt_tpl = _ERROR_CATEGORY_PROMPTS[skill]
+    question = question_content.get("question", "")
+    passage = question_content.get("passage", "")
+    prompt = prompt_tpl.format(question=question, passage=passage)
+    try:
+        msg = _get_anthropic().messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=20,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        result = msg.content[0].text.strip().split()[0]
+        valid = _VALID_CATEGORIES.get(skill, set())
+        return result if result in valid else f"{skill}_error"
+    except Exception:
+        return f"{skill}_error"
 
 
 _DAILY_PLAN_PROMPT = """\

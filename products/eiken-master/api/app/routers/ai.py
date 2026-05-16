@@ -93,7 +93,11 @@ def explain_ja(
 ):
     try:
         result = ai_service.explain_in_japanese(
-            body.question, body.choices, body.answer_index, body.explanation
+            body.question,
+            body.choices,
+            body.answer_index,
+            body.explanation,
+            passage=body.passage,
         )
         return ExplainJaResponse(**result)
     except Exception:
