@@ -1844,6 +1844,8 @@ async def list_procurements(status: str = ""):
                 "seller_url": p.seller_url,
                 "screenshot_path": p.screenshot_path,
                 "category": p.category,
+                "image_url": p.image_url,
+                "condition": p.condition,
                 "sale": sales_by_sku.get(p.sku),
             }
             result.append(item)
@@ -1880,6 +1882,8 @@ async def create_procurement(request: Request):
             seller_url=body.get("seller_url", ""),
             screenshot_path=body.get("screenshot_path", ""),
             category=body.get("category", ""),
+            image_url=body.get("image_url", ""),
+            condition=body.get("condition", ""),
             **({"purchase_date": purchase_date} if purchase_date else {}),
         )
         return JSONResponse(
@@ -1994,6 +1998,8 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         "seller_url",
         "screenshot_path",
         "category",
+        "image_url",
+        "condition",
     ]:
         if key in body:
             kwargs[key] = body[key]

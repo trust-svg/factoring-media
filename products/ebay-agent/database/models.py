@@ -132,6 +132,8 @@ class Procurement(Base):
     seller_url: Mapped[str] = mapped_column(Text, default="")
     screenshot_path: Mapped[str] = mapped_column(Text, default="")
     category: Mapped[str] = mapped_column(String(32), default="")  # 古物13区分
+    image_url: Mapped[str] = mapped_column(Text, default="")
+    condition: Mapped[str] = mapped_column(String(32), default="")  # 新品/中古A/中古B等
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -935,6 +937,14 @@ def _migrate_procurement_columns(engine_instance) -> None:
         if "category" not in existing:
             stmts.append(
                 "ALTER TABLE procurements ADD COLUMN category VARCHAR(32) NOT NULL DEFAULT ''"
+            )
+        if "image_url" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN image_url TEXT NOT NULL DEFAULT ''"
+            )
+        if "condition" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN condition VARCHAR(32) NOT NULL DEFAULT ''"
             )
         for stmt in stmts:
             conn.execute(text(stmt))

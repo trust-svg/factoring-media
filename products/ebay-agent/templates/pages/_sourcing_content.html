@@ -51,6 +51,7 @@
             <div class="form-group" style="margin:0;"><label data-en="URL" data-ja="仕入先URL">URL</label><input class="form-input" id="procUrl" style="padding:6px 10px;" placeholder="https://..."></div>
             <div class="form-group" style="margin:0;"><label data-en="Seller ID" data-ja="出品者ID">出品者ID</label><input class="form-input" id="procSellerId" style="padding:6px 10px;" placeholder="ユーザー名/ID"></div>
             <div class="form-group" style="margin:0;"><label data-en="Quantity" data-ja="数量">数量</label><input class="form-input" id="procQty" type="number" style="padding:6px 10px;" value="1" min="1"></div>
+            <div class="form-group" style="margin:0;"><label data-en="Condition" data-ja="状態">状態</label><select class="form-input" id="procCondition" style="padding:6px 10px;"><option value="">-- 選択 --</option><option value="新品">新品</option><option value="中古A">中古A（美品）</option><option value="中古B">中古B（良品）</option><option value="中古C">中古C（傷あり）</option></select></div>
             <div class="form-group" style="margin:0;"><label data-en="Kojyo Category" data-ja="古物区分">古物区分</label>
                 <select class="form-input" id="procCategory" style="padding:6px 10px;">
                     <option value="">-- 選択 --</option>
@@ -164,6 +165,7 @@
             <div class="form-group" style="grid-column:1/-1;"><label data-en="Notes" data-ja="メモ">Notes</label><input id="editProcNotes" class="form-input"></div>
             <div class="form-group"><label data-en="Seller ID" data-ja="出品者ID">出品者ID</label><input id="editProcSellerId" class="form-input"></div>
             <div class="form-group"><label data-en="Quantity" data-ja="数量">数量</label><input id="editProcQty" class="form-input" type="number" min="1"></div>
+            <div class="form-group"><label data-en="Condition" data-ja="状態">状態</label><select id="editProcCondition" class="form-input"><option value="">-- 選択 --</option><option value="新品">新品</option><option value="中古A">中古A（美品）</option><option value="中古B">中古B（良品）</option><option value="中古C">中古C（傷あり）</option></select></div>
             <div class="form-group" style="grid-column:1/-1;">
                 <label data-en="Kojyo Category" data-ja="古物区分">古物区分</label>
                 <select id="editProcCategory" class="form-input">
@@ -311,6 +313,7 @@ function renderProc() {
                         <div>${t('Purchased','購入日')}: ${p.purchase_date?p.purchase_date.slice(0,10):'-'}</div>
                         <div>${t('Received','受取日')}: ${p.received_date?p.received_date.slice(0,10):'-'}</div>
                         ${p.url?`<div style="margin-top:4px;"><a href="${esc(p.url)}" target="_blank" style="color:var(--accent-blue);">${t('Source link','仕入先リンク')} ↗</a></div>`:''}
+                        ${p.condition?`<div style="margin-top:4px;">📦 ${esc(p.condition)}</div>`:''}
                         ${p.seller_id?`<div style="margin-top:4px;">👤 ${esc(p.seller_id)}${p.seller_url?` <a href="${esc(p.seller_url)}" target="_blank" style="color:var(--accent-blue);">↗</a>`:''}</div>`:''}
                         ${p.category?`<div style="margin-top:4px;">🏷️ ${esc(p.category)}</div>`:''}
                         ${(p.quantity&&p.quantity>1)?`<div>${t('Qty','数量')}: ${p.quantity}</div>`:''}
@@ -367,7 +370,7 @@ function filterProc(tab) { currentFilter=tab; document.querySelectorAll('.filter
 function toggleAddForm() { const f=document.getElementById('addForm'); f.style.display=f.style.display==='none'?'block':'none'; }
 
 async function submitProcurement() {
-    const body = { platform:document.getElementById('procPlatform').value, title:document.getElementById('procTitle').value, sku:document.getElementById('procSku').value, purchase_price_jpy:parseInt(document.getElementById('procPrice').value)||0, consumption_tax_jpy:parseInt(document.getElementById('procTax').value)||0, shipping_cost_jpy:parseInt(document.getElementById('procShipping').value)||0, other_cost_jpy:parseInt(document.getElementById('procOther').value)||0, purchase_date:document.getElementById('procDate').value, url:document.getElementById('procUrl').value, notes:document.getElementById('procNotes').value, seller_id:document.getElementById('procSellerId').value, quantity:parseInt(document.getElementById('procQty').value)||1, category:document.getElementById('procCategory').value };
+    const body = { platform:document.getElementById('procPlatform').value, title:document.getElementById('procTitle').value, sku:document.getElementById('procSku').value, purchase_price_jpy:parseInt(document.getElementById('procPrice').value)||0, consumption_tax_jpy:parseInt(document.getElementById('procTax').value)||0, shipping_cost_jpy:parseInt(document.getElementById('procShipping').value)||0, other_cost_jpy:parseInt(document.getElementById('procOther').value)||0, purchase_date:document.getElementById('procDate').value, url:document.getElementById('procUrl').value, notes:document.getElementById('procNotes').value, seller_id:document.getElementById('procSellerId').value, quantity:parseInt(document.getElementById('procQty').value)||1, category:document.getElementById('procCategory').value, condition:document.getElementById('procCondition').value };
     if(!body.title||!body.purchase_price_jpy){alert(t('Title and price required','商品名と仕入価格は必須です'));return;}
     await apiFetch('/api/procurements',{method:'POST',body:JSON.stringify(body)});
     document.getElementById('addForm').style.display='none';
@@ -375,6 +378,7 @@ async function submitProcurement() {
     document.getElementById('procDate').value=new Date().toISOString().slice(0,10);
     document.getElementById('procQty').value='1';
     document.getElementById('procCategory').value='';
+    document.getElementById('procCondition').value='';
     loadProcurements();
 }
 
@@ -396,12 +400,13 @@ function openEditProc(id) {
     document.getElementById('editProcSellerId').value=p.seller_id||'';
     document.getElementById('editProcQty').value=p.quantity||1;
     document.getElementById('editProcCategory').value=p.category||'';
+    document.getElementById('editProcCondition').value=p.condition||'';
     document.getElementById('editProcModal').style.display='flex';
 }
 function closeEditProc(){document.getElementById('editProcModal').style.display='none';}
 async function saveEditProc() {
     const id=document.getElementById('editProcId').value;
-    const body={platform:document.getElementById('editProcPlatform').value,status:document.getElementById('editProcStatus').value,title:document.getElementById('editProcTitle').value,sku:document.getElementById('editProcSku').value,purchase_price_jpy:parseInt(document.getElementById('editProcPrice').value)||0,consumption_tax_jpy:parseInt(document.getElementById('editProcTax').value)||0,shipping_cost_jpy:parseInt(document.getElementById('editProcShip').value)||0,other_cost_jpy:parseInt(document.getElementById('editProcOther').value)||0,purchase_date:document.getElementById('editProcDate').value,received_date:document.getElementById('editProcRecvDate').value,url:document.getElementById('editProcUrl').value,notes:document.getElementById('editProcNotes').value,seller_id:document.getElementById('editProcSellerId').value,quantity:parseInt(document.getElementById('editProcQty').value)||1,category:document.getElementById('editProcCategory').value};
+    const body={platform:document.getElementById('editProcPlatform').value,status:document.getElementById('editProcStatus').value,title:document.getElementById('editProcTitle').value,sku:document.getElementById('editProcSku').value,purchase_price_jpy:parseInt(document.getElementById('editProcPrice').value)||0,consumption_tax_jpy:parseInt(document.getElementById('editProcTax').value)||0,shipping_cost_jpy:parseInt(document.getElementById('editProcShip').value)||0,other_cost_jpy:parseInt(document.getElementById('editProcOther').value)||0,purchase_date:document.getElementById('editProcDate').value,received_date:document.getElementById('editProcRecvDate').value,url:document.getElementById('editProcUrl').value,notes:document.getElementById('editProcNotes').value,seller_id:document.getElementById('editProcSellerId').value,quantity:parseInt(document.getElementById('editProcQty').value)||1,category:document.getElementById('editProcCategory').value,condition:document.getElementById('editProcCondition').value};
     await apiFetch(`/api/procurements/${id}`,{method:'PUT',body:JSON.stringify(body)});
     closeEditProc(); loadProcurements();
 }
