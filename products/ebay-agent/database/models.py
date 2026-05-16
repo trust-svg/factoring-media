@@ -4,8 +4,10 @@ ebay-listing-optimizer の既存モデルを拡張し、
 仕入れ候補・価格履歴・売上記録を追加。
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
+
+JST = timezone(timedelta(hours=9))
 
 from sqlalchemy import DateTime, Float, Integer, String, Text, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -145,7 +147,14 @@ class Procurement(Base):
     shipped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     image_url: Mapped[str] = mapped_column(Text, default="")
     condition: Mapped[str] = mapped_column(String(32), default="")  # 新品/中古A/中古B等
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(JST)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(JST),
+        onupdate=lambda: datetime.now(JST),
+    )
 
 
 # ── 価格履歴 ──────────────────────────────────────────────
@@ -983,6 +992,8 @@ def _migrate_procurement_columns(engine_instance) -> None:
             stmts.append("ALTER TABLE procurements ADD COLUMN sold_at DATETIME")
         if "shipped_at" not in existing:
             stmts.append("ALTER TABLE procurements ADD COLUMN shipped_at DATETIME")
+        if "updated_at" not in existing:
+            stmts.append("ALTER TABLE procurements ADD COLUMN updated_at DATETIME")
         for stmt in stmts:
             conn.execute(text(stmt))
         if stmts:

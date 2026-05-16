@@ -299,3 +299,46 @@ def test_migrate_new_columns_idempotent(db_engine):
 
     # 2回目: 冪等（エラーにならない）
     _migrate_procurement_columns(minimal_engine)
+
+
+def test_procurement_updated_at_migrates():
+    """updated_at が _migrate_procurement_columns で追加されることを確認"""
+    from sqlalchemy import create_engine, text
+    from database.models import _migrate_procurement_columns
+
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}
+    )
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE procurements ("
+                "id INTEGER PRIMARY KEY, "
+                "sku VARCHAR(128), "
+                "title VARCHAR(512), "
+                "purchase_price_jpy INTEGER DEFAULT 0, "
+                "created_at DATETIME"
+                ")"
+            )
+        )
+        conn.commit()
+
+    _migrate_procurement_columns(engine)
+    with engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(procurements)"))
+        cols = {row[1] for row in result.fetchall()}
+    assert "updated_at" in cols
+
+
+def test_procurement_updated_at_auto_sets(db):
+    """updated_at が自動セットされることを確認"""
+    import time
+
+    proc = add_procurement(db, title="更新テスト", purchase_price_jpy=1000)
+    t1 = proc.updated_at
+    assert t1 is not None
+    time.sleep(0.05)
+    from database.crud import update_procurement
+
+    updated = update_procurement(db, proc.id, title="更新後")
+    assert updated.updated_at is not None
