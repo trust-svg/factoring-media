@@ -40,8 +40,9 @@ def seed_questions(db: Session = Depends(get_db)):
     data = json.loads(SEED_PATH.read_text())
     seeded = 0
     for item in data:
-        q = Question(**{k: v for k, v in item.items()})
-        db.add(q)
+        if db.query(Question).filter_by(id=item["id"]).first():
+            continue
+        db.add(Question(**{k: v for k, v in item.items()}))
         seeded += 1
     db.commit()
     return {"seeded": seeded}

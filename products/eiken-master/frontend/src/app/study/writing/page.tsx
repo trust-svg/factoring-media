@@ -27,17 +27,45 @@ export default function WritingPage() {
   const [error, setError] = useState('')
   const [breakDialog, setBreakDialog] = useState(false)
   const startRef = useRef<number>(Date.now())
+  const endedRef = useRef(false)
+  const sessionIdRef = useRef<string | null>(null)
 
   const handleBreak = useCallback(() => setBreakDialog(true), [])
+
+  const handleGoHome = useCallback(() => {
+    if (!endedRef.current && sessionIdRef.current) {
+      endedRef.current = true
+      const duration = Math.round((Date.now() - startRef.current) / 1000)
+      apiEndSession(sessionIdRef.current, {
+        duration_seconds: duration,
+        questions_attempted: 0,
+        correct_count: 0,
+        pomodoro_completed: false,
+      }).catch(() => {})
+    }
+    router.push('/home')
+  }, [router])
 
   useEffect(() => {
     Promise.all([apiStartSession('writing'), apiGetQuestions('writing', 1)])
       .then(([session, qs]) => {
         setSessionId(session.id)
+        sessionIdRef.current = session.id
         setQuestion(qs[0] ?? null)
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
+    return () => {
+      if (!endedRef.current && sessionIdRef.current) {
+        const duration = Math.round((Date.now() - startRef.current) / 1000)
+        apiEndSession(sessionIdRef.current, {
+          duration_seconds: duration,
+          questions_attempted: 0,
+          correct_count: 0,
+          pomodoro_completed: false,
+        }).catch(() => {})
+      }
+    }
   }, [])
 
   const handleSubmit = async () => {
@@ -62,6 +90,7 @@ export default function WritingPage() {
         questions_attempted: 1,
         correct_count: result.is_passing ? 1 : 0,
       }).catch(() => {})
+      endedRef.current = true
     } catch (err) {
       setError(err instanceof Error ? err.message : '採点に失敗しました')
     }
@@ -199,7 +228,7 @@ export default function WritingPage() {
       </div>
 
       <div className="p-4 text-center">
-        <button onClick={() => router.push('/home')} className="text-sm text-gray-400 underline">
+        <button onClick={handleGoHome} className="text-sm text-gray-400 underline">
           ホームに戻る
         </button>
       </div>

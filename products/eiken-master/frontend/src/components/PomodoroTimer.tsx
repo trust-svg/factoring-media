@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 
 export function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0')
@@ -12,7 +12,7 @@ interface PomodoroTimerProps {
   onBreak: () => void
 }
 
-export default function PomodoroTimer({ onBreak }: PomodoroTimerProps) {
+export default memo(function PomodoroTimer({ onBreak }: PomodoroTimerProps) {
   const [elapsed, setElapsed] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const brokeRef = useRef(false)
@@ -54,4 +54,4 @@ export default function PomodoroTimer({ onBreak }: PomodoroTimerProps) {
       {formatTime(elapsed)}
     </div>
   )
-}
+})

@@ -25,7 +25,23 @@ export default function SpeakingPage() {
   const [breakDialog, setBreakDialog] = useState(false)
   const startRef = useRef<number>(Date.now())
   const mountedRef = useRef(true)
+  const endedRef = useRef(false)
+  const sessionIdRef = useRef<string | null>(null)
   const handleBreak = useCallback(() => setBreakDialog(true), [])
+
+  const handleGoHome = useCallback(() => {
+    if (!endedRef.current && sessionIdRef.current) {
+      endedRef.current = true
+      const duration = Math.round((Date.now() - startRef.current) / 1000)
+      apiEndSession(sessionIdRef.current, {
+        duration_seconds: duration,
+        questions_attempted: 0,
+        correct_count: 0,
+        pomodoro_completed: false,
+      }).catch(() => {})
+    }
+    router.push('/home')
+  }, [router])
   const mimeTypeRef = useRef<string>('')
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -36,6 +52,7 @@ export default function SpeakingPage() {
     Promise.all([apiStartSession('speaking'), apiGetQuestions('speaking', 1)])
       .then(([session, qs]) => {
         setSessionId(session.id)
+        sessionIdRef.current = session.id
         setQuestion(qs[0] ?? null)
       })
       .catch((err: Error) => setError(err.message))
@@ -45,6 +62,15 @@ export default function SpeakingPage() {
       if (prepTimerRef.current) clearInterval(prepTimerRef.current)
       if (recTimerRef.current) clearInterval(recTimerRef.current)
       mediaRecorderRef.current?.stop()
+      if (!endedRef.current && sessionIdRef.current) {
+        const duration = Math.round((Date.now() - startRef.current) / 1000)
+        apiEndSession(sessionIdRef.current, {
+          duration_seconds: duration,
+          questions_attempted: 0,
+          correct_count: 0,
+          pomodoro_completed: false,
+        }).catch(() => {})
+      }
     }
   }, [])
 
@@ -134,6 +160,7 @@ export default function SpeakingPage() {
         questions_attempted: 1,
         correct_count: result.is_passing ? 1 : 0,
       }).catch(() => {})
+      endedRef.current = true
       setPhase('result')
     } catch (err) {
       if (!mountedRef.current) return
@@ -308,7 +335,7 @@ export default function SpeakingPage() {
       </div>
 
       <div className="p-4 text-center">
-        <button onClick={() => router.push('/home')} className="text-sm text-gray-400 underline">
+        <button onClick={handleGoHome} className="text-sm text-gray-400 underline">
           ホームに戻る
         </button>
       </div>
