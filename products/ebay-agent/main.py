@@ -2514,6 +2514,420 @@ async def proc_import_yahoo_results(job_id: str):
         db.close()
 
 
+@app.post("/api/procurements/scrape/yahoo-flea")
+async def proc_start_yahoo_flea_scrape():
+    import uuid
+
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
+    }
+
+    async def run_scrape():
+        from scrapers.yahoo_flea_purchases import scrape_yahoo_flea_purchases
+
+        job = _scrape_jobs[job_id]
+        try:
+
+            def on_progress(msg, cur, total):
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_yahoo_flea_purchases(
+                on_progress=on_progress, headless=SCRAPER_HEADLESS
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
+        except RuntimeError as e:
+            if str(e) == "LOGIN_REQUIRED":
+                job["status"] = "login_required"
+                job["message"] = "Yahooフリマログインが必要です。"
+                _notify_login_required("yahoo_flea", "Yahooフリマ")
+            else:
+                job["status"] = "error"
+                job["error"] = str(e)
+                job["message"] = f"エラー: {e}"
+        except Exception as e:
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/procurements/scrape/yahoo-flea/import/{job_id}")
+async def proc_import_yahoo_flea_results(job_id: str):
+    job = _scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
+    results = sorted(job.get("results", []), key=lambda r: r.get("date", "") or "9999")
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            price = int(row.get("price", 0) or 0)
+            existing = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                    Procurement.platform == "Yahooフリマ",
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "platform": "Yahooフリマ",
+                "url": row.get("item_url", "") or row.get("url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "purchased",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/scrape/rakuma")
+async def proc_start_rakuma_scrape():
+    import uuid
+
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
+    }
+
+    async def run_scrape():
+        from scrapers.rakuma import scrape_rakuma_purchases
+
+        job = _scrape_jobs[job_id]
+        try:
+
+            def on_progress(msg, cur, total):
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_rakuma_purchases(
+                on_progress=on_progress, headless=SCRAPER_HEADLESS
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
+        except RuntimeError as e:
+            if str(e) == "LOGIN_REQUIRED":
+                job["status"] = "login_required"
+                job["message"] = "ラクマログインが必要です。"
+                _notify_login_required("rakuma", "ラクマ")
+            else:
+                job["status"] = "error"
+                job["error"] = str(e)
+                job["message"] = f"エラー: {e}"
+        except Exception as e:
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/procurements/scrape/rakuma/import/{job_id}")
+async def proc_import_rakuma_results(job_id: str):
+    job = _scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
+    results = sorted(job.get("results", []), key=lambda r: r.get("date", "") or "9999")
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            price = int(row.get("price", 0) or 0)
+            existing = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                    Procurement.platform == "ラクマ",
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "platform": "ラクマ",
+                "url": row.get("item_url", "") or row.get("url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "purchased",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/scrape/hardoff")
+async def proc_start_hardoff_scrape():
+    import uuid
+
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
+    }
+
+    async def run_scrape():
+        from scrapers.hardoff import scrape_hardoff_purchases
+
+        job = _scrape_jobs[job_id]
+        try:
+
+            def on_progress(msg, cur, total):
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_hardoff_purchases(
+                on_progress=on_progress, headless=SCRAPER_HEADLESS
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
+        except Exception as e:
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/procurements/scrape/hardoff/import/{job_id}")
+async def proc_import_hardoff_results(job_id: str):
+    job = _scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
+    results = sorted(job.get("results", []), key=lambda r: r.get("date", "") or "9999")
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            price = int(row.get("price", 0) or 0)
+            existing = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                    Procurement.platform == "ネットモール(OFFモール)",
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "platform": "ネットモール(OFFモール)",
+                "url": row.get("item_url", "") or row.get("url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "purchased",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/scrape/surugaya")
+async def proc_start_surugaya_scrape():
+    import uuid
+
+    job_id = str(uuid.uuid4())[:8]
+    _scrape_jobs[job_id] = {
+        "status": "running",
+        "message": "初期化中...",
+        "current": 0,
+        "total": 0,
+        "results": [],
+        "error": None,
+    }
+
+    async def run_scrape():
+        from scrapers.surugaya import scrape_surugaya_purchases
+
+        job = _scrape_jobs[job_id]
+        try:
+
+            def on_progress(msg, cur, total):
+                job["message"] = msg
+                job["current"] = cur
+                job["total"] = total
+
+            results = await scrape_surugaya_purchases(
+                on_progress=on_progress, headless=SCRAPER_HEADLESS
+            )
+            job["results"] = results
+            job["status"] = "done"
+            job["message"] = f"完了: {len(results)}件取得"
+        except Exception as e:
+            job["status"] = "error"
+            job["error"] = str(e)
+            job["message"] = f"エラー: {e}"
+
+    asyncio.create_task(run_scrape())
+    return JSONResponse({"job_id": job_id, "status": "started"})
+
+
+@app.post("/api/procurements/scrape/surugaya/import/{job_id}")
+async def proc_import_surugaya_results(job_id: str):
+    job = _scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "done":
+        raise HTTPException(400, f"Job not ready: {job['status']}")
+    results = sorted(job.get("results", []), key=lambda r: r.get("date", "") or "9999")
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in results:
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            price = int(row.get("price", 0) or 0)
+            existing = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                    Procurement.platform == "駿河屋",
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs = {
+                "title": title,
+                "purchase_price_jpy": price,
+                "platform": "駿河屋",
+                "url": row.get("item_url", "") or row.get("url", ""),
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "purchased",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+        _scrape_jobs.pop(job_id, None)
+        return JSONResponse(
+            {
+                "status": "imported",
+                "created": created,
+                "skipped": skipped,
+                "total": len(results),
+            }
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/{proc_id}/screenshot")
 async def upload_procurement_screenshot(proc_id: int, request: Request):
     """仕入れ記録スクリーンショットをアップロード"""
