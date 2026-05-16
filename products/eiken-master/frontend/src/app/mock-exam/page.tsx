@@ -23,7 +23,8 @@ import type {
   WritingScore,
 } from '@/lib/types'
 
-type Phase = 'intro' | 'reading' | 'listening' | 'writing' | 'speaking' | 'result'
+type ActivePhase = 'reading' | 'listening' | 'writing' | 'speaking'
+type Phase = 'intro' | ActivePhase | 'transition' | 'result'
 
 interface SectionResult {
   skill: string
@@ -43,16 +44,26 @@ const SKILL_COLORS: Record<string, string> = {
   writing: '#f59e0b',
   speaking: '#f43f5e',
 }
+const SKILL_EMOJI: Record<string, string> = {
+  reading: '📖',
+  listening: '🎧',
+  writing: '✍️',
+  speaking: '🎤',
+}
 
 // ─── Timer Bar ──────────────────────────────────────────────────────────────
 function TimerBar({
   totalSeconds,
   onExpire,
+  paused = false,
 }: {
   totalSeconds: number
   onExpire: () => void
+  paused?: boolean
 }) {
   const [remaining, setRemaining] = useState(totalSeconds)
+  const pausedRef = useRef(paused)
+  pausedRef.current = paused
   const expiredRef = useRef(false)
   const onExpireRef = useRef(onExpire)
   onExpireRef.current = onExpire
@@ -61,6 +72,7 @@ function TimerBar({
     expiredRef.current = false
     setRemaining(totalSeconds)
     const id = setInterval(() => {
+      if (pausedRef.current) return
       setRemaining((r) => {
         if (r <= 1) {
           clearInterval(id)
@@ -97,6 +109,9 @@ function TimerBar({
             style={{ width: `${pct}%` }}
           />
         </div>
+        {paused && (
+          <span className="text-xs text-gray-400 whitespace-nowrap">音声生成中…</span>
+        )}
       </div>
     </div>
   )
@@ -399,7 +414,13 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
 
   return (
     <>
-      <TimerBar key="listening-timer" totalSeconds={600} onExpire={handleExpire} />
+      {/* ② タイマーはTTS生成中にポーズ */}
+      <TimerBar
+        key="listening-timer"
+        totalSeconds={600}
+        onExpire={handleExpire}
+        paused={audioLoading}
+      />
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="max-w-lg mx-auto space-y-4">
           <p className="text-xs text-gray-400 text-right">
@@ -407,11 +428,11 @@ function ListeningSection({ onDone }: { onDone: (r: SectionResult) => void }) {
           </p>
           <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
             {audioLoading ? (
-              <p className="text-gray-400 text-sm">音声生成中...</p>
+              <p className="text-gray-400 text-sm py-2">音声生成中...</p>
             ) : audioUrl ? (
               <audio controls src={audioUrl} className="w-full" />
             ) : (
-              <p className="text-gray-400 text-sm">音声なし</p>
+              <p className="text-gray-400 text-sm py-2">音声なし</p>
             )}
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -496,7 +517,6 @@ function WritingSection({ onDone }: { onDone: (r: SectionResult) => void }) {
       const finalText = overrideText ?? textRef.current
       if (endedRef.current) return
       if (!finalText.trim()) {
-        // timer expired with empty text — skip scoring
         endedRef.current = true
         if (sessionIdRef.current) {
           await apiEndSession(sessionIdRef.current, {
@@ -888,6 +908,87 @@ function SpeakingSection({ onDone }: { onDone: (r: SectionResult) => void }) {
   )
 }
 
+// ─── Section Transition Screen ───────────────────────────────────────────────
+function TransitionScreen({
+  from,
+  to,
+  onReady,
+}: {
+  from: string
+  to: ActivePhase
+  onReady: () => void
+}) {
+  const [countdown, setCountdown] = useState(3)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(id)
+          setTimeout(onReady, 0)
+          return 0
+        }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [onReady])
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-4 gap-6">
+      <div className="text-center">
+        <div className="text-5xl mb-3">{SKILL_EMOJI[from]}</div>
+        <p className="text-green-600 font-bold text-lg">{SKILL_LABELS[from]} 完了！</p>
+      </div>
+      <div className="w-px h-10 bg-gray-200" />
+      <div className="text-center">
+        <p className="text-xs text-gray-400 mb-2">次のセクション</p>
+        <div className="text-5xl mb-2">{SKILL_EMOJI[to]}</div>
+        <p className="text-indigo-700 font-bold text-lg">{SKILL_LABELS[to]}</p>
+      </div>
+      <div className="mt-2 text-center">
+        <p className="text-4xl font-bold text-gray-300 tabular-nums">{countdown}</p>
+        <p className="text-xs text-gray-400 mt-1">秒後に自動開始</p>
+      </div>
+      <button
+        onClick={onReady}
+        className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold"
+      >
+        今すぐ開始
+      </button>
+    </div>
+  )
+}
+
+// ─── Abort Dialog ────────────────────────────────────────────────────────────
+function AbortDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-xs text-center">
+        <div className="text-4xl mb-3">⚠️</div>
+        <h3 className="font-bold text-gray-800 mb-1">試験を中断しますか？</h3>
+        <p className="text-gray-400 text-sm mb-5">
+          現在のセクションの記録は破棄されます
+        </p>
+        <div className="space-y-2">
+          <button
+            onClick={onConfirm}
+            className="w-full bg-red-500 text-white py-2.5 rounded-xl font-bold"
+          >
+            中断してホームへ
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full bg-gray-100 text-gray-600 py-2.5 rounded-xl font-medium"
+          >
+            続ける
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Mock Exam Page ─────────────────────────────────────────────────────────
 const SECTION_HEADERS: Record<string, string> = {
   reading: '📖 リーディング (10分)',
@@ -895,22 +996,40 @@ const SECTION_HEADERS: Record<string, string> = {
   writing: '✍️ ライティング (15分)',
   speaking: '🎤 スピーキング',
 }
+const NEXT_PHASE: Record<ActivePhase, Phase> = {
+  reading: 'listening',
+  listening: 'writing',
+  writing: 'speaking',
+  speaking: 'result',
+}
 
 export default function MockExamPage() {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
+  const [pendingPhase, setPendingPhase] = useState<ActivePhase | null>(null)
+  const [completedSkill, setCompletedSkill] = useState<string>('')
   const [results, setResults] = useState<SectionResult[]>([])
   const [praise, setPraise] = useState<string | null>(null)
+  const [showAbort, setShowAbort] = useState(false)
 
   const advance = useCallback((r: SectionResult) => {
     setResults((prev) => [...prev, r])
-    setPhase((curr) => {
-      if (curr === 'reading') return 'listening'
-      if (curr === 'listening') return 'writing'
-      if (curr === 'writing') return 'speaking'
-      return 'result'
-    })
+    const next = NEXT_PHASE[r.skill as ActivePhase]
+    if (next === 'result') {
+      setPhase('result')
+    } else {
+      setCompletedSkill(r.skill)
+      setPendingPhase(next as ActivePhase)
+      setPhase('transition')
+    }
   }, [])
+
+  const startPending = useCallback(() => {
+    if (pendingPhase) {
+      setPhase(pendingPhase)
+      setPendingPhase(null)
+    }
+  }, [pendingPhase])
 
   useEffect(() => {
     if (phase === 'result' && results.length > 0) {
@@ -921,6 +1040,14 @@ export default function MockExamPage() {
     }
   }, [phase, results])
 
+  const handleBack = () => {
+    if (phase === 'intro' || phase === 'result') {
+      router.back()
+    } else {
+      setShowAbort(true)
+    }
+  }
+
   const overallPct =
     results.length > 0
       ? Math.round((results.reduce((s, r) => s + r.score_pct, 0) / results.length) * 100)
@@ -929,14 +1056,22 @@ export default function MockExamPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col">
+      {/* ③ 中断ダイアログ */}
+      {showAbort && (
+        <AbortDialog
+          onConfirm={() => router.push('/home')}
+          onCancel={() => setShowAbort(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-white px-4 pt-4 pb-3 shadow-sm flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-400 text-xl px-1">
+        <button onClick={handleBack} className="text-gray-400 text-xl px-1">
           ‹
         </button>
         <div>
           <h1 className="font-bold text-gray-800 text-sm">模擬試験</h1>
-          {phase !== 'intro' && phase !== 'result' && (
+          {phase !== 'intro' && phase !== 'result' && phase !== 'transition' && (
             <p className="text-xs text-gray-400">{SECTION_HEADERS[phase]}</p>
           )}
         </div>
@@ -974,18 +1109,8 @@ export default function MockExamPage() {
               <p className="text-xs text-gray-400 font-semibold">試験構成</p>
               {[
                 { emoji: '📖', label: 'リーディング', desc: '5問 · 10分', color: 'text-blue-600' },
-                {
-                  emoji: '🎧',
-                  label: 'リスニング',
-                  desc: '5問 · 10分',
-                  color: 'text-green-600',
-                },
-                {
-                  emoji: '✍️',
-                  label: 'ライティング',
-                  desc: '1問 · 15分',
-                  color: 'text-amber-600',
-                },
+                { emoji: '🎧', label: 'リスニング', desc: '5問 · 10分', color: 'text-green-600' },
+                { emoji: '✍️', label: 'ライティング', desc: '1問 · 15分', color: 'text-amber-600' },
                 { emoji: '🎤', label: 'スピーキング', desc: '1問 · 録音', color: 'text-rose-600' },
               ].map(({ emoji, label, desc, color }) => (
                 <div key={label} className="flex items-center gap-3">
@@ -1012,6 +1137,15 @@ export default function MockExamPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ① セクション間のトランジション */}
+      {phase === 'transition' && pendingPhase && (
+        <TransitionScreen
+          from={completedSkill}
+          to={pendingPhase}
+          onReady={startPending}
+        />
       )}
 
       {/* Sections */}
