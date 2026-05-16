@@ -105,16 +105,22 @@ function RadarChart({ breakdown }: { breakdown: ProgressData['skill_breakdown'] 
   )
 }
 
+function localIso(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function StudyCalendar({ recentDates }: { recentDates: string[] }) {
   const studiedSet = new Set(recentDates)
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  // Build 35-day grid starting from 34 days ago (5 weeks)
+  // Build 35-day grid using LOCAL date strings (not UTC) to match backend JST dates
   const days: { date: string; studied: boolean; isToday: boolean }[] = []
   for (let i = 34; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
-    const iso = d.toISOString().slice(0, 10)
+    const iso = localIso(d)
     days.push({ date: iso, studied: studiedSet.has(iso), isToday: i === 0 })
   }
   const DOW = ['日', '月', '火', '水', '木', '金', '土']
@@ -127,8 +133,8 @@ function StudyCalendar({ recentDates }: { recentDates: string[] }) {
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {/* leading empty cells to align with day-of-week */}
-        {Array.from({ length: new Date(days[0].date).getDay() }).map((_, i) => (
+        {/* leading empty cells to align with day-of-week (parse as local date) */}
+        {Array.from({ length: (() => { const [y,m,d] = days[0].date.split('-').map(Number); return new Date(y, m-1, d).getDay() })() }).map((_, i) => (
           <div key={`e${i}`} />
         ))}
         {days.map(({ date, studied, isToday }) => (
@@ -139,7 +145,7 @@ function StudyCalendar({ recentDates }: { recentDates: string[] }) {
               ${studied ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-400'}
               ${isToday ? 'ring-2 ring-indigo-400' : ''}`}
           >
-            {new Date(date).getDate()}
+            {parseInt(date.slice(8), 10)}
           </div>
         ))}
       </div>
@@ -158,9 +164,11 @@ export default function ProgressPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([apiGetProgress(), apiGetErrors()])
-      .then(([prog, err]) => { setData(prog); setErrors(err) })
-      .catch(() => {})
+    Promise.allSettled([apiGetProgress(), apiGetErrors()])
+      .then(([prog, err]) => {
+        if (prog.status === 'fulfilled') setData(prog.value)
+        if (err.status === 'fulfilled') setErrors(err.value)
+      })
       .finally(() => setLoading(false))
   }, [])
 

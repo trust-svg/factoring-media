@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session as DbSession
@@ -87,13 +88,13 @@ def score_speaking(
     session_id: str = Form(...),
     question_id: str = Form(...),
     topic: str = Form(...),
-    speaking_points: str = Form(""),
+    speaking_points: List[str] = Form(default=[]),
     user: User = Depends(current_user),
 ):
     audio_bytes = audio.file.read(MAX_AUDIO_BYTES + 1)
     if len(audio_bytes) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio file too large (max 25MB)")
-    points = [p.strip() for p in speaking_points.split(",") if p.strip()]
+    points = [p.strip() for p in speaking_points if p.strip()]
     try:
         return ai_service.score_speaking(topic, points, audio_bytes)
     except Exception:
