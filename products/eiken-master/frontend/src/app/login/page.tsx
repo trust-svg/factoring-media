@@ -19,7 +19,7 @@ export default function LoginPage() {
     try {
       const { access_token } = await apiLogin(username.trim(), pin)
       saveToken(access_token)
-      router.replace('/home')
+      window.location.href = '/home'
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ログインに失敗しました')
     } finally {
