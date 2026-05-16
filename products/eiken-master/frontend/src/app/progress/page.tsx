@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiGetProgress } from '@/lib/api'
-import type { ProgressData } from '@/lib/types'
+import { apiGetErrors, apiGetProgress } from '@/lib/api'
+import type { ErrorData, ProgressData } from '@/lib/types'
 
 const SKILL_LABELS: Record<string, string> = {
   reading: 'リーディング',
@@ -154,11 +154,12 @@ function StudyCalendar({ recentDates }: { recentDates: string[] }) {
 export default function ProgressPage() {
   const router = useRouter()
   const [data, setData] = useState<ProgressData | null>(null)
+  const [errors, setErrors] = useState<ErrorData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiGetProgress()
-      .then(setData)
+    Promise.all([apiGetProgress(), apiGetErrors()])
+      .then(([prog, err]) => { setData(prog); setErrors(err) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -259,6 +260,59 @@ export default function ProgressPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* Error analysis */}
+        {errors && errors.total_attempts > 0 && (
+          <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-gray-400">誤答パターン（直近30日）</p>
+              <p className="text-xs text-red-400 font-bold">
+                {errors.total_errors} / {errors.total_attempts} ミス
+              </p>
+            </div>
+
+            {/* Weakest skill badge */}
+            {errors.weakest_skills.length > 0 && (
+              <div className="bg-red-50 rounded-xl px-3 py-2 flex items-center gap-2">
+                <span className="text-red-400 text-sm">⚠️</span>
+                <p className="text-xs text-red-600">
+                  <span className="font-bold">
+                    {errors.weakest_skills.map(s => ({
+                      reading: 'リーディング', listening: 'リスニング',
+                      writing: 'ライティング', speaking: 'スピーキング',
+                    }[s] ?? s)).join('・')}
+                  </span>
+                  {' '}の誤答が多い傾向があります
+                </p>
+              </div>
+            )}
+
+            {/* Per-skill error bars */}
+            {(['reading', 'listening', 'writing', 'speaking'] as const).map((skill) => {
+              const stat = errors.by_skill[skill]
+              if (!stat || stat.total === 0) return null
+              const errPct = Math.round((stat.incorrect / stat.total) * 100)
+              const okPct = 100 - errPct
+              return (
+                <div key={skill}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-600">{stat.label}</span>
+                    <span className="text-gray-500">{stat.incorrect}ミス / {stat.total}問</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full overflow-hidden flex">
+                    <div className="bg-indigo-400 h-full" style={{ width: `${okPct}%` }} />
+                    <div className="bg-red-400 h-full" style={{ width: `${errPct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+
+            <div className="flex items-center gap-4 pt-1">
+              <div className="flex items-center gap-1"><div className="w-3 h-2 rounded bg-indigo-400" /><span className="text-xs text-gray-500">正解</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-2 rounded bg-red-400" /><span className="text-xs text-gray-500">不正解</span></div>
+            </div>
           </div>
         )}
 

@@ -67,6 +67,14 @@ def record_attempt(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    _ERROR_CATEGORIES = {
+        "reading": "reading_comprehension",
+        "listening": "listening_comprehension",
+        "writing": "writing_expression",
+        "speaking": "speaking_expression",
+    }
+    error_category = _ERROR_CATEGORIES.get(body.skill) if not body.is_correct else None
+
     attempt = QuestionAttempt(
         user_id=user.id,
         session_id=session_id,
@@ -74,6 +82,7 @@ def record_attempt(
         skill=body.skill,
         user_answer=body.user_answer,
         is_correct=body.is_correct,
+        error_category=error_category,
         time_spent_seconds=body.time_spent_seconds,
     )
     db.add(attempt)

@@ -132,3 +132,67 @@ def get_progress(user: User = Depends(current_user), db: Session = Depends(get_d
         "praise": praise,
         "recent_dates": recent_dates,
     }
+
+
+_SKILL_LABELS_JA = {
+    "reading": "リーディング",
+    "listening": "リスニング",
+    "writing": "ライティング",
+    "speaking": "スピーキング",
+}
+
+
+@router.get("/errors")
+def get_errors(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    now = datetime.now(JST)
+    cutoff30 = now - timedelta(days=30)
+
+    attempts = (
+        db.query(QuestionAttempt)
+        .filter(
+            QuestionAttempt.user_id == user.id,
+            QuestionAttempt.attempted_at >= cutoff30,
+        )
+        .order_by(QuestionAttempt.attempted_at.desc())
+        .all()
+    )
+
+    by_skill: dict = {}
+    for skill in SKILLS:
+        sa = [a for a in attempts if a.skill == skill]
+        total = len(sa)
+        incorrect = sum(1 for a in sa if not a.is_correct)
+        by_skill[skill] = {
+            "label": _SKILL_LABELS_JA[skill],
+            "total": total,
+            "incorrect": incorrect,
+            "correct": total - incorrect,
+            "error_rate": round(incorrect / total, 3) if total > 0 else None,
+        }
+
+    # Weakest skills: those with error_rate >= 0.35 and at least 3 attempts
+    weakest = [
+        s
+        for s in SKILLS
+        if by_skill[s]["error_rate"] is not None
+        and by_skill[s]["error_rate"] >= 0.35
+        and by_skill[s]["total"] >= 3
+    ]
+    weakest.sort(key=lambda s: -(by_skill[s]["error_rate"] or 0))
+
+    # Error category breakdown (last 30 days)
+    error_counts: dict[str, int] = {}
+    for a in attempts:
+        if not a.is_correct and a.error_category:
+            error_counts[a.error_category] = error_counts.get(a.error_category, 0) + 1
+
+    total_attempts = len(attempts)
+    total_errors = sum(1 for a in attempts if not a.is_correct)
+
+    return {
+        "by_skill": by_skill,
+        "weakest_skills": weakest,
+        "error_counts": error_counts,
+        "total_attempts": total_attempts,
+        "total_errors": total_errors,
+    }

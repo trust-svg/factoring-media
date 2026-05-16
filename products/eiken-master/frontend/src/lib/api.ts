@@ -1,5 +1,6 @@
 import type {
   AudioResponse,
+  ErrorData,
   Flashcard,
   Grade,
   PraiseResponse,
@@ -68,6 +69,8 @@ export const apiUpdateMe = (data: UpdateUserRequest) =>
 
 // Analytics
 export const apiGetProgress = () => request<ProgressData>('/analytics/progress')
+
+export const apiGetErrors = () => request<ErrorData>('/analytics/errors')
 
 // Question generation
 export const apiGenerateQuestion = (skill: Skill) =>

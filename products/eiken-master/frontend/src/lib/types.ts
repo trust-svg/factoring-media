@@ -129,3 +129,19 @@ export interface ProgressData {
 export interface PraiseResponse {
   praise: string
 }
+
+export interface SkillErrorStat {
+  label: string
+  total: number
+  incorrect: number
+  correct: number
+  error_rate: number | null
+}
+
+export interface ErrorData {
+  by_skill: Record<string, SkillErrorStat>
+  weakest_skills: string[]
+  error_counts: Record<string, number>
+  total_attempts: number
+  total_errors: number
+}
