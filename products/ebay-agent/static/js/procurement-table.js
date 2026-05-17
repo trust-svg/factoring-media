@@ -507,7 +507,11 @@ async function openProcEditModal(id) {
     resetProcScreenshotUI();
     if (p.screenshot_path) {
         const preview = document.getElementById('procSsPreview');
-        preview.innerHTML = `<img src="/api/procurements/${id}/screenshot?t=${Date.now()}" style="max-width:100%;max-height:120px;border-radius:4px;">`;
+        const img = document.createElement('img');
+        img.src = `/api/procurements/${encodeURIComponent(id)}/screenshot?t=${Date.now()}`;
+        img.style.cssText = 'max-width:100%;max-height:120px;border-radius:4px;';
+        preview.innerHTML = '';
+        preview.appendChild(img);
         preview.style.display = 'block';
         document.getElementById('procSsPrompt').textContent = '✓ 保存済み（新しい画像をドロップで上書き）';
     }
@@ -684,7 +688,8 @@ function toggleSelectAllProc(checked) {
 
 function getProcSelectedIds() {
     return Array.from(document.querySelectorAll('.proc-row-check:checked'))
-        .map(cb => parseInt(cb.dataset.id));
+        .map(cb => parseInt(cb.dataset.id, 10))
+        .filter(n => !isNaN(n));
 }
 
 function updateProcBulkBar() {
@@ -711,6 +716,8 @@ async function bulkDeleteProcSelected() {
         });
         await loadProcItems();
         await loadProcStats();
+        const allCb = document.getElementById('procSelectAll');
+        if (allCb) allCb.checked = false;
         updateProcBulkBar();
     } catch (e) { alert('一括削除に失敗しました'); }
 }
@@ -782,7 +789,7 @@ async function runProcBulkImport() {
 
 // ── スクレイピングUI ────────────────────────────────────
 let _procScrapeJobId = null;
-let _procScrapePoller2 = null;
+let _procScrapePoller2 = null; // setInterval handle for scrape modal polling (_procScrapePoller at line 12 is reserved, unused)
 
 function openProcScrapeModal(platform) {
     const modal = document.getElementById('procScrapeModal');
