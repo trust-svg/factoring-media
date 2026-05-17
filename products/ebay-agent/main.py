@@ -2514,6 +2514,88 @@ async def proc_import_yahoo_results(job_id: str):
         db.close()
 
 
+@app.post("/api/procurements/yahoo-local-import")
+async def proc_yahoo_local_import(request: Request):
+    """ローカルMacからの直接取込（VPS IP が EEA 判定される場合の回避策）"""
+    import_key = request.headers.get("X-Import-Key", "")
+    expected = os.getenv("YAHOO_IMPORT_KEY", "")
+    if not expected or import_key != expected:
+        raise HTTPException(status_code=403, detail="unauthorized")
+
+    results = await request.json()
+    if not isinstance(results, list):
+        raise HTTPException(status_code=400, detail="expected list of items")
+
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in sorted(results, key=lambda r: r.get("date", "") or "9999"):
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            url = row.get("url", "")
+            # URL（落札ID）で重複チェック、なければタイトル+価格で判定
+            if url:
+                existing = (
+                    db.query(Procurement)
+                    .filter(Procurement.platform == "ヤフオク", Procurement.url == url)
+                    .first()
+                )
+            else:
+                existing = (
+                    db.query(Procurement)
+                    .filter(
+                        Procurement.platform == "ヤフオク",
+                        Procurement.title == title,
+                        Procurement.purchase_price_jpy == int(row.get("price", 0) or 0),
+                    )
+                    .first()
+                )
+            if existing:
+                skipped += 1
+                continue
+
+            price = int(row.get("price", 0) or 0)
+            tax = int(row.get("tax", 0) or 0)
+            shipping = int(row.get("shipping", 0) or 0)
+            is_store = bool(row.get("is_store", False))
+            purchase_price = (price - tax) if (is_store and tax > 0) else price
+
+            seller = row.get("seller", "") or ""
+            seller_url = (
+                f"https://auctions.yahoo.co.jp/seller/{seller}" if seller else ""
+            )
+
+            kwargs: dict = {
+                "title": title,
+                "platform": "ヤフオク",
+                "url": url,
+                "purchase_price_jpy": purchase_price,
+                "consumption_tax_jpy": tax,
+                "shipping_cost_jpy": shipping,
+                "seller_id": seller,
+                "seller_url": seller_url,
+                "image_url": row.get("image_url", ""),
+                "screenshot_path": row.get("screenshot_path", ""),
+                "status": "purchased",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+
+        return JSONResponse(
+            {"imported": created, "skipped": skipped, "total": len(results)}
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/scrape/yahoo-flea")
 async def proc_start_yahoo_flea_scrape():
     import uuid
