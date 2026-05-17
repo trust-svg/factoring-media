@@ -6,6 +6,7 @@ Playwrightで auctions.yahoo.co.jp/my/won を巡回し、
 初回はブラウザが開いてYahooログインが必要。
 2回目以降はCookieで自動ログイン。
 """
+
 import asyncio
 import json
 import logging
@@ -22,15 +23,37 @@ COOKIE_FILE = COOKIE_DIR / "yahoo_cookies.json"
 WON_LIST_URL = "https://auctions.yahoo.co.jp/my/won"
 LOGIN_URL_PREFIX = "https://login.yahoo.co.jp"
 
-CANCEL_KEYWORDS = ["キャンセル", "取引中止", "落札者都合により削除",
-                   "出品者都合により削除", "取り消し", "返金済み", "削除済み"]
+CANCEL_KEYWORDS = [
+    "キャンセル",
+    "取引中止",
+    "落札者都合により削除",
+    "出品者都合により削除",
+    "取り消し",
+    "返金済み",
+    "削除済み",
+]
 
 # 商品名ではないUI文言
-JUNK_TEXTS = {"取引ナビ", "取引連絡", "取引メッセージがあります", "評価",
-              "LYPプレミアム利用ガイド", "ヘルプ", "ガイド", "Yahoo! JAPAN",
-              "ヤフオク!", "マイ・オークション", "商品が発送されました",
-              "発送連絡待ちです", "支払い手続きをしてください", "受け取り連絡待ちです",
-              "円", "送料無料", "ストア", ""}
+JUNK_TEXTS = {
+    "取引ナビ",
+    "取引連絡",
+    "取引メッセージがあります",
+    "評価",
+    "LYPプレミアム利用ガイド",
+    "ヘルプ",
+    "ガイド",
+    "Yahoo! JAPAN",
+    "ヤフオク!",
+    "マイ・オークション",
+    "商品が発送されました",
+    "発送連絡待ちです",
+    "支払い手続きをしてください",
+    "受け取り連絡待ちです",
+    "円",
+    "送料無料",
+    "ストア",
+    "",
+}
 
 
 async def _save_cookies(context):
@@ -68,6 +91,7 @@ async def scrape_yahoo_won(
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             locale="ja-JP",
+            timezone_id="Asia/Tokyo",
         )
 
         has_cookies = await _load_cookies(context)
@@ -79,6 +103,26 @@ async def scrape_yahoo_won(
         await page.goto(WON_LIST_URL, wait_until="networkidle", timeout=30000)
         await asyncio.sleep(2)
 
+        # EEA/プライバシー通知ページ検出（Yahoo Japanが地域制限ページにリダイレクトする場合）
+        current_title = await page.title()
+        current_url = page.url
+        if (
+            "privacycenter" in current_url
+            or "EEA" in current_title
+            or "欧州" in current_title
+        ):
+            logger.warning(
+                f"EEA/プライバシー通知ページにリダイレクトされました: {current_url}"
+            )
+            if on_progress:
+                on_progress(
+                    "Yahooセッション切れ。ログインが必要です（ブラウザで再ログインしてください）...",
+                    0,
+                    0,
+                )
+            await browser.close()
+            raise RuntimeError("LOGIN_REQUIRED")
+
         # ログインチェック
         if LOGIN_URL_PREFIX in page.url:
             if headless and not has_cookies:
@@ -86,7 +130,11 @@ async def scrape_yahoo_won(
                 raise RuntimeError("LOGIN_REQUIRED")
 
             if on_progress:
-                on_progress("Yahooログインが必要です。ブラウザでログインしてください（5分以内）...", 0, 0)
+                on_progress(
+                    "Yahooログインが必要です。ブラウザでログインしてください（5分以内）...",
+                    0,
+                    0,
+                )
 
             try:
                 for _ in range(150):
@@ -151,7 +199,9 @@ async def scrape_yahoo_won(
                     results.append(item)
                     new_on_page += 1
 
-            logger.info(f"ページ {page_num}: {new_on_page} 件追加（累計 {len(results)}）")
+            logger.info(
+                f"ページ {page_num}: {new_on_page} 件追加（累計 {len(results)}）"
+            )
 
             if len(items_on_page) == 0:
                 logger.info("アイテムなし、巡回終了")
@@ -173,7 +223,9 @@ async def scrape_yahoo_won(
             on_progress(f"スクリーンショット撮影中...", 0, len(results))
 
         # Google Drive の確定申告資料フォルダに保存（年/プラットフォーム別）
-        ss_base = Path("/Users/Mac_air/Library/CloudStorage/GoogleDrive-otsuka@trustlink-tk.com/マイドライブ/総務関連/TrustLink/確定申告資料/輸出業/仕入れ履歴スクリーンショット")
+        ss_base = Path(
+            "/Users/Mac_air/Library/CloudStorage/GoogleDrive-otsuka@trustlink-tk.com/マイドライブ/総務関連/TrustLink/確定申告資料/輸出業/仕入れ履歴スクリーンショット"
+        )
 
         for idx, item in enumerate(results):
             aid = item.get("auction_id", "")
@@ -181,7 +233,11 @@ async def scrape_yahoo_won(
                 continue
             # 仕入日から年を取得（なければ今年）
             item_date = item.get("date", "")
-            year = item_date[:4] if item_date and len(item_date) >= 4 else str(datetime.now().year)
+            year = (
+                item_date[:4]
+                if item_date and len(item_date) >= 4
+                else str(datetime.now().year)
+            )
             screenshot_dir = ss_base / year / "ヤフオク"
             screenshot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -196,11 +252,15 @@ async def scrape_yahoo_won(
                 tx_url = item.get("transaction_url", "")
                 if tx_url and item.get("shipping", 0) == 0:
                     try:
-                        await page.goto(tx_url, wait_until="domcontentloaded", timeout=20000)
+                        await page.goto(
+                            tx_url, wait_until="domcontentloaded", timeout=20000
+                        )
                         await asyncio.sleep(2)
 
                         # ストア取引ページの場合「お届け情報・お支払い情報などを確認する」を展開
-                        expand_btn = await page.query_selector('text=お届け情報・お支払い情報などを確認する')
+                        expand_btn = await page.query_selector(
+                            "text=お届け情報・お支払い情報などを確認する"
+                        )
                         if expand_btn:
                             await expand_btn.click()
                             await asyncio.sleep(2)
@@ -234,7 +294,9 @@ async def scrape_yahoo_won(
                         logger.warning(f"取引ナビ送料取得失敗 ({aid}): {e}")
 
                 # ── 商品ページでスクリーンショット撮影 ──
-                await page.goto(auction_url, wait_until="domcontentloaded", timeout=20000)
+                await page.goto(
+                    auction_url, wait_until="domcontentloaded", timeout=20000
+                )
                 await asyncio.sleep(2)
                 await page.screenshot(path=str(ss_path), full_page=True)
                 item["screenshot_path"] = str(ss_path)
@@ -243,7 +305,11 @@ async def scrape_yahoo_won(
                 logger.warning(f"Screenshot error ({aid}): {e}")
 
             if on_progress and (idx + 1) % 5 == 0:
-                on_progress(f"スクリーンショット: {idx+1}/{len(results)}", idx+1, len(results))
+                on_progress(
+                    f"スクリーンショット: {idx + 1}/{len(results)}",
+                    idx + 1,
+                    len(results),
+                )
 
             await asyncio.sleep(0.5)
 
@@ -273,7 +339,8 @@ async def _extract_items_from_list(page) -> list[dict]:
     junk_set = list(JUNK_TEXTS)
     cancel_kws = list(CANCEL_KEYWORDS)
 
-    items = await page.evaluate("""(config) => {
+    items = await page.evaluate(
+        """(config) => {
         const { junkTexts, cancelKeywords } = config;
         const results = [];
 
@@ -481,7 +548,9 @@ async def _extract_items_from_list(page) -> list[dict]:
         }
 
         return results;
-    }""", {"junkTexts": junk_set, "cancelKeywords": cancel_kws})
+    }""",
+        {"junkTexts": junk_set, "cancelKeywords": cancel_kws},
+    )
 
     return items or []
 
@@ -496,9 +565,9 @@ async def _find_next_page(page):
         'button:has-text("次へ")',
         # ページネーション内の「>」や「次」
         'nav a:has-text(">")',
-        '.Pager__next a',
-        'li.next a',
-        'a.next',
+        ".Pager__next a",
+        "li.next a",
+        "a.next",
     ]:
         try:
             el = await page.query_selector(selector)
