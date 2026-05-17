@@ -29,6 +29,9 @@ const PROC_ALL_COLUMNS = [
     { id: 'shipped_at',  label: 'Shipped',   ja: '発送日',     sortKey: 'shipped_at' },
     { id: 'quantity',    label: 'Qty',       ja: '数量',       sortKey: 'quantity' },
     { id: 'condition',   label: 'Condition', ja: '状態',       sortKey: 'condition' },
+    { id: 'sale_price',  label: '$Sold',     ja: '売上(USD)',  sortKey: null },
+    { id: 'profit',      label: '利益',      ja: '利益(JPY)',  sortKey: null },
+    { id: 'refund',      label: '還付込',    ja: '還付込利益', sortKey: null },
     { id: 'ss',          label: 'SS',        ja: 'SS',         sortKey: null },
 ];
 
@@ -274,6 +277,21 @@ function renderProcCell(colId, p) {
             return `<td class="num" style="font-size:12px;">${p.quantity || 1}</td>`;
         case 'condition':
             return `<td style="font-size:12px;color:#64748B;">${esc(p.condition || '-')}</td>`;
+        case 'sale_price':
+            return p.sale && p.sale.sale_price_usd
+                ? `<td class="num" style="font-size:12px;color:#10B981;font-weight:600;">$${Number(p.sale.sale_price_usd).toFixed(2)}</td>`
+                : `<td style="color:#CBD5E1;font-size:11px;text-align:right;">-</td>`;
+        case 'profit':
+            return p.sale && p.sale.net_profit_jpy != null
+                ? `<td class="num" style="font-size:12px;font-weight:700;color:${p.sale.net_profit_jpy >= 0 ? '#10B981' : '#EF4444'};">¥${p.sale.net_profit_jpy.toLocaleString()}</td>`
+                : `<td style="color:#CBD5E1;font-size:11px;text-align:right;">-</td>`;
+        case 'refund': {
+            if (p.sale && p.sale.net_profit_jpy != null) {
+                const r = p.sale.net_profit_jpy + (p.consumption_tax_jpy || 0);
+                return `<td class="num" style="font-size:12px;font-weight:700;color:${r >= 0 ? '#7C3AED' : '#EF4444'};">¥${r.toLocaleString()}</td>`;
+            }
+            return `<td style="color:#CBD5E1;font-size:11px;text-align:right;">-</td>`;
+        }
         case 'ss':
             return `<td style="text-align:center;">
                 ${p.screenshot_path
