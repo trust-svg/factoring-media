@@ -337,6 +337,19 @@ export default function SpeakingPage() {
                 ))}
               </div>
 
+              <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">
+                <p className="text-xs font-bold text-indigo-500 mb-2">💡 模範スピーチのポイント</p>
+                <p className="text-sm font-semibold text-indigo-900 mb-2">{content.topic}</p>
+                <ul className="space-y-1">
+                  {content.speaking_points.map((pt, i) => (
+                    <li key={i} className="text-sm text-indigo-700 flex gap-2">
+                      <span className="text-indigo-400 shrink-0">{i + 1}.</span>
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
               {praise && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start">
                   <span className="text-xl">🌟</span>

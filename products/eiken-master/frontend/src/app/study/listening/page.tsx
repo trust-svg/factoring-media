@@ -291,9 +291,21 @@ export default function ListeningPage() {
       {/* Progress bar */}
       <div className="bg-white px-4 pt-4 pb-3 shadow-sm">
         <div className="max-w-lg mx-auto">
-          <div className="flex justify-between text-sm text-gray-400 mb-2">
+          <div className="flex justify-between items-center text-sm text-gray-400 mb-2">
             <span className="font-bold text-green-600">🎧 リスニング</span>
-            <span className="font-bold">{index + 1} / {questions.length}</span>
+            <div className="flex items-center gap-3">
+              {q.difficulty != null && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-gray-400">難易度</span>
+                  <div className="flex gap-0.5">
+                    {[1,2,3,4,5].map((s) => (
+                      <div key={s} className={`w-2 h-2 rounded-full ${s <= Math.round(q.difficulty * 5) ? 'bg-green-400' : 'bg-gray-200'}`} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <span className="font-bold">{index + 1} / {questions.length}</span>
+            </div>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-2.5">
             <div className="bg-green-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />

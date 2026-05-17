@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiGetProgress, apiGetTodayPlan } from '@/lib/api'
+import { apiGetDueFlashcards, apiGetProgress, apiGetTodayPlan } from '@/lib/api'
 import { useAuth } from '@/providers/AuthProvider'
 import type { DailyPlan, DailyTask, ProgressData, Skill } from '@/lib/types'
 import TutorialModal from '@/components/TutorialModal'
+import InstallBanner from '@/components/InstallBanner'
 
 /* ── Circular progress ring ─────────────────── */
 function RingProgress({ pct, size = 140 }: { pct: number; size?: number }) {
@@ -197,7 +198,7 @@ function MissionCard({ m, delay }: { m: Mission; delay: number }) {
 
 /* ── Big CTA card ─────────────────────────────── */
 function BigCta({
-  onClick, gradient, glow, icon, title, sub, delay,
+  onClick, gradient, glow, icon, title, sub, delay, badge,
 }: {
   onClick: () => void
   gradient: string
@@ -206,6 +207,7 @@ function BigCta({
   title: string
   sub: string
   delay: number
+  badge?: number
 }) {
   const [hovered, setHovered] = useState(false)
   return (
@@ -231,7 +233,12 @@ function BigCta({
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-black text-white text-base leading-tight">{title}</p>
+        <div className="flex items-center gap-2">
+          <p className="font-black text-white text-base leading-tight">{title}</p>
+          {badge != null && badge > 0 && (
+            <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full leading-none">{badge}</span>
+          )}
+        </div>
         <p className="text-white/60 text-xs font-bold mt-0.5">{sub}</p>
       </div>
       <div className="text-white/50 text-xl shrink-0 animate-sparkle">✦</div>
@@ -329,6 +336,7 @@ export default function HomePage() {
   const [progress, setProgress] = useState<ProgressData | null>(null)
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null)
   const [planRefreshing, setPlanRefreshing] = useState(false)
+  const [dueCount, setDueCount] = useState<number | null>(null)
   const hasRedirected = useRef(false)
 
   const handleTaskClick = useCallback((skill: string) => {
@@ -347,6 +355,7 @@ export default function HomePage() {
     if (!loading && user) {
       apiGetProgress().then(setProgress).catch(() => {})
       apiGetTodayPlan().then(setDailyPlan).catch(() => {})
+      apiGetDueFlashcards().then((cards) => setDueCount(cards.length)).catch(() => {})
     }
   }, [loading, user])
 
@@ -378,6 +387,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-animated">
       <TutorialModal />
+      <InstallBanner />
 
       {/* ══════════ HERO HEADER ══════════ */}
       <div
@@ -566,6 +576,7 @@ export default function HomePage() {
               title="今日の単語カード"
               sub="SM-2 間隔反復 · 科学的暗記法"
               delay={350}
+              badge={dueCount ?? undefined}
             />
 
             {/* Mock + vocabulary row */}

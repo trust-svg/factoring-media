@@ -230,6 +230,13 @@ export default function WritingPage() {
                 ))}
               </div>
 
+              {content.example_response && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">
+                  <p className="text-xs font-bold text-indigo-500 mb-2">📝 模範解答</p>
+                  <p className="text-sm text-indigo-900 leading-relaxed whitespace-pre-wrap">{content.example_response}</p>
+                </div>
+              )}
+
               {praise && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start">
                   <span className="text-xl">🌟</span>
