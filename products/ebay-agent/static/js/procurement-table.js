@@ -247,14 +247,32 @@ function renderProcCell(colId, p) {
         }
         case 'sku':
             return `<td style="font-family:monospace;font-size:11px;color:#94A3B8;">${esc(p.sku || '-')}</td>`;
-        case 'cost':
-            return `<td class="num" style="font-weight:600;">¥${(p.total_cost_jpy || 0).toLocaleString()}</td>`;
+        case 'cost': {
+            const details = [];
+            if (p.purchase_price_jpy) details.push(`本体¥${p.purchase_price_jpy.toLocaleString()}`);
+            if (p.consumption_tax_jpy) details.push(`税¥${p.consumption_tax_jpy.toLocaleString()}`);
+            if (p.shipping_cost_jpy) details.push(`送¥${p.shipping_cost_jpy.toLocaleString()}`);
+            const sub = details.length > 1
+                ? `<br><span style="font-size:10px;color:#94A3B8;">${details.join(' + ')}</span>`
+                : '';
+            return `<td class="num" style="font-weight:600;">¥${(p.total_cost_jpy || 0).toLocaleString()}${sub}</td>`;
+        }
         case 'tax':
             return `<td class="num" style="font-size:12px;color:#64748B;">${p.consumption_tax_jpy ? '¥' + p.consumption_tax_jpy.toLocaleString() : '-'}</td>`;
         case 'date':
             return `<td style="white-space:nowrap;font-size:12px;">${p.purchase_date ? p.purchase_date.slice(0,10) : '-'}</td>`;
-        case 'platform':
-            return `<td>${platBadgeProc(p.platform)}</td>`;
+        case 'platform': {
+            const badge = platBadgeProc(p.platform);
+            const srcLink = p.url
+                ? `<a href="${esc(p.url)}" target="_blank" style="color:#94A3B8;font-size:10px;text-decoration:none;vertical-align:middle;margin-left:3px;">↗</a>`
+                : '';
+            const seller = p.seller_id
+                ? (p.seller_url
+                    ? `<br><a href="${esc(p.seller_url)}" target="_blank" style="color:#94A3B8;font-size:10px;text-decoration:none;">${esc(p.seller_id)} ↗</a>`
+                    : `<br><span style="font-size:10px;color:#94A3B8;">${esc(p.seller_id)}</span>`)
+                : '';
+            return `<td>${badge}${srcLink}${seller}</td>`;
+        }
         case 'status':
             return `<td>${buildProcStatusBadge(p.status)}</td>`;
         case 'location':
