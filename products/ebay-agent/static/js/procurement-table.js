@@ -458,3 +458,428 @@ async function initProcPage() {
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('procTable')) initProcPage();
 });
+
+// ── 追加モーダル ──────────────────────────────────────────
+function openProcAddModal() {
+    const modal = document.getElementById('procModal');
+    if (!modal) return;
+    document.getElementById('procModalTitle').textContent = '仕入れ登録';
+    document.getElementById('procEditId').value = '';
+    clearProcForm();
+    document.getElementById('procDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('procStatus').value = 'purchased';
+    document.getElementById('procQty').value = '1';
+    resetProcScreenshotUI();
+    document.getElementById('procUrlStatus').textContent = '';
+    modal.style.display = 'flex';
+}
+
+async function openProcEditModal(id) {
+    const p = procRawData.find(x => x.id === id);
+    if (!p) return;
+    const modal = document.getElementById('procModal');
+    if (!modal) return;
+    document.getElementById('procModalTitle').textContent = '仕入れ編集';
+    document.getElementById('procEditId').value = id;
+    document.getElementById('procPlatform').value = p.platform || '';
+    document.getElementById('procTitle').value = p.title || '';
+    document.getElementById('procSku').value = p.sku || '';
+    document.getElementById('procPrice').value = p.purchase_price_jpy || '';
+    document.getElementById('procTax').value = p.consumption_tax_jpy || '';
+    document.getElementById('procShipping').value = p.shipping_cost_jpy || '';
+    document.getElementById('procOther').value = p.other_cost_jpy || '';
+    document.getElementById('procDate').value = p.purchase_date ? p.purchase_date.slice(0,10) : '';
+    document.getElementById('procRecvDate').value = p.received_date ? p.received_date.slice(0,10) : '';
+    document.getElementById('procUrl').value = p.url || '';
+    document.getElementById('procSellerId').value = p.seller_id || '';
+    document.getElementById('procSellerUrl').value = p.seller_url || '';
+    document.getElementById('procQty').value = p.quantity || 1;
+    document.getElementById('procLocation').value = p.location || '';
+    document.getElementById('procCondition').value = p.condition || '';
+    document.getElementById('procStatus').value = p.status || 'purchased';
+    document.getElementById('procCategory').value = p.category || '';
+    document.getElementById('procStockNo').value = p.stock_number || '';
+    document.getElementById('procEbayItemId').value = p.ebay_item_id || '';
+    document.getElementById('procEbayOrderId').value = p.ebay_order_id || '';
+    document.getElementById('procEbayPrice').value = p.ebay_price_usd || '';
+    document.getElementById('procNotes').value = p.notes || '';
+    document.getElementById('procUrlStatus').textContent = '';
+    resetProcScreenshotUI();
+    if (p.screenshot_path) {
+        const preview = document.getElementById('procSsPreview');
+        preview.innerHTML = `<img src="/api/procurements/${id}/screenshot?t=${Date.now()}" style="max-width:100%;max-height:120px;border-radius:4px;">`;
+        preview.style.display = 'block';
+        document.getElementById('procSsPrompt').textContent = '✓ 保存済み（新しい画像をドロップで上書き）';
+    }
+    modal.style.display = 'flex';
+}
+
+function closeProcModal() {
+    const modal = document.getElementById('procModal');
+    if (modal) modal.style.display = 'none';
+    resetProcScreenshotUI();
+}
+
+function clearProcForm() {
+    ['procPlatform','procTitle','procSku','procPrice','procTax','procShipping','procOther',
+     'procDate','procRecvDate','procUrl','procSellerId','procSellerUrl','procQty','procLocation',
+     'procCondition','procStatus','procCategory','procStockNo','procEbayItemId','procEbayOrderId',
+     'procEbayPrice','procNotes'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        else el.value = '';
+    });
+}
+
+async function submitProcurement() {
+    const editId = document.getElementById('procEditId').value;
+    const body = {
+        platform: document.getElementById('procPlatform').value,
+        title: document.getElementById('procTitle').value,
+        sku: document.getElementById('procSku').value,
+        purchase_price_jpy: parseInt(document.getElementById('procPrice').value) || 0,
+        consumption_tax_jpy: parseInt(document.getElementById('procTax').value) || 0,
+        shipping_cost_jpy: parseInt(document.getElementById('procShipping').value) || 0,
+        other_cost_jpy: parseInt(document.getElementById('procOther').value) || 0,
+        purchase_date: document.getElementById('procDate').value,
+        received_date: document.getElementById('procRecvDate').value,
+        url: document.getElementById('procUrl').value,
+        seller_id: document.getElementById('procSellerId').value,
+        seller_url: document.getElementById('procSellerUrl').value,
+        quantity: parseInt(document.getElementById('procQty').value) || 1,
+        location: document.getElementById('procLocation').value,
+        condition: document.getElementById('procCondition').value,
+        status: document.getElementById('procStatus').value,
+        category: document.getElementById('procCategory').value,
+        stock_number: document.getElementById('procStockNo').value,
+        ebay_item_id: document.getElementById('procEbayItemId').value,
+        ebay_order_id: document.getElementById('procEbayOrderId').value,
+        ebay_price_usd: parseFloat(document.getElementById('procEbayPrice').value) || 0,
+        notes: document.getElementById('procNotes').value,
+    };
+    if (!body.title) { alert('商品名は必須です'); return; }
+
+    try {
+        const url = editId ? `/api/procurements/${editId}` : '/api/procurements';
+        const method = editId ? 'PUT' : 'POST';
+        const result = await apiFetch(url, { method, body: JSON.stringify(body) });
+        const itemId = result.id || editId;
+        if (_pendingProcSS && itemId) {
+            await uploadProcScreenshot(itemId);
+        }
+        closeProcModal();
+        await loadProcItems();
+        await loadProcStats();
+    } catch (e) {
+        alert('保存に失敗しました: ' + (e.message || e));
+    }
+}
+
+async function deleteProcurement() {
+    const id = document.getElementById('procEditId').value;
+    if (!id) return;
+    if (!confirm('この仕入れ記録を削除しますか？')) return;
+    try {
+        await apiFetch(`/api/procurements/${id}`, { method: 'DELETE' });
+        closeProcModal();
+        await loadProcItems();
+        await loadProcStats();
+    } catch (e) { alert('削除に失敗しました'); }
+}
+
+// ── URL自動検出 ────────────────────────────────────────
+function autoDetectProcUrl() {
+    const url = document.getElementById('procUrl').value.trim();
+    const statusEl = document.getElementById('procUrlStatus');
+    if (!url) { statusEl.textContent = ''; return; }
+
+    const platformMap = [
+        { pattern: /jp\.mercari\.com|mercari\.com/, source: 'メルカリ' },
+        { pattern: /page\.auctions\.yahoo\.co\.jp|auctions\.yahoo/, source: 'ヤフオク' },
+        { pattern: /fril\.jp|rakuma/, source: 'ラクマ' },
+        { pattern: /amazon\.co\.jp/, source: 'Amazon' },
+        { pattern: /shopping\.yahoo\.co\.jp/, source: 'ヤフーショッピング' },
+        { pattern: /rakuten\.co\.jp/, source: '楽天' },
+        { pattern: /suruga-ya\.jp/, source: '駿河屋' },
+        { pattern: /digimart\.net/, source: 'デジマート' },
+        { pattern: /geo-online\.co\.jp/, source: 'GEO' },
+        { pattern: /2ndstreet/, source: 'セカンドストリート' },
+        { pattern: /mandarake\.co\.jp/, source: 'まんだらけ' },
+        { pattern: /paypayfleamarket|yahoo.*flea/, source: 'Yahooフリマ' },
+        { pattern: /netmall\.hardoff|ofmall/, source: 'ネットモール(OFFモール)' },
+    ];
+
+    let detected = null;
+    for (const pm of platformMap) {
+        if (pm.pattern.test(url)) { detected = pm.source; break; }
+    }
+
+    const sel = document.getElementById('procPlatform');
+    if (detected && sel) {
+        sel.value = detected;
+        statusEl.innerHTML = `<span style="color:var(--accent-green);">✓ ${detected} を検出</span>`;
+    } else {
+        statusEl.innerHTML = '<span style="color:#f59e0b;">自動判別できません</span>';
+    }
+}
+
+// ── スクリーンショット D&D ──────────────────────────────
+function resetProcScreenshotUI() {
+    _pendingProcSS = null;
+    const preview = document.getElementById('procSsPreview');
+    const prompt = document.getElementById('procSsPrompt');
+    const input = document.getElementById('procSsInput');
+    if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
+    if (prompt) prompt.textContent = '📸 画像をドロップ or クリックして選択';
+    if (input) input.value = '';
+}
+
+function handleProcSsDrop(event) {
+    event.preventDefault();
+    event.currentTarget.style.borderColor = 'var(--border)';
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) setProcSsPreview(file);
+}
+
+function handleProcSsSelect(event) {
+    const file = event.target.files[0];
+    if (file) setProcSsPreview(file);
+}
+
+function setProcSsPreview(file) {
+    _pendingProcSS = file;
+    const preview = document.getElementById('procSsPreview');
+    const prompt = document.getElementById('procSsPrompt');
+    const reader = new FileReader();
+    reader.onload = e => {
+        preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:120px;border-radius:4px;">`;
+        preview.style.display = 'block';
+        if (prompt) prompt.textContent = '✓ アップロード待機中';
+    };
+    reader.readAsDataURL(file);
+}
+
+async function uploadProcScreenshot(itemId) {
+    if (!_pendingProcSS) return;
+    try {
+        const formData = new FormData();
+        formData.append('file', _pendingProcSS, _pendingProcSS.name || 'screenshot.png');
+        const resp = await fetch(`/api/procurements/${itemId}/screenshot`, {
+            method: 'POST',
+            body: formData,
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        _pendingProcSS = null;
+    } catch (e) {
+        console.error('スクリーンショットアップロード失敗:', e);
+    }
+}
+
+// ── 一括削除 ────────────────────────────────────────────
+function toggleSelectAllProc(checked) {
+    document.querySelectorAll('.proc-row-check').forEach(cb => { cb.checked = checked; });
+    updateProcBulkBar();
+}
+
+function getProcSelectedIds() {
+    return Array.from(document.querySelectorAll('.proc-row-check:checked'))
+        .map(cb => parseInt(cb.dataset.id));
+}
+
+function updateProcBulkBar() {
+    const ids = getProcSelectedIds();
+    const bar = document.getElementById('procBulkBar');
+    const cnt = document.getElementById('procBulkCount');
+    if (!bar) return;
+    if (ids.length > 0) {
+        bar.style.display = 'flex';
+        if (cnt) cnt.textContent = `${ids.length}件選択中`;
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
+async function bulkDeleteProcSelected() {
+    const ids = getProcSelectedIds();
+    if (!ids.length) return;
+    if (!confirm(`${ids.length}件の仕入れ記録を削除しますか？`)) return;
+    try {
+        await apiFetch('/api/procurements/bulk-delete-ids', {
+            method: 'POST',
+            body: JSON.stringify({ ids }),
+        });
+        await loadProcItems();
+        await loadProcStats();
+        updateProcBulkBar();
+    } catch (e) { alert('一括削除に失敗しました'); }
+}
+
+// ── 一括インポート ──────────────────────────────────────
+function openProcBulkImport() {
+    const modal = document.getElementById('procBulkModal');
+    if (!modal) return;
+    document.getElementById('procBulkData').value = '';
+    document.getElementById('procBulkStatus').textContent = '';
+    updateProcBulkHelp();
+    modal.style.display = 'flex';
+}
+
+function closeProcBulkImport() {
+    const modal = document.getElementById('procBulkModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function updateProcBulkHelp() {
+    const platform = document.getElementById('procBulkPlatform').value;
+    const helpEl = document.getElementById('procBulkHelp');
+    const helpMap = {
+        'ヤフオク': `<b>auctions.yahoo.co.jp/my/won</b> を開いて落札一覧をコピー→貼り付け。商品名・落札価格・日付を自動抽出します。`,
+        'メルカリ': `<b>mercari.com/mypage/purchases/</b> を開いて購入履歴をコピー→貼り付け。<br>または手動入力: 1行1商品、タブ区切りで 商品名TAB価格TAB日付`,
+        'ラクマ': `購入履歴ページからコピー→貼り付け。または手動入力: 商品名TAB価格TAB日付`,
+        'その他': `1行1商品。タブ区切り: 商品名TAB価格TAB日付<br>例: Pioneer A-717&nbsp;&nbsp;8500&nbsp;&nbsp;2026-03-08`,
+    };
+    if (helpEl) helpEl.innerHTML = helpMap[platform] || helpMap['その他'];
+}
+
+function parseProcBulkData(platform, raw) {
+    const rows = [];
+    const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+    for (const line of lines) {
+        const parts = line.split(/\t/);
+        if (parts.length >= 2) {
+            const title = parts[0].trim();
+            const price = parseInt(parts[1].replace(/[¥,円]/g, '')) || 0;
+            const date = parts[2] ? parts[2].trim() : '';
+            if (title && price) rows.push({ title, price, date, source: platform });
+        }
+    }
+    return rows;
+}
+
+async function runProcBulkImport() {
+    const platform = document.getElementById('procBulkPlatform').value;
+    const raw = document.getElementById('procBulkData').value;
+    const statusEl = document.getElementById('procBulkStatus');
+    if (!raw.trim()) { statusEl.textContent = 'データを入力してください'; return; }
+
+    const rows = parseProcBulkData(platform, raw);
+    if (!rows.length) { statusEl.textContent = '取込可能な行が見つかりませんでした'; return; }
+
+    statusEl.textContent = `${rows.length}件を登録中...`;
+    try {
+        const result = await apiFetch('/api/procurements/bulk-import', {
+            method: 'POST',
+            body: JSON.stringify({ rows, platform }),
+        });
+        statusEl.innerHTML = `<span style="color:var(--accent-green);">✓ ${result.created}件登録、${result.skipped}件スキップ</span>`;
+        await loadProcItems();
+        await loadProcStats();
+    } catch (e) {
+        statusEl.innerHTML = `<span style="color:#EF4444;">エラー: ${e.message || e}</span>`;
+    }
+}
+
+// ── スクレイピングUI ────────────────────────────────────
+let _procScrapeJobId = null;
+let _procScrapePoller2 = null;
+
+function openProcScrapeModal(platform) {
+    const modal = document.getElementById('procScrapeModal');
+    if (!modal) return;
+    document.getElementById('procScrapePlatform').textContent = platform;
+    document.getElementById('procScrapeModal').dataset.platform = platform;
+    document.getElementById('procScrapeStatus').textContent = '';
+    document.getElementById('procScrapeProgress').style.display = 'none';
+    document.getElementById('procScrapeImportBtn').style.display = 'none';
+    _procScrapeJobId = null;
+    modal.style.display = 'flex';
+}
+
+function closeProcScrapeModal() {
+    if (_procScrapePoller2) clearInterval(_procScrapePoller2);
+    const modal = document.getElementById('procScrapeModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function startProcScrape() {
+    const modal = document.getElementById('procScrapeModal');
+    const platform = modal ? modal.dataset.platform : '';
+    const platformEndpointMap = {
+        'メルカリ': 'mercari',
+        'ヤフオク': 'yahoo',
+        'Yahooフリマ': 'yahoo-flea',
+        'ラクマ': 'rakuma',
+        'ネットモール(OFFモール)': 'hardoff',
+        '駿河屋': 'surugaya',
+    };
+    const endpoint = platformEndpointMap[platform];
+    if (!endpoint) { alert('対応していないプラットフォームです'); return; }
+
+    const statusEl = document.getElementById('procScrapeStatus');
+    const progressEl = document.getElementById('procScrapeProgress');
+    statusEl.textContent = 'スクレイプ開始中...';
+    progressEl.style.display = 'block';
+
+    try {
+        const result = await apiFetch(`/api/procurements/scrape/${endpoint}`, { method: 'POST' });
+        _procScrapeJobId = result.job_id;
+        statusEl.textContent = 'スクレイプ実行中...';
+        pollProcScrapeStatus(endpoint);
+    } catch (e) {
+        statusEl.innerHTML = `<span style="color:#EF4444;">エラー: ${e.message || e}</span>`;
+    }
+}
+
+function pollProcScrapeStatus(endpoint) {
+    if (_procScrapePoller2) clearInterval(_procScrapePoller2);
+    _procScrapePoller2 = setInterval(async () => {
+        try {
+            const job = await apiFetch(`/api/stock/scrape/status/${_procScrapeJobId}`);
+            const statusEl = document.getElementById('procScrapeStatus');
+            const msg = job.message || job.status;
+            if (job.status === 'login_required') {
+                clearInterval(_procScrapePoller2);
+                statusEl.innerHTML = `<span style="color:#f59e0b;">🔐 ログインが必要です。ローカルMacで再ログイン後、cookie同期してください。</span>`;
+            } else if (job.status === 'done') {
+                clearInterval(_procScrapePoller2);
+                const cnt = (job.results || []).length;
+                statusEl.innerHTML = `<span style="color:var(--accent-green);">✓ ${cnt}件取得完了</span>`;
+                document.getElementById('procScrapeImportBtn').style.display = 'inline-block';
+                document.getElementById('procScrapeImportBtn').onclick = () => importProcScrapeResults(endpoint);
+            } else if (job.status === 'error') {
+                clearInterval(_procScrapePoller2);
+                statusEl.innerHTML = `<span style="color:#EF4444;">エラー: ${job.error || msg}</span>`;
+            } else {
+                const cur = job.current || 0;
+                const tot = job.total || 0;
+                statusEl.textContent = tot > 0 ? `${msg} (${cur}/${tot})` : msg;
+            }
+        } catch (e) { console.error('poll error:', e); }
+    }, 2000);
+}
+
+async function importProcScrapeResults(endpoint) {
+    if (!_procScrapeJobId) return;
+    const statusEl = document.getElementById('procScrapeStatus');
+    statusEl.textContent = 'インポート中...';
+    try {
+        const result = await apiFetch(`/api/procurements/scrape/${endpoint}/import/${_procScrapeJobId}`, { method: 'POST' });
+        statusEl.innerHTML = `<span style="color:var(--accent-green);">✓ ${result.created}件登録、${result.skipped}件スキップ</span>`;
+        document.getElementById('procScrapeImportBtn').style.display = 'none';
+        await loadProcItems();
+        await loadProcStats();
+    } catch (e) {
+        statusEl.innerHTML = `<span style="color:#EF4444;">エラー: ${e.message || e}</span>`;
+    }
+}
+
+// ── auto-SKU ────────────────────────────────────────────
+async function procAutoSku() {
+    if (!confirm('SKUなしの仕入れ記録に対してeBay出品とのマッチングを実行しますか？')) return;
+    try {
+        const result = await apiFetch('/api/procurements/auto-sku', { method: 'POST' });
+        alert(`完了: ${result.assigned}件マッチ、${result.skipped}件スキップ`);
+        await loadProcItems();
+    } catch (e) { alert('エラー: ' + (e.message || e)); }
+}
