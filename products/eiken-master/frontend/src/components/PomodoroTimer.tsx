@@ -45,13 +45,14 @@ export default memo(function PomodoroTimer({ onBreak }: PomodoroTimerProps) {
       ? 'bg-red-500 text-white'
       : elapsed >= 1200
       ? 'bg-amber-400 text-gray-900'
-      : 'bg-gray-200 text-gray-600'
+      : 'bg-white/90 text-gray-700 shadow-sm'
 
   return (
     <div
-      className={`fixed top-4 right-4 px-3 py-1.5 rounded-full text-xs font-mono font-bold z-50 ${colorClass}`}
+      className={`fixed top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold z-50 ${colorClass}`}
     >
-      {formatTime(elapsed)}
+      <span className="text-[11px]">⏱</span>
+      <span className="font-mono tracking-wide">{formatTime(elapsed)}</span>
     </div>
   )
 })

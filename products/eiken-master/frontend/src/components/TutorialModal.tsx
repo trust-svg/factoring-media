@@ -40,6 +40,7 @@ const slides = [
 export default function TutorialModal() {
   const [visible, setVisible] = useState(false)
   const [slideIndex, setSlideIndex] = useState(0)
+  const [dontShowAgain, setDontShowAgain] = useState(true)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -48,8 +49,8 @@ export default function TutorialModal() {
     }
   }, [])
 
-  const handleClose = () => {
-    if (typeof window !== 'undefined') {
+  const handleClose = (force = false) => {
+    if (typeof window !== 'undefined' && (dontShowAgain || force)) {
       localStorage.setItem(STORAGE_KEY, '1')
     }
     setVisible(false)
@@ -59,7 +60,7 @@ export default function TutorialModal() {
     if (slideIndex < slides.length - 1) {
       setSlideIndex((i) => i + 1)
     } else {
-      handleClose()
+      handleClose(true)
     }
   }
 
@@ -95,6 +96,20 @@ export default function TutorialModal() {
           <p className="text-gray-600 text-base leading-relaxed">{slide.body}</p>
         </div>
 
+        {/* Don't show again */}
+        <div className="px-6 pb-2 flex items-center gap-2.5">
+          <input
+            type="checkbox"
+            id="eiken-dont-show"
+            checked={dontShowAgain}
+            onChange={(e) => setDontShowAgain(e.target.checked)}
+            className="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+          />
+          <label htmlFor="eiken-dont-show" className="text-gray-400 text-sm cursor-pointer select-none">
+            次回から表示しない
+          </label>
+        </div>
+
         {/* Buttons */}
         <div className="px-6 pb-8 space-y-2.5">
           <button
@@ -104,7 +119,7 @@ export default function TutorialModal() {
             {isLast ? '🚀 はじめる！' : '次へ →'}
           </button>
           {!isLast && (
-            <button onClick={handleClose} className="w-full text-gray-400 py-2 text-sm font-bold">
+            <button onClick={() => handleClose()} className="w-full text-gray-400 py-2 text-sm font-bold">
               スキップ
             </button>
           )}

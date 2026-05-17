@@ -248,7 +248,20 @@ const SKILL_TASK_META: Record<string, { emoji: string; color: string }> = {
   flashcards: { emoji: '🃏', color: 'text-indigo-600' },
 }
 
-function DailyPlanCard({ plan, onRefresh, refreshing }: { plan: DailyPlan; onRefresh: () => void; refreshing: boolean }) {
+const SKILL_ROUTE: Record<string, string> = {
+  reading: '/study/reading',
+  listening: '/study/listening',
+  writing: '/study/writing',
+  speaking: '/study/speaking',
+  flashcards: '/flashcards',
+}
+
+function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick }: {
+  plan: DailyPlan
+  onRefresh: () => void
+  refreshing: boolean
+  onTaskClick: (skill: string) => void
+}) {
   const total = plan.tasks.reduce((s, t) => s + t.minutes, 0)
   return (
     <div
@@ -280,12 +293,21 @@ function DailyPlanCard({ plan, onRefresh, refreshing }: { plan: DailyPlan; onRef
       <div className="space-y-2">
         {plan.tasks.map((task: DailyTask, i: number) => {
           const meta = SKILL_TASK_META[task.skill] ?? { emoji: '📌', color: 'text-gray-600' }
+          const hasRoute = task.skill in SKILL_ROUTE
           return (
-            <div key={i} className="flex items-center gap-3 bg-white/70 rounded-2xl px-4 py-2.5">
+            <button
+              key={i}
+              onClick={() => onTaskClick(task.skill)}
+              disabled={!hasRoute}
+              className="w-full flex items-center gap-3 bg-white/70 hover:bg-white active:scale-[0.98] rounded-2xl px-4 py-2.5 text-left transition-all disabled:cursor-default"
+            >
               <span className="text-base shrink-0">{meta.emoji}</span>
               <p className={`text-sm font-bold flex-1 ${meta.color}`}>{task.description}</p>
-              <span className="text-xs text-gray-400 font-bold shrink-0">{task.minutes}分</span>
-            </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs text-gray-400 font-bold">{task.minutes}分</span>
+                {hasRoute && <span className="text-indigo-300 text-xs font-bold">→</span>}
+              </div>
+            </button>
           )
         })}
       </div>
@@ -308,6 +330,11 @@ export default function HomePage() {
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null)
   const [planRefreshing, setPlanRefreshing] = useState(false)
   const hasRedirected = useRef(false)
+
+  const handleTaskClick = useCallback((skill: string) => {
+    const route = SKILL_ROUTE[skill]
+    if (route) router.push(route)
+  }, [router])
 
   useEffect(() => {
     if (!loading && user && !user.exam_date && !hasRedirected.current) {
@@ -452,30 +479,57 @@ export default function HomePage() {
       {/* ══════════ MAIN CONTENT ══════════ */}
       <div className="max-w-5xl mx-auto px-4 lg:px-8 pt-6 pb-14">
 
-        {/* Desktop: 2-col; Mobile: missions first, then utilities */}
-        <div className="flex flex-col lg:grid lg:grid-cols-[1fr_1.5fr] lg:gap-8 lg:items-start gap-5 lg:gap-0">
+        {/* ── 今日の目標 + AIプラン — 常に最上段 (mobile / desktop 共通) ── */}
+        <div className="space-y-4 mb-5">
 
-          {/* ── Left column (utility) — shown after missions on mobile ── */}
+          {/* Daily goal */}
+          <div
+            className="card-premium rounded-3xl p-5 animate-slide-up"
+            style={{
+              background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #D1FAE5 100%)',
+              boxShadow: '0 4px 20px rgba(16,185,129,0.15), inset 0 1px 0 rgba(255,255,255,0.9)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl shrink-0">🎯</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">今日の目標</p>
+                <p className="text-emerald-900 text-sm font-black">{user.daily_goal_minutes}分学習</p>
+                <p className="text-emerald-700 text-xs font-semibold mt-1.5 leading-relaxed">
+                  {days !== null && days > 0
+                    ? `試験まであと${days}日。今日も1問ずつ積み上げよう！`
+                    : '毎日コツコツが合格への近道！'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily AI plan */}
+          {dailyPlan && (
+            <DailyPlanCard
+              plan={dailyPlan}
+              refreshing={planRefreshing}
+              onTaskClick={handleTaskClick}
+              onRefresh={async () => {
+                setPlanRefreshing(true)
+                try {
+                  const fresh = await apiGetTodayPlan()
+                  setDailyPlan(fresh)
+                } catch {
+                  // silently ignore
+                } finally {
+                  setPlanRefreshing(false)
+                }
+              }}
+            />
+          )}
+        </div>
+
+        {/* ── 2カラムグリッド: mobile = ミッション→その他, desktop = 左右並列 ── */}
+        <div className="flex flex-col lg:grid lg:grid-cols-[1fr_1.5fr] lg:gap-8 lg:items-start gap-5">
+
+          {/* ── Left column (utilities) — mobile で order-2 ── */}
           <div className="space-y-4 order-2 lg:order-1">
-
-            {/* Daily AI plan */}
-            {dailyPlan && (
-              <DailyPlanCard
-                plan={dailyPlan}
-                refreshing={planRefreshing}
-                onRefresh={async () => {
-                  setPlanRefreshing(true)
-                  try {
-                    const fresh = await apiGetTodayPlan()
-                    setDailyPlan(fresh)
-                  } catch {
-                    // silently ignore
-                  } finally {
-                    setPlanRefreshing(false)
-                  }
-                }}
-              />
-            )}
 
             {/* AI praise */}
             {progress?.praise && (
@@ -546,31 +600,9 @@ export default function HomePage() {
                 </div>
               </button>
             </div>
-
-            {/* Daily goal motivational card — always visible */}
-            <div
-              className="card-premium rounded-3xl p-5 animate-slide-up delay-700"
-              style={{
-                background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #D1FAE5 100%)',
-                boxShadow: '0 4px 20px rgba(16,185,129,0.15), inset 0 1px 0 rgba(255,255,255,0.9)',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <span className="text-2xl shrink-0">🎯</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">今日の目標</p>
-                  <p className="text-emerald-900 text-sm font-black">{user.daily_goal_minutes}分学習</p>
-                  <p className="text-emerald-700 text-xs font-semibold mt-1.5 leading-relaxed">
-                    {days !== null && days > 0
-                      ? `試験まであと${days}日。今日も1問ずつ積み上げよう！`
-                      : '毎日コツコツが合格への近道！'}
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* ── Right column: Mission cards — shown FIRST on mobile ── */}
+          {/* ── Right column: Mission cards — mobile で order-1 (最初) ── */}
           <div className="order-1 lg:order-2">
             <div className="flex items-center gap-2 mb-4 lg:mb-5 animate-slide-up delay-200">
               <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(#7C3AED, #EC4899)' }} />
