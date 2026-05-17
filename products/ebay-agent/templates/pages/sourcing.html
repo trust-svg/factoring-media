@@ -141,6 +141,22 @@
     .proc-table tbody tr:hover td { background: #F8FAFC; cursor: pointer; }
     .proc-table tbody tr:last-child td { border-bottom: none; }
     .proc-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* ── #procTable 専用（class="proc-table" の代わり） ── */
+    #procTable th {
+        padding: 8px 12px; text-align: left;
+        font-size: 11px; font-weight: 700; color: #94A3B8;
+        text-transform: uppercase; letter-spacing: .04em;
+        background: #FAFAFA; border-bottom: 1px solid #F1F5F9;
+        white-space: nowrap; cursor: pointer; user-select: none;
+    }
+    #procTable td {
+        padding: 12px 14px; font-size: 13px; color: #374151;
+        border-bottom: 1px solid #F1F5F9; vertical-align: middle;
+    }
+    #procTable tbody tr:hover td { background: #F8FAFC; cursor: pointer; }
+    #procTable tbody tr:last-child td { border-bottom: none; }
+    #procTable .num { text-align: right; font-variant-numeric: tabular-nums; }
     .proc-detail-row td {
         padding: 0 !important;
         border-bottom: 1px solid #F1F5F9;

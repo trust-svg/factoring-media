@@ -17,6 +17,7 @@ const PROC_ALL_COLUMNS = [
     { id: 'title',       label: 'Product',   ja: '商品名',     sortKey: 'title' },
     { id: 'sku',         label: 'SKU',       ja: 'SKU',        sortKey: 'sku' },
     { id: 'cost',        label: 'Cost',      ja: '原価',       sortKey: 'total_cost_jpy' },
+    { id: 'tax',         label: 'Tax',       ja: '消費税',     sortKey: 'consumption_tax_jpy' },
     { id: 'date',        label: 'Date',      ja: '仕入日',     sortKey: 'purchase_date' },
     { id: 'platform',    label: 'Platform',  ja: '仕入先',     sortKey: 'platform' },
     { id: 'status',      label: 'Status',    ja: 'ステータス', sortKey: 'status' },
@@ -233,15 +234,20 @@ function renderProcCell(colId, p) {
                     onblur="this.style.borderColor='transparent';this.style.background='transparent';saveProcStockNo(${p.id},this.value)"
                     onclick="event.stopPropagation()">
             </td>`;
-        case 'title':
-            return `<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.title)}">
-                ${p.image_url ? `<img src="${esc(p.image_url)}" style="width:22px;height:22px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:5px;" onerror="this.style.display='none'">` : ''}
-                ${esc(p.title)}
-            </td>`;
+        case 'title': {
+            const thumb = p.image_url
+                ? `<img src="${esc(p.image_url)}" style="width:28px;height:28px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
+                : p.screenshot_path
+                    ? `<img src="/api/procurements/${encodeURIComponent(p.id)}/screenshot" style="width:28px;height:28px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
+                    : '';
+            return `<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.title)}">${thumb}${esc(p.title)}</td>`;
+        }
         case 'sku':
             return `<td style="font-family:monospace;font-size:11px;color:#94A3B8;">${esc(p.sku || '-')}</td>`;
         case 'cost':
             return `<td class="num" style="font-weight:600;">¥${(p.total_cost_jpy || 0).toLocaleString()}</td>`;
+        case 'tax':
+            return `<td class="num" style="font-size:12px;color:#64748B;">${p.consumption_tax_jpy ? '¥' + p.consumption_tax_jpy.toLocaleString() : '-'}</td>`;
         case 'date':
             return `<td style="white-space:nowrap;font-size:12px;">${p.purchase_date ? p.purchase_date.slice(0,10) : '-'}</td>`;
         case 'platform':

@@ -2977,6 +2977,48 @@ async def upload_procurement_screenshot(proc_id: int, request: Request):
         db.close()
 
 
+@app.get("/api/procurements/{proc_id}/screenshot")
+async def get_procurement_screenshot(proc_id: int):
+    from fastapi.responses import FileResponse, Response
+
+    db = get_db()
+    try:
+        proc = db.query(Procurement).filter(Procurement.id == proc_id).first()
+        if not proc or not proc.screenshot_path:
+            raise HTTPException(404, "Screenshot not found")
+        ss = proc.screenshot_path
+        if ss.startswith("/static/"):
+            filepath = Path(__file__).parent / ss.lstrip("/")
+        elif ss.startswith("static/"):
+            filepath = Path(__file__).parent / ss
+        else:
+            filepath = Path(ss)
+        if not filepath.exists():
+            raise HTTPException(404, "Screenshot file not found")
+        if filepath.stat().st_size > 5_000_000:
+            try:
+                from PIL import Image
+                import io as _io
+
+                img = Image.open(filepath)
+                max_width = 800
+                if img.width > max_width:
+                    ratio = max_width / img.width
+                    img = img.resize(
+                        (max_width, int(img.height * ratio)), Image.LANCZOS
+                    )
+                if img.height > 6000:
+                    img = img.crop((0, 0, img.width, 6000))
+                buf = _io.BytesIO()
+                img.save(buf, format="JPEG", quality=70)
+                return Response(content=buf.getvalue(), media_type="image/jpeg")
+            except Exception:
+                pass
+        return FileResponse(str(filepath))
+    finally:
+        db.close()
+
+
 # ── Instagram API ─────────────────────────────────────────
 
 
