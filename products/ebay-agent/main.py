@@ -2854,14 +2854,11 @@ async def proc_surugaya_local_import(request: Request):
 @app.post("/api/admin/batch-defaults")
 async def batch_defaults(request: Request):
     """既存レコードのデフォルト値一括設定 + 管理番号採番"""
-    import re as _re
-    from sqlalchemy import desc as _desc
-
     expected = os.getenv("YAHOO_IMPORT_KEY", "")
     key = request.headers.get("x-import-key", "")
     if not expected or key != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    db = next(get_db())
+    db = get_db()
     try:
         # location: NULL/空 → 自宅
         updated_loc = (
