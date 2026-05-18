@@ -2678,6 +2678,10 @@ async def proc_yahoo_local_import(request: Request):
 @app.post("/api/procurements/mercari-local-import")
 async def proc_mercari_local_import(request: Request):
     """ローカルMacからのメルカリ購入履歴直接取込"""
+    import base64 as _b64
+
+    from config import SCREENSHOT_DIR
+
     import_key = request.headers.get("X-Import-Key", "")
     expected = os.getenv("YAHOO_IMPORT_KEY", "")
     if not expected or import_key != expected:
@@ -2708,6 +2712,11 @@ async def proc_mercari_local_import(request: Request):
                 .first()
             )
             if existing:
+                # 既存レコードでSSが未設定なら補完
+                if not existing.screenshot_path and row.get("screenshot_b64"):
+                    _save_proc_screenshot_b64(
+                        existing, row["screenshot_b64"], SCREENSHOT_DIR, db, _b64
+                    )
                 skipped += 1
                 continue
             kwargs: dict = {
@@ -2724,7 +2733,11 @@ async def proc_mercari_local_import(request: Request):
                     kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
                 except ValueError:
                     pass
-            crud.add_procurement(db, **kwargs)
+            proc = crud.add_procurement(db, **kwargs)
+            if row.get("screenshot_b64"):
+                _save_proc_screenshot_b64(
+                    proc, row["screenshot_b64"], SCREENSHOT_DIR, db, _b64
+                )
             created += 1
         return JSONResponse(
             {"imported": created, "skipped": skipped, "total": len(results)}
@@ -2781,6 +2794,24 @@ def _auth_local_import(request: Request) -> None:
     expected = os.getenv("YAHOO_IMPORT_KEY", "")
     if not expected or import_key != expected:
         raise HTTPException(status_code=403, detail="unauthorized")
+
+
+def _save_proc_screenshot_b64(proc, b64_str: str, ss_dir, db, b64_mod) -> None:
+    """base64エンコード済みSSをVPSに保存してprocのscreenshot_pathを更新"""
+    try:
+        now = datetime.now(JST)
+        platform = (proc.platform or "other").replace("/", "_").replace(" ", "_")
+        dest = ss_dir / str(now.year) / platform
+        dest.mkdir(parents=True, exist_ok=True)
+        safe = "".join(
+            c for c in (proc.title or "item")[:30] if c.isalnum() or c in "-_ "
+        ).strip()
+        filepath = dest / f"proc{proc.id}_{now.strftime('%Y%m%d')}_{safe}.png"
+        filepath.write_bytes(b64_mod.b64decode(b64_str))
+        proc.screenshot_path = str(filepath)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"SS保存失敗 proc{proc.id}: {e}")
 
 
 @app.post("/api/procurements/yahoo-flea-local-import")

@@ -6,7 +6,9 @@ Playwrightで jp.mercari.com/mypage/purchases を巡回し、
 初回はブラウザが開いてメルカリログインが必要。
 2回目以降はCookieで自動ログイン。
 """
+
 import asyncio
+import base64
 import json
 import logging
 import re
@@ -23,7 +25,9 @@ PURCHASES_URL = "https://jp.mercari.com/mypage/purchases"
 LOGIN_URL_PREFIX = "https://login.jp.mercari.com"
 
 # スクリーンショット保存先
-SS_BASE = Path("/Users/Mac_air/Library/CloudStorage/GoogleDrive-otsuka@trustlink-tk.com/マイドライブ/総務関連/TrustLink/確定申告資料/輸出業/仕入れ履歴スクリーンショット")
+SS_BASE = Path(
+    "/Users/Mac_air/Library/CloudStorage/GoogleDrive-otsuka@trustlink-tk.com/マイドライブ/総務関連/TrustLink/確定申告資料/輸出業/仕入れ履歴スクリーンショット"
+)
 
 
 async def _save_cookies(context):
@@ -74,13 +78,21 @@ async def scrape_mercari_purchases(
                 raise RuntimeError("LOGIN_REQUIRED")
 
             if on_progress:
-                on_progress("メルカリログインが必要です。ブラウザでログインしてください（5分以内）...", 0, 0)
+                on_progress(
+                    "メルカリログインが必要です。ブラウザでログインしてください（5分以内）...",
+                    0,
+                    0,
+                )
 
             try:
                 for _ in range(150):
                     await asyncio.sleep(2)
                     current_url = page.url
-                    if "login" not in current_url and "auth" not in current_url and "authenticate" not in current_url:
+                    if (
+                        "login" not in current_url
+                        and "auth" not in current_url
+                        and "authenticate" not in current_url
+                    ):
                         break
                 else:
                     await browser.close()
@@ -168,11 +180,15 @@ async def scrape_mercari_purchases(
             else:
                 no_change_streak += 1
                 if not clicked and no_change_streak >= max_no_change:
-                    logger.info(f"読み込み停止: ボタンなし & {max_no_change}回連続増加なし")
+                    logger.info(
+                        f"読み込み停止: ボタンなし & {max_no_change}回連続増加なし"
+                    )
                     break
                 await asyncio.sleep(2)
 
-        logger.info(f"読み込み完了: {prev_count}件（{loop_i + 1}ループ, ボタン{click_count}回クリック）")
+        logger.info(
+            f"読み込み完了: {prev_count}件（{loop_i + 1}ループ, ボタン{click_count}回クリック）"
+        )
 
         # ── 一覧からアイテム情報を抽出 ──
         items_data = await page.evaluate("""() => {
@@ -336,7 +352,11 @@ async def scrape_mercari_purchases(
 
                 # ── スクリーンショット ──
                 item_date = item.get("date", "")
-                year = item_date[:4] if item_date and len(item_date) >= 4 else str(datetime.now().year)
+                year = (
+                    item_date[:4]
+                    if item_date and len(item_date) >= 4
+                    else str(datetime.now().year)
+                )
                 ss_dir = SS_BASE / year / "メルカリ"
                 ss_dir.mkdir(parents=True, exist_ok=True)
                 ss_path = ss_dir / f"{item_id}.png"
@@ -359,12 +379,18 @@ async def scrape_mercari_purchases(
 
                 if ss_path.exists():
                     item["screenshot_path"] = str(ss_path)
+                    try:
+                        item["screenshot_b64"] = base64.b64encode(
+                            ss_path.read_bytes()
+                        ).decode("ascii")
+                    except Exception:
+                        pass
 
             except Exception as e:
                 logger.warning(f"Item page error ({item_id}): {e}")
 
             if on_progress and (idx + 1) % 5 == 0:
-                on_progress(f"商品情報取得中: {idx+1}/{total}", idx + 1, total)
+                on_progress(f"商品情報取得中: {idx + 1}/{total}", idx + 1, total)
 
             await asyncio.sleep(0.5)
 
