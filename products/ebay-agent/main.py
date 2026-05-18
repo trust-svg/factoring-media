@@ -2564,6 +2564,7 @@ async def fifo_assign_procurements(request: Request):
                 Procurement.ebay_order_id != "",
             )
             .all()
+            if p.ebay_order_id
         }
 
         # 対応する売上（sold_at 昇順、未紐付けのみ）
