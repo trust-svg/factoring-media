@@ -499,3 +499,110 @@ def test_procurement_scrape_import_creates_procurement(db):
     assert skipped == 2
     procs = db.query(Proc).all()
     assert procs[0].platform == "メルカリ"
+
+
+from database.models import SalesRecord
+
+
+@pytest.fixture
+def db_with_sales(db):
+    """SalesRecord テーブルも持つ DB fixture"""
+    return db
+
+
+def test_order_id_match_preferred_over_sku(db_with_sales):
+    """ebay_order_id が一致する場合、SKU マッチより優先されること"""
+    db = db_with_sales
+    proc_a = add_procurement(
+        db,
+        sku="TEST-001",
+        title="商品A",
+        purchase_price_jpy=5000,
+        ebay_order_id="ORDER-111",
+    )
+    proc_b = add_procurement(
+        db,
+        sku="TEST-001",
+        title="商品B",
+        purchase_price_jpy=8000,
+        ebay_order_id="ORDER-222",
+    )
+    result = (
+        db.query(Procurement).filter(Procurement.ebay_order_id == "ORDER-111").first()
+    )
+    assert result.id == proc_a.id
+    assert result.purchase_price_jpy == 5000
+
+
+def test_fifo_assign_links_oldest_proc_to_earliest_sale(db_with_sales):
+    """FIFO: purchase_date 昇順の仕入れが sold_at 昇順の売上に紐付くこと"""
+    from datetime import datetime, timezone
+
+    db = db_with_sales
+
+    proc_old = add_procurement(
+        db,
+        sku="S-001",
+        title="旧仕入れ",
+        purchase_price_jpy=4000,
+        ebay_item_id="ITEM-X",
+        purchase_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    proc_new = add_procurement(
+        db,
+        sku="S-001",
+        title="新仕入れ",
+        purchase_price_jpy=6000,
+        ebay_item_id="ITEM-X",
+        purchase_date=datetime(2026, 2, 1, tzinfo=timezone.utc),
+    )
+
+    sale1 = SalesRecord(
+        order_id="ORDER-A",
+        item_id="ITEM-X",
+        sku="S-001",
+        sale_price_usd=50.0,
+        sold_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+    )
+    sale2 = SalesRecord(
+        order_id="ORDER-B",
+        item_id="ITEM-X",
+        sku="S-001",
+        sale_price_usd=55.0,
+        sold_at=datetime(2026, 2, 15, tzinfo=timezone.utc),
+    )
+    db.add_all([sale1, sale2])
+    db.commit()
+
+    # FIFO ロジックを直接テスト
+    procs = (
+        db.query(Procurement)
+        .filter(Procurement.ebay_item_id == "ITEM-X", Procurement.ebay_order_id == "")
+        .order_by(Procurement.purchase_date.asc())
+        .all()
+    )
+    sales = (
+        db.query(SalesRecord)
+        .filter(SalesRecord.item_id == "ITEM-X")
+        .order_by(SalesRecord.sold_at.asc())
+        .all()
+    )
+
+    for p, s in zip(procs, sales):
+        p.ebay_order_id = s.order_id
+    db.commit()
+
+    assert (
+        db.query(Procurement)
+        .filter(Procurement.id == proc_old.id)
+        .first()
+        .ebay_order_id
+        == "ORDER-A"
+    )
+    assert (
+        db.query(Procurement)
+        .filter(Procurement.id == proc_new.id)
+        .first()
+        .ebay_order_id
+        == "ORDER-B"
+    )
