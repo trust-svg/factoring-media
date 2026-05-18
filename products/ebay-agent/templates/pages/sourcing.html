@@ -296,6 +296,12 @@
     <!-- 検索 -->
     <input id="procSearch" placeholder="検索..." style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:180px;"
            oninput="procSearchQuery=this.value;renderProcRows(procRawData)">
+    <!-- 期間指定 -->
+    <input id="procDateFrom" type="date" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:#374151;"
+           oninput="procDateFrom=this.value;renderProcRows(procRawData)">
+    <span style="font-size:12px;color:#94A3B8;">〜</span>
+    <input id="procDateTo" type="date" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:#374151;"
+           oninput="procDateTo=this.value;renderProcRows(procRawData)">
     <div style="flex:1;"></div>
     <!-- ボタン群 -->
     <button onclick="openProcColSettings()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;background:white;">列設定 ▼</button>

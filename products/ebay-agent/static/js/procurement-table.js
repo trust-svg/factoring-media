@@ -7,6 +7,8 @@ let procRawData = [];
 let procFilterStatus = 'all';
 let procFilterPlatform = 'all';
 let procSearchQuery = '';
+let procDateFrom = '';
+let procDateTo = '';
 let _procUsdJpy = 149;
 let _pendingProcSS = null; // pending screenshot file
 let _procScrapePoller = null;
@@ -365,6 +367,12 @@ function renderProcRows(items) {
         (p.platform || '').toLowerCase().includes(search) ||
         (p.stock_number || '').toLowerCase().includes(search) ||
         (p.notes || '').toLowerCase().includes(search)
+    );
+    if (procDateFrom) filtered = filtered.filter(p =>
+        p.purchase_date && p.purchase_date.slice(0, 10) >= procDateFrom
+    );
+    if (procDateTo) filtered = filtered.filter(p =>
+        p.purchase_date && p.purchase_date.slice(0, 10) <= procDateTo
     );
 
     filtered.sort(compareProc);
