@@ -2532,6 +2532,66 @@ async def proc_import_yahoo_results(job_id: str):
         db.close()
 
 
+@app.post("/api/procurements/fifo-assign")
+async def fifo_assign_procurements(request: Request):
+    """同一 eBay Item ID の仕入れ記録を売上と購入日順に FIFO 自動紐付け"""
+    body = await request.json()
+    ebay_item_id = (body.get("ebay_item_id") or "").strip()
+    if not ebay_item_id:
+        raise HTTPException(400, "ebay_item_id required")
+
+    db = get_db()
+    try:
+        from database.models import SalesRecord
+
+        # 未紐付け仕入れ（purchase_date 昇順）
+        procs = (
+            db.query(Procurement)
+            .filter(
+                Procurement.ebay_item_id == ebay_item_id,
+                (Procurement.ebay_order_id == "") | (Procurement.ebay_order_id == None),
+            )
+            .order_by(Procurement.purchase_date.asc())
+            .all()
+        )
+
+        # 既紐付け済み order_id を収集
+        linked_ids = {
+            p.ebay_order_id
+            for p in db.query(Procurement)
+            .filter(
+                Procurement.ebay_item_id == ebay_item_id,
+                Procurement.ebay_order_id != "",
+            )
+            .all()
+        }
+
+        # 対応する売上（sold_at 昇順、未紐付けのみ）
+        all_sales = (
+            db.query(SalesRecord)
+            .filter(SalesRecord.item_id == ebay_item_id)
+            .order_by(SalesRecord.sold_at.asc())
+            .all()
+        )
+        unlinked_sales = [s for s in all_sales if s.order_id not in linked_ids]
+
+        assigned = []
+        for proc, sale in zip(procs, unlinked_sales):
+            proc.ebay_order_id = sale.order_id
+            assigned.append(
+                {
+                    "procurement_id": proc.id,
+                    "title": proc.title[:40],
+                    "order_id": sale.order_id,
+                }
+            )
+
+        db.commit()
+        return JSONResponse({"assigned": assigned, "count": len(assigned)})
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/yahoo-local-import")
 async def proc_yahoo_local_import(request: Request):
     """ローカルMacからの直接取込（VPS IP が EEA 判定される場合の回避策）"""
