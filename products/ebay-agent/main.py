@@ -3334,6 +3334,15 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
                 if p.sku not in proc_map:
                     proc_map[p.sku] = p
 
+        # order_id → 仕入れマップ（主キー: ebay_order_id が一致する仕入れ）
+        proc_by_order_id: dict = {}
+        linked_procs = (
+            db.query(Procurement).filter(Procurement.ebay_order_id != "").all()
+        )
+        for p in linked_procs:
+            if p.ebay_order_id not in proc_by_order_id:
+                proc_by_order_id[p.ebay_order_id] = p
+
         # SKU→仕入れ台帳マップ（一括取得）
         from database.models import InventoryItem
 
@@ -3352,7 +3361,7 @@ async def sales_records_api(month: str = "", from_date: str = "", to_date: str =
             sale_jpy = round(r.sale_price_usd * rate)
             fees_jpy = round((r.ebay_fees_usd + r.payoneer_fee_usd) * rate)
 
-            p = proc_map.get(r.sku)
+            p = proc_by_order_id.get(r.order_id) or proc_map.get(r.sku)
             proc_info = None
             if p:
                 proc_info = {
