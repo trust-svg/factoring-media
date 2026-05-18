@@ -2851,6 +2851,45 @@ async def proc_surugaya_local_import(request: Request):
         db.close()
 
 
+@app.post("/api/admin/batch-defaults")
+async def batch_defaults(request: Request):
+    """既存レコードのデフォルト値一括設定 + 管理番号採番"""
+    import re as _re
+    from sqlalchemy import desc as _desc
+
+    expected = os.getenv("YAHOO_IMPORT_KEY", "")
+    key = request.headers.get("x-import-key", "")
+    if not expected or key != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    db = next(get_db())
+    try:
+        # location: NULL/空 → 自宅
+        updated_loc = (
+            db.query(Procurement)
+            .filter((Procurement.location == None) | (Procurement.location == ""))
+            .update({"location": "自宅"}, synchronize_session=False)
+        )
+        db.flush()
+        # stock_number: 未設定のものに P-XXXX 採番
+        procs_no_sn = (
+            db.query(Procurement)
+            .filter(
+                (Procurement.stock_number == None) | (Procurement.stock_number == "")
+            )
+            .order_by(Procurement.id)
+            .all()
+        )
+        for proc in procs_no_sn:
+            proc.stock_number = crud._next_proc_stock_number(db)
+            db.flush()
+        db.commit()
+        return JSONResponse(
+            {"location_updated": updated_loc, "stock_number_assigned": len(procs_no_sn)}
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/scrape/yahoo-flea")
 async def proc_start_yahoo_flea_scrape():
     import uuid

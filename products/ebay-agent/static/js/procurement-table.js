@@ -40,6 +40,16 @@ const PROC_ALL_COLUMNS = [
 const PROC_DEFAULT_COLS = ['stock_no','title','sku','cost','date','platform','status'];
 const PROC_COL_KEY = 'proc_column_order';
 const PROC_VIS_KEY = 'proc_column_visible';
+const PROC_WIDTH_KEY = 'proc_col_widths';
+
+function getProcColWidths() {
+    try { return JSON.parse(localStorage.getItem(PROC_WIDTH_KEY) || '{}'); }
+    catch { return {}; }
+}
+function saveProcColWidth(colId, px) {
+    const w = getProcColWidths(); w[colId] = px;
+    localStorage.setItem(PROC_WIDTH_KEY, JSON.stringify(w));
+}
 
 function getProcColOrder() {
     try {
@@ -140,6 +150,7 @@ function renderProcTableHeader() {
     if (!thead) return;
     const order = getProcColOrder();
     const vis = getProcColVisible();
+    const resizer = colId => `<div draggable="false" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1;" onmousedown="initProcColResize(event,'${colId}')" onclick="event.stopPropagation()"></div>`;
     let html = '<th style="width:32px;"><input type="checkbox" id="procSelectAll" onchange="toggleSelectAllProc(this.checked)" style="cursor:pointer;"></th>';
     for (const colId of order) {
         if (!vis[colId]) continue;
@@ -149,14 +160,19 @@ function renderProcTableHeader() {
             const isActive = procSortCol === colId || procSortCol === col.sortKey;
             const icon = isActive ? (procSortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
             const opacity = isActive ? '1' : '0.3';
-            html += `<th draggable="true" data-col="${colId}" data-sort="${colId}" onclick="sortProc('${colId}')" style="cursor:pointer;user-select:none;">${col.ja}<span class="sort-icon" style="font-size:10px;opacity:${opacity};">${icon}</span></th>`;
+            html += `<th draggable="true" data-col="${colId}" data-sort="${colId}" onclick="sortProc('${colId}')" style="cursor:pointer;user-select:none;position:relative;">${col.ja}<span class="sort-icon" style="font-size:10px;opacity:${opacity};">${icon}</span>${resizer(colId)}</th>`;
         } else {
-            html += `<th draggable="true" data-col="${colId}" style="cursor:grab;user-select:none;">${col.ja}</th>`;
+            html += `<th draggable="true" data-col="${colId}" style="cursor:grab;user-select:none;position:relative;">${col.ja}${resizer(colId)}</th>`;
         }
     }
     html += '<th></th>';
     thead.innerHTML = html;
     initProcHeaderDragDrop();
+    const savedWidths = getProcColWidths();
+    for (const [cid, w] of Object.entries(savedWidths)) {
+        const th = thead.querySelector(`th[data-col="${cid}"]`);
+        if (th) th.style.width = w + 'px';
+    }
 }
 
 function initProcHeaderDragDrop() {
@@ -188,6 +204,30 @@ function initProcHeaderDragDrop() {
             renderProcRows(procRawData);
         });
     });
+}
+
+// ── 列幅リサイズ ─────────────────────────────────────────
+function initProcColResize(e, colId) {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = e.target.closest('th');
+    const startX = e.clientX;
+    const startW = th.offsetWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    const onMove = ev => {
+        th.style.width = Math.max(40, startW + ev.clientX - startX) + 'px';
+    };
+    const onUp = () => {
+        const w = parseInt(th.style.width);
+        if (w) saveProcColWidth(colId, w);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
 }
 
 // ── プラットフォームバッジ ────────────────────────────────
@@ -245,7 +285,7 @@ function renderProcCell(colId, p) {
                 : p.screenshot_path
                     ? `<img src="/api/procurements/${encodeURIComponent(p.id)}/screenshot" style="width:28px;height:28px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
                     : '';
-            return `<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.title)}">${thumb}${esc(p.title)}</td>`;
+            return `<td style="max-width:240px;" title="${esc(p.title)}"><div style="display:flex;align-items:flex-start;gap:4px;">${thumb}<span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all;">${esc(p.title)}</span></div></td>`;
         }
         case 'sku':
             return `<td style="font-family:monospace;font-size:11px;color:#94A3B8;">${esc(p.sku || '-')}</td>`;
@@ -275,8 +315,16 @@ function renderProcCell(colId, p) {
                 : '';
             return `<td>${badge}${srcLink}${seller}</td>`;
         }
-        case 'status':
-            return `<td>${buildProcStatusBadge(p.status)}</td>`;
+        case 'status': {
+            const statColors = {purchased:'#f59e0b',received:'#3b82f6',listed:'#8b5cf6',sold:'#22c55e',shipped:'#06b6d4',returned:'#ef4444',cancelled:'#6b7280'};
+            const statLabels = [['purchased','購入済'],['received','入荷済'],['listed','出品中'],['sold','販売済'],['shipped','発送済'],['returned','返品'],['cancelled','キャンセル']];
+            const sv = p.status || '';
+            const bg = statColors[sv] || '#e2e8f0';
+            const opts = statLabels.map(([v,l]) => `<option value="${v}" ${sv===v?'selected':''}>${l}</option>`).join('');
+            return `<td><select data-status-sel style="font-size:10px;padding:2px 6px;border:none;border-radius:8px;background:${bg};color:${sv?'white':'#334155'};cursor:pointer;font-weight:500;outline:none;"
+                onchange="event.stopPropagation();saveProcStatus(${p.id},this)"
+                onclick="event.stopPropagation()">${opts}</select></td>`;
+        }
         case 'location': {
             const locVal = p.location || '';
             const locOpts = ['', '自宅', 'オークレボ'].map(v =>
@@ -314,8 +362,17 @@ function renderProcCell(colId, p) {
             return `<td style="font-size:12px;">${p.shipped_at ? p.shipped_at.slice(0,10) : '-'}</td>`;
         case 'quantity':
             return `<td class="num" style="font-size:12px;">${p.quantity || 1}</td>`;
-        case 'condition':
-            return `<td style="font-size:12px;color:#64748B;">${esc(p.condition || '-')}</td>`;
+        case 'condition': {
+            const condVal = p.condition || '';
+            const condOpts = ['','新品','中古A','中古B','ジャンク'].map(v =>
+                `<option value="${v}" ${condVal===v?'selected':''}>${v||'未設定'}</option>`
+            ).join('');
+            return `<td><select style="font-size:11px;padding:2px 4px;border:1px solid transparent;border-radius:4px;background:transparent;color:#64748B;cursor:pointer;"
+                onfocus="this.style.borderColor='var(--brand-500)'"
+                onblur="this.style.borderColor='transparent'"
+                onchange="event.stopPropagation();saveProcField(${p.id},'condition',this.value)"
+                onclick="event.stopPropagation()">${condOpts}</select></td>`;
+        }
         case 'sale_price':
             return p.sale && p.sale.sale_price_usd
                 ? `<td class="num" style="font-size:12px;color:#10B981;font-weight:600;">$${Number(p.sale.sale_price_usd).toFixed(2)}</td>`
@@ -476,15 +533,27 @@ async function saveProcStockNo(id, value) {
     } catch (e) { console.error(e); }
 }
 
-async function saveProcLocation(id, value) {
+async function saveProcField(id, field, value) {
+    const idx = procRawData.findIndex(x => x.id === id);
+    if (idx !== -1) procRawData[idx][field] = value;
     try {
-        const idx = procRawData.findIndex(x => x.id === id);
-        if (idx !== -1) procRawData[idx].location = value;
         await apiFetch(`/api/procurements/${id}`, {
             method: 'PUT',
-            body: JSON.stringify({ location: value }),
+            body: JSON.stringify({ [field]: value }),
         });
     } catch (e) { console.error(e); }
+}
+
+async function saveProcLocation(id, value) {
+    return saveProcField(id, 'location', value);
+}
+
+function saveProcStatus(id, sel) {
+    const val = sel.value;
+    const m = {purchased:'#f59e0b',received:'#3b82f6',listed:'#8b5cf6',sold:'#22c55e',shipped:'#06b6d4',returned:'#ef4444',cancelled:'#6b7280'};
+    sel.style.background = m[val] || '#e2e8f0';
+    sel.style.color = val ? 'white' : '#334155';
+    saveProcField(id, 'status', val);
 }
 
 // ── スクリーンショット表示 ──────────────────────────────
