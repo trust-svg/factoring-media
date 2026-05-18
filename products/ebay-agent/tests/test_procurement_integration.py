@@ -531,6 +531,7 @@ def test_order_id_match_preferred_over_sku(db_with_sales):
         db.query(Procurement).filter(Procurement.ebay_order_id == "ORDER-111").first()
     )
     assert result.id == proc_a.id
+    assert result.id != proc_b.id
     assert result.purchase_price_jpy == 5000
 
 
