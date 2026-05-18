@@ -2675,6 +2675,64 @@ async def proc_yahoo_local_import(request: Request):
         db.close()
 
 
+@app.post("/api/procurements/mercari-local-import")
+async def proc_mercari_local_import(request: Request):
+    """ローカルMacからのメルカリ購入履歴直接取込"""
+    import_key = request.headers.get("X-Import-Key", "")
+    expected = os.getenv("YAHOO_IMPORT_KEY", "")
+    if not expected or import_key != expected:
+        raise HTTPException(status_code=403, detail="unauthorized")
+
+    results = await request.json()
+    if not isinstance(results, list):
+        raise HTTPException(status_code=400, detail="expected list of items")
+
+    db = get_db()
+    try:
+        created = 0
+        skipped = 0
+        for row in sorted(results, key=lambda r: r.get("date", "") or "9999"):
+            title = (row.get("title") or "").strip()
+            if not title:
+                skipped += 1
+                continue
+            price = int(row.get("price", 0) or 0)
+            url = row.get("item_url", "") or row.get("transaction_url", "")
+            existing = (
+                db.query(Procurement)
+                .filter(
+                    Procurement.platform == "メルカリ",
+                    Procurement.title == title,
+                    Procurement.purchase_price_jpy == price,
+                )
+                .first()
+            )
+            if existing:
+                skipped += 1
+                continue
+            kwargs: dict = {
+                "title": title,
+                "platform": "メルカリ",
+                "url": url,
+                "purchase_price_jpy": price,
+                "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
+                "image_url": row.get("image_url", ""),
+                "status": "purchased",
+            }
+            if row.get("date"):
+                try:
+                    kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+                except ValueError:
+                    pass
+            crud.add_procurement(db, **kwargs)
+            created += 1
+        return JSONResponse(
+            {"imported": created, "skipped": skipped, "total": len(results)}
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/scrape/yahoo-flea")
 async def proc_start_yahoo_flea_scrape():
     import uuid
