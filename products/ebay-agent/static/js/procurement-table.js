@@ -277,8 +277,21 @@ function renderProcCell(colId, p) {
         }
         case 'status':
             return `<td>${buildProcStatusBadge(p.status)}</td>`;
-        case 'location':
-            return `<td style="font-size:12px;color:#64748B;">${esc(p.location || '-')}</td>`;
+        case 'location': {
+            const locVal = p.location || '';
+            const locOpts = ['', '自宅', 'オークレボ'].map(v =>
+                `<option value="${v}" ${locVal === v ? 'selected' : ''}>${v || '未設定'}</option>`
+            ).join('');
+            return `<td>
+                <select style="font-size:11px;padding:2px 4px;border:1px solid transparent;border-radius:4px;background:transparent;color:#64748B;cursor:pointer;"
+                    onfocus="this.style.borderColor='var(--brand-500)'"
+                    onblur="this.style.borderColor='transparent'"
+                    onchange="event.stopPropagation();saveProcLocation(${p.id},this.value)"
+                    onclick="event.stopPropagation()">
+                    ${locOpts}
+                </select>
+            </td>`;
+        }
         case 'ebay_id': {
             const linked = p.ebay_order_id
                 ? `<span title="Order: ${esc(p.ebay_order_id)}" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22C55E;margin-right:4px;vertical-align:middle;"></span>`
@@ -459,6 +472,17 @@ async function saveProcStockNo(id, value) {
         await apiFetch(`/api/procurements/${id}`, {
             method: 'PUT',
             body: JSON.stringify({ stock_number: value }),
+        });
+    } catch (e) { console.error(e); }
+}
+
+async function saveProcLocation(id, value) {
+    try {
+        const idx = procRawData.findIndex(x => x.id === id);
+        if (idx !== -1) procRawData[idx].location = value;
+        await apiFetch(`/api/procurements/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ location: value }),
         });
     } catch (e) { console.error(e); }
 }

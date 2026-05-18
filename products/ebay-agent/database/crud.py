@@ -91,8 +91,28 @@ def update_candidate_status(db: Session, candidate_id: int, status: str):
 # ── Procurement ──────────────────────────────────────────
 
 
+def _next_proc_stock_number(db: Session) -> str:
+    """次の仕入れ管理番号を生成（P-0001形式）"""
+    import re as _re
+
+    latest = (
+        db.query(Procurement.stock_number)
+        .filter(Procurement.stock_number.like("P-%"))
+        .order_by(desc(Procurement.stock_number))
+        .first()
+    )
+    if latest and latest[0]:
+        m = _re.search(r"P-(\d+)", latest[0])
+        num = int(m.group(1)) + 1 if m else 1
+    else:
+        num = 1
+    return f"P-{num:04d}"
+
+
 def add_procurement(db: Session, **kwargs) -> Procurement:
-    """仕入れ実績を記録"""
+    """仕入れ実績を記録（stock_number が空なら自動採番）"""
+    if not kwargs.get("stock_number"):
+        kwargs["stock_number"] = _next_proc_stock_number(db)
     proc = Procurement(**kwargs)
     proc.total_cost_jpy = (
         (proc.purchase_price_jpy or 0)
