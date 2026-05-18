@@ -2733,6 +2733,124 @@ async def proc_mercari_local_import(request: Request):
         db.close()
 
 
+def _local_import_generic(results: list, platform: str, db) -> tuple[int, int]:
+    """共通ローカル取込ロジック。(created, skipped) を返す"""
+    created = 0
+    skipped = 0
+    for row in sorted(results, key=lambda r: r.get("date", "") or "9999"):
+        title = (row.get("title") or "").strip()
+        if not title:
+            skipped += 1
+            continue
+        price = int(row.get("price", 0) or 0)
+        url = row.get("item_url", "") or row.get("url", "")
+        existing = (
+            db.query(Procurement)
+            .filter(
+                Procurement.platform == platform,
+                Procurement.title == title,
+                Procurement.purchase_price_jpy == price,
+            )
+            .first()
+        )
+        if existing:
+            skipped += 1
+            continue
+        kwargs: dict = {
+            "title": title,
+            "platform": platform,
+            "url": url,
+            "purchase_price_jpy": price,
+            "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
+            "image_url": row.get("image_url", ""),
+            "status": "purchased",
+        }
+        if row.get("date"):
+            try:
+                kwargs["purchase_date"] = datetime.strptime(row["date"], "%Y-%m-%d")
+            except ValueError:
+                pass
+        crud.add_procurement(db, **kwargs)
+        created += 1
+    return created, skipped
+
+
+def _auth_local_import(request: Request) -> None:
+    """X-Import-Key 認証。失敗時は HTTPException(403) を raise"""
+    import_key = request.headers.get("X-Import-Key", "")
+    expected = os.getenv("YAHOO_IMPORT_KEY", "")
+    if not expected or import_key != expected:
+        raise HTTPException(status_code=403, detail="unauthorized")
+
+
+@app.post("/api/procurements/yahoo-flea-local-import")
+async def proc_yahoo_flea_local_import(request: Request):
+    """ローカルMacからのYahooフリマ購入履歴直接取込"""
+    _auth_local_import(request)
+    results = await request.json()
+    if not isinstance(results, list):
+        raise HTTPException(400, "expected list of items")
+    db = get_db()
+    try:
+        created, skipped = _local_import_generic(results, "Yahooフリマ", db)
+        return JSONResponse(
+            {"imported": created, "skipped": skipped, "total": len(results)}
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/rakuma-local-import")
+async def proc_rakuma_local_import(request: Request):
+    """ローカルMacからのラクマ購入履歴直接取込"""
+    _auth_local_import(request)
+    results = await request.json()
+    if not isinstance(results, list):
+        raise HTTPException(400, "expected list of items")
+    db = get_db()
+    try:
+        created, skipped = _local_import_generic(results, "ラクマ", db)
+        return JSONResponse(
+            {"imported": created, "skipped": skipped, "total": len(results)}
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/hardoff-local-import")
+async def proc_hardoff_local_import(request: Request):
+    """ローカルMacからのハードオフ購入履歴直接取込"""
+    _auth_local_import(request)
+    results = await request.json()
+    if not isinstance(results, list):
+        raise HTTPException(400, "expected list of items")
+    db = get_db()
+    try:
+        created, skipped = _local_import_generic(results, "ネットモール(OFFモール)", db)
+        return JSONResponse(
+            {"imported": created, "skipped": skipped, "total": len(results)}
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/surugaya-local-import")
+async def proc_surugaya_local_import(request: Request):
+    """ローカルMacからの駿河屋購入履歴直接取込"""
+    _auth_local_import(request)
+    results = await request.json()
+    if not isinstance(results, list):
+        raise HTTPException(400, "expected list of items")
+    db = get_db()
+    try:
+        created, skipped = _local_import_generic(results, "駿河屋", db)
+        return JSONResponse(
+            {"imported": created, "skipped": skipped, "total": len(results)}
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/scrape/yahoo-flea")
 async def proc_start_yahoo_flea_scrape():
     import uuid
