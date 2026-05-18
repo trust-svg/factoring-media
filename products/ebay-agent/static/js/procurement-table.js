@@ -411,7 +411,7 @@ function renderProcRows(items) {
                     </div>
                     <div>
                         <div style="font-weight:600;margin-bottom:4px;">eBay情報</div>
-                        ${p.ebay_item_id ? `<div style="margin-top:4px;">Item ID: <a href="https://www.ebay.com/itm/${encodeURIComponent(p.ebay_item_id)}" target="_blank" style="color:#2563EB;">${esc(p.ebay_item_id)}</a>${!p.ebay_order_id ? ` <button onclick="fifoAssign('${esc(p.ebay_item_id)}')" style="margin-left:6px;font-size:10px;padding:1px 6px;border:1px solid #E2E8F0;border-radius:4px;cursor:pointer;background:#F8FAFC;">FIFO割当</button>` : ''}</div>` : ''}
+                        ${p.ebay_item_id ? `<div style="margin-top:4px;">Item ID: <a href="https://www.ebay.com/itm/${encodeURIComponent(p.ebay_item_id)}" target="_blank" style="color:#2563EB;">${esc(p.ebay_item_id)}</a>${!p.ebay_order_id ? ` <button data-item-id="${esc(p.ebay_item_id)}" onclick="fifoAssign(this.dataset.itemId)" style="margin-left:6px;font-size:10px;padding:1px 6px;border:1px solid #E2E8F0;border-radius:4px;cursor:pointer;background:#F8FAFC;">FIFO割当</button>` : ''}</div>` : ''}
                         ${p.ebay_order_id ? `<div style="margin-top:2px;font-size:11px;color:#64748B;">Order: ${esc(p.ebay_order_id)} <span style="color:#22C55E;">●</span></div>` : ''}
                         ${p.ebay_price_usd ? `<div>販売額: $${Number(p.ebay_price_usd).toFixed(2)} (≈¥${Math.round(p.ebay_price_usd * _procUsdJpy).toLocaleString()})</div>` : ''}
                         ${p.listed_at ? `<div>出品日: ${p.listed_at.slice(0,10)}</div>` : ''}
@@ -946,6 +946,7 @@ async function fifoAssign(ebayItemId) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ebay_item_id: ebayItemId }),
     });
+    if (!resp.ok) throw new Error(`サーバーエラー: ${resp.status}`);
     const data = await resp.json();
     if (data.count === 0) {
         alert('紐付け対象なし（売上記録が見つからないか、すでに紐付け済みです）');
