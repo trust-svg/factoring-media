@@ -2132,6 +2132,9 @@ def get_item_trading(item_id: str) -> dict:
         "currency": currency,
         "title": item.findtext("e:Title", "", namespaces=ns_map),
         "site": item.findtext("e:Site", "", namespaces=ns_map),
+        "sku": item.findtext("e:SKU", "", namespaces=ns_map)
+        or item.findtext("e:CustomLabel", "", namespaces=ns_map)
+        or "",
         "error": None,
     }
 

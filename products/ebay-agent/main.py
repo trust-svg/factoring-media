@@ -2882,6 +2882,41 @@ async def proc_surugaya_local_import(request: Request):
         db.close()
 
 
+@app.post("/api/procurements/sync-sku-from-ebay")
+async def sync_sku_from_ebay():
+    """ebay_item_id があり SKU 未設定の仕入れレコードに eBay CustomLabel を同期"""
+    from ebay_core.client import get_item_trading
+
+    db = get_db()
+    try:
+        targets = (
+            db.query(Procurement)
+            .filter(
+                Procurement.ebay_item_id != None,
+                Procurement.ebay_item_id != "",
+                (Procurement.sku == None) | (Procurement.sku == ""),
+            )
+            .all()
+        )
+        updated = 0
+        errors = []
+        for proc in targets:
+            info = get_item_trading(proc.ebay_item_id)
+            if info.get("ok") and info.get("sku"):
+                proc.sku = info["sku"]
+                updated += 1
+            elif not info.get("ok"):
+                errors.append(
+                    {"item_id": proc.ebay_item_id, "error": info.get("error")}
+                )
+        db.commit()
+        return JSONResponse(
+            {"updated": updated, "skipped": len(targets) - updated, "errors": errors}
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/admin/batch-defaults")
 async def batch_defaults(request: Request):
     """既存レコードのデフォルト値一括設定 + 管理番号採番"""

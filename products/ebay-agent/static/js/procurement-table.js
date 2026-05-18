@@ -1032,10 +1032,11 @@ async function importProcScrapeResults(endpoint) {
 
 // ── auto-SKU ────────────────────────────────────────────
 async function procAutoSku() {
-    if (!confirm('SKUなしの仕入れ記録に対してeBay出品とのマッチングを実行しますか？')) return;
+    if (!confirm('SKUなしの仕入れ記録に自動付与します。\n① eBay API同期（ItemID紐付き済み → Custom Label取得）\n② タイトルマッチ（未紐付き → ローカルDB照合）\n\n続けますか？')) return;
     try {
-        const result = await apiFetch('/api/procurements/auto-sku', { method: 'POST' });
-        alert(`完了: ${result.assigned}件マッチ、${result.skipped}件スキップ`);
+        const ebay = await apiFetch('/api/procurements/sync-sku-from-ebay', { method: 'POST' });
+        const match = await apiFetch('/api/procurements/auto-sku', { method: 'POST' });
+        alert(`eBay API同期: ${ebay.updated}件\nタイトルマッチ: ${match.assigned}件\n合計 ${(ebay.updated||0) + (match.assigned||0)}件 SKU付与`);
         await loadProcItems();
     } catch (e) { alert('エラー: ' + (e.message || e)); }
 }
