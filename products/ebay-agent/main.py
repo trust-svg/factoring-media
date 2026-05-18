@@ -1802,6 +1802,20 @@ async def list_procurements(status: str = ""):
                     "buyer_name": s.buyer_name,
                 }
 
+        # order_id → 売上情報マップ（order_id 紐付け済みの仕入れ向け）
+        sales_by_order_id: dict = {}
+        for s in all_sales:
+            if s.order_id and s.order_id not in sales_by_order_id:
+                sales_by_order_id[s.order_id] = {
+                    "sold": True,
+                    "sale_price_usd": s.sale_price_usd,
+                    "net_profit_jpy": s.net_profit_jpy,
+                    "consumption_tax_jpy": s.consumption_tax_jpy,
+                    "sold_at": s.sold_at.isoformat() if s.sold_at else None,
+                    "buyer_name": s.buyer_name,
+                    "order_id": s.order_id,
+                }
+
         # SKU→画像URLマップ
         skus = list({p.sku for p in procs if p.sku})
         image_map = {}
@@ -1855,7 +1869,11 @@ async def list_procurements(status: str = ""):
                 "listed_at": p.listed_at.isoformat() if p.listed_at else None,
                 "sold_at": p.sold_at.isoformat() if p.sold_at else None,
                 "shipped_at": p.shipped_at.isoformat() if p.shipped_at else None,
-                "sale": sales_by_sku.get(p.sku),
+                "sale": (
+                    sales_by_order_id.get(p.ebay_order_id)
+                    if p.ebay_order_id
+                    else sales_by_sku.get(p.sku)
+                ),
             }
             result.append(item)
         return result
