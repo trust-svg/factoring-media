@@ -277,10 +277,16 @@ function renderProcCell(colId, p) {
             return `<td>${buildProcStatusBadge(p.status)}</td>`;
         case 'location':
             return `<td style="font-size:12px;color:#64748B;">${esc(p.location || '-')}</td>`;
-        case 'ebay_id':
+        case 'ebay_id': {
+            const linked = p.ebay_order_id
+                ? `<span title="Order: ${esc(p.ebay_order_id)}" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22C55E;margin-right:4px;vertical-align:middle;"></span>`
+                : p.ebay_item_id
+                    ? `<span title="出品済・未売上" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#F97316;margin-right:4px;vertical-align:middle;"></span>`
+                    : '';
             return p.ebay_item_id
-                ? `<td><a href="https://www.ebay.com/itm/${encodeURIComponent(p.ebay_item_id)}" target="_blank" style="font-size:11px;color:#2563EB;">${esc(p.ebay_item_id)}</a></td>`
-                : `<td style="color:#CBD5E1;font-size:11px;">-</td>`;
+                ? `<td>${linked}<a href="https://www.ebay.com/itm/${encodeURIComponent(p.ebay_item_id)}" target="_blank" style="font-size:11px;color:#2563EB;">${esc(p.ebay_item_id)}</a></td>`
+                : `<td>${linked}<span style="color:#CBD5E1;font-size:11px;">—</span></td>`;
+        }
         case 'ebay_price':
             return p.ebay_price_usd
                 ? `<td class="num" style="font-size:12px;">$${Number(p.ebay_price_usd).toFixed(2)}</td>`
@@ -405,8 +411,8 @@ function renderProcRows(items) {
                     </div>
                     <div>
                         <div style="font-weight:600;margin-bottom:4px;">eBay情報</div>
-                        ${p.ebay_item_id ? `<div>Item ID: <a href="https://www.ebay.com/itm/${encodeURIComponent(p.ebay_item_id)}" target="_blank" style="color:#2563EB;">${esc(p.ebay_item_id)}</a></div>` : ''}
-                        ${p.ebay_order_id ? `<div>Order ID: ${esc(p.ebay_order_id)}</div>` : ''}
+                        ${p.ebay_item_id ? `<div style="margin-top:4px;">Item ID: <a href="https://www.ebay.com/itm/${encodeURIComponent(p.ebay_item_id)}" target="_blank" style="color:#2563EB;">${esc(p.ebay_item_id)}</a>${!p.ebay_order_id ? ` <button onclick="fifoAssign('${esc(p.ebay_item_id)}')" style="margin-left:6px;font-size:10px;padding:1px 6px;border:1px solid #E2E8F0;border-radius:4px;cursor:pointer;background:#F8FAFC;">FIFO割当</button>` : ''}</div>` : ''}
+                        ${p.ebay_order_id ? `<div style="margin-top:2px;font-size:11px;color:#64748B;">Order: ${esc(p.ebay_order_id)} <span style="color:#22C55E;">●</span></div>` : ''}
                         ${p.ebay_price_usd ? `<div>販売額: $${Number(p.ebay_price_usd).toFixed(2)} (≈¥${Math.round(p.ebay_price_usd * _procUsdJpy).toLocaleString()})</div>` : ''}
                         ${p.listed_at ? `<div>出品日: ${p.listed_at.slice(0,10)}</div>` : ''}
                         ${p.sold_at ? `<div>売却日: ${p.sold_at.slice(0,10)}</div>` : ''}
@@ -931,4 +937,20 @@ async function procAutoSku() {
         alert(`完了: ${result.assigned}件マッチ、${result.skipped}件スキップ`);
         await loadProcItems();
     } catch (e) { alert('エラー: ' + (e.message || e)); }
+}
+
+async function fifoAssign(ebayItemId) {
+    if (!confirm(`Item ID: ${ebayItemId} の仕入れ記録を売上と FIFO 自動紐付けしますか？`)) return;
+    const resp = await fetch('/api/procurements/fifo-assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ebay_item_id: ebayItemId }),
+    });
+    const data = await resp.json();
+    if (data.count === 0) {
+        alert('紐付け対象なし（売上記録が見つからないか、すでに紐付け済みです）');
+    } else {
+        alert(`${data.count}件 紐付けました`);
+        location.reload();
+    }
 }
