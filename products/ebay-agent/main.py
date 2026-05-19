@@ -3426,6 +3426,56 @@ async def upload_procurement_screenshot(proc_id: int, request: Request):
         db.close()
 
 
+@app.get("/api/procurements/missing-screenshots")
+async def list_missing_screenshots(request: Request):
+    """SSがない・URLありのレコード一覧（補完用）"""
+    _auth_local_import(request)
+    db = get_db()
+    try:
+        rows = (
+            db.query(Procurement)
+            .filter(Procurement.screenshot_path == "", Procurement.url != "")
+            .order_by(Procurement.id)
+            .all()
+        )
+        return JSONResponse(
+            [
+                {"id": r.id, "url": r.url, "platform": r.platform, "title": r.title}
+                for r in rows
+            ]
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/{proc_id}/screenshot-patch")
+async def patch_procurement_screenshot(proc_id: int, request: Request):
+    """base64エンコード済みSSを受け取りSSなしレコードに補完する"""
+    _auth_local_import(request)
+    from config import SCREENSHOT_DIR
+    import base64 as _b64
+
+    db = get_db()
+    try:
+        proc = db.query(Procurement).filter(Procurement.id == proc_id).first()
+        if not proc:
+            raise HTTPException(404, "Procurement not found")
+        if proc.screenshot_path:
+            return JSONResponse(
+                {"status": "skipped", "reason": "already has screenshot"}
+            )
+
+        body = await request.json()
+        b64_str = body.get("screenshot_b64", "")
+        if not b64_str:
+            raise HTTPException(400, "screenshot_b64 is required")
+
+        _save_proc_screenshot_b64(proc, b64_str, SCREENSHOT_DIR, db, _b64)
+        return JSONResponse({"status": "patched", "path": proc.screenshot_path})
+    finally:
+        db.close()
+
+
 @app.get("/api/procurements/{proc_id}/screenshot")
 async def get_procurement_screenshot(proc_id: int):
     from fastapi.responses import FileResponse, Response
