@@ -1963,8 +1963,8 @@ async def proc_auto_sku():
                         break
             if best:
                 proc.sku = best[0]
-                proc.ebay_item_id = best[1] or ""
-                proc.ebay_price_usd = best[2] or 0
+                # ebay_item_id / ebay_price_usd はタイトルマッチでは設定しない
+                # （誤った過去ItemIDの紐付けを防ぐ）
                 assigned += 1
                 results.append(
                     {
