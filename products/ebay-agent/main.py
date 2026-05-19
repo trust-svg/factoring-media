@@ -3432,9 +3432,18 @@ async def list_missing_screenshots(request: Request):
     _auth_local_import(request)
     db = get_db()
     try:
+        from sqlalchemy import or_
+
         rows = (
             db.query(Procurement)
-            .filter(Procurement.screenshot_path == "", Procurement.url != "")
+            .filter(
+                or_(
+                    Procurement.screenshot_path == "",
+                    Procurement.screenshot_path == None,
+                ),
+                Procurement.url != "",
+                Procurement.url != None,
+            )
             .order_by(Procurement.id)
             .all()
         )
