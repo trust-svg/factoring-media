@@ -2108,6 +2108,56 @@ async def list_missing_screenshots(request: Request):
         db.close()
 
 
+@app.get("/api/procurements/gdrive-screenshots")
+async def list_gdrive_screenshots(request: Request):
+    """GoogleドライブパスのSSレコード一覧（VPS移行用）"""
+    _auth_local_import(request)
+    db = get_db()
+    try:
+        rows = (
+            db.query(Procurement)
+            .filter(Procurement.screenshot_path.like("/Users/%/GoogleDrive%"))
+            .order_by(Procurement.id)
+            .all()
+        )
+        return JSONResponse(
+            [
+                {
+                    "id": r.id,
+                    "screenshot_path": r.screenshot_path,
+                    "platform": r.platform,
+                    "title": r.title,
+                    "purchase_date": r.purchase_date.isoformat()
+                    if r.purchase_date
+                    else None,
+                }
+                for r in rows
+            ]
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/procurements/{proc_id}/update-screenshot-path")
+async def update_screenshot_path(proc_id: int, request: Request):
+    """SSパスをVPSパスに更新（GDrive移行用）"""
+    _auth_local_import(request)
+    db = get_db()
+    try:
+        proc = db.query(Procurement).filter(Procurement.id == proc_id).first()
+        if not proc:
+            raise HTTPException(404, "Procurement not found")
+        body = await request.json()
+        new_path = body.get("screenshot_path", "")
+        if not new_path:
+            raise HTTPException(400, "screenshot_path is required")
+        proc.screenshot_path = new_path
+        db.commit()
+        return JSONResponse({"status": "updated", "path": new_path})
+    finally:
+        db.close()
+
+
 @app.get("/api/procurements/{sku}")
 async def get_procurements_by_sku(sku: str):
     """SKU別仕入れ実績"""
@@ -2790,6 +2840,8 @@ def _local_import_generic(results: list, platform: str, db) -> tuple[int, int]:
             "purchase_price_jpy": price,
             "shipping_cost_jpy": int(row.get("shipping", 0) or 0),
             "image_url": row.get("image_url", ""),
+            "seller_id": row.get("seller_id", "") or row.get("seller", ""),
+            "seller_url": row.get("seller_url", ""),
             "status": "purchased",
         }
         if row.get("date"):
@@ -2813,14 +2865,19 @@ def _auth_local_import(request: Request) -> None:
 def _save_proc_screenshot_b64(proc, b64_str: str, ss_dir, db, b64_mod) -> None:
     """base64エンコード済みSSをVPSに保存してprocのscreenshot_pathを更新"""
     try:
-        now = datetime.now(JST)
+        # ファイル名日付は取引日優先（古物台帳要件）。なければ今日
+        date_src = proc.purchase_date or datetime.now(JST)
+        if hasattr(date_src, "tzinfo") and date_src.tzinfo is None:
+            date_src = date_src.replace(tzinfo=JST)
+        date_str = date_src.strftime("%Y%m%d")
+        year = date_src.strftime("%Y")
         platform = (proc.platform or "other").replace("/", "_").replace(" ", "_")
-        dest = ss_dir / str(now.year) / platform
+        dest = ss_dir / year / platform
         dest.mkdir(parents=True, exist_ok=True)
         safe = "".join(
             c for c in (proc.title or "item")[:30] if c.isalnum() or c in "-_ "
         ).strip()
-        filepath = dest / f"proc{proc.id}_{now.strftime('%Y%m%d')}_{safe}.png"
+        filepath = dest / f"proc{proc.id}_{date_str}_{safe}.png"
         filepath.write_bytes(b64_mod.b64decode(b64_str))
         proc.screenshot_path = str(filepath)
         db.commit()

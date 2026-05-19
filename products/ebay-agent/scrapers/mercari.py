@@ -333,6 +333,29 @@ async def scrape_mercari_purchases(
                 # 商品ページURLを保存（リンク用）
                 item["item_url"] = item_url
 
+                # 売り手情報を取得（古物台帳要件）
+                try:
+                    seller_info = await page.evaluate("""() => {
+                        // メルカリ: a[href*="/user/profile/"] が売り手プロフィールリンク
+                        const sellerLink = document.querySelector('a[href*="/user/profile/"]');
+                        if (sellerLink) {
+                            const href = sellerLink.getAttribute('href') || '';
+                            const url = href.startsWith('http') ? href : 'https://jp.mercari.com' + href;
+                            const idMatch = href.match(/\\/user\\/profile\\/([^/?#]+)/);
+                            const name = sellerLink.querySelector('[class*="name"], [class*="seller"]');
+                            return {
+                                seller_id: idMatch ? idMatch[1] : (name ? name.innerText.trim() : ''),
+                                seller_url: url,
+                            };
+                        }
+                        return { seller_id: '', seller_url: '' };
+                    }""")
+                    if seller_info.get("seller_id"):
+                        item["seller_id"] = seller_info["seller_id"]
+                        item["seller_url"] = seller_info["seller_url"]
+                except Exception:
+                    pass
+
                 # 画像URLが未取得の場合、商品ページから取得
                 if not item.get("image_url"):
                     try:

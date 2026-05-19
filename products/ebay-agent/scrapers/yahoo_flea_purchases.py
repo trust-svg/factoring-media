@@ -228,22 +228,32 @@ async def scrape_yahoo_flea_purchases(
 
             item_id = item["item_id"]
             item_url = item["item_url"]
+            # 取引ページ（/trade/buyer）優先（古物台帳: 価格・取引日・売り手が1画面）
+            trade_url = (
+                item_url
+                if "/trade/buyer" in item_url
+                else item_url.rstrip("/") + "/trade/buyer"
+            )
             try:
-                await page.goto(item_url, wait_until="domcontentloaded", timeout=15000)
+                await page.goto(trade_url, wait_until="domcontentloaded", timeout=15000)
                 try:
-                    await page.wait_for_selector('img[src*="yimg"], [class*="price"]', timeout=8000)
+                    await page.wait_for_selector('img[src*="yimg"], [class*="price"]', timeout=6000)
                 except Exception:
                     pass
                 await asyncio.sleep(1)
 
-                # 価格が0の場合、商品ページから取得
+                # 取引ページに内容がなければ商品ページにフォールバック
+                has_trade = await page.evaluate("() => document.body.innerText.length > 300")
+                if not has_trade:
+                    await page.goto(item_url, wait_until="domcontentloaded", timeout=15000)
+                    await asyncio.sleep(1)
+
+                # 価格が0の場合、ページから取得
                 if not item.get("price"):
                     price_info = await page.evaluate(r"""() => {
                         const body = document.body.innerText || '';
-                        // "13,000円" 形式（Yahoo!フリマの主要パターン）
                         const m1 = body.match(/(\d[\d,]+)\s*\u5186/);
                         if (m1) return parseInt(m1[1].replace(/,/g, ''), 10) || 0;
-                        // "¥13,000" 形式（フォールバック）
                         const m2 = body.match(/[\u00A5\uFFE5]\s*([\d,]+)/);
                         if (m2) return parseInt(m2[1].replace(/,/g, ''), 10) || 0;
                         return 0;
@@ -265,10 +275,29 @@ async def scrape_yahoo_flea_purchases(
                     except Exception:
                         pass
 
-                # スクリーンショット
+                # 売り手情報を取得（古物台帳要件）
+                seller_info = await page.evaluate("""() => {
+                    const sellerLink = document.querySelector('a[href*="/user/"]');
+                    if (sellerLink) {
+                        const href = sellerLink.getAttribute('href') || '';
+                        const url = href.startsWith('http') ? href
+                            : 'https://paypayfleamarket.yahoo.co.jp' + href;
+                        const idMatch = href.match(/\/user\/([^/?#]+)/);
+                        return {
+                            seller_id: idMatch ? idMatch[1] : (sellerLink.innerText || '').trim(),
+                            seller_url: url,
+                        };
+                    }
+                    return { seller_id: '', seller_url: '' };
+                }""")
+                if seller_info.get("seller_id"):
+                    item["seller_id"] = seller_info["seller_id"]
+                    item["seller_url"] = seller_info["seller_url"]
+
+                # スクリーンショット（取引ページ優先）
                 item_date = item.get("date", "")
                 year = item_date[:4] if item_date and len(item_date) >= 4 else str(datetime.now().year)
-                ss_dir = SS_BASE / year / "Yahoo!フリマ"
+                ss_dir = SS_BASE / year / "Yahoo\!フリマ"
                 ss_dir.mkdir(parents=True, exist_ok=True)
                 ss_path = ss_dir / f"{item_id}.png"
 
