@@ -334,6 +334,19 @@ async function loadTransactions(fromDate, toDate) {
         }
         renderTransactions(records);
         updateTxSortIcons();
+
+        // 仕入台帳からSKU指定で遷移してきた場合、該当行を展開してスクロール
+        const highlightSku = localStorage.getItem('highlight_sale_sku');
+        if (highlightSku) {
+            localStorage.removeItem('highlight_sale_sku');
+            const target = records.find(r => r.sku === highlightSku);
+            if (target) {
+                setTimeout(() => {
+                    const row = document.getElementById(`chevron-${target.id}`)?.closest('tr');
+                    if (row) { row.scrollIntoView({behavior:'smooth', block:'center'}); toggleDetail(target.id); }
+                }, 300);
+            }
+        }
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="14" class="empty-state">読み込みエラー</td></tr>';
         console.error(e);
@@ -378,7 +391,7 @@ function renderTransactions(records) {
                 ? `<img src="${esc(r.image_url)}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
                 : '<span style="display:inline-block;width:32px;height:32px;background:var(--gray-100);border-radius:4px;vertical-align:middle;margin-right:6px;"></span>';
 
-            const progress = buildProgressBadge(r);
+            const progress = buildProgressSelect(r);
             const mpBadge = buildMarketplaceBadge(r);
 
             const detailHtml = `
@@ -415,7 +428,7 @@ function renderTransactions(records) {
                                     <div>仕入先: ${proc.platform || '-'}</div>
                                     ${proc.url ? '<div><a href="' + esc(proc.url) + '" target="_blank" style="color:var(--brand-500);">仕入先リンク ↗</a></div>' : ''}
                                 ` : '<div style="color:var(--gray-400);">仕入れデータなし</div>'}
-                                ${r.inventory_item_id ? '<div style="margin-top:6px;"><a href="/procurement" onclick="localStorage.setItem(\'highlight_stock\',\'' + r.inventory_item_id + '\');" style="color:var(--brand-500);font-weight:600;font-size:13px;">📦 仕入れ台帳を表示 ↗</a></div>' : ''}
+                                ${(r.sku || r.inventory_item_id) ? '<div style="margin-top:6px;"><a href="/sourcing" onclick="localStorage.setItem(\'highlight_proc_sku\',\'' + (r.sku || '') + '\');" style="color:var(--brand-500);font-weight:600;font-size:13px;">📦 仕入台帳を表示 ↗</a></div>' : ''}
                             </div>
                         </div>
                     </td>
@@ -445,22 +458,40 @@ function renderTransactions(records) {
         }).join('');
 }
 
-// ── 進捗バッジ (TailAdmin pill style) ──
+// ── 進捗プルダウン ──
+const PROGRESS_OPTIONS = ['未注文','注文済','発送済','納品済','キャンセル','返品・返金','返品・一部返金','返品なし返金','未着返金'];
+const PROGRESS_COLORS  = {
+    '未注文':'#6B7280','注文済':'#007AFF','発送済':'#FF9500','納品済':'#34C759',
+    'キャンセル':'#FF3B30','返品・返金':'#FF3B30','返品・一部返金':'#D97706',
+    '返品なし返金':'#DC2626','未着返金':'#B91C1C',
+};
+
+function buildProgressSelect(r) {
+    const cur = r.progress || '未注文';
+    const bg  = PROGRESS_COLORS[cur] || '#6B7280';
+    const opts = PROGRESS_OPTIONS.map(v =>
+        `<option value="${v}" ${v === cur ? 'selected' : ''}>${v}</option>`
+    ).join('');
+    return `<select data-progress-sel style="font-size:10px;padding:2px 5px;border:none;border-radius:9999px;background:${bg};color:#fff;cursor:pointer;font-weight:600;outline:none;"
+        onchange="event.stopPropagation();saveProgress(${r.id},this)"
+        onclick="event.stopPropagation()">${opts}</select>`;
+}
+
+async function saveProgress(id, sel) {
+    const val = sel.value;
+    sel.style.background = PROGRESS_COLORS[val] || '#6B7280';
+    try {
+        await fetch(`/api/sales/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({progress: val}),
+        });
+    } catch(e) { console.error(e); }
+}
+
+// ── 進捗バッジ（後方互換・未使用） ──
 function buildProgressBadge(r) {
-    const status = r.progress || '未注文';
-    const styles = {
-        '未注文':       'background:#6B7280;color:#fff;',
-        '注文済':       'background:#007AFF;color:#fff;',
-        '発送済':       'background:#FF9500;color:#fff;',
-        '納品済':       'background:#34C759;color:#fff;',
-        'キャンセル':     'background:#FF3B30;color:#fff;',
-        '返品・返金':     'background:#FF3B30;color:#fff;',
-        '返品・一部返金':  'background:#D97706;color:#fff;',
-        '返品なし返金':   'background:#DC2626;color:#fff;',
-        '未着返金':      'background:#B91C1C;color:#fff;',
-    };
-    const s = styles[status] || 'background:#6B7280;color:#fff;';
-    return `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;${s}white-space:nowrap;">${esc(status)}</span>`;
+    return buildProgressSelect(r);
 }
 
 function buildMarketplaceBadge(r) {
