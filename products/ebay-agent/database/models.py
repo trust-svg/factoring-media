@@ -156,6 +156,13 @@ class Procurement(Base):
         onupdate=lambda: datetime.now(JST),
         nullable=True,
     )
+    # ── 国内販売フィールド（eBay不可・修理不可の場合） ──
+    domestic_platform: Mapped[str] = mapped_column(String(32), default="")
+    domestic_sale_price_jpy: Mapped[int] = mapped_column(Integer, default=0)
+    domestic_sale_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    domestic_reason: Mapped[str] = mapped_column(String(32), default="")
 
 
 # ── 価格履歴 ──────────────────────────────────────────────
@@ -995,6 +1002,22 @@ def _migrate_procurement_columns(engine_instance) -> None:
             stmts.append("ALTER TABLE procurements ADD COLUMN shipped_at DATETIME")
         if "updated_at" not in existing:
             stmts.append("ALTER TABLE procurements ADD COLUMN updated_at DATETIME")
+        if "domestic_platform" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN domestic_platform VARCHAR(32) NOT NULL DEFAULT ''"
+            )
+        if "domestic_sale_price_jpy" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN domestic_sale_price_jpy INTEGER NOT NULL DEFAULT 0"
+            )
+        if "domestic_sale_date" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN domestic_sale_date DATETIME"
+            )
+        if "domestic_reason" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN domestic_reason VARCHAR(32) NOT NULL DEFAULT ''"
+            )
         for stmt in stmts:
             conn.execute(text(stmt))
         if stmts:

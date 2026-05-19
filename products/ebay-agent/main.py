@@ -1857,6 +1857,12 @@ async def list_procurements(status: str = ""):
                 "sold_at": p.sold_at.isoformat() if p.sold_at else None,
                 "shipped_at": p.shipped_at.isoformat() if p.shipped_at else None,
                 "sale": sales_by_order_id.get(p.ebay_order_id),
+                "domestic_platform": p.domestic_platform or "",
+                "domestic_sale_price_jpy": p.domestic_sale_price_jpy or 0,
+                "domestic_sale_date": p.domestic_sale_date.isoformat()
+                if p.domestic_sale_date
+                else None,
+                "domestic_reason": p.domestic_reason or "",
             }
             result.append(item)
         return result
@@ -2212,6 +2218,8 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         "location",
         "ebay_item_id",
         "ebay_order_id",
+        "domestic_platform",
+        "domestic_reason",
     ]:
         if key in body:
             kwargs[key] = body[key]
@@ -2221,6 +2229,7 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         "other_cost_jpy",
         "consumption_tax_jpy",
         "quantity",
+        "domestic_sale_price_jpy",
     ]:
         if key in body:
             try:
@@ -2243,6 +2252,13 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         try:
             kwargs["received_date"] = datetime.strptime(
                 body["received_date"], "%Y-%m-%d"
+            )
+        except ValueError:
+            pass
+    if body.get("domestic_sale_date"):
+        try:
+            kwargs["domestic_sale_date"] = datetime.strptime(
+                body["domestic_sale_date"], "%Y-%m-%d"
             )
         except ValueError:
             pass

@@ -256,13 +256,14 @@ function platBadgeProc(name) {
 // ── ステータスバッジ ────────────────────────────────────
 function buildProcStatusBadge(status) {
     const map = {
-        'purchased':  { label: '購入済', bg: '#f59e0b', text: 'white' },
-        'received':   { label: '入荷済', bg: '#3b82f6', text: 'white' },
-        'listed':     { label: '出品中', bg: '#8b5cf6', text: 'white' },
-        'sold':       { label: '販売済', bg: '#22c55e', text: 'white' },
-        'shipped':    { label: '発送済', bg: '#06b6d4', text: 'white' },
-        'returned':   { label: '返品',   bg: '#ef4444', text: 'white' },
-        'cancelled':  { label: 'キャンセル', bg: '#6b7280', text: 'white' },
+        'purchased':     { label: '購入済',  bg: '#f59e0b', text: 'white' },
+        'received':      { label: '入荷済',  bg: '#3b82f6', text: 'white' },
+        'listed':        { label: '出品中',  bg: '#8b5cf6', text: 'white' },
+        'sold':          { label: '販売済',  bg: '#22c55e', text: 'white' },
+        'shipped':       { label: '発送済',  bg: '#06b6d4', text: 'white' },
+        'returned':      { label: '返品',    bg: '#ef4444', text: 'white' },
+        'cancelled':     { label: 'キャンセル', bg: '#6b7280', text: 'white' },
+        'sold_domestic': { label: '国内販売', bg: '#f97316', text: 'white' },
     };
     const c = map[status] || { label: status || '-', bg: '#e2e8f0', text: '#334155' };
     return `<span style="display:inline-block;padding:2px 6px;border-radius:8px;font-size:10px;background:${c.bg};color:${c.text};white-space:nowrap;">${c.label}</span>`;
@@ -316,8 +317,8 @@ function renderProcCell(colId, p) {
             return `<td>${badge}${srcLink}${seller}</td>`;
         }
         case 'status': {
-            const statColors = {purchased:'#f59e0b',received:'#3b82f6',listed:'#8b5cf6',sold:'#22c55e',shipped:'#06b6d4',returned:'#ef4444',cancelled:'#6b7280'};
-            const statLabels = [['purchased','購入済'],['received','入荷済'],['listed','出品中'],['sold','販売済'],['shipped','発送済'],['returned','返品'],['cancelled','キャンセル']];
+            const statColors = {purchased:'#f59e0b',received:'#3b82f6',listed:'#8b5cf6',sold:'#22c55e',shipped:'#06b6d4',returned:'#ef4444',cancelled:'#6b7280',sold_domestic:'#f97316'};
+            const statLabels = [['purchased','購入済'],['received','入荷済'],['listed','出品中'],['sold','販売済'],['shipped','発送済'],['returned','返品'],['cancelled','キャンセル'],['sold_domestic','国内販売']];
             const sv = p.status || '';
             const bg = statColors[sv] || '#e2e8f0';
             const opts = statLabels.map(([v,l]) => `<option value="${v}" ${sv===v?'selected':''}>${l}</option>`).join('');
@@ -374,14 +375,25 @@ function renderProcCell(colId, p) {
                 onclick="event.stopPropagation()">${condOpts}</select></td>`;
         }
         case 'sale_price':
+            if (p.domestic_sale_price_jpy > 0)
+                return `<td class="num" style="font-size:12px;color:#f97316;font-weight:600;">¥${p.domestic_sale_price_jpy.toLocaleString()}</td>`;
             return p.sale && p.sale.sale_price_usd
                 ? `<td class="num" style="font-size:12px;color:#10B981;font-weight:600;">$${Number(p.sale.sale_price_usd).toFixed(2)}</td>`
                 : `<td style="color:#CBD5E1;font-size:11px;text-align:right;">-</td>`;
-        case 'profit':
+        case 'profit': {
+            if (p.domestic_sale_price_jpy > 0) {
+                const dp = p.domestic_sale_price_jpy - (p.total_cost_jpy || 0);
+                return `<td class="num" style="font-size:12px;font-weight:700;color:${dp >= 0 ? '#f97316' : '#EF4444'};">¥${dp.toLocaleString()}</td>`;
+            }
             return p.sale && p.sale.net_profit_jpy != null
                 ? `<td class="num" style="font-size:12px;font-weight:700;color:${p.sale.net_profit_jpy >= 0 ? '#10B981' : '#EF4444'};">¥${p.sale.net_profit_jpy.toLocaleString()}</td>`
                 : `<td style="color:#CBD5E1;font-size:11px;text-align:right;">-</td>`;
+        }
         case 'refund': {
+            if (p.domestic_sale_price_jpy > 0) {
+                const dr = p.domestic_sale_price_jpy - (p.total_cost_jpy || 0) + (p.consumption_tax_jpy || 0);
+                return `<td class="num" style="font-size:12px;font-weight:700;color:${dr >= 0 ? '#7C3AED' : '#EF4444'};">¥${dr.toLocaleString()}</td>`;
+            }
             if (p.sale && p.sale.net_profit_jpy != null) {
                 const r = p.sale.net_profit_jpy + (p.consumption_tax_jpy || 0);
                 return `<td class="num" style="font-size:12px;font-weight:700;color:${r >= 0 ? '#7C3AED' : '#EF4444'};">¥${r.toLocaleString()}</td>`;
@@ -550,7 +562,7 @@ async function saveProcLocation(id, value) {
 
 function saveProcStatus(id, sel) {
     const val = sel.value;
-    const m = {purchased:'#f59e0b',received:'#3b82f6',listed:'#8b5cf6',sold:'#22c55e',shipped:'#06b6d4',returned:'#ef4444',cancelled:'#6b7280'};
+    const m = {purchased:'#f59e0b',received:'#3b82f6',listed:'#8b5cf6',sold:'#22c55e',shipped:'#06b6d4',returned:'#ef4444',cancelled:'#6b7280',sold_domestic:'#f97316'};
     sel.style.background = m[val] || '#e2e8f0';
     sel.style.color = val ? 'white' : '#334155';
     saveProcField(id, 'status', val);
@@ -651,6 +663,10 @@ async function openProcEditModal(id) {
     document.getElementById('procEbayItemId').value = p.ebay_item_id || '';
     document.getElementById('procEbayOrderId').value = p.ebay_order_id || '';
     document.getElementById('procEbayPrice').value = p.ebay_price_usd || '';
+    document.getElementById('procDomesticPlatform').value = p.domestic_platform || '';
+    document.getElementById('procDomesticPrice').value = p.domestic_sale_price_jpy || '';
+    document.getElementById('procDomesticDate').value = p.domestic_sale_date ? p.domestic_sale_date.slice(0,10) : '';
+    document.getElementById('procDomesticReason').value = p.domestic_reason || '';
     document.getElementById('procNotes').value = p.notes || '';
     document.getElementById('procUrlStatus').textContent = '';
     resetProcScreenshotUI();
@@ -677,7 +693,8 @@ function clearProcForm() {
     ['procPlatform','procTitle','procSku','procPrice','procTax','procShipping','procOther',
      'procDate','procRecvDate','procUrl','procSellerId','procSellerUrl','procQty','procLocation',
      'procCondition','procStatus','procCategory','procStockNo','procEbayItemId','procEbayOrderId',
-     'procEbayPrice','procNotes'].forEach(id => {
+     'procEbayPrice','procDomesticPlatform','procDomesticPrice','procDomesticDate','procDomesticReason',
+     'procNotes'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         if (el.tagName === 'SELECT') el.selectedIndex = 0;
@@ -709,6 +726,10 @@ async function submitProcurement() {
         ebay_item_id: document.getElementById('procEbayItemId').value,
         ebay_order_id: document.getElementById('procEbayOrderId').value,
         ebay_price_usd: parseFloat(document.getElementById('procEbayPrice').value) || 0,
+        domestic_platform: document.getElementById('procDomesticPlatform').value,
+        domestic_sale_price_jpy: parseInt(document.getElementById('procDomesticPrice').value) || 0,
+        domestic_sale_date: document.getElementById('procDomesticDate').value,
+        domestic_reason: document.getElementById('procDomesticReason').value,
         notes: document.getElementById('procNotes').value,
     };
     if (!body.title) { alert('商品名は必須です'); return; }
