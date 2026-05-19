@@ -1856,11 +1856,7 @@ async def list_procurements(status: str = ""):
                 "listed_at": p.listed_at.isoformat() if p.listed_at else None,
                 "sold_at": p.sold_at.isoformat() if p.sold_at else None,
                 "shipped_at": p.shipped_at.isoformat() if p.shipped_at else None,
-                "sale": (
-                    sales_by_order_id.get(p.ebay_order_id)
-                    if p.ebay_order_id
-                    else sales_by_sku.get(p.sku)
-                ),
+                "sale": sales_by_order_id.get(p.ebay_order_id),
             }
             result.append(item)
         return result
