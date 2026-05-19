@@ -348,8 +348,8 @@ def get_procurement_by_sku(db: Session, sku: str) -> list[Procurement]:
     )
 
 
-def get_latest_procurement_cost(db: Session, sku: str) -> tuple[int, int]:
-    """SKUの最新仕入れ原価を返す (source_cost_jpy, shipping_cost_jpy)"""
+def get_latest_procurement_cost(db: Session, sku: str) -> tuple[int, int, int]:
+    """SKUの最新仕入れ原価を返す (source_cost_jpy, shipping_cost_jpy, consumption_tax_jpy)"""
     proc = (
         db.query(Procurement)
         .filter(Procurement.sku == sku, Procurement.status == "received")
@@ -357,8 +357,8 @@ def get_latest_procurement_cost(db: Session, sku: str) -> tuple[int, int]:
         .first()
     )
     if proc:
-        return proc.purchase_price_jpy, proc.shipping_cost_jpy
-    return 0, 0
+        return proc.purchase_price_jpy, proc.shipping_cost_jpy, proc.consumption_tax_jpy
+    return 0, 0, 0
 
 
 def get_all_procurements(db: Session, status: str = "") -> list[Procurement]:

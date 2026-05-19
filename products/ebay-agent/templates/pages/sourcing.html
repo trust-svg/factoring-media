@@ -400,11 +400,12 @@
                 <input id="procStockNo" readonly style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#F8FAFC;color:#94A3B8;cursor:default;" placeholder="自動採番">
             </div>
             <div>
-                <label style="font-size:12px;font-weight:600;">仕入価格（税抜）</label>
-                <input id="procPrice" type="number" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;" placeholder="¥">
+                <label style="font-size:12px;font-weight:600;">仕入金額（税込）</label>
+                <input id="procPrice" type="number" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;" placeholder="¥"
+                    oninput="const p=parseInt(this.value)||0;document.getElementById('procTax').value=p>0?Math.round(p*10/110):0;">
             </div>
             <div>
-                <label style="font-size:12px;font-weight:600;">消費税</label>
+                <label style="font-size:12px;font-weight:600;">消費税（自動計算・修正可）</label>
                 <input id="procTax" type="number" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;" placeholder="¥" value="0">
             </div>
             <div>

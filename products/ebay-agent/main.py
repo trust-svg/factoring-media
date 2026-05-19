@@ -4433,10 +4433,13 @@ async def sync_all_sales(request: Request):
                     except ValueError:
                         pass
 
-                # 仕入れ価格を取得
-                source_cost, shipping_cost = crud.get_latest_procurement_cost(db, sku)
+                # 仕入れ価格を取得（消費税は仕入金額から内税で分割済み）
+                source_cost, shipping_cost, proc_tax = crud.get_latest_procurement_cost(
+                    db, sku
+                )
                 source_cost = source_cost or 0
                 shipping_cost = shipping_cost or 0
+                proc_tax = proc_tax or 0
 
                 # eBay手数料（Fulfillment APIから実額、なければ概算）
                 ebay_fees = order.get("ebay_fees_usd") or round(
@@ -4453,6 +4456,7 @@ async def sync_all_sales(request: Request):
                     sale_price_usd=sale_price,
                     source_cost_jpy=source_cost,
                     shipping_cost_jpy=shipping_cost,
+                    consumption_tax_jpy=proc_tax,
                     ebay_fees_usd=ebay_fees,
                     payoneer_fee_usd=payoneer_fee,
                     exchange_rate=rate,

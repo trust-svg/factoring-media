@@ -645,7 +645,7 @@ async function openProcEditModal(id) {
     document.getElementById('procPlatform').value = p.platform || '';
     document.getElementById('procTitle').value = p.title || '';
     document.getElementById('procSku').value = p.sku || '';
-    document.getElementById('procPrice').value = p.purchase_price_jpy || '';
+    document.getElementById('procPrice').value = (p.purchase_price_jpy || 0) + (p.consumption_tax_jpy || 0) || '';
     document.getElementById('procTax').value = p.consumption_tax_jpy || '';
     document.getElementById('procShipping').value = p.shipping_cost_jpy || '';
     document.getElementById('procOther').value = p.other_cost_jpy || '';
@@ -708,8 +708,17 @@ async function submitProcurement() {
         platform: document.getElementById('procPlatform').value,
         title: document.getElementById('procTitle').value,
         sku: document.getElementById('procSku').value,
-        purchase_price_jpy: parseInt(document.getElementById('procPrice').value) || 0,
-        consumption_tax_jpy: parseInt(document.getElementById('procTax').value) || 0,
+        purchase_price_jpy: (() => {
+            const price = parseInt(document.getElementById('procPrice').value) || 0;
+            const tax   = parseInt(document.getElementById('procTax').value) || 0;
+            return tax > 0 ? price - tax : price;
+        })(),
+        consumption_tax_jpy: (() => {
+            const price = parseInt(document.getElementById('procPrice').value) || 0;
+            const tax   = parseInt(document.getElementById('procTax').value) || 0;
+            if (tax > 0) return tax;
+            return price > 0 ? Math.round(price * 10 / 110) : 0;
+        })(),
         shipping_cost_jpy: parseInt(document.getElementById('procShipping').value) || 0,
         other_cost_jpy: parseInt(document.getElementById('procOther').value) || 0,
         purchase_date: document.getElementById('procDate').value,
