@@ -1031,6 +1031,15 @@ async function importProcScrapeResults(endpoint) {
 }
 
 // ── auto-SKU ────────────────────────────────────────────
+async function procAutoCategory() {
+    if (!confirm('古物区分が未設定の仕入れ記録に商品名から自動判定しますか？')) return;
+    try {
+        const r = await apiFetch('/api/procurements/auto-category', { method: 'POST' });
+        alert(`完了: ${r.updated}件判定、${r.skipped}件スキップ（判定不可）`);
+        await loadProcItems();
+    } catch (e) { alert('エラー: ' + (e.message || e)); }
+}
+
 async function procAutoSku() {
     if (!confirm('SKUなしの仕入れ記録に自動付与します。\n① eBay API同期（ItemID紐付き済み → Custom Label取得）\n② タイトルマッチ（未紐付き → ローカルDB照合）\n\n続けますか？')) return;
     try {

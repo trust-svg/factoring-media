@@ -2882,6 +2882,33 @@ async def proc_surugaya_local_import(request: Request):
         db.close()
 
 
+@app.post("/api/procurements/auto-category")
+async def proc_auto_category():
+    """古物区分が未設定の仕入れレコードにタイトルから自動判定して一括付与"""
+    db = get_db()
+    try:
+        targets = (
+            db.query(Procurement)
+            .filter((Procurement.category == None) | (Procurement.category == ""))
+            .all()
+        )
+        updated = 0
+        skipped = 0
+        for proc in targets:
+            cat = crud.guess_kobutsu_category(proc.title or "")
+            if cat:
+                proc.category = cat
+                updated += 1
+            else:
+                skipped += 1
+        db.commit()
+        return JSONResponse(
+            {"updated": updated, "skipped": skipped, "total": len(targets)}
+        )
+    finally:
+        db.close()
+
+
 @app.post("/api/procurements/sync-sku-from-ebay")
 async def sync_sku_from_ebay():
     """ebay_item_id があり SKU 未設定の仕入れレコードに eBay CustomLabel を同期"""
