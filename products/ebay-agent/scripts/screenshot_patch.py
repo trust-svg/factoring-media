@@ -40,7 +40,7 @@ def api_get(path: str) -> list:
         headers={"X-Import-Key": API_KEY},
         method="GET",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=90) as resp:
         return json.loads(resp.read())
 
 
@@ -52,11 +52,11 @@ def api_post(path: str, body: dict) -> dict:
         headers={"Content-Type": "application/json", "X-Import-Key": API_KEY},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=90) as resp:
         return json.loads(resp.read())
 
 
-async def screenshot_url(page, url: str) -> bytes | None:
+async def screenshot_url(page, url: str):
     try:
         await page.goto(url, wait_until="networkidle", timeout=20000)
         await page.wait_for_timeout(1500)
@@ -118,6 +118,9 @@ async def main() -> None:
                     skipped += 1
             except urllib.error.HTTPError as e:
                 print(f"    ❌ APIエラー {e.code}: {e.read().decode()}")
+                failed += 1
+            except (urllib.error.URLError, OSError) as e:
+                print(f"    ❌ 送信エラー: {e}")
                 failed += 1
 
         await browser.close()
