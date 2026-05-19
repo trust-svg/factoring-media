@@ -1788,21 +1788,8 @@ async def list_procurements(status: str = ""):
     try:
         procs = crud.get_all_procurements(db, status=status)
 
-        # SKU→売上情報マップ
-        sales_by_sku = {}
+        # order_id → 売上情報マップ（FIFO/明示紐付け済みのみ）
         all_sales = db.query(crud.SalesRecord).all()
-        for s in all_sales:
-            if s.sku not in sales_by_sku:
-                sales_by_sku[s.sku] = {
-                    "sold": True,
-                    "sale_price_usd": s.sale_price_usd,
-                    "net_profit_jpy": s.net_profit_jpy,
-                    "consumption_tax_jpy": s.consumption_tax_jpy,
-                    "sold_at": s.sold_at.isoformat() if s.sold_at else None,
-                    "buyer_name": s.buyer_name,
-                }
-
-        # order_id → 売上情報マップ（order_id 紐付け済みの仕入れ向け）
         sales_by_order_id: dict = {}
         for s in all_sales:
             if s.order_id and s.order_id not in sales_by_order_id:
