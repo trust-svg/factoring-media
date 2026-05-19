@@ -2077,6 +2077,37 @@ async def export_procurement_ledger():
         db.close()
 
 
+@app.get("/api/procurements/missing-screenshots")
+async def list_missing_screenshots(request: Request):
+    """SSがない・URLありのレコード一覧（補完用）"""
+    _auth_local_import(request)
+    db = get_db()
+    try:
+        from sqlalchemy import or_
+
+        rows = (
+            db.query(Procurement)
+            .filter(
+                or_(
+                    Procurement.screenshot_path == "",
+                    Procurement.screenshot_path == None,
+                ),
+                Procurement.url != "",
+                Procurement.url != None,
+            )
+            .order_by(Procurement.id)
+            .all()
+        )
+        return JSONResponse(
+            [
+                {"id": r.id, "url": r.url, "platform": r.platform, "title": r.title}
+                for r in rows
+            ]
+        )
+    finally:
+        db.close()
+
+
 @app.get("/api/procurements/{sku}")
 async def get_procurements_by_sku(sku: str):
     """SKU別仕入れ実績"""
@@ -3421,37 +3452,6 @@ async def upload_procurement_screenshot(proc_id: int, request: Request):
                 "path": str(filepath),
                 "platform_dir": str(platform_dir),
             }
-        )
-    finally:
-        db.close()
-
-
-@app.get("/api/procurements/missing-screenshots")
-async def list_missing_screenshots(request: Request):
-    """SSがない・URLありのレコード一覧（補完用）"""
-    _auth_local_import(request)
-    db = get_db()
-    try:
-        from sqlalchemy import or_
-
-        rows = (
-            db.query(Procurement)
-            .filter(
-                or_(
-                    Procurement.screenshot_path == "",
-                    Procurement.screenshot_path == None,
-                ),
-                Procurement.url != "",
-                Procurement.url != None,
-            )
-            .order_by(Procurement.id)
-            .all()
-        )
-        return JSONResponse(
-            [
-                {"id": r.id, "url": r.url, "platform": r.platform, "title": r.title}
-                for r in rows
-            ]
         )
     finally:
         db.close()
