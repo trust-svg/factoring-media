@@ -3,6 +3,7 @@
 eBay Trading API から注文データを取得し、
 利益・カテゴリ別パフォーマンス・トレンドを分析する。
 """
+
 from __future__ import annotations
 
 import logging
@@ -10,7 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from config import EBAY_FEE_RATE, PAYONEER_FEE_RATE
-from database.models import InventoryItem, Listing, get_db
+from database.models import Listing, get_db
 from database import crud
 from ebay_core.client import get_recent_orders
 from ebay_core.exchange_rate import get_usd_to_jpy
@@ -85,19 +86,6 @@ def sync_sales_data(days: int = 30) -> dict:
                     except ValueError:
                         pass
 
-                # 有在庫アイテムからコスト取得（SKUマッチ）
-                inv_item = (
-                    db.query(InventoryItem)
-                    .filter(
-                        InventoryItem.sku == sku,
-                        InventoryItem.status.in_(["in_stock", "listed"]),
-                    )
-                    .first()
-                )
-                # 有在庫の仕入原価を優先的に使用
-                if inv_item and inv_item.purchase_price_jpy:
-                    source_cost = inv_item.purchase_price_jpy + inv_item.consumption_tax_jpy
-
                 sale_record = crud.add_sales_record(
                     db,
                     order_id=order_id,
@@ -130,9 +118,7 @@ def sync_sales_data(days: int = 30) -> dict:
         db.close()
 
     total_revenue = sum(
-        item["price_usd"]
-        for order in orders
-        for item in order["items"]
+        item["price_usd"] for order in orders for item in order["items"]
     )
 
     return {
@@ -142,7 +128,9 @@ def sync_sales_data(days: int = 30) -> dict:
     }
 
 
-def get_sales_analytics(days: int = 30, start_date: str = "", end_date: str = "") -> dict:
+def get_sales_analytics(
+    days: int = 30, start_date: str = "", end_date: str = ""
+) -> dict:
     """
     包括的な売上分析データを返す。
 
@@ -156,13 +144,17 @@ def get_sales_analytics(days: int = 30, start_date: str = "", end_date: str = ""
         # 日付範囲が指定されていればそちらを優先
         if start_date and end_date:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59
+            )
             actual_days = (end_dt - start_dt).days + 1
             summary = crud.get_sales_summary_range(db, start_dt, end_dt)
             records = (
                 db.query(crud.SalesRecord)
-                .filter(crud.SalesRecord.sold_at >= start_dt,
-                        crud.SalesRecord.sold_at <= end_dt)
+                .filter(
+                    crud.SalesRecord.sold_at >= start_dt,
+                    crud.SalesRecord.sold_at <= end_dt,
+                )
                 .all()
             )
         else:
@@ -176,7 +168,9 @@ def get_sales_analytics(days: int = 30, start_date: str = "", end_date: str = ""
             )
 
         # 日次推移
-        daily: dict[str, dict] = defaultdict(lambda: {"revenue": 0, "profit": 0, "count": 0})
+        daily: dict[str, dict] = defaultdict(
+            lambda: {"revenue": 0, "profit": 0, "count": 0}
+        )
         for r in records:
             day_key = r.sold_at.strftime("%Y-%m-%d")
             daily[day_key]["revenue"] += r.sale_price_usd
@@ -205,10 +199,15 @@ def get_sales_analytics(days: int = 30, start_date: str = "", end_date: str = ""
 
         # SKU→画像URLマップ（Listingテーブルから一括取得）
         import json as _json
+
         skus = list(sku_totals.keys())
         image_map: dict[str, str] = {}
         if skus:
-            listings = db.query(Listing.sku, Listing.image_urls_json).filter(Listing.sku.in_(skus)).all()
+            listings = (
+                db.query(Listing.sku, Listing.image_urls_json)
+                .filter(Listing.sku.in_(skus))
+                .all()
+            )
             for l in listings:
                 try:
                     urls = _json.loads(l.image_urls_json) if l.image_urls_json else []

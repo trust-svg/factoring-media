@@ -1,4 +1,5 @@
 """テンプレート変数解決 — 注文/商品/追跡データから変数を展開"""
+
 from __future__ import annotations
 
 import logging
@@ -7,7 +8,7 @@ from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from database.models import SalesRecord, Listing, InventoryItem
+from database.models import SalesRecord, Listing
 
 logger = logging.getLogger(__name__)
 
@@ -52,26 +53,34 @@ def resolve_variables(
     if order_id:
         sale = db.query(SalesRecord).filter(SalesRecord.order_id == order_id).first()
     elif item_id and buyer_username:
-        sale = db.query(SalesRecord).filter(
-            SalesRecord.item_id == item_id,
-            SalesRecord.buyer_name == buyer_username,
-        ).order_by(SalesRecord.sold_at.desc()).first()
+        sale = (
+            db.query(SalesRecord)
+            .filter(
+                SalesRecord.item_id == item_id,
+                SalesRecord.buyer_name == buyer_username,
+            )
+            .order_by(SalesRecord.sold_at.desc())
+            .first()
+        )
 
     if sale:
-        vars_map.update({
-            "item_title": sale.title or "",
-            "tracking_number": sale.tracking_number or "",
-            "carrier": sale.shipping_method or "",
-            "price": f"${sale.sale_price_usd:.2f}" if sale.sale_price_usd else "",
-            "sku": sale.sku or "",
-            "marketplace": sale.marketplace or "US",
-            "order_id": sale.order_id or vars_map["order_id"],
-            "buyer_name": sale.buyer_name or vars_map["buyer_name"],
-        })
+        vars_map.update(
+            {
+                "item_title": sale.title or "",
+                "tracking_number": sale.tracking_number or "",
+                "carrier": sale.shipping_method or "",
+                "price": f"${sale.sale_price_usd:.2f}" if sale.sale_price_usd else "",
+                "sku": sale.sku or "",
+                "marketplace": sale.marketplace or "US",
+                "order_id": sale.order_id or vars_map["order_id"],
+                "buyer_name": sale.buyer_name or vars_map["buyer_name"],
+            }
+        )
 
         # EDD (Estimated Delivery Date)
         if sale.ship_by_date:
             from datetime import timedelta
+
             edd = sale.ship_by_date + timedelta(days=10)
             vars_map["edd"] = edd.strftime("%B %d, %Y")
         else:
@@ -91,7 +100,9 @@ def resolve_variables(
             if listing:
                 vars_map["item_title"] = listing.title or ""
                 vars_map["sku"] = listing.sku or ""
-                vars_map["price"] = f"${listing.price_usd:.2f}" if listing.price_usd else ""
+                vars_map["price"] = (
+                    f"${listing.price_usd:.2f}" if listing.price_usd else ""
+                )
 
         vars_map.setdefault("item_title", data.get("item_title", ""))
         vars_map.setdefault("tracking_number", "")

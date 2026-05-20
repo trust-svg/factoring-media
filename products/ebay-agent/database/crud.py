@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from database.models import (
     BuyerMessage,
     ChangeHistory,
-    InventoryItem,
     Listing,
     MonthlyExpense,
     Optimization,
@@ -811,195 +810,28 @@ def log_change(
     db.commit()
 
 
-# ── 有在庫管理 ────────────────────────────────────────────
-
-
-def get_all_inventory_items(
-    db: Session, status: str = "", date_from: str = "", date_to: str = ""
-) -> list[InventoryItem]:
-    """有在庫アイテム一覧（期間フィルター対応）"""
-    from datetime import datetime as _dt
-
-    q = db.query(InventoryItem)
-    if status:
-        q = q.filter(InventoryItem.status == status)
-    if date_from:
-        try:
-            d = _dt.strptime(date_from, "%Y-%m-%d")
-            q = q.filter(InventoryItem.purchase_date >= d)
-        except ValueError:
-            pass
-    if date_to:
-        try:
-            d = _dt.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            q = q.filter(InventoryItem.purchase_date <= d)
-        except ValueError:
-            pass
-    return q.order_by(desc(InventoryItem.id)).all()
-
-
-def _next_stock_number(db: Session) -> str:
-    """次の在庫管理番号を生成（S-0001形式）"""
-    import re as _re
-
-    latest = (
-        db.query(InventoryItem.stock_number)
-        .filter(InventoryItem.stock_number.like("S-%"))
-        .order_by(desc(InventoryItem.stock_number))
-        .first()
-    )
-    if latest and latest[0]:
-        m = _re.search(r"S-(\d+)", latest[0])
-        num = int(m.group(1)) + 1 if m else 1
-    else:
-        num = 1
-    return f"S-{num:04d}"
-
-
-def add_inventory_item(db: Session, **kwargs) -> InventoryItem:
-    """有在庫アイテムを登録（stock_numberが空なら自動採番）"""
-    if not kwargs.get("stock_number"):
-        kwargs["stock_number"] = _next_stock_number(db)
-    item = InventoryItem(**kwargs)
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return item
-
-
-def update_inventory_item(
-    db: Session, item_id: int, **kwargs
-) -> Optional[InventoryItem]:
-    """有在庫アイテムを更新"""
-    item = db.query(InventoryItem).filter(InventoryItem.id == item_id).first()
-    if not item:
-        return None
-    for k, v in kwargs.items():
-        if hasattr(item, k):
-            setattr(item, k, v)
-    item.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(item)
-    return item
-
-
-def delete_inventory_item(db: Session, item_id: int) -> bool:
-    """有在庫アイテムを削除"""
-    item = db.query(InventoryItem).filter(InventoryItem.id == item_id).first()
-    if not item:
-        return False
-    db.delete(item)
-    db.commit()
-    return True
-
-
-def get_inventory_stats(db: Session) -> dict:
-    """仕入れ台帳の統計"""
-    total = db.query(InventoryItem).count()
-    ordered = db.query(InventoryItem).filter(InventoryItem.status == "ordered").count()
-    received = (
-        db.query(InventoryItem).filter(InventoryItem.status == "received").count()
-    )
-    in_stock = (
-        db.query(InventoryItem).filter(InventoryItem.status == "in_stock").count()
-    )
-    listed = db.query(InventoryItem).filter(InventoryItem.status == "listed").count()
-    sold = db.query(InventoryItem).filter(InventoryItem.status == "sold").count()
-    shipped = db.query(InventoryItem).filter(InventoryItem.status == "shipped").count()
-    returned = (
-        db.query(InventoryItem).filter(InventoryItem.status == "returned").count()
-    )
-    cancelled = (
-        db.query(InventoryItem).filter(InventoryItem.status == "cancelled").count()
-    )
-
-    stock_value = (
-        db.query(
-            func.sum(
-                InventoryItem.purchase_price_jpy + InventoryItem.consumption_tax_jpy
-            )
-        )
-        .filter(InventoryItem.status.in_(["in_stock", "received", "listed", "ordered"]))
-        .scalar()
-        or 0
-    )
-
-    # 平均在庫日数（received + in_stock + listed）
-    now = datetime.utcnow()
-    active_items = (
-        db.query(InventoryItem)
-        .filter(
-            InventoryItem.status.in_(["in_stock", "received", "listed"]),
-            InventoryItem.purchase_date.isnot(None),
-        )
-        .all()
-    )
-    if active_items:
-        total_days = sum((now - i.purchase_date).days for i in active_items)
-        avg_days = round(total_days / len(active_items))
-    else:
-        avg_days = 0
-
-    return {
-        "total": total,
-        "ordered": ordered,
-        "received": received,
-        "in_stock": in_stock,
-        "listed": listed,
-        "sold": sold,
-        "shipped": shipped,
-        "returned": returned,
-        "cancelled": cancelled,
-        "stock_value_jpy": stock_value,
-        "avg_days_in_stock": avg_days,
-    }
-
-
 # ── 利益候補レコメンド ────────────────────────────────────
 
 
 def get_unlisted_candidates(db: Session) -> list[dict]:
-    """未出品の有在庫 + 未在庫登録の受取済み仕入れを候補として収集"""
+    """受取済み仕入れを未出品候補として収集"""
     candidates = []
-
-    # 1) 有在庫で未出品（in_stock）
-    inv_items = db.query(InventoryItem).filter(InventoryItem.status == "in_stock").all()
-    for i in inv_items:
-        candidates.append(
-            {
-                "source": "inventory",
-                "source_id": i.id,
-                "title": i.title,
-                "cost_jpy": i.purchase_price_jpy + i.consumption_tax_jpy,
-                "purchase_date": i.purchase_date.strftime("%Y-%m-%d")
-                if i.purchase_date
-                else "",
-                "platform": i.purchase_source,
-                "condition": i.condition,
-                "sku": i.sku,
-            }
-        )
-
-    # 2) 受取済み仕入れで有在庫未登録のもの
-    inv_titles = {i.title for i in inv_items}
     procs = db.query(Procurement).filter(Procurement.status == "received").all()
     for p in procs:
-        if p.title not in inv_titles:
-            candidates.append(
-                {
-                    "source": "procurement",
-                    "source_id": p.id,
-                    "title": p.title,
-                    "cost_jpy": p.total_cost_jpy,
-                    "purchase_date": p.purchase_date.strftime("%Y-%m-%d")
-                    if p.purchase_date
-                    else "",
-                    "platform": p.platform,
-                    "condition": "",
-                    "sku": p.sku,
-                }
-            )
-
+        candidates.append(
+            {
+                "source": "procurement",
+                "source_id": p.id,
+                "title": p.title,
+                "cost_jpy": p.total_cost_jpy,
+                "purchase_date": p.purchase_date.strftime("%Y-%m-%d")
+                if p.purchase_date
+                else "",
+                "platform": p.platform,
+                "condition": "",
+                "sku": p.sku,
+            }
+        )
     return candidates
 
 
@@ -1051,7 +883,6 @@ def get_dashboard_stats(db: Session) -> dict:
         or 0
     )
     sales_30d = get_sales_summary(db, days=30)
-    inventory_stats = get_inventory_stats(db)
 
     return {
         "total_listings": total_listings,
@@ -1062,7 +893,6 @@ def get_dashboard_stats(db: Session) -> dict:
         "pending_procurements": pending_procurements,
         "total_procurement_cost_jpy": total_procurement_cost,
         "sales_30d": sales_30d,
-        "inventory": inventory_stats,
     }
 
 
