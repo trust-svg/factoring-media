@@ -2114,10 +2114,12 @@ async def export_procurement_ledger():
                 "取得価格(円)",
                 "古物区分",
                 "仕入先",
+                "取引番号/注文番号",
                 "仕入先URL",
                 "出品者ID",
                 "出品者URL",
                 "取引証跡パス",
+                "管理番号",
             ]
         )
         for p in procs:
@@ -2129,10 +2131,12 @@ async def export_procurement_ledger():
                     p.purchase_price_jpy,
                     p.category,
                     p.platform,
+                    p.transaction_id or "",
                     p.url or "",
                     p.seller_id or "",
                     p.seller_url or "",
                     p.screenshot_path or "",
+                    p.stock_number or "",
                 ]
             )
         output.seek(0)
@@ -3142,6 +3146,96 @@ async def stale_procurement_reminder(days: int = 7):
             lines.append(
                 f"• {p.stock_number or f'ID:{p.id}'} — {p.title[:30]}…\n"
                 f"  仕入日: {p.purchase_date.strftime('%Y-%m-%d')} ({elapsed}日経過)"
+            )
+        if len(stale) > 10:
+            lines.append(f"… 他 {len(stale) - 10} 件")
+
+        import requests as _req
+        from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+        if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+            _req.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT_ID, "text": "\n".join(lines)},
+                timeout=10,
+            )
+        return {"notified": len(stale)}
+    finally:
+        db.close()
+
+
+@app.post("/api/admin/resync-costs")
+async def resync_procurement_costs():
+    """Procurement と紐づく SalesRecord のコストを一括再同期
+    source_cost_jpy=0 かつ ebay_order_id が一致する仕入れが存在するレコードを修正"""
+    from database.models import SalesRecord as _SR
+
+    db = get_db()
+    try:
+        # ebay_order_id を持つ仕入れ一覧
+        procs = db.query(Procurement).filter(Procurement.ebay_order_id != "").all()
+        proc_by_order = {p.ebay_order_id: p for p in procs}
+
+        updated = 0
+        skipped = 0
+        for order_id, proc in proc_by_order.items():
+            sale = db.query(_SR).filter(_SR.order_id == order_id).first()
+            if not sale:
+                skipped += 1
+                continue
+            # コストが既に正しければスキップ
+            if (
+                sale.source_cost_jpy == proc.purchase_price_jpy
+                and sale.shipping_cost_jpy == proc.shipping_cost_jpy
+                and sale.consumption_tax_jpy == proc.consumption_tax_jpy
+            ):
+                skipped += 1
+                continue
+            crud.update_sales_record(
+                db,
+                sale.id,
+                source_cost_jpy=proc.purchase_price_jpy,
+                shipping_cost_jpy=proc.shipping_cost_jpy,
+                consumption_tax_jpy=proc.consumption_tax_jpy,
+            )
+            updated += 1
+
+        return {"updated": updated, "skipped": skipped}
+    finally:
+        db.close()
+
+
+@app.post("/api/admin/price-drop-reminder")
+async def price_drop_reminder(days: int = 30):
+    """listed 状態のまま N 日以上経過した仕入れを値下げ提案としてTelegramに通知"""
+    from database.models import JST
+
+    db = get_db()
+    try:
+        cutoff = datetime.now(JST) - timedelta(days=days)
+        stale = (
+            db.query(Procurement)
+            .filter(
+                Procurement.status == "listed",
+                Procurement.listed_at.isnot(None),
+                Procurement.listed_at <= cutoff,
+            )
+            .order_by(Procurement.listed_at)
+            .all()
+        )
+        if not stale:
+            return {"notified": 0, "message": "値下げ候補なし"}
+
+        lines = [f"📉 値下げ検討リスト（{days}日以上 listed）\n"]
+        for p in stale[:10]:
+            elapsed = (datetime.now(JST).replace(tzinfo=None) - p.listed_at).days
+            price_info = (
+                f"¥{p.purchase_price_jpy:,}" if p.purchase_price_jpy else "不明"
+            )
+            ebay_info = f" eBay:{p.ebay_item_id}" if p.ebay_item_id else ""
+            lines.append(
+                f"• {p.stock_number or f'ID:{p.id}'} — {p.title[:28]}…\n"
+                f"  仕入:{price_info} / 出品{elapsed}日経過{ebay_info}"
             )
         if len(stale) > 10:
             lines.append(f"… 他 {len(stale) - 10} 件")

@@ -73,6 +73,7 @@
             <div class="label">利益合計</div>
             <div class="value" id="kpiProfit">--</div>
             <div class="sub" id="kpiProfitJpy"></div>
+            <div class="sub" id="kpiDomesticProfit" style="color:#f97316;display:none;"></div>
         </div>
     </div>
     <div class="stat-card">
@@ -185,6 +186,7 @@
             <button class="btn btn-sm" onclick="uploadShippingCsv()" id="uploadShipBtn">CSVインポート</button>
             <button class="btn btn-sm btn-outline" onclick="backfillTracking()" id="backfillBtn">eBayから追跡番号同期</button>
             <button class="btn btn-sm btn-outline" onclick="syncAllSales()" id="syncAllBtn">全注文同期（全期間）</button>
+            <button class="btn btn-sm btn-outline" onclick="resyncCosts()" id="resyncCostBtn" style="border-color:#f97316;color:#f97316;">仕入れコスト再同期</button>
         </div>
         <div id="shippingImportResult" style="display:none;margin-top:10px;padding:10px;border-radius:var(--radius-xs);font-size:12px;"></div>
     </div>

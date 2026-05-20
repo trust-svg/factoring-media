@@ -707,6 +707,16 @@ async function loadDomesticSales() {
         }).join('');
         if (badge) badge.textContent =
             `${summary.count}件 / 売上¥${summary.revenue_jpy.toLocaleString()} / 利益¥${summary.net_profit_jpy.toLocaleString()} / 消費税還付¥${summary.consumption_tax_jpy.toLocaleString()}`;
+        // KPI補足: 国内販売利益
+        const kpiDom = document.getElementById('kpiDomesticProfit');
+        if (kpiDom) {
+            if (summary.net_profit_jpy !== 0) {
+                kpiDom.textContent = `国内+¥${summary.net_profit_jpy.toLocaleString()}`;
+                kpiDom.style.display = '';
+            } else {
+                kpiDom.style.display = 'none';
+            }
+        }
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="8" class="empty-state">読み込みエラー</td></tr>';
         console.error(e);
@@ -881,6 +891,34 @@ async function quickSyncSales() {
     } finally {
         btn.disabled = false;
         btn.textContent = 'eBay同期';
+    }
+}
+
+async function resyncCosts() {
+    const btn = document.getElementById('resyncCostBtn');
+    const resultDiv = document.getElementById('shippingImportResult');
+    if (!confirm('仕入れ記録と紐づく売上レコードのコストを一括再同期します。よろしいですか？')) return;
+    btn.disabled = true;
+    btn.textContent = '同期中...';
+    resultDiv.style.display = 'block';
+    resultDiv.style.background = 'var(--brand-50)';
+    resultDiv.style.color = 'var(--brand-600)';
+    resultDiv.textContent = '仕入れコストを再同期中...';
+    try {
+        const resp = await fetch('/api/admin/resync-costs', { method: 'POST' });
+        const data = await resp.json();
+        resultDiv.style.background = 'var(--success-50)';
+        resultDiv.style.color = 'var(--success-600)';
+        resultDiv.textContent = `コスト再同期完了: ${data.updated}件更新 / ${data.skipped}件スキップ`;
+        loadTransactions();
+        loadSummary(1);
+    } catch (e) {
+        resultDiv.style.background = 'var(--error-50)';
+        resultDiv.style.color = 'var(--error-600)';
+        resultDiv.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '仕入れコスト再同期';
     }
 }
 
