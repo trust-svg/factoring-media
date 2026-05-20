@@ -3575,7 +3575,16 @@ async def get_procurement_screenshot(proc_id: int):
         else:
             filepath = Path(ss)
         if not filepath.exists():
-            raise HTTPException(404, "Screenshot file not found")
+            # Fallback: filename may be truncated on disk (e.g. Japanese chars cut off)
+            # Search parent directory for any file starting with proc{proc_id}_
+            parent = filepath.parent
+            candidates = (
+                list(parent.glob(f"proc{proc_id}_*")) if parent.exists() else []
+            )
+            if candidates:
+                filepath = candidates[0]
+            else:
+                raise HTTPException(404, "Screenshot file not found")
         if filepath.stat().st_size > 5_000_000:
             try:
                 from PIL import Image
