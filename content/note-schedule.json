@@ -328,7 +328,9 @@
     {
       "date": "2026-05-20",
       "slug": "top-management-hyouban",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n1136317f9443",
+      "published_at": "2026-05-20"
     },
     {
       "date": "2026-05-21",
