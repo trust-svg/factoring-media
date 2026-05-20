@@ -221,7 +221,7 @@ export default function ListeningPage() {
         correct_count: latestRef.current.correctCount,
         pomodoro_completed: true,
       }).catch(() => {})
-      setDone(true)
+      // setDone は呼ばない — 全問解答後のみ完了画面を出す
     }
   }, [])
 

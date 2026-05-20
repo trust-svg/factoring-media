@@ -91,15 +91,16 @@ def end_session(
         streak += 1
         check -= timedelta(days=1)
 
-    background_tasks.add_task(
-        telegram.send_session_summary,
-        username=user.username,
-        skill=session.skill,
-        duration_seconds=body.duration_seconds or 0,
-        questions_attempted=body.questions_attempted or 0,
-        correct_count=body.correct_count or 0,
-        streak=streak,
-    )
+    if (body.questions_attempted or 0) > 0:
+        background_tasks.add_task(
+            telegram.send_session_summary,
+            username=user.username,
+            skill=session.skill,
+            duration_seconds=body.duration_seconds or 0,
+            questions_attempted=body.questions_attempted or 0,
+            correct_count=body.correct_count or 0,
+            streak=streak,
+        )
 
     return session
 
