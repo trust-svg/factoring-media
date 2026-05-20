@@ -355,7 +355,7 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div>
                 <label style="font-size:12px;font-weight:600;">仕入先</label>
-                <select id="procPlatform" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+                <select id="procPlatform" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;" onchange="updateTransactionIdLabel(this.value)">
                     <option value="Amazon">Amazon</option>
                     <option value="メルカリ">メルカリ</option>
                     <option value="メルカリShops">メルカリShops</option>
@@ -431,6 +431,10 @@
                     <button onclick="autoDetectProcUrl()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;background:white;white-space:nowrap;">自動取得</button>
                 </div>
                 <div id="procUrlStatus" style="font-size:11px;margin-top:3px;"></div>
+            </div>
+            <div>
+                <label style="font-size:12px;font-weight:600;" id="procTransactionIdLabel">取引番号／注文番号</label>
+                <input id="procTransactionId" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;" placeholder="古物台帳用（ヤフオク取引番号・注文番号等）">
             </div>
             <div>
                 <label style="font-size:12px;font-weight:600;">出品者ID</label>
@@ -624,6 +628,23 @@
 {% block scripts %}
 <script src="/static/js/procurement-table.js"></script>
 <script>
+function updateTransactionIdLabel(platform) {
+    const label = document.getElementById('procTransactionIdLabel');
+    const input = document.getElementById('procTransactionId');
+    if (!label || !input) return;
+    const ORDER_PLATFORMS = ['Amazon','楽天','ヤフーショッピング','メルカリShops'];
+    const RECEIPT_PLATFORMS = ['駿河屋','GEO','デジマート','トレファク','まんだらけ','セカンドストリート','ネットモール(OFFモール)'];
+    if (ORDER_PLATFORMS.includes(platform)) {
+        label.textContent = '注文番号（古物台帳用）';
+        input.placeholder = '例: 503-1234567-1234567';
+    } else if (RECEIPT_PLATFORMS.includes(platform)) {
+        label.textContent = '領収書番号（古物台帳用）';
+        input.placeholder = '例: 領収書番号・レシート番号';
+    } else {
+        label.textContent = '取引番号（古物台帳用）';
+        input.placeholder = '例: ヤフオク取引番号・メルカリ取引番号';
+    }
+}
 function switchTab(tab) {
     const isRec = tab === 'records';
     document.getElementById('panelRecords').style.display = isRec ? '' : 'none';

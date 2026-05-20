@@ -667,7 +667,9 @@ async function openProcEditModal(id) {
     document.getElementById('procDomesticPrice').value = p.domestic_sale_price_jpy || '';
     document.getElementById('procDomesticDate').value = p.domestic_sale_date ? p.domestic_sale_date.slice(0,10) : '';
     document.getElementById('procDomesticReason').value = p.domestic_reason || '';
+    document.getElementById('procTransactionId').value = p.transaction_id || '';
     document.getElementById('procNotes').value = p.notes || '';
+    if (typeof updateTransactionIdLabel === 'function') updateTransactionIdLabel(p.platform || '');
     document.getElementById('procUrlStatus').textContent = '';
     resetProcScreenshotUI();
     if (p.screenshot_path) {
@@ -694,7 +696,7 @@ function clearProcForm() {
      'procDate','procRecvDate','procUrl','procSellerId','procSellerUrl','procQty','procLocation',
      'procCondition','procStatus','procCategory','procStockNo','procEbayItemId','procEbayOrderId',
      'procEbayPrice','procDomesticPlatform','procDomesticPrice','procDomesticDate','procDomesticReason',
-     'procNotes'].forEach(id => {
+     'procTransactionId','procNotes'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         if (el.tagName === 'SELECT') el.selectedIndex = 0;
@@ -739,6 +741,7 @@ async function submitProcurement() {
         domestic_sale_price_jpy: parseInt(document.getElementById('procDomesticPrice').value) || 0,
         domestic_sale_date: document.getElementById('procDomesticDate').value,
         domestic_reason: document.getElementById('procDomesticReason').value,
+        transaction_id: document.getElementById('procTransactionId').value,
         notes: document.getElementById('procNotes').value,
     };
     if (!body.title) { alert('商品名は必須です'); return; }

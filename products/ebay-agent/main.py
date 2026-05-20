@@ -1863,6 +1863,7 @@ async def list_procurements(status: str = ""):
                 if p.domestic_sale_date
                 else None,
                 "domestic_reason": p.domestic_reason or "",
+                "transaction_id": p.transaction_id or "",
             }
             result.append(item)
         return result
@@ -2220,6 +2221,7 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         "ebay_order_id",
         "domestic_platform",
         "domestic_reason",
+        "transaction_id",
     ]:
         if key in body:
             kwargs[key] = body[key]

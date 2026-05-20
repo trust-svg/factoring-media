@@ -163,6 +163,8 @@ class Procurement(Base):
         DateTime, nullable=True
     )
     domestic_reason: Mapped[str] = mapped_column(String(32), default="")
+    # ── 古物台帳: 取引番号/注文番号（ヤフオク取引ID・メルカリ取引番号・Amazon注文番号等）──
+    transaction_id: Mapped[str] = mapped_column(String(128), default="")
 
 
 # ── 価格履歴 ──────────────────────────────────────────────
@@ -1017,6 +1019,10 @@ def _migrate_procurement_columns(engine_instance) -> None:
         if "domestic_reason" not in existing:
             stmts.append(
                 "ALTER TABLE procurements ADD COLUMN domestic_reason VARCHAR(32) NOT NULL DEFAULT ''"
+            )
+        if "transaction_id" not in existing:
+            stmts.append(
+                "ALTER TABLE procurements ADD COLUMN transaction_id VARCHAR(128) NOT NULL DEFAULT ''"
             )
         for stmt in stmts:
             conn.execute(text(stmt))
