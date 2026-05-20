@@ -13,6 +13,7 @@ import {
 } from '@/lib/api'
 import type { ExplainJaResponse, ListeningContent, Question } from '@/lib/types'
 import PomodoroTimer from '@/components/PomodoroTimer'
+import Mascot from '@/components/Mascot'
 
 function playSound(type: 'correct' | 'wrong') {
   if (typeof window === 'undefined') return
@@ -244,7 +245,7 @@ export default function ListeningPage() {
   if (done || questions.length === 0) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-green-50 gap-5 px-4">
-        <div className="text-6xl">🎧</div>
+        <Mascot scene={questions.length === 0 ? 'thinking' : 'celebrate'} size={160} />
         <h2 className="text-2xl font-bold text-gray-700">
           {questions.length === 0 ? '問題がありません' : 'リスニング完了！'}
         </h2>
@@ -278,9 +279,9 @@ export default function ListeningPage() {
       {breakDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
           <div className="bg-white rounded-2xl p-6 max-w-xs mx-4 text-center">
-            <div className="text-4xl mb-3">⏰</div>
+            <Mascot scene="tired" size={100} className="mx-auto mb-2" />
             <h3 className="font-bold text-gray-800 mb-2 text-lg">25分経過！</h3>
-            <p className="text-gray-500 mb-4">休憩しましょう</p>
+            <p className="text-gray-500 mb-4">少し休憩しましょう 🍵</p>
             <button onClick={() => router.push('/home')} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">
               ホームへ
             </button>
@@ -417,6 +418,14 @@ export default function ListeningPage() {
           {/* Explanation */}
           {revealed && (
             <>
+              {/* Mascot reaction */}
+              <div className="flex justify-center">
+                <Mascot
+                  scene={selected === content.answer ? 'correct' : 'cheer'}
+                  size={88}
+                />
+              </div>
+
               <div className="bg-green-50 rounded-2xl p-5 border-l-4 border-green-400">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-xs text-green-600 font-black uppercase tracking-wider">解説（英語）</p>

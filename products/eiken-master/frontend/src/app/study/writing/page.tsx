@@ -13,6 +13,7 @@ import {
 } from '@/lib/api'
 import type { Question, WritingContent, WritingScore } from '@/lib/types'
 import PomodoroTimer from '@/components/PomodoroTimer'
+import Mascot from '@/components/Mascot'
 
 function countWords(text: string): number {
   return text.trim().split(/\s+/).filter((w) => w.length > 0).length
@@ -149,9 +150,9 @@ export default function WritingPage() {
       {breakDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
           <div className="bg-white rounded-2xl p-6 max-w-xs mx-4 text-center">
-            <div className="text-4xl mb-3">⏰</div>
+            <Mascot scene="tired" size={100} className="mx-auto mb-2" />
             <h3 className="font-bold text-gray-800 mb-2">25分経過！</h3>
-            <p className="text-gray-500 text-sm mb-4">休憩しましょう</p>
+            <p className="text-gray-500 text-sm mb-4">少し休憩しましょう 🍵</p>
             <button onClick={() => router.push('/home')} className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold">
               ホームへ
             </button>
@@ -197,6 +198,9 @@ export default function WritingPage() {
             </>
           ) : (
             <>
+              <div className="flex justify-center">
+                <Mascot scene={score.is_passing ? 'celebrate' : 'cheer'} size={100} />
+              </div>
               <div className={`rounded-2xl p-5 ${score.is_passing ? 'bg-green-50' : 'bg-red-50'}`}>
                 <p className={`text-3xl font-bold text-center ${score.is_passing ? 'text-green-700' : 'text-red-600'}`}>
                   {score.score} / {score.max_score}

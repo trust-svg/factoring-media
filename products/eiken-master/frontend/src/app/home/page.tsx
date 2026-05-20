@@ -7,6 +7,7 @@ import { useAuth } from '@/providers/AuthProvider'
 import type { DailyPlan, DailyTask, ProgressData, Skill } from '@/lib/types'
 import TutorialModal from '@/components/TutorialModal'
 import InstallBanner from '@/components/InstallBanner'
+import Mascot from '@/components/Mascot'
 
 /* ── Circular progress ring ─────────────────── */
 function RingProgress({ pct, size = 140 }: { pct: number; size?: number }) {
@@ -399,6 +400,10 @@ export default function HomePage() {
           <div className="absolute rounded-full blur-3xl opacity-30" style={{ width: 320, height: 320, background: '#F97316', top: '-20%', right: '-10%' }} />
           <div className="absolute rounded-full blur-3xl opacity-20" style={{ width: 200, height: 200, background: '#06B6D4', bottom: '-10%', left: '5%' }} />
           <div className="absolute rounded-full blur-2xl opacity-25" style={{ width: 160, height: 160, background: '#FBBF24', top: '10%', left: '40%' }} />
+          {/* Mascot — visible only on wide screens so it doesn't overlap mobile layout */}
+          <div className="absolute bottom-0 right-4 hidden sm:block">
+            <Mascot scene="idle" size={130} />
+          </div>
         </div>
 
         {/* Content — desktop: 2-col grid; mobile: stack */}
