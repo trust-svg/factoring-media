@@ -804,7 +804,60 @@ function autoDetectProcUrl() {
     const sel = document.getElementById('procPlatform');
     if (detected && sel) {
         sel.value = detected;
-        statusEl.innerHTML = `<span style="color:var(--accent-green);">✓ ${detected} を検出</span>`;
+        if (typeof updateTransactionIdLabel === 'function') updateTransactionIdLabel(detected);
+    }
+
+    // 取引番号・出品者IDをURLパターンから自動抽出
+    const idExtractors = [
+        // ヤフオク: オークションID → 取引番号候補
+        { pattern: /[?&]aID=([A-Za-z0-9]+)|\/auction\/([A-Za-z0-9]+)/, platform: 'ヤフオク', txLabel: 'ヤフオクオークションID' },
+        // メルカリ: 商品ID
+        { pattern: /\/item\/(m[0-9]+)/, platform: 'メルカリ', txLabel: 'メルカリ商品ID' },
+        // Yahooフリマ
+        { pattern: /paypayfleamarket\.yahoo\.co\.jp\/item\/([a-z0-9]+)/, platform: 'Yahooフリマ', txLabel: 'Yahooフリマ商品ID' },
+        // ラクマ
+        { pattern: /fril\.jp\/app\/item\/([a-z0-9]+)|fril\.jp\/items\/([a-z0-9]+)/, platform: 'ラクマ', txLabel: 'ラクマ商品ID' },
+        // 駿河屋
+        { pattern: /suruga-ya\.jp\/product\/detail\/([0-9]+)/, platform: '駿河屋', txLabel: '駿河屋商品ID' },
+    ];
+
+    const sellerExtractors = [
+        // ヤフオク 出品者
+        { pattern: /seller=([^&]+)/, platform: 'ヤフオク' },
+        // メルカリ 出品者プロフィール
+        { pattern: /jp\.mercari\.com\/user\/profile\/([0-9]+)/, platform: 'メルカリ' },
+    ];
+
+    let txExtracted = '';
+    let txLabel = '';
+    for (const ex of idExtractors) {
+        const m = url.match(ex.pattern);
+        if (m) { txExtracted = m[1] || m[2] || ''; txLabel = ex.txLabel; break; }
+    }
+
+    let sellerExtracted = '';
+    for (const ex of sellerExtractors) {
+        const m = url.match(ex.pattern);
+        if (m) { sellerExtracted = decodeURIComponent(m[1] || ''); break; }
+    }
+
+    const txEl = document.getElementById('procTransactionId');
+    const sellerEl = document.getElementById('procSellerId');
+    let msgs = [];
+    if (txExtracted && txEl && !txEl.value) {
+        txEl.value = txExtracted;
+        msgs.push(`${txLabel}: ${txExtracted}`);
+    }
+    if (sellerExtracted && sellerEl && !sellerEl.value) {
+        sellerEl.value = sellerExtracted;
+        msgs.push(`出品者ID: ${sellerExtracted}`);
+    }
+
+    if (detected || msgs.length) {
+        const parts = [];
+        if (detected) parts.push(`✓ ${detected} を検出`);
+        if (msgs.length) parts.push(msgs.join(' / '));
+        statusEl.innerHTML = `<span style="color:var(--accent-green);">${parts.join(' — ')}</span>`;
     } else {
         statusEl.innerHTML = '<span style="color:#f59e0b;">自動判別できません</span>';
     }

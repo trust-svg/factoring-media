@@ -1871,6 +1871,69 @@ async def list_procurements(status: str = ""):
         db.close()
 
 
+@app.get("/api/procurements/domestic-sales")
+async def list_domestic_sales(month: str = ""):
+    """国内販売（sold_domestic）の一覧と集計 — 利益ページ用"""
+    db = get_db()
+    try:
+        q = db.query(Procurement).filter(
+            Procurement.status == "sold_domestic",
+            Procurement.domestic_sale_price_jpy > 0,
+        )
+        if month:
+            # YYYY-MM フィルタ
+            try:
+                from sqlalchemy import func as _func
+
+                q = q.filter(
+                    _func.strftime("%Y-%m", Procurement.domestic_sale_date) == month
+                )
+            except Exception:
+                pass
+        procs = q.order_by(Procurement.domestic_sale_date.desc()).all()
+        items = []
+        for p in procs:
+            cost = p.total_cost_jpy or (
+                p.purchase_price_jpy
+                + p.shipping_cost_jpy
+                + (p.consumption_tax_jpy or 0)
+            )
+            profit = p.domestic_sale_price_jpy - cost
+            items.append(
+                {
+                    "id": p.id,
+                    "stock_number": p.stock_number or "",
+                    "title": p.title or "",
+                    "platform": p.domestic_platform or "",
+                    "sale_date": p.domestic_sale_date.strftime("%Y-%m-%d")
+                    if p.domestic_sale_date
+                    else "",
+                    "sale_price_jpy": p.domestic_sale_price_jpy,
+                    "total_cost_jpy": cost,
+                    "consumption_tax_jpy": p.consumption_tax_jpy or 0,
+                    "net_profit_jpy": profit,
+                    "reason": p.domestic_reason or "",
+                    "sku": p.sku or "",
+                }
+            )
+        total_revenue = sum(x["sale_price_jpy"] for x in items)
+        total_cost = sum(x["total_cost_jpy"] for x in items)
+        total_profit = sum(x["net_profit_jpy"] for x in items)
+        total_tax = sum(x["consumption_tax_jpy"] for x in items)
+        return {
+            "items": items,
+            "summary": {
+                "count": len(items),
+                "revenue_jpy": total_revenue,
+                "cost_jpy": total_cost,
+                "net_profit_jpy": total_profit,
+                "consumption_tax_jpy": total_tax,
+            },
+        }
+    finally:
+        db.close()
+
+
 @app.get("/api/procurements/stats")
 async def procurement_stats():
     """仕入れ記録KPI統計"""
@@ -2269,6 +2332,25 @@ async def update_procurement_endpoint(proc_id: int, request: Request):
         proc = crud.update_procurement(db, proc_id, **kwargs)
         if not proc:
             raise HTTPException(404, "Procurement not found")
+
+        # ebay_order_id が設定された場合、対応するSalesRecordのコストを自動同期
+        if kwargs.get("ebay_order_id"):
+            from database.models import SalesRecord as _SR
+
+            sale = db.query(_SR).filter(_SR.order_id == proc.ebay_order_id).first()
+            if sale and (
+                sale.source_cost_jpy != proc.purchase_price_jpy
+                or sale.shipping_cost_jpy != proc.shipping_cost_jpy
+                or sale.consumption_tax_jpy != proc.consumption_tax_jpy
+            ):
+                crud.update_sales_record(
+                    db,
+                    sale.id,
+                    source_cost_jpy=proc.purchase_price_jpy,
+                    shipping_cost_jpy=proc.shipping_cost_jpy,
+                    consumption_tax_jpy=proc.consumption_tax_jpy,
+                )
+
         return JSONResponse(
             {
                 "id": proc.id,
@@ -3029,6 +3111,51 @@ async def sync_sku_from_ebay():
         return JSONResponse(
             {"updated": updated, "skipped": len(targets) - updated, "errors": errors}
         )
+    finally:
+        db.close()
+
+
+@app.post("/api/admin/stale-reminder")
+async def stale_procurement_reminder(days: int = 7):
+    """purchased 状態のまま N 日以上経過した仕入れを Telegram に通知"""
+    from database.models import JST
+
+    db = get_db()
+    try:
+        cutoff = datetime.now(JST) - timedelta(days=days)
+        stale = (
+            db.query(Procurement)
+            .filter(
+                Procurement.status == "purchased",
+                Procurement.purchase_date.isnot(None),
+                Procurement.purchase_date <= cutoff,
+            )
+            .order_by(Procurement.purchase_date)
+            .all()
+        )
+        if not stale:
+            return {"notified": 0, "message": "滞留なし"}
+
+        lines = [f"📦 仕入れ滞留アラート（{days}日以上 purchased）\n"]
+        for p in stale[:10]:
+            elapsed = (datetime.now(JST).replace(tzinfo=None) - p.purchase_date).days
+            lines.append(
+                f"• {p.stock_number or f'ID:{p.id}'} — {p.title[:30]}…\n"
+                f"  仕入日: {p.purchase_date.strftime('%Y-%m-%d')} ({elapsed}日経過)"
+            )
+        if len(stale) > 10:
+            lines.append(f"… 他 {len(stale) - 10} 件")
+
+        import requests as _req
+        from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+        if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+            _req.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT_ID, "text": "\n".join(lines)},
+                timeout=10,
+            )
+        return {"notified": len(stale)}
     finally:
         db.close()
 

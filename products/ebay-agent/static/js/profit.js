@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSummary(1);
     loadTransactions();
     loadExpenses();
+    loadDomesticSales();
     loadDailyAnalytics(60);
 
     // 自動同期ラベル初期化
@@ -674,6 +675,42 @@ async function saveExpense() {
         document.getElementById('expAmount').value = '';
         loadExpenses();
     } catch (e) { console.error(e); }
+}
+
+// ── 国内販売 ──────────────────────────────────────────
+async function loadDomesticSales() {
+    const month = document.getElementById('txMonth')?.value || '';
+    const tbody = document.getElementById('domesticBody');
+    const badge = document.getElementById('domesticSummaryBadge');
+    if (!tbody) return;
+    try {
+        const resp = await fetch(`/api/procurements/domestic-sales${month ? `?month=${month}` : ''}`);
+        const data = await resp.json();
+        const { items, summary } = data;
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">国内販売なし</td></tr>';
+            if (badge) badge.textContent = '';
+            return;
+        }
+        tbody.innerHTML = items.map(d => {
+            const profitColor = d.net_profit_jpy >= 0 ? 'var(--success-500)' : 'var(--error-500)';
+            return `<tr>
+                <td style="font-size:12px;">${esc(d.stock_number) || '-'}</td>
+                <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(d.title)}">${esc(d.title)}</td>
+                <td><span class="badge">${esc(d.platform) || '-'}</span></td>
+                <td style="font-size:12px;">${d.sale_date || '-'}</td>
+                <td style="font-size:12px;">¥${d.sale_price_jpy.toLocaleString()}</td>
+                <td style="font-size:12px;">¥${d.total_cost_jpy.toLocaleString()}</td>
+                <td style="font-size:12px;color:#6b7280;">¥${d.consumption_tax_jpy.toLocaleString()}</td>
+                <td style="font-weight:600;color:${profitColor};font-size:13px;">¥${d.net_profit_jpy.toLocaleString()}</td>
+            </tr>`;
+        }).join('');
+        if (badge) badge.textContent =
+            `${summary.count}件 / 売上¥${summary.revenue_jpy.toLocaleString()} / 利益¥${summary.net_profit_jpy.toLocaleString()} / 消費税還付¥${summary.consumption_tax_jpy.toLocaleString()}`;
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">読み込みエラー</td></tr>';
+        console.error(e);
+    }
 }
 
 async function loadExpenses() {

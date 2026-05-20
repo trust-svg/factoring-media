@@ -142,7 +142,7 @@
     <div class="section-header">
         <h2>取引一覧</h2>
         <div style="display:flex;gap:8px;align-items:center;">
-            <select id="txMonth" class="form-input" style="width:140px;padding:6px 10px;font-size:12px;" onchange="loadTransactions()"></select>
+            <select id="txMonth" class="form-input" style="width:140px;padding:6px 10px;font-size:12px;" onchange="loadTransactions();loadDomesticSales()"></select>
         </div>
     </div>
     <div style="overflow-x:auto;">
@@ -237,6 +237,31 @@
         </thead>
         <tbody id="expBody">
             <tr><td colspan="5" class="empty-state">固定費なし</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 国内販売セクション -->
+<div class="section" id="domesticSection" style="margin-top:16px;">
+    <div class="section-header">
+        <h2 class="section-title">国内販売</h2>
+        <span id="domesticSummaryBadge" style="font-size:12px;color:#64748b;"></span>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>管理番号</th>
+                <th>商品名</th>
+                <th>販売先</th>
+                <th>販売日</th>
+                <th>売上(JPY)</th>
+                <th>原価(JPY)</th>
+                <th>消費税(JPY)</th>
+                <th>純利益(JPY)</th>
+            </tr>
+        </thead>
+        <tbody id="domesticBody">
+            <tr><td colspan="8" class="empty-state">国内販売なし</td></tr>
         </tbody>
     </table>
 </div>
