@@ -231,7 +231,10 @@ export default function ReadingPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-blue-50">
-        <p className="text-blue-400 text-base">問題を読み込み中...</p>
+        <div className="flex flex-col items-center gap-2">
+          <Mascot scene="thinking" size={80} />
+          <p className="text-blue-400 text-sm font-medium">問題を読み込み中...</p>
+        </div>
       </div>
     )
   }
@@ -247,26 +250,30 @@ export default function ReadingPage() {
 
   if (done || questions.length === 0) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-blue-50 gap-5 px-4">
-        <Mascot scene={questions.length === 0 ? 'thinking' : 'celebrate'} size={160} />
-        <h2 className="text-2xl font-bold text-gray-700">
-          {questions.length === 0 ? '問題がありません' : 'リーディング完了！'}
-        </h2>
-        {questions.length > 0 && (
-          <p className="text-gray-500 text-lg">{questions.length}問中 {correctCount}問正解</p>
-        )}
-        {praise && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 max-w-sm flex gap-3 items-start">
-            <span className="text-2xl">🌟</span>
-            <p className="text-base text-amber-800 leading-relaxed">{praise}</p>
+      <main className="min-h-screen flex flex-col items-center justify-center bg-blue-50 px-4">
+        <div className="text-center max-w-sm w-full space-y-4">
+          <Mascot scene={questions.length === 0 ? 'thinking' : 'celebrate'} size={150} className="mx-auto" />
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">
+              {questions.length === 0 ? '問題がありません' : 'リーディング完了！'}
+            </h2>
+            {questions.length > 0 && (
+              <p className="text-gray-500 text-base mt-1">{questions.length}問中 {correctCount}問正解</p>
+            )}
           </div>
-        )}
-        <button
-          onClick={() => router.push('/home')}
-          className="bg-indigo-600 text-white px-8 py-3.5 rounded-xl font-bold text-base"
-        >
-          ホームへ
-        </button>
+          {praise && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex gap-3 items-start text-left">
+              <span className="text-xl shrink-0">🌟</span>
+              <p className="text-sm text-amber-800 leading-relaxed">{praise}</p>
+            </div>
+          )}
+          <button
+            onClick={() => router.push('/home')}
+            className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl font-bold text-base"
+          >
+            ホームへ
+          </button>
+        </div>
       </main>
     )
   }
@@ -319,10 +326,14 @@ export default function ReadingPage() {
 
       {breakDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
-          <div className="bg-white rounded-2xl p-6 max-w-xs mx-4 text-center">
-            <Mascot scene="tired" size={100} className="mx-auto mb-2" />
-            <h3 className="font-bold text-gray-800 mb-2 text-lg">25分経過！</h3>
-            <p className="text-gray-500 mb-4">少し休憩しましょう 🍵</p>
+          <div className="bg-white rounded-2xl p-6 max-w-xs mx-4">
+            <div className="flex items-center gap-4 mb-5">
+              <Mascot scene="tired" size={72} className="shrink-0" />
+              <div>
+                <h3 className="font-bold text-gray-800 text-base">お疲れ様！</h3>
+                <p className="text-gray-500 text-sm mt-0.5">25分が経ちました。少し休んでから続けましょう ☕</p>
+              </div>
+            </div>
             <button onClick={() => router.push('/home')} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">
               ホームへ
             </button>
@@ -446,11 +457,16 @@ export default function ReadingPage() {
           {revealed && (
             <>
               {/* Mascot reaction */}
-              <div className="flex justify-center">
-                <Mascot
-                  scene={selected === content.answer ? 'correct' : 'cheer'}
-                  size={88}
-                />
+              <div className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm">
+                <Mascot scene={selected === content.answer ? 'correct' : 'cheer'} size={64} className="shrink-0" />
+                <div>
+                  <p className={`font-bold text-sm ${selected === content.answer ? 'text-green-600' : 'text-orange-500'}`}>
+                    {selected === content.answer ? 'よくできました！' : '惜しい！'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {selected === content.answer ? '解説を確認して次の問題へ進もう' : 'もう一度解説をよく読んでみよう'}
+                  </p>
+                </div>
               </div>
 
               {/* English explanation */}

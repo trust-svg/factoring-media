@@ -364,7 +364,7 @@ export default function HomePage() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6D28D9, #EC4899)' }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="text-5xl animate-float">⭐</div>
+          <Mascot scene="thinking" size={96} />
           <p className="text-white/70 text-sm font-bold tracking-wide">よみこみちゅう…</p>
         </div>
       </div>
@@ -400,10 +400,6 @@ export default function HomePage() {
           <div className="absolute rounded-full blur-3xl opacity-30" style={{ width: 320, height: 320, background: '#F97316', top: '-20%', right: '-10%' }} />
           <div className="absolute rounded-full blur-3xl opacity-20" style={{ width: 200, height: 200, background: '#06B6D4', bottom: '-10%', left: '5%' }} />
           <div className="absolute rounded-full blur-2xl opacity-25" style={{ width: 160, height: 160, background: '#FBBF24', top: '10%', left: '40%' }} />
-          {/* Mascot — visible only on wide screens so it doesn't overlap mobile layout */}
-          <div className="absolute bottom-0 right-4 hidden sm:block">
-            <Mascot scene="idle" size={130} />
-          </div>
         </div>
 
         {/* Content — desktop: 2-col grid; mobile: stack */}
@@ -549,11 +545,11 @@ export default function HomePage() {
             {/* AI praise */}
             {progress?.praise && (
               <div
-                className="card-premium rounded-3xl p-5 animate-slide-up delay-300"
+                className="card-premium rounded-3xl p-4 animate-slide-up delay-300"
                 style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', boxShadow: '0 4px 20px rgba(251,191,36,0.2), inset 0 1px 0 rgba(255,255,255,0.8)' }}
               >
-                <div className="flex gap-3 items-start">
-                  <span className="text-2xl animate-sparkle shrink-0">⭐</span>
+                <div className="flex gap-3 items-center">
+                  <Mascot scene="correct" size={56} className="shrink-0" />
                   <p className="text-amber-900 text-sm font-bold leading-relaxed">{progress.praise}</p>
                 </div>
               </div>
@@ -562,13 +558,16 @@ export default function HomePage() {
             {/* AI advice */}
             {progress?.advice && (
               <div
-                className="card-premium rounded-3xl p-5 animate-slide-up delay-400"
+                className="card-premium rounded-3xl p-4 animate-slide-up delay-400"
                 style={{ background: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)', boxShadow: '0 4px 20px rgba(124,58,237,0.15), inset 0 1px 0 rgba(255,255,255,0.8)' }}
               >
-                <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                  <span>🤖</span> AIコーチ
-                </p>
-                <p className="text-violet-900 text-sm font-semibold leading-relaxed">{progress.advice}</p>
+                <div className="flex gap-3 items-start">
+                  <Mascot scene="explain" size={56} className="shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-1">AIコーチ</p>
+                    <p className="text-violet-900 text-sm font-semibold leading-relaxed">{progress.advice}</p>
+                  </div>
+                </div>
               </div>
             )}
 

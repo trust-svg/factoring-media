@@ -293,26 +293,30 @@ export default function SpeakingPage() {
           )}
 
           {phase === 'processing' && (
-            <div className="text-center py-8 space-y-3">
-              <Mascot scene="thinking" size={80} className="mx-auto" />
-              <p className="text-gray-500 text-sm">採点中...</p>
+            <div className="flex items-center gap-3 bg-white rounded-2xl px-4 py-4 shadow-sm">
+              <Mascot scene="thinking" size={64} className="shrink-0" />
+              <div>
+                <p className="font-semibold text-gray-700 text-sm">採点中...</p>
+                <p className="text-xs text-gray-400 mt-0.5">AIが丁寧に確認しています</p>
+              </div>
             </div>
           )}
 
           {phase === 'result' && score && (
             <>
-              <div className="flex justify-center">
-                <Mascot scene={score.is_passing ? 'celebrate' : 'cheer'} size={100} />
+              <div className={`rounded-2xl p-4 ${score.is_passing ? 'bg-green-50' : 'bg-amber-50'}`}>
+                <div className="flex items-center gap-4">
+                  <Mascot scene={score.is_passing ? 'celebrate' : 'cheer'} size={72} className="shrink-0" />
+                  <div>
+                    <p className={`text-3xl font-bold ${score.is_passing ? 'text-green-700' : 'text-orange-600'}`}>
+                      {score.score} / {score.max_score}
+                    </p>
+                    <p className={`text-sm mt-0.5 ${score.is_passing ? 'text-green-600' : 'text-orange-500'}`}>
+                      {score.is_passing ? '合格！すばらしい！' : '次は合格できる！'}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className={`rounded-2xl p-5 ${score.is_passing ? 'bg-green-50' : 'bg-red-50'}`}>
-                <p className={`text-3xl font-bold text-center ${score.is_passing ? 'text-green-700' : 'text-red-600'}`}>
-                  {score.score} / {score.max_score}
-                </p>
-                <p className={`text-center text-sm mt-1 ${score.is_passing ? 'text-green-600' : 'text-red-500'}`}>
-                  {score.is_passing ? '合格！' : 'もう少し頑張りましょう'}
-                </p>
-              </div>
-
               <div className="bg-white rounded-2xl p-4 shadow-sm">
                 <p className="text-xs text-gray-400 mb-1">文字起こし</p>
                 <p className="text-sm text-gray-700 italic">"{score.transcript}"</p>

@@ -149,10 +149,14 @@ export default function WritingPage() {
 
       {breakDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
-          <div className="bg-white rounded-2xl p-6 max-w-xs mx-4 text-center">
-            <Mascot scene="tired" size={100} className="mx-auto mb-2" />
-            <h3 className="font-bold text-gray-800 mb-2">25分経過！</h3>
-            <p className="text-gray-500 text-sm mb-4">少し休憩しましょう 🍵</p>
+          <div className="bg-white rounded-2xl p-6 max-w-xs mx-4">
+            <div className="flex items-center gap-4 mb-5">
+              <Mascot scene="tired" size={72} className="shrink-0" />
+              <div>
+                <h3 className="font-bold text-gray-800 text-base">お疲れ様！</h3>
+                <p className="text-gray-500 text-sm mt-0.5">25分が経ちました。少し休んでから続けましょう ☕</p>
+              </div>
+            </div>
             <button onClick={() => router.push('/home')} className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold">
               ホームへ
             </button>
@@ -198,16 +202,18 @@ export default function WritingPage() {
             </>
           ) : (
             <>
-              <div className="flex justify-center">
-                <Mascot scene={score.is_passing ? 'celebrate' : 'cheer'} size={100} />
-              </div>
-              <div className={`rounded-2xl p-5 ${score.is_passing ? 'bg-green-50' : 'bg-red-50'}`}>
-                <p className={`text-3xl font-bold text-center ${score.is_passing ? 'text-green-700' : 'text-red-600'}`}>
-                  {score.score} / {score.max_score}
-                </p>
-                <p className={`text-center text-sm mt-1 ${score.is_passing ? 'text-green-600' : 'text-red-500'}`}>
-                  {score.is_passing ? '合格！' : 'もう少し頑張りましょう'}
-                </p>
+              <div className={`rounded-2xl p-4 ${score.is_passing ? 'bg-green-50' : 'bg-amber-50'}`}>
+                <div className="flex items-center gap-4">
+                  <Mascot scene={score.is_passing ? 'celebrate' : 'cheer'} size={72} className="shrink-0" />
+                  <div>
+                    <p className={`text-3xl font-bold ${score.is_passing ? 'text-green-700' : 'text-orange-600'}`}>
+                      {score.score} / {score.max_score}
+                    </p>
+                    <p className={`text-sm mt-0.5 ${score.is_passing ? 'text-green-600' : 'text-orange-500'}`}>
+                      {score.is_passing ? '合格！すばらしい！' : '次は合格できる！'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-white rounded-2xl p-4 shadow-sm">
