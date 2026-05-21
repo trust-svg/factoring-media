@@ -349,31 +349,34 @@ function showDemandContent(data) {
   const recEl = document.getElementById('demandRec');
   if (recEl) recEl.textContent = data.recommendation || '';
 
-  // Price stats
-  setTextContent('demandMedian', data.median_price_usd != null ? '$' + data.median_price_usd.toFixed(2) : '—');
-  setTextContent('demandMin',    data.min_price_usd    != null ? '$' + data.min_price_usd.toFixed(2)    : '—');
-  setTextContent('demandMax',    data.max_price_usd    != null ? '$' + data.max_price_usd.toFixed(2)    : '—');
+  // Price stats — サーバーは price_analysis ネストで返す
+  const pa = data.price_analysis || {};
+  setTextContent('demandMedian', pa.median_usd != null ? '$' + Number(pa.median_usd).toFixed(2) : '—');
+  setTextContent('demandMin',    pa.min_usd    != null ? '$' + Number(pa.min_usd).toFixed(2)    : '—');
+  setTextContent('demandMax',    pa.max_usd    != null ? '$' + Number(pa.max_usd).toFixed(2)    : '—');
 
-  // Similar items
+  // Similar items — サーバーは promising_items で返す
   const list = document.getElementById('similarList');
   if (list) {
-    const items = Array.isArray(data.similar_items) ? data.similar_items.slice(0, 3) : [];
+    const items = Array.isArray(data.promising_items) ? data.promising_items.slice(0, 3) : [];
     if (items.length === 0) {
       list.innerHTML = '<li style="font-size:12px;color:var(--text-muted);padding:8px 0">類似商品が見つかりませんでした</li>';
-      document.getElementById('similarLabel').textContent = '類似商品';
+      const lbl = document.getElementById('similarLabel');
+      if (lbl) lbl.textContent = '類似商品';
     } else {
-      document.getElementById('similarLabel').textContent = '類似商品 TOP ' + items.length;
+      const lbl = document.getElementById('similarLabel');
+      if (lbl) lbl.textContent = '類似商品 TOP ' + items.length;
       list.innerHTML = items.map(item => `
         <li class="la-similar-item">
           <span class="la-similar-title" title="${escHtml(item.title || '')}">${escHtml(item.title || '—')}</span>
-          <span class="la-similar-price">${item.price != null ? '$' + Number(item.price).toFixed(2) : '—'}</span>
+          <span class="la-similar-price">${item.price_usd != null ? '$' + Number(item.price_usd).toFixed(2) : '—'}</span>
         </li>
       `).join('');
     }
   }
 
-  // similar_itemsが空でも需要スコアがあればコンテンツを表示し続ける
-  if (!data.demand_score && (!data.similar_items || data.similar_items.length === 0)) {
+  // promising_itemsが空でも demand_score があればコンテンツを維持
+  if (!data.demand_score && (!data.promising_items || data.promising_items.length === 0)) {
     showDemandNone();
   }
 }
