@@ -634,10 +634,148 @@
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   }
   .form-select:focus { border-color: var(--blue); box-shadow: var(--shadow-focus); }
+
+/* ── モードタブ ───────────────────────────────────────── */
+.la-mode-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+}
+.la-mode-tab {
+  padding: 10px 24px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: color var(--transition), border-color var(--transition);
+}
+.la-mode-tab.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+}
+
+/* ── 再仕入れパネル ──────────────────────────────────── */
+.la-reorder-item {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+.la-reorder-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.la-reorder-img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: var(--gray-100);
+}
+.la-reorder-details { flex: 1; min-width: 0; }
+.la-reorder-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.la-reorder-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.la-reorder-results {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.la-reorder-keyword {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.la-platform-section { margin-bottom: 16px; }
+.la-platform-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.la-platform-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.la-source-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--transition);
+}
+.la-source-item:hover { border-color: var(--blue); }
+.la-source-img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.la-source-info { flex: 1; min-width: 0; }
+.la-source-title {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.la-source-price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue);
+  margin-top: 2px;
+}
+.la-source-condition {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.la-reorder-empty {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
 </style>
 {% endblock %}
 
 {% block content %}
+
+<!-- ── Page Mode Tabs ─────────────────────────────────── -->
+<div class="la-mode-tabs">
+  <button class="la-mode-tab active" data-mode="wizard" onclick="switchMode('wizard')">出品する</button>
+  <button class="la-mode-tab" data-mode="reorder" onclick="switchMode('reorder')">再仕入れ候補</button>
+</div>
+
+<!-- ── Wizard wrapper ─────────────────────────────────── -->
+<div id="la-wizard-panel">
 
 <!-- Page subtitle -->
 <p style="margin:-8px 0 20px;font-size:14px;color:var(--text-secondary)">
@@ -1163,6 +1301,18 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+</div><!-- /#la-wizard-panel -->
+
+<!-- ── 再仕入れ候補パネル ────────────────────────────── -->
+<div id="la-reorder-panel" style="display:none">
+  <p style="margin:-8px 0 20px;font-size:14px;color:var(--text-secondary)">
+    eBayで販売実績のある商品を一覧表示します。「検索」でメルカリ・ヤフオク・Yahoo!フリマの在庫を確認できます。
+  </p>
+  <div id="reorderList">
+    <div class="la-reorder-empty">読み込み中...</div>
   </div>
 </div>
 
