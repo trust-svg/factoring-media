@@ -4876,7 +4876,7 @@ async def set_screenshot_dir(request: Request):
 @app.get("/listing-assistant", response_class=HTMLResponse)
 async def listing_assistant_page(request: Request):
     return templates.TemplateResponse(
-        "pages/listing_assistant.html", {"request": request}
+        request=request, name="pages/listing_assistant.html", context={}
     )
 
 
