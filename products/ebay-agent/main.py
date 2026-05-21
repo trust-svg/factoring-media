@@ -5151,6 +5151,73 @@ async def listing_assistant_sold_no_stock(request: Request):
         db.close()
 
 
+@app.post("/api/listing-assistant/search-jp")
+async def listing_assistant_search_jp(request: Request):
+    """メルカリ・ヤフオク・Yahoo!フリマを並列検索する"""
+    import asyncio
+
+    body = await request.json()
+    title = body.get("title", "").strip()
+    purchase_price_jpy = int(body.get("purchase_price_jpy", 0))
+
+    if not title:
+        raise HTTPException(400, "title is required")
+
+    # 上限価格: 仕入れ価格の1.5倍（最低3,000円）
+    max_price_jpy = max(int(purchase_price_jpy * 1.5), 3000)
+
+    # キーワード決定: 型番 → Haiku生成 → タイトルそのまま
+    keyword = _extract_model_number(title)
+    if not keyword:
+        keyword = await _generate_jp_search_keyword(title)
+    if not keyword:
+        keyword = title[:50]
+
+    from scrapers.mercari_search import MercariScraper
+    from scrapers.yahoo_auction import YahooAuctionScraper
+    from scrapers.paypay_flea import PayPayFleaScraper
+
+    async def _do_search():
+        return await asyncio.gather(
+            MercariScraper().search(keyword, max_price_jpy, junk_ok=False, limit=5),
+            YahooAuctionScraper().search(
+                keyword, max_price_jpy, junk_ok=False, limit=5
+            ),
+            PayPayFleaScraper().search(keyword, max_price_jpy, junk_ok=False, limit=5),
+            return_exceptions=True,
+        )
+
+    try:
+        results = await asyncio.wait_for(_do_search(), timeout=45.0)
+    except asyncio.TimeoutError:
+        return JSONResponse({"error": "検索タイムアウト（45秒）"}, status_code=408)
+
+    def _serialize(items_or_exc):
+        if isinstance(items_or_exc, Exception):
+            return []
+        return [
+            {
+                "title": i.title,
+                "price_jpy": i.price_jpy,
+                "platform": i.platform,
+                "url": i.url,
+                "image_url": i.image_url,
+                "condition": i.condition,
+            }
+            for i in items_or_exc
+        ]
+
+    return JSONResponse(
+        {
+            "keyword": keyword,
+            "max_price_jpy": max_price_jpy,
+            "メルカリ": _serialize(results[0]),
+            "ヤフオク": _serialize(results[1]),
+            "Yahoo!フリマ": _serialize(results[2]),
+        }
+    )
+
+
 @app.post("/api/listing-assistant/submit/ledger")
 async def listing_assistant_submit_ledger(request: Request):
     """仕入れ台帳に登録"""
