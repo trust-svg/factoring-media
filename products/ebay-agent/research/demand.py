@@ -3,6 +3,7 @@
 eBay のアクティブ出品データから売れ筋度を分析し、
 日本マーケットプレイスとの価格差から利益が出る商品をランク付けする。
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DemandResult:
     """需要分析結果"""
+
     query: str
     items_found: int
     avg_price_usd: float
@@ -86,6 +88,10 @@ def analyze_demand(
     active_count = len(active_items)
     # 売れた数量÷出品数でスコア算出（上限100）
     sell_through = min(100, (total_sold / max(active_count, 1)) * 20)
+    # soldQuantity が全0の場合（Browse APIの制限）は出品件数でフォールバック
+    # 10件超 → 50点、30件超 → 70点 (市場として成立している証拠)
+    if sell_through == 0 and active_count > 0:
+        sell_through = min(70, active_count * 2)
 
     # 利益率推定
     rate = get_usd_to_jpy()
@@ -96,7 +102,9 @@ def analyze_demand(
     total_cost_usd = total_cost_jpy / rate
     ebay_fees = median_price * EBAY_FEE_RATE
     estimated_profit = median_price - total_cost_usd - ebay_fees
-    estimated_margin = (estimated_profit / median_price * 100) if median_price > 0 else 0
+    estimated_margin = (
+        (estimated_profit / median_price * 100) if median_price > 0 else 0
+    )
 
     # トップセラー分析（よく売れている出品者）
     seller_counts: dict[str, int] = {}
@@ -122,24 +130,30 @@ def analyze_demand(
 
     # 有望アイテム（売れ筋+利益率を考慮してソート）
     promising_items = []
-    for item in sold_items[:20]:
+    source_items = [i for i in sold_items if i.get("sold_quantity", 0) > 0]
+    # soldQuantity が全0（Browse API制限）の場合は active_items で代用
+    if not source_items:
+        source_items = active_items
+    for item in source_items[:20]:
         item_price = item.get("price", 0)
-        item_sold = item.get("sold_quantity", 0)
-        if item_price > 0 and item_sold > 0:
-            item_source_est = int(item_price * rate * 0.4)
-            item_cost_usd = (item_source_est + shipping_jpy) / rate
-            item_profit = item_price - item_cost_usd - (item_price * EBAY_FEE_RATE)
-            item_margin = item_profit / item_price * 100
+        if item_price <= 0:
+            continue
+        item_source_est = int(item_price * rate * 0.4)
+        item_cost_usd = (item_source_est + shipping_jpy) / rate
+        item_profit = item_price - item_cost_usd - (item_price * EBAY_FEE_RATE)
+        item_margin = item_profit / item_price * 100
 
-            promising_items.append({
+        promising_items.append(
+            {
                 "title": item["title"],
                 "price_usd": item_price,
-                "sold_quantity": item_sold,
+                "sold_quantity": item.get("sold_quantity", 0),
                 "estimated_margin_pct": round(item_margin, 1),
                 "estimated_source_jpy": item_source_est,
                 "item_url": item.get("item_url", ""),
                 "category_id": item.get("category_id", ""),
-            })
+            }
+        )
 
     # マージン順でソート
     promising_items.sort(
@@ -186,16 +200,20 @@ def compare_categories(queries: list[str], limit: int = 30) -> dict:
             results.append(analysis)
         except Exception as e:
             logger.warning(f"Category analysis failed for '{query}': {e}")
-            results.append({
-                "query": query,
-                "status": "error",
-                "message": str(e),
-            })
+            results.append(
+                {
+                    "query": query,
+                    "status": "error",
+                    "message": str(e),
+                }
+            )
 
     # スコア順でソート
     successful = [r for r in results if r.get("status") == "success"]
     successful.sort(
-        key=lambda r: r.get("demand_score", 0) * max(r.get("estimated_margin_pct", 0), 0),
+        key=lambda r: (
+            r.get("demand_score", 0) * max(r.get("estimated_margin_pct", 0), 0)
+        ),
         reverse=True,
     )
 

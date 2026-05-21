@@ -413,8 +413,8 @@ function showDemandContent(data) {
     }
   }
 
-  // promising_itemsが空でも demand_score があればコンテンツを維持
-  if (!data.demand_score && (!data.promising_items || data.promising_items.length === 0)) {
+  // items_found があればコンテンツを表示し続ける（promising_items空でも価格データは有効）
+  if (!data.items_found && (!data.promising_items || data.promising_items.length === 0)) {
     showDemandNone();
   }
 }
