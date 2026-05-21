@@ -4914,7 +4914,10 @@ async def listing_assistant_calculate(request: Request):
     price_jpy = float(body.get("price_jpy", 0))
     tax_jpy = float(body.get("tax_jpy", 0))
     domestic_shipping_jpy = float(body.get("domestic_shipping_jpy", 0))
-    intl_shipping_usd = float(body.get("intl_shipping_usd", 20.0))
+    # JSは international_shipping_usd で送信（intl_shipping_usd は後方互換）
+    intl_shipping_usd = float(
+        body.get("international_shipping_usd", body.get("intl_shipping_usd", 20.0))
+    )
     target_margin_pct = float(body.get("target_margin_pct", 25.0))
 
     from ebay_core.exchange_rate import get_usd_to_jpy
@@ -4922,7 +4925,8 @@ async def listing_assistant_calculate(request: Request):
 
     rate = get_usd_to_jpy()
     total_cost_jpy = price_jpy + tax_jpy + domestic_shipping_jpy
-    total_cost_usd = total_cost_jpy / rate + intl_shipping_usd
+    domestic_cost_usd = total_cost_jpy / rate
+    total_cost_usd = domestic_cost_usd + intl_shipping_usd
 
     # 手数料控除率: eBay 12.9% + Payoneer 2%（eBay控除後に適用）
     fee_deduction = EBAY_FEE_RATE + (1 - EBAY_FEE_RATE) * PAYONEER_FEE_RATE
@@ -4936,24 +4940,31 @@ async def listing_assistant_calculate(request: Request):
     payoneer_fee_usd = round(
         (recommended_price_usd - ebay_fee_usd) * PAYONEER_FEE_RATE, 2
     )
-    net_profit_usd = round(
+    profit_usd = round(
         recommended_price_usd - total_cost_usd - ebay_fee_usd - payoneer_fee_usd, 2
     )
     actual_margin_pct = (
-        round(net_profit_usd / recommended_price_usd * 100, 1)
+        round(profit_usd / recommended_price_usd * 100, 1)
         if recommended_price_usd > 0
         else 0
     )
 
     return JSONResponse(
         {
+            # 入力値をエコーバック（内訳テーブル表示用）
+            "cost_jpy": round(price_jpy),
+            "tax_jpy": round(tax_jpy),
+            "domestic_shipping_jpy": round(domestic_shipping_jpy),
+            "international_shipping_usd": round(intl_shipping_usd, 2),
+            # 集計値
             "total_cost_jpy": round(total_cost_jpy),
+            "domestic_cost_usd": round(domestic_cost_usd, 2),
             "total_cost_usd": round(total_cost_usd, 2),
             "recommended_price_usd": recommended_price_usd,
             "ebay_fee_usd": ebay_fee_usd,
             "payoneer_fee_usd": payoneer_fee_usd,
-            "net_profit_usd": net_profit_usd,
-            "net_profit_jpy": round(net_profit_usd * rate),
+            "profit_usd": profit_usd,
+            "profit_jpy": round(profit_usd * rate),
             "actual_margin_pct": actual_margin_pct,
             "exchange_rate": round(rate, 1),
         }
@@ -4964,7 +4975,8 @@ async def listing_assistant_calculate(request: Request):
 async def listing_assistant_generate(request: Request):
     """AI出品情報生成"""
     body = await request.json()
-    title = body.get("title", "").strip()
+    # JSは product_title で送信（title は後方互換）
+    title = (body.get("product_title") or body.get("title") or "").strip()
     condition = body.get("condition", "")
     description = body.get("description", "")
     platform = body.get("platform", "")
@@ -4986,14 +4998,14 @@ async def listing_assistant_generate(request: Request):
     titles = result.get("titles", [])
     best_title = titles[0]["title"] if titles else title
     specs = result.get("specs", {})
-    category_suggestion = result.get("category_suggestion", "")
+    category_id = result.get("category_id", result.get("category_suggestion", ""))
 
     return JSONResponse(
         {
             "title": best_title,
             "description": result.get("description_html", ""),
-            "aspects": specs,
-            "category_suggestion": category_suggestion,
+            "item_specifics": specs,
+            "category_id": category_id,
             "keywords": result.get("keywords", []),
         }
     )

@@ -29,8 +29,8 @@ const PLATFORM_COLORS = {
 
 const PLATFORM_PATTERNS = [
   { name: 'ヤフオク',     re: /auctions\.yahoo\.co\.jp|page\.auctions\.yahoo/i },
-  { name: 'メルカリ',     re: /mercari\.com/i },
-  { name: 'Yahooフリマ',  re: /paypayfleamarket|jp\.mercari/i },
+  { name: 'メルカリ',     re: /jp\.mercari\.com/i },
+  { name: 'Yahooフリマ',  re: /paypayfleamarket\.yahoo\.co\.jp/i },
   { name: 'ハードオフ',   re: /hardoff\.co\.jp/i },
   { name: '駿河屋',       re: /suruga-ya\.jp/i },
   { name: 'ラクマ',       re: /fril\.jp|rakuma\./i },
@@ -365,7 +365,8 @@ function showDemandContent(data) {
     }
   }
 
-  if (!data.similar_items || data.similar_items.length === 0) {
+  // similar_itemsが空でも需要スコアがあればコンテンツを表示し続ける
+  if (!data.demand_score && (!data.similar_items || data.similar_items.length === 0)) {
     showDemandNone();
   }
 }
@@ -459,7 +460,8 @@ function clientSideCalc(priceJpy, taxJpy, domShipJpy, intlShipUsd, targetPct) {
     tax_jpy:                   taxJpy,
     domestic_shipping_jpy:     domShipJpy,
     total_cost_jpy:            costJpy,
-    total_cost_usd:            costUsd,
+    domestic_cost_usd:         costUsd,
+    total_cost_usd:            costUsd + intlShipUsd,
     international_shipping_usd: intlShipUsd,
     ebay_fee_usd:              ebayFeeUsd,
     payoneer_fee_usd:          payoneerFeeUsd,
@@ -475,7 +477,7 @@ function fillCalcResults(data) {
   setTextContent('cr-tax',           fmtJpy(data.tax_jpy));
   setTextContent('cr-dom-ship',      fmtJpy(data.domestic_shipping_jpy));
   setTextContent('cr-subtotal-jpy',  fmtJpy(data.total_cost_jpy));
-  setTextContent('cr-subtotal-usd',  fmtUsd(data.total_cost_usd));
+  setTextContent('cr-subtotal-usd',  fmtUsd(data.domestic_cost_usd));  // 国内コストのみ（intl送料除く）
   setTextContent('cr-intl-ship',     fmtUsd(data.international_shipping_usd));
   setTextContent('cr-ebay-fee',      fmtUsd(data.ebay_fee_usd));
   setTextContent('cr-payoneer',      fmtUsd(data.payoneer_fee_usd));
@@ -657,6 +659,7 @@ async function submitListing() {
   const payload = buildSubmitPayload();
 
   let allSuccess = true;
+  let stockNumber = '';
 
   // 1. 仕入れ台帳登録
   setProgressState('ledger', 'loading', '登録中...');
@@ -664,6 +667,7 @@ async function submitListing() {
     const r1 = await apiPost('/api/listing-assistant/submit/ledger', payload);
     if (r1.ok) {
       const d1 = await r1.json();
+      stockNumber = d1.stock_number || '';
       setProgressState('ledger', 'success', '登録完了', '/sourcing');
     } else {
       const e1 = await safeJson(r1);
@@ -675,10 +679,10 @@ async function submitListing() {
     allSuccess = false;
   }
 
-  // 2. eShip登録
+  // 2. eShip登録（台帳のstock_numberを引き継ぐ）
   setProgressState('eship', 'loading', '登録中...');
   try {
-    const r2 = await apiPost('/api/listing-assistant/submit/eship', payload);
+    const r2 = await apiPost('/api/listing-assistant/submit/eship', { ...payload, stock_number: stockNumber });
     if (r2.ok) {
       setProgressState('eship', 'success', '登録完了', 'https://eship-tool.com/orders');
     } else {
