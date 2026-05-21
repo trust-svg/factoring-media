@@ -135,6 +135,41 @@ document.addEventListener('DOMContentLoaded', function () {
   updateStepBar(1);
 });
 
+// ── Keyword suggestion ─────────────────────────────────────────────────────
+
+async function suggestKeywords(product) {
+  const input = document.getElementById('ebaySearchQuery');
+  if (!input) return;
+
+  input.placeholder = 'キーワードを生成中...';
+  input.disabled    = true;
+
+  try {
+    const res = await apiPost('/api/listing-assistant/suggest-keywords', {
+      title:       product.title       || '',
+      description: product.description || '',
+      platform:    product.platform    || '',
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.keywords) {
+        input.value       = data.keywords;
+        input.placeholder = '英語キーワードを入力（例: Sony PS5 console）';
+      } else {
+        input.placeholder = '英語キーワードを入力（例: Sony PS5 console）';
+      }
+    } else {
+      input.placeholder = '英語キーワードを入力（例: Sony PS5 console）';
+    }
+  } catch (e) {
+    input.placeholder = '英語キーワードを入力（例: Sony PS5 console）';
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
+}
+
 function onUrlInput() {
   const url = document.getElementById('productUrl').value.trim();
   const detectedDiv = document.getElementById('platformDetect');
@@ -190,8 +225,11 @@ async function fetchProductUrl() {
     // Fill step 2 product card
     fillProductCard(data);
 
-    // Step 2 へ移動（需要チェックはユーザーが英語キーワードを入力してから手動実行）
+    // Step 2 へ移動
     goToStep(2);
+
+    // 英語キーワードを自動生成（バックグラウンドで実行、完了したら入力欄に反映）
+    suggestKeywords(data);
 
   } catch (e) {
     showNotice('step1Notice', 'error', 'ネットワークエラー: ' + e.message);

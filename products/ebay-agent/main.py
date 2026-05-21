@@ -4893,6 +4893,53 @@ async def listing_assistant_fetch_url(request: Request):
     return JSONResponse(result)
 
 
+@app.post("/api/listing-assistant/suggest-keywords")
+async def listing_assistant_suggest_keywords(request: Request):
+    """日本語タイトルからeBay英語検索キーワードを生成"""
+    import asyncio
+    import anthropic
+
+    body = await request.json()
+    title = body.get("title", "").strip()
+    description = body.get("description", "").strip()[:500]
+    platform = body.get("platform", "")
+
+    if not title:
+        raise HTTPException(400, "title is required")
+
+    prompt = f"""Extract concise English search keywords for eBay from this Japanese product listing.
+
+Japanese title: {title}
+{"Platform: " + platform if platform else ""}
+{"Description excerpt: " + description if description else ""}
+
+Return ONLY a short English search phrase (4-8 words) suitable for eBay search.
+Focus on: brand, model number, product type, key specs.
+No explanation, no punctuation, just the keywords."""
+
+    def _call_claude() -> str:
+        client = anthropic.Anthropic()
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=60,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return msg.content[0].text.strip()
+
+    try:
+        keywords = await asyncio.wait_for(
+            asyncio.to_thread(_call_claude),
+            timeout=15.0,
+        )
+    except asyncio.TimeoutError:
+        keywords = ""
+    except Exception as e:
+        logger.warning(f"[suggest-keywords] Claude失敗: {e}")
+        keywords = ""
+
+    return JSONResponse({"keywords": keywords})
+
+
 @app.post("/api/listing-assistant/demand")
 async def listing_assistant_demand(request: Request):
     """eBay需要チェック"""
