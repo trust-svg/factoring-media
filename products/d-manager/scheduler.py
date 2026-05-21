@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+import functools
 import json
 import os
 import re
@@ -18,6 +19,7 @@ from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.events import EVENT_JOB_ERROR
+import httpx
 
 import config
 from ai_engine import process_message
@@ -29,6 +31,23 @@ _scheduler: Optional[AsyncIOScheduler] = None
 _scheduler_started = False  # True once start() has been called
 _send_fn = None  # send_to_channel(channel_name, text, view=None)
 _task_view_fn = None  # function to create TaskBoardView(tasks)
+
+
+async def _send_telegram_alert(text: str) -> None:
+    """夜間QA異常時にTelegramへ通知。トークン未設定時はサイレントスキップ。"""
+    token = os.getenv("TELEGRAM_BOT_TOKEN_DMANAGER")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "323107833")
+    if not token:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            await c.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+            )
+    except Exception as e:
+        logger.warning(f"Telegram alert failed: {e}")
+
 
 JST = timezone(timedelta(hours=9))
 ACTIVE_TASKS_PATH = config.COMPANY_DIR / "secretary" / "todos" / "active.md"
@@ -343,7 +362,9 @@ async def nightly_site_check():
         lines = [f"🚨 **夜間サイト疎通チェック失敗 ({len(failures)}件)**\n"]
         for name, url, code in failures:
             lines.append(f"- **{name}**: {code}\n  → {url}")
-        await _send_fn("運営-jack-operations", "\n".join(lines))
+        msg = "\n".join(lines)
+        await _send_fn("運営-jack-operations", msg)
+        await _send_telegram_alert(f"🚨 サイト疎通異常\n{msg}")
 
     logger.info(f"nightly_site_check: {len(results) - len(failures)}/{len(results)} OK")
 
@@ -520,10 +541,9 @@ async def nightly_vps_health_check():
 
     # エラーがあれば Jack に通知（警告のみなら朝ブリーフィングまで待つ）
     if has_errors and _send_fn:
-        await _send_fn(
-            "運営-jack-operations",
-            f"🚨 **VPS ヘルスチェック異常**\n\n```\n{output[:1500]}\n```",
-        )
+        vps_msg = f"🚨 **VPS ヘルスチェック異常**\n\n```\n{output[:1500]}\n```"
+        await _send_fn("運営-jack-operations", vps_msg)
+        await _send_telegram_alert(f"🚨 VPS異常\n{output[:500]}")
 
     logger.info(f"nightly_vps_health_check: errors={has_errors}")
 
@@ -805,7 +825,9 @@ async def nightly_token_expiry_check():
                 )
             else:
                 lines.append(f"- **{name}**: {r.get('error', 'error')[:200]}")
-        await _send_fn("開発-larry-product", "\n".join(lines))
+        token_msg = "\n".join(lines)
+        await _send_fn("開発-larry-product", token_msg)
+        await _send_telegram_alert(f"🔑 APIトークン警告\n{token_msg}")
 
     logger.info(
         f"nightly_token_expiry_check: {len(results)} checked, {len(serious)} alerts"
@@ -1503,10 +1525,11 @@ async def pre_meeting_research():
 
 
 async def news_collection():
-    """朝7:00 — Xのバズ投稿とニュースレターを収集・要約してキャッシュする。
+    """朝7:00 — ニュースレターを収集・要約してキャッシュする。
 
     結果は `.company/secretary/news_cache/YYYY-MM-DD.md` に保存し、
     morning_briefing がプロンプトで参照する。
+    AI系ニュースは fetch_ai_news_cache（Google News RSS）が別途担当。
     """
     logger.info("Running news collection...")
     cache_dir = config.COMPANY_DIR / "secretary" / "news_cache"
@@ -1514,23 +1537,20 @@ async def news_collection():
     cache_path = cache_dir / f"{today_iso}.md"
 
     prompt = (
-        f"今朝の情報収集をお願いします。結果を1ファイルにまとめて保存してください。\n\n"
+        "今朝のニュースレター収集をお願いします。\n\n"
         "## 収集対象\n"
-        "1. **X（Twitter）バズ投稿**: tools/x_scraper.py を使用し、AI/起業/eBay/マーケ系で過去24時間に1万RT以上の投稿を5件抽出\n"
-        "2. **ニュースレター要約**: Gmailで Newsletter / List-Unsubscribe ヘッダ付きまたは「ニュースレター」「メルマガ」ラベルのメールから、過去24時間の重要トピックを5件抽出\n"
-        "3. **AIトレンド**: Web検索で『AI トレンド YYYY-MM』の最新情報3件\n\n"
+        "1. **ニュースレター要約**: Gmailで Newsletter / List-Unsubscribe ヘッダ付きまたは"
+        "「ニュースレター」「メルマガ」ラベルのメールから、過去24時間の重要トピックを5件抽出\n\n"
         "## 出力先\n"
-        f"{cache_path} に以下のフォーマットで保存:\n"
+        f"{cache_path} が既に存在する場合は末尾に追記、なければ新規作成:\n"
         "---\ndate: YYYY-MM-DD\n---\n\n"
-        "## 🐦 X バズ投稿\n（5件・URL付き）\n\n"
         "## 📧 ニュースレター要約\n（5件・差出人と件名）\n\n"
-        "## 🤖 AIトレンド\n（3件・URL付き）\n\n"
         "## ルール\n"
-        "- 取得失敗があれば該当セクションに「取得失敗」と明示\n"
+        "- メールが0件なら「本日のニュースレターなし」と1行記載\n"
         "- 推測で埋めない・社訓1遵守\n"
-        "- Discordには件数のみ要約（3行以内）で報告"
+        "- Discordには件数のみ要約（2行以内）で報告"
     )
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(
         None,
         process_message,
@@ -1676,6 +1696,71 @@ async def weekly_review():
         logger.exception("weekly_review: learning_curate failed")
 
 
+async def strategic_proposal():
+    """毎週日曜19:00 — Reid が事業全体を俯瞰し、課題・改善・企画提案を自発的に上げる。"""
+    logger.info("Running strategic_proposal...")
+    JST_NOW = datetime.now(JST)
+    today = JST_NOW.strftime("%Y-%m-%d")
+
+    kpi = _collect_kpi()
+    kpi_text = (
+        "\n".join(f"【{dept}】\n{data}" for dept, data in kpi.items())
+        if kpi
+        else "（KPIデータ取得なし）"
+    )
+
+    result = subprocess.run(
+        ["git", "-C", str(Path.home() / "Claude-Workspace"), "log", "--oneline", "-20"],
+        capture_output=True,
+        text=True,
+    )
+    recent_commits = result.stdout.strip() or "（コミット取得なし）"
+
+    prompt = f"""あなたは事業戦略担当 Reid です。今週の事業状況を俯瞰し、
+経営者 Hiro に「自発的な提案」を 3〜5 件上げてください。
+
+## 今日の日付
+{today}
+
+## 直近のコード変更（git log）
+{recent_commits}
+
+## KPI サマリー
+{kpi_text}
+
+## 提案の観点（いずれか1つ以上を含む）
+- 売上・利益を上げる企画（新施策・改善）
+- 運用コストを下げる改善（自動化・削除）
+- リスク・課題の早期警告
+- 競合・市場変化への対応
+
+## 出力フォーマット
+🧠 **今週の戦略提案** — {today}
+
+**提案 1: [タイトル]**
+背景: [なぜ今これが必要か]
+提案内容: [具体的なアクション]
+期待効果: [何が変わるか]
+優先度: 🔴高 / 🟡中 / 🟢低
+
+[提案 2〜5 同様]
+
+⚡ **今週のアクション候補（TOP 1）**
+[最も優先度が高い1件を1〜2行で]
+"""
+    loop = asyncio.get_event_loop()
+    result_text = await loop.run_in_executor(
+        None,
+        process_message,
+        prompt,
+        "strategy",
+        "scheduler:strategic-proposal",
+    )
+    if _send_fn:
+        await _send_fn("戦略-reid-strategy", result_text)
+    logger.info("Strategic proposal sent")
+
+
 async def learning_review():
     """夜間バッチ: 未レビューのセッション（チャンネル+日付）を振り返り、.company/ を更新する。"""
     if not config.LEARNING_REVIEW_ENABLED:
@@ -1814,16 +1899,19 @@ async def learning_curate():
     )
     from learning import curator
 
-    res = curator.run_curation(
-        company_dir=config.COMPANY_DIR,
-        model=config.CURATOR_MODEL_CLI,
-        skill_hits_path=config.SKILL_HITS_PATH,
+    loop = asyncio.get_event_loop()
+    run_fn = functools.partial(
+        curator.run_curation,
+        config.COMPANY_DIR,
+        config.CURATOR_MODEL_CLI,
+        config.SKILL_HITS_PATH,
         allowed_tools=config.LEARNING_ALLOWED_TOOLS,
         dryrun_allowed_tools=config.LEARNING_DRYRUN_ALLOWED_TOOLS,
         disallowed_tools=config.LEARNING_DISALLOWED_TOOLS,
         timeout_sec=config.LEARNING_CURATOR_TIMEOUT_SEC,
         dryrun=config.LEARNING_CURATOR_DRYRUN,
     )
+    res = await loop.run_in_executor(None, run_fn)
     mode_label = "ドライラン" if res.get("dryrun") else "本番"
     if res["status"] == "done":
         msg = (
@@ -2200,6 +2288,15 @@ def setup_scheduler(send_fn, task_view_fn=None):
         hour=21,
         minute=0,
         name="夢チェックイン",
+    )
+    _scheduler.add_job(
+        strategic_proposal,
+        "cron",
+        day_of_week="sun",
+        hour=19,
+        minute=0,
+        id="strategic_proposal",
+        name="週次戦略提案（Reid）",
     )
     _scheduler.add_job(
         weekly_review,
