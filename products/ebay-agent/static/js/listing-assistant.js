@@ -387,6 +387,21 @@ function showDemandContent(data) {
   const recEl = document.getElementById('demandRec');
   if (recEl) recEl.textContent = data.recommendation || '';
 
+  // データソースバッジ
+  const badge = document.getElementById('demandDataSourceBadge');
+  if (badge) {
+    if (data.data_source === 'sold') {
+      badge.textContent = '落札実績データ';
+      badge.style.background = 'var(--green-light, #d1fae5)';
+      badge.style.color = 'var(--green, #059669)';
+    } else {
+      badge.textContent = '出品中データ ※落札実績なし';
+      badge.style.background = 'var(--gray-100, #f1f5f9)';
+      badge.style.color = 'var(--text-muted, #94a3b8)';
+    }
+    badge.style.display = '';
+  }
+
   // Price stats — サーバーは price_analysis ネストで返す
   const pa = data.price_analysis || {};
   setTextContent('demandMedian', pa.median_usd != null ? '$' + Number(pa.median_usd).toFixed(2) : '—');

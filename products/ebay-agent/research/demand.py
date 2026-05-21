@@ -131,7 +131,8 @@ def analyze_demand(
     # 有望アイテム（売れ筋+利益率を考慮してソート）
     promising_items = []
     source_items = [i for i in sold_items if i.get("sold_quantity", 0) > 0]
-    # soldQuantity が全0（Browse API制限）の場合は active_items で代用
+    # soldQuantity が全0（Finding API アクセス制限）の場合は active_items で代用
+    using_sold_data = bool(source_items)
     if not source_items:
         source_items = active_items
     for item in source_items[:20]:
@@ -179,6 +180,7 @@ def analyze_demand(
         "recommendation": recommendation,
         "top_sellers": top_sellers,
         "promising_items": promising_items[:10],
+        "data_source": "sold" if using_sold_data else "active",
     }
 
 
