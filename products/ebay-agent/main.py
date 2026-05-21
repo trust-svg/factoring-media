@@ -4872,6 +4872,49 @@ async def set_screenshot_dir(request: Request):
 
 # ── 出品アシスタント ──────────────────────────────────────
 
+import re as _re
+
+
+def _extract_model_number(title: str) -> str:
+    """英語eBayタイトルから型番トークンを抽出する。
+    英字＋数字を含む3文字以上のトークンを候補とし、最長のものを返す。
+    例: 'Sony WH-1000XM4 Headphones' → 'WH-1000XM4'
+    """
+    tokens = _re.split(r"[\s/,()[\]]+", title)
+    candidates = [
+        t.strip("-.")
+        for t in tokens
+        if len(t) >= 3 and _re.search(r"[A-Za-z]", t) and _re.search(r"\d", t)
+    ]
+    return max(candidates, key=len) if candidates else ""
+
+
+async def _generate_jp_search_keyword(title: str) -> str:
+    """Claude Haikuで英語タイトルから日本語検索キーワードを生成する。"""
+    import asyncio
+    import anthropic
+
+    prompt = (
+        "以下のeBay出品タイトルから、日本のフリマサイト（メルカリ・ヤフオク等）で"
+        "検索するのに最適な日本語キーワードを1〜3語で返してください。"
+        "キーワードのみを返し、説明・記号・改行は不要です。\n\n"
+        f"タイトル: {title}"
+    )
+
+    def _call() -> str:
+        client = anthropic.Anthropic()
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=30,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return msg.content[0].text.strip()
+
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(_call), timeout=10.0)
+    except Exception:
+        return ""
+
 
 @app.get("/listing-assistant", response_class=HTMLResponse)
 async def listing_assistant_page(request: Request):
@@ -5077,6 +5120,32 @@ async def listing_assistant_generate(request: Request):
             "keywords": result.get("keywords", []),
         }
     )
+
+
+@app.get("/api/listing-assistant/sold-no-stock")
+async def listing_assistant_sold_no_stock(request: Request):
+    """eBayで売れた実績があり現在在庫のない商品一覧を返す（最大50件）"""
+    db = get_db()
+    try:
+        items = crud.get_all_procurements(db, status="sold")
+        return JSONResponse(
+            [
+                {
+                    "id": p.id,
+                    "title": p.title,
+                    "purchase_price_jpy": p.purchase_price_jpy,
+                    "platform": p.platform,
+                    "sold_at": p.sold_at.isoformat() if p.sold_at else None,
+                    "ebay_price_usd": p.ebay_price_usd,
+                    "image_url": p.image_url,
+                    "sku": p.sku,
+                    "condition": p.condition,
+                }
+                for p in items[:50]
+            ]
+        )
+    finally:
+        db.close()
 
 
 @app.post("/api/listing-assistant/submit/ledger")
