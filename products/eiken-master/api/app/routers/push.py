@@ -2,11 +2,16 @@ import json
 import logging
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.config import VAPID_CLAIMS_EMAIL, VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY
+from app.config import (
+    INTERNAL_TOKEN,
+    VAPID_CLAIMS_EMAIL,
+    VAPID_PRIVATE_KEY,
+    VAPID_PUBLIC_KEY,
+)
 from app.db import get_db
 from app.models.push_subscription import PushSubscription
 from app.routers.auth import current_user
@@ -138,8 +143,13 @@ async def send_test(
 
 
 @router.post("/send-reminders")
-async def send_reminders(db: Session = Depends(get_db)):
-    """Called by VPS cron every hour on the hour. No auth — internal use only."""
+async def send_reminders(
+    x_internal_token: str = Header(default="", alias="X-Internal-Token"),
+    db: Session = Depends(get_db),
+):
+    """Called by VPS cron every hour. Requires X-Internal-Token header."""
+    if INTERNAL_TOKEN and x_internal_token != INTERNAL_TOKEN:
+        raise HTTPException(status_code=403, detail="Forbidden")
     if not _webpush_available() or not VAPID_PRIVATE_KEY:
         return {"skipped": True, "reason": "not configured"}
 

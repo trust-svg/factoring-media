@@ -163,13 +163,13 @@ export default function SpeakingPage() {
         user_answer: result.transcript,
         is_correct: result.is_passing,
       }).catch(() => {})
+      endedRef.current = true
       const duration = Math.round((Date.now() - startRef.current) / 1000)
       await apiEndSession(sessionId, {
         duration_seconds: duration,
         questions_attempted: 1,
         correct_count: result.is_passing ? 1 : 0,
       }).catch(() => {})
-      endedRef.current = true
       apiPraise({ skill: 'speaking', is_passing: result.is_passing, score_pct: result.score / result.max_score, streak: 0 })
         .then((r) => setPraise(r.praise))
         .catch(() => {})

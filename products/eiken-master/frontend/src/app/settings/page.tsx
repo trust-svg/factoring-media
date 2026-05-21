@@ -265,6 +265,9 @@ export default function SettingsPage() {
                       </button>
                     ))}
                   </div>
+                  {reminderDays.length === 0 && (
+                    <p className="text-xs text-amber-500 mt-1.5">曜日が選択されていません。通知は届きません。</p>
+                  )}
                 </div>
 
                 <button

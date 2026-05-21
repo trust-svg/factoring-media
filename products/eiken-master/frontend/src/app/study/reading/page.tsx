@@ -268,8 +268,14 @@ export default function ReadingPage() {
             </div>
           )}
           <button
-            onClick={() => router.push('/home')}
+            onClick={() => router.push('/study/reading')}
             className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl font-bold text-base"
+          >
+            もう1問解く
+          </button>
+          <button
+            onClick={() => router.push('/home')}
+            className="w-full text-gray-400 text-sm underline"
           >
             ホームへ
           </button>
