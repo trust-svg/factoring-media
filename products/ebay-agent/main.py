@@ -4912,7 +4912,10 @@ async def _generate_jp_search_keyword(title: str) -> str:
 
     try:
         return await asyncio.wait_for(asyncio.to_thread(_call), timeout=10.0)
-    except Exception:
+    except asyncio.TimeoutError:
+        return ""
+    except Exception as e:
+        logger.warning(f"[search-jp] keyword生成失敗: {e}")
         return ""
 
 
