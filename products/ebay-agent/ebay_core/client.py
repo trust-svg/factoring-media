@@ -550,59 +550,84 @@ def search_ebay_discover(
 
 
 def search_ebay_sold(query: str, limit: int = 50, category_id: str = "") -> list[dict]:
-    """
-    eBay Browse API で完了リスト（Sold Items）を検索。
-    filter: buyingOptions={FIXED_PRICE}, conditionIds 等を活用。
+    """Finding API (findCompletedItems) で落札済み商品を検索。
 
-    注: Browse API は「sold」フィルタ未対応のため、
-    Finding API (findCompletedItems) を使う。
+    Browse API は sold フィルタ非対応のため、Finding API を使用。
+    EBAY_CLIENT_ID を SECURITY-APPNAME として利用。
     """
-    headers = _browse_headers()
-
-    # Browse API には sold filter がないため、
-    # アクティブ出品の「soldQuantity」フィールドで代用
-    params = {
-        "q": query,
-        "limit": min(limit, 200),
-        "fieldgroups": "EXTENDED",
+    params: dict = {
+        "OPERATION-NAME": "findCompletedItems",
+        "SERVICE-VERSION": "1.0.0",
+        "SECURITY-APPNAME": EBAY_CLIENT_ID,
+        "RESPONSE-DATA-FORMAT": "JSON",
+        "keywords": query,
+        "itemFilter(0).name": "SoldItemsOnly",
+        "itemFilter(0).value": "true",
+        "sortOrder": "EndTimeSoonest",
+        "paginationInput.entriesPerPage": min(limit, 100),
     }
     if category_id:
-        params["category_ids"] = category_id
+        params["categoryId"] = category_id
 
-    url = f"{EBAY_API_BASE}/buy/browse/v1/item_summary/search"
-    resp = requests.get(url, headers=headers, params=params, timeout=15)
+    url = "https://svcs.ebay.com/services/search/FindingService/v1"
+    try:
+        resp = requests.get(url, params=params, timeout=15)
+    except Exception as e:
+        logger.warning(f"Finding API リクエスト失敗: {e}")
+        return []
+
     if resp.status_code != 200:
-        logger.warning(f"Browse API sold search error: {resp.status_code}")
+        logger.warning(f"Finding API エラー: {resp.status_code} {resp.text[:200]}")
+        return []
+
+    try:
+        data = resp.json()
+        search_result = data.get("findCompletedItemsResponse", [{}])[0].get(
+            "searchResult", [{}]
+        )[0]
+        items = search_result.get("item", [])
+    except Exception as e:
+        logger.warning(f"Finding API レスポンスパース失敗: {e}")
         return []
 
     results = []
-    for item in resp.json().get("itemSummaries", []):
-        sold_qty = item.get("estimatedAvailabilities", [{}])
-        qty_sold = 0
-        for avail in sold_qty:
-            qty_sold += avail.get("soldQuantity", 0)
+    for item in items:
+        try:
+            selling = item.get("sellingStatus", [{}])[0]
+            price_val = float(
+                selling.get("convertedCurrentPrice", [{}])[0].get("__value__", 0)
+            )
+            listing_info = item.get("listingInfo", [{}])[0]
+            primary_cat = item.get("primaryCategory", [{}])[0]
 
-        results.append(
-            {
-                "item_id": item.get("itemId", ""),
-                "title": item.get("title", ""),
-                "price": float(item.get("price", {}).get("value", 0)),
-                "currency": item.get("price", {}).get("currency", "USD"),
-                "condition": item.get("condition", ""),
-                "image_url": item.get("image", {}).get("imageUrl", ""),
-                "item_url": item.get("itemWebUrl", ""),
-                "seller": item.get("seller", {}).get("username", ""),
-                "sold_quantity": qty_sold,
-                "category_id": (
-                    item.get("categories", [{}])[0].get("categoryId", "")
-                    if item.get("categories")
-                    else ""
-                ),
-            }
-        )
+            results.append(
+                {
+                    "item_id": item.get("itemId", [""])[0],
+                    "title": item.get("title", [""])[0],
+                    "price": price_val,
+                    "currency": "USD",
+                    "condition": item.get("condition", [{}])[0].get(
+                        "conditionDisplayName", [""]
+                    )[0]
+                    if item.get("condition")
+                    else "",
+                    "image_url": item.get("galleryURL", [""])[0],
+                    "item_url": item.get("viewItemURL", [""])[0],
+                    "seller": item.get("sellerInfo", [{}])[0].get(
+                        "sellerUserName", [""]
+                    )[0]
+                    if item.get("sellerInfo")
+                    else "",
+                    "sold_quantity": 1,  # findCompletedItems は1件=1落札
+                    "end_time": listing_info.get("endTime", [""])[0],
+                    "category_id": primary_cat.get("categoryId", [""])[0]
+                    if primary_cat
+                    else "",
+                }
+            )
+        except Exception:
+            continue
 
-    # 売れた数量順でソート
-    results.sort(key=lambda x: x["sold_quantity"], reverse=True)
     return results
 
 
