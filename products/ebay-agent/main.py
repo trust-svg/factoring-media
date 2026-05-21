@@ -5127,26 +5127,53 @@ async def listing_assistant_generate(request: Request):
 
 @app.get("/api/listing-assistant/sold-no-stock")
 async def listing_assistant_sold_no_stock(request: Request):
-    """eBayで売れた実績があり現在在庫のない商品一覧を返す（最大50件）"""
+    """eBayで売れた実績がある商品一覧（SalesRecord基準、Procurementで画像・仕入元を補完）"""
+    from database.models import SalesRecord
+    from sqlalchemy import desc as _desc
+
     db = get_db()
     try:
-        items = crud.get_all_procurements(db, status="sold")
-        return JSONResponse(
-            [
-                {
-                    "id": p.id,
-                    "title": p.title,
-                    "purchase_price_jpy": p.purchase_price_jpy,
-                    "platform": p.platform,
-                    "sold_at": p.sold_at.isoformat() if p.sold_at else None,
-                    "ebay_price_usd": p.ebay_price_usd,
-                    "image_url": p.image_url,
-                    "sku": p.sku,
-                    "condition": p.condition,
-                }
-                for p in items[:50]
-            ]
+        records = (
+            db.query(SalesRecord)
+            .filter(SalesRecord.sku != "")
+            .order_by(_desc(SalesRecord.sold_at))
+            .all()
         )
+
+        # SKU重複排除（同一SKUは最新販売のみ）
+        seen: set = set()
+        unique: list = []
+        for r in records:
+            if r.sku not in seen:
+                seen.add(r.sku)
+                unique.append(r)
+            if len(unique) >= 50:
+                break
+
+        results = []
+        for r in unique:
+            # Procurementから image_url / platform / condition を補完
+            proc = (
+                db.query(Procurement)
+                .filter(Procurement.sku == r.sku)
+                .order_by(_desc(Procurement.created_at))
+                .first()
+            )
+            results.append(
+                {
+                    "id": r.id,
+                    "sku": r.sku,
+                    "title": r.title,
+                    "purchase_price_jpy": r.source_cost_jpy,
+                    "platform": proc.platform if proc else "",
+                    "sold_at": r.sold_at.isoformat() if r.sold_at else None,
+                    "ebay_price_usd": r.sale_price_usd,
+                    "image_url": proc.image_url if proc else "",
+                    "condition": proc.condition if proc else "",
+                }
+            )
+
+        return JSONResponse(results)
     finally:
         db.close()
 
