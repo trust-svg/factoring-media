@@ -190,9 +190,8 @@ async function fetchProductUrl() {
     // Fill step 2 product card
     fillProductCard(data);
 
-    // Move to step 2 and auto-trigger demand check
+    // Step 2 へ移動（需要チェックはユーザーが英語キーワードを入力してから手動実行）
     goToStep(2);
-    checkDemand();
 
   } catch (e) {
     showNotice('step1Notice', 'error', 'ネットワークエラー: ' + e.message);
@@ -266,13 +265,19 @@ function fillProductCard(data) {
 // ── Step 2: eBay Demand check ──────────────────────────────────────────────
 
 async function checkDemand() {
-  const title = (document.getElementById('productTitle')?.value || state.product.title || '').trim();
-  if (!title) return;
+  const ebayQuery = (document.getElementById('ebaySearchQuery')?.value || '').trim();
+  if (!ebayQuery) {
+    document.getElementById('ebaySearchQuery')?.focus();
+    return;
+  }
 
   setDemandLoading(true);
 
   try {
-    const res = await apiPost('/api/listing-assistant/demand', { title });
+    const res = await apiPost('/api/listing-assistant/demand', {
+      ebay_query: ebayQuery,
+      price_jpy: state.product.price_jpy || 0,
+    });
 
     if (!res.ok) {
       const err = await safeJson(res);
@@ -297,9 +302,11 @@ function setDemandLoading(loading) {
   const loadEl    = document.getElementById('demandLoading');
   const contentEl = document.getElementById('demandContent');
   const noneEl    = document.getElementById('demandNone');
+  const btn       = document.getElementById('recheckDemandBtn');
   if (loadEl)    loadEl.style.display    = loading ? '' : 'none';
   if (contentEl) contentEl.style.display = loading ? 'none' : '';
   if (noneEl)    noneEl.style.display    = 'none';
+  if (btn)       btn.disabled            = loading;
 }
 
 function showDemandNone() {

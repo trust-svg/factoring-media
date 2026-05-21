@@ -768,12 +768,22 @@
     <div class="section">
       <div class="section-header">
         <h2>eBay需要分析</h2>
-        <button class="btn-sm btn-outline" onclick="checkDemand()" id="recheckDemandBtn" style="font-size:12px">
-          再取得
+      </div>
+
+      <!-- 英語キーワード入力 -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+        <input type="text" id="ebaySearchQuery"
+               class="la-field-input"
+               placeholder="英語キーワードを入力（例: Sony PS5 console）"
+               style="flex:1;font-size:13px"
+               onkeydown="if(event.key==='Enter')checkDemand()" />
+        <button class="btn-sm" onclick="checkDemand()" id="recheckDemandBtn"
+                style="white-space:nowrap;font-size:12px;padding:6px 14px">
+          需要チェック
         </button>
       </div>
 
-      <div id="demandLoading" class="la-loading-overlay">
+      <div id="demandLoading" class="la-loading-overlay" style="display:none">
         <div class="la-spinner la-spinner-dark"></div>
         <span>eBay需要を確認中...</span>
       </div>

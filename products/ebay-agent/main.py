@@ -4896,14 +4896,35 @@ async def listing_assistant_fetch_url(request: Request):
 @app.post("/api/listing-assistant/demand")
 async def listing_assistant_demand(request: Request):
     """eBay需要チェック"""
+    import asyncio
+
     body = await request.json()
     title = body.get("title", "").strip()
+    # JSから英語クエリが別途渡される場合はそちらを優先
+    ebay_query = body.get("ebay_query", "").strip() or title
     price_jpy = int(body.get("price_jpy", 50000))
-    if not title:
+    if not ebay_query:
         raise HTTPException(400, "title is required")
     from research.demand import analyze_demand
 
-    result = analyze_demand(query=title, max_source_price_jpy=price_jpy, limit=50)
+    # analyze_demand は同期関数のため to_thread でイベントループをブロックしない
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(
+                analyze_demand,
+                query=ebay_query,
+                max_source_price_jpy=price_jpy,
+                limit=30,
+            ),
+            timeout=25.0,
+        )
+    except asyncio.TimeoutError:
+        result = {
+            "query": ebay_query,
+            "status": "timeout",
+            "message": "eBay検索がタイムアウトしました。後でもう一度お試しください。",
+            "items_found": 0,
+        }
     return JSONResponse(result)
 
 
