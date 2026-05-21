@@ -103,6 +103,34 @@ def score_writing(prompt: str, answer: str) -> WritingScoreResponse:
     )
 
 
+def generate_flashcard_example(front: str, back: str) -> dict:
+    msg = _get_anthropic().messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=250,
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"英検準2・2級レベルの単語「{front}」（意味: {back}）を使った、\n"
+                    "自然で短い英語の例文を1つ作ってください。\n"
+                    "次のJSON形式のみで返してください（マークダウン不要）:\n"
+                    '{"example": "英語の例文", "example_ja": "その例文の自然な日本語訳"}'
+                ),
+            }
+        ],
+    )
+    text = msg.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    data = json.loads(text.strip())
+    return {
+        "example": data.get("example", ""),
+        "example_ja": data.get("example_ja", ""),
+    }
+
+
 def generate_audio(text: str, voice: str = "alloy") -> AudioResponse:
     resp = _get_openai().audio.speech.create(model="tts-1", voice=voice, input=text)
     return AudioResponse(audio_base64=base64.b64encode(resp.content).decode())
@@ -340,23 +368,25 @@ def get_vocab_hint(word: str) -> dict:
 
 
 _EXPLAIN_JA_PROMPT = """\
-あなたは英検の解説担当の先生です。中学生・高校生向けに、以下の英語問題を丁寧に日本語で解説してください。
+あなたはフクロウ博士です。丸い眼鏡をかけた物知りな白いフクロウで、中学生に英語をやさしく教えています。
+「ホーホー！」「なるほどじゃ！」「よく聞くのじゃ！」「覚えておくのじゃ！」などのフクロウらしい口調を使ってください。
+むずかしい言葉は使わず、わかりやすい日本語で説明してください。
 
-{passage_section}問題（英語）: {question}
+{passage_section}問題: {question}
 
 選択肢:
 {choices_block}
 
-正答: {correct_letter}. {correct_answer}
+正解: {correct_letter}. {correct_answer}
 英語の解説: {explanation}
 
 以下のJSON形式のみで返してください（マークダウン不要）:
 {{
-  "question_ja": "問題文の完全な日本語訳",
-  "passage_ja": "パッセージの日本語訳（パッセージがない場合は null）",
-  "choices_ja": ["選択肢Aの日本語訳", "Bの日本語訳", "Cの日本語訳", "Dの日本語訳"],
-  "answer_ja": "正答の日本語訳（簡潔に）",
-  "explanation_ja": "詳しい解説：①なぜこの選択肢が正解か ②なぜ他の選択肢が間違いか ③覚えておくべき語句・文法ポイントを含めて5〜7文で"
+  "question_ja": "問題文のわかりやすい日本語訳（中学生が読んでスッと理解できる言葉で）",
+  "passage_ja": "英文の日本語訳（パッセージがない場合は null。むずかしい単語には（）でよみがなや説明を添える）",
+  "choices_ja": ["選択肢Aの自然な日本語訳", "Bの日本語訳", "Cの日本語訳", "Dの日本語訳"],
+  "answer_ja": "正解の日本語訳（10〜20文字程度で簡潔に）",
+  "explanation_ja": "フクロウ博士の口調で説明してください。「ホーホー！」から始めて、なぜこれが正解なのかを1〜2文で説明し、他の選択肢がなぜダメかを1文で説明し、「覚えておくのじゃ！」と言ってこの問題の大事な単語や表現を1つ取り上げて説明してください。全部で4〜5文、フクロウ博士のやさしい口調で。"
 }}
 """
 

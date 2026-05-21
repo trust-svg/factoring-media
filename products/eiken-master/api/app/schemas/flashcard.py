@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Optional
 from pydantic import BaseModel, Field
 
 
@@ -17,8 +18,15 @@ class FlashcardOut(BaseModel):
     interval_days: int
     repetitions: int
     due_date: date
+    example: Optional[str] = None
+    example_ja: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class ExampleResponse(BaseModel):
+    example: str
+    example_ja: Optional[str] = None
 
 
 class ReviewRequest(BaseModel):

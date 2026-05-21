@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   apiEndSession,
   apiExplainJa,
+  apiGenerateAudio,
   apiGenerateQuestion,
   apiGetQuestions,
   apiPraise,
@@ -40,18 +41,29 @@ function playSound(type: 'correct' | 'wrong') {
   }
 }
 
-function speakText(text: string, onEnd?: () => void): void {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+// Convert "A: Hello B: Hi" → "Hello. Hi." so TTS reads naturally
+function cleanForTTS(text: string): string {
+  return text
+    .replace(/^[A-Z]:\s*/gm, '')     // strip "A: " "B: " prefixes
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+async function playTTS(text: string, onEnd?: () => void): Promise<void> {
+  try {
+    const { audio_base64 } = await apiGenerateAudio(text)
+    const binary = atob(audio_base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const blob = new Blob([bytes], { type: 'audio/mpeg' })
+    const url = URL.createObjectURL(blob)
+    const audio = new Audio(url)
+    audio.onended = () => { URL.revokeObjectURL(url); onEnd?.() }
+    audio.onerror = () => { URL.revokeObjectURL(url); onEnd?.() }
+    await audio.play()
+  } catch {
     onEnd?.()
-    return
   }
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'en-US'
-  utterance.rate = 0.85
-  utterance.pitch = 1.0
-  if (onEnd) utterance.onend = onEnd
-  window.speechSynthesis.speak(utterance)
 }
 
 export default function ListeningPage() {
@@ -68,6 +80,7 @@ export default function ListeningPage() {
   const [breakDialog, setBreakDialog] = useState(false)
   const [praise, setPraise] = useState<string | null>(null)
   const [speaking, setSpeaking] = useState(false)
+  const [audioLoading, setAudioLoading] = useState(false)
   const [jaExplain, setJaExplain] = useState<ExplainJaResponse | null>(null)
   const [jaLoading, setJaLoading] = useState(false)
   const startRef = useRef<number>(Date.now())
@@ -76,6 +89,7 @@ export default function ListeningPage() {
   const sessionIdRef = useRef<string | null>(null)
   const latestRef = useRef({ correctCount: 0, attempted: 0 })
   const wrongOnce = useRef<Set<string>>(new Set())
+  const audioCacheRef = useRef<Map<string, string>>(new Map())
 
   useEffect(() => {
     Promise.all([apiStartSession('listening'), apiGetQuestions('listening', 5)])
@@ -92,9 +106,8 @@ export default function ListeningPage() {
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
     return () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel()
-      }
+      audioCacheRef.current.forEach((url) => URL.revokeObjectURL(url))
+      audioCacheRef.current.clear()
       if (!endedRef.current && sessionIdRef.current) {
         const duration = Math.round((Date.now() - startRef.current) / 1000)
         apiEndSession(sessionIdRef.current, {
@@ -107,15 +120,43 @@ export default function ListeningPage() {
     }
   }, [])
 
-  const handleSpeak = useCallback(() => {
+  const handleSpeak = useCallback(async () => {
     const q = questions[index]
-    if (!q) return
+    if (!q || speaking || audioLoading) return
     const content = q.content as ListeningContent
     const text = q.audio_text || content.question
     if (!text) return
-    setSpeaking(true)
-    speakText(text, () => setSpeaking(false))
-  }, [questions, index])
+
+    const playUrl = (url: string) => {
+      setSpeaking(true)
+      const audio = new Audio(url)
+      audio.onended = () => setSpeaking(false)
+      audio.onerror = () => setSpeaking(false)
+      audio.play().catch(() => setSpeaking(false))
+    }
+
+    const cacheKey = q.id
+    const cached = audioCacheRef.current.get(cacheKey)
+    if (cached) {
+      playUrl(cached)
+    } else {
+      setAudioLoading(true)
+      try {
+        const { audio_base64 } = await apiGenerateAudio(cleanForTTS(text))
+        const binary = atob(audio_base64)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        const blob = new Blob([bytes], { type: 'audio/mpeg' })
+        const url = URL.createObjectURL(blob)
+        audioCacheRef.current.set(cacheKey, url)
+        playUrl(url)
+      } catch {
+        // ignore
+      } finally {
+        setAudioLoading(false)
+      }
+    }
+  }, [questions, index, speaking, audioLoading])
 
   const endSession = async (pomodoro = false) => {
     if (!sessionId || endedRef.current) return
@@ -139,9 +180,6 @@ export default function ListeningPage() {
 
   const handleSelect = async (choiceIndex: number) => {
     if (revealed || !sessionId || !questions[index]) return
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-    }
     setSpeaking(false)
     setSelected(choiceIndex)
     const content = questions[index].content as ListeningContent
@@ -191,9 +229,6 @@ export default function ListeningPage() {
   }
 
   const handleGoHome = useCallback(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-    }
     if (!endedRef.current && sessionIdRef.current) {
       endedRef.current = true
       const duration = Math.round((Date.now() - startRef.current) / 1000)
@@ -209,9 +244,6 @@ export default function ListeningPage() {
 
   const handleBreak = useCallback(() => {
     setBreakDialog(true)
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-    }
     if (!endedRef.current && sessionIdRef.current) {
       endedRef.current = true
       const duration = Math.round((Date.now() - startRef.current) / 1000)
@@ -310,7 +342,10 @@ export default function ListeningPage() {
       <div className="bg-white px-4 pt-4 pb-3 shadow-sm">
         <div className="max-w-lg mx-auto">
           <div className="flex justify-between items-center text-sm text-gray-400 mb-2">
-            <span className="font-bold text-green-600">🎧 リスニング</span>
+            <div>
+              <span className="font-bold text-green-600">🎧 リスニング</span>
+              <p className="text-[10px] text-gray-400 leading-none mt-0.5">▶ ボタンで音声を聞いて、正しい選択肢を選ぼう</p>
+            </div>
             <div className="flex items-center gap-3">
               {q.difficulty != null && (
                 <div className="flex items-center gap-1">
@@ -342,17 +377,17 @@ export default function ListeningPage() {
             </p>
             <button
               onClick={handleSpeak}
-              disabled={speaking}
+              disabled={speaking || audioLoading}
               className={`w-24 h-24 rounded-full mx-auto flex items-center justify-center text-4xl transition-all duration-200 ${
-                speaking
+                speaking || audioLoading
                   ? 'bg-green-100 cursor-default'
                   : 'bg-green-500 hover:bg-green-600 shadow-lg hover:scale-105 active:scale-95'
               }`}
             >
-              {speaking ? '🔊' : '▶'}
+              {audioLoading ? '⏳' : speaking ? '🔊' : '▶'}
             </button>
             <p className="text-sm text-gray-400 mt-4 font-bold">
-              {speaking ? '再生中...' : 'タップして音声を聴く'}
+              {audioLoading ? '音声を準備中...' : speaking ? '再生中...' : 'タップして音声を聴く'}
             </p>
             {speaking && (
               <div className="flex justify-center gap-1 mt-3">
@@ -452,7 +487,7 @@ export default function ListeningPage() {
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-xs text-green-600 font-black uppercase tracking-wider">解説（英語）</p>
                   <button
-                    onClick={() => speakText(content.explanation)}
+                    onClick={() => playTTS(content.explanation)}
                     className="text-green-400 hover:text-green-600 text-lg p-1"
                     aria-label="音声で読む"
                   >

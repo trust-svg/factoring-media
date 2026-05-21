@@ -351,7 +351,10 @@ export default function ReadingPage() {
       <div className="bg-white px-4 pt-4 pb-3 shadow-sm">
         <div className="max-w-lg mx-auto">
           <div className="flex justify-between items-center text-sm text-gray-400 mb-2">
-            <span className="font-bold text-blue-600">📖 リーディング</span>
+            <div>
+              <span className="font-bold text-blue-600">📖 リーディング</span>
+              <p className="text-[10px] text-gray-400 leading-none mt-0.5">英文を読んで、正しい選択肢を選ぼう</p>
+            </div>
             <div className="flex items-center gap-3">
               {q.difficulty != null && (
                 <div className="flex items-center gap-1">

@@ -231,7 +231,10 @@ export default function SpeakingPage() {
       )}
 
       <div className="bg-white px-4 pt-4 pb-3 shadow-sm">
-        <p className="max-w-sm mx-auto text-sm font-semibold text-gray-600">スピーキング</p>
+        <div className="max-w-sm mx-auto">
+          <p className="text-sm font-semibold text-gray-600">🎤 スピーキング</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">① トピックを読む → ② 準備（30秒）→ ③ 録音して英語で話す → ④ AIが採点！</p>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">

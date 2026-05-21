@@ -9,6 +9,7 @@ export interface User {
   daily_goal_minutes: number
   reminder_time: string
   reminder_days: number[]
+  reminder_schedule: Record<string, string> | null
 }
 
 export interface TokenResponse {
@@ -28,6 +29,8 @@ export interface Flashcard {
   interval_days: number
   repetitions: number
   due_date: string
+  example: string | null
+  example_ja: string | null
   created_at: string
 }
 
@@ -37,6 +40,7 @@ export interface UpdateUserRequest {
   daily_goal_minutes?: number
   reminder_time?: string
   reminder_days?: number[]
+  reminder_schedule?: Record<string, string> | null
 }
 
 export interface Question {

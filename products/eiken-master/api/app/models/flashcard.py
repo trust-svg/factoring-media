@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, date, timezone, timedelta
 
-from sqlalchemy import String, Integer, Float, Date, ForeignKey
+from sqlalchemy import String, Integer, Float, Date, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -27,4 +27,6 @@ class Flashcard(Base):
     interval_days: Mapped[int] = mapped_column(Integer, default=1)
     repetitions: Mapped[int] = mapped_column(Integer, default=0)
     due_date: Mapped[date] = mapped_column(Date, default=date.today)
+    example: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    example_ja: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(JST))

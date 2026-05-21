@@ -8,12 +8,14 @@ from app.deps import current_user
 from app.models.flashcard import Flashcard
 from app.models.user import User
 from app.schemas.flashcard import (
+    ExampleResponse,
     FlashcardCreate,
     FlashcardOut,
     ReviewRequest,
     MineRequest,
 )
 from app.services.sm2 import update_sm2
+from app.services import ai_service
 
 router = APIRouter()
 
@@ -62,6 +64,31 @@ def review_flashcard(
     db.commit()
     db.refresh(card)
     return card
+
+
+@router.post("/{card_id}/generate-example", response_model=ExampleResponse)
+def generate_example(
+    card_id: str,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    card = (
+        db.query(Flashcard)
+        .filter(Flashcard.id == card_id, Flashcard.user_id == user.id)
+        .first()
+    )
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    if card.example:
+        return ExampleResponse(example=card.example, example_ja=card.example_ja)
+    try:
+        result = ai_service.generate_flashcard_example(card.front, card.back)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Example generation failed")
+    card.example = result["example"]
+    card.example_ja = result.get("example_ja")
+    db.commit()
+    return ExampleResponse(example=card.example, example_ja=card.example_ja)
 
 
 @router.post("/seed-vocab")

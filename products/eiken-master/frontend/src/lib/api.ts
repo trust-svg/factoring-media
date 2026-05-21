@@ -107,6 +107,11 @@ export const apiReviewFlashcard = (cardId: string, quality: number) =>
     body: JSON.stringify({ quality }),
   })
 
+export const apiGenerateFlashcardExample = (cardId: string) =>
+  request<{ example: string; example_ja: string | null }>(`/flashcards/${cardId}/generate-example`, {
+    method: 'POST',
+  })
+
 // Questions
 export const apiGetQuestions = (skill: Skill, count = 5) =>
   request<Question[]>(`/questions?skill=${skill}&count=${count}`)

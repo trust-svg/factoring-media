@@ -2,23 +2,25 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiGetDueFlashcards, apiReviewFlashcard, apiSeedVocab } from '@/lib/api'
+import { apiGenerateAudio, apiGenerateFlashcardExample, apiGetDueFlashcards, apiReviewFlashcard, apiSeedVocab } from '@/lib/api'
 import type { Flashcard } from '@/lib/types'
 import { useAuth } from '@/providers/AuthProvider'
 
 interface QualityOption {
   q: number
+  emoji: string
   label: string
+  desc: string
   bg: string
   text: string
 }
 
 const QUALITY_OPTIONS: QualityOption[] = [
-  { q: 1, label: '全忘れ', bg: 'bg-red-500', text: 'text-white' },
-  { q: 2, label: '誤答', bg: 'bg-orange-400', text: 'text-white' },
-  { q: 3, label: 'ヒント', bg: 'bg-yellow-400', text: 'text-gray-800' },
-  { q: 4, label: '正解', bg: 'bg-green-500', text: 'text-white' },
-  { q: 5, label: '即答', bg: 'bg-emerald-600', text: 'text-white' },
+  { q: 1, emoji: '😭', label: '全然わからない', desc: '見ても思い出せなかった', bg: 'bg-red-500', text: 'text-white' },
+  { q: 2, emoji: '😔', label: 'まちがえた', desc: '意味はなんとなく…', bg: 'bg-orange-400', text: 'text-white' },
+  { q: 3, emoji: '🤔', label: 'うっすら正解', desc: 'ヒントがあれば思い出せた', bg: 'bg-yellow-400', text: 'text-gray-800' },
+  { q: 4, emoji: '😊', label: '正解！', desc: '考えたら思い出せた', bg: 'bg-green-500', text: 'text-white' },
+  { q: 5, emoji: '⚡', label: '即答！', desc: 'すぐに答えられた', bg: 'bg-emerald-600', text: 'text-white' },
 ]
 
 export default function FlashcardsPage() {
@@ -34,6 +36,11 @@ export default function FlashcardsPage() {
   const [done, setDone] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [seedDone, setSeedDone] = useState(false)
+  const [example, setExample] = useState<string | null>(null)
+  const [exampleJa, setExampleJa] = useState<string | null>(null)
+  const [exampleLoading, setExampleLoading] = useState(false)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+  const audioCache = useState<Map<string, string>>(() => new Map())[0]
 
   useEffect(() => {
     apiGetDueFlashcards()
@@ -44,6 +51,49 @@ export default function FlashcardsPage() {
       })
       .finally(() => setLoading(false))
   }, [])
+
+  const handlePlayWord = async (text: string, cacheKey: string) => {
+    if (audioPlaying) return
+    setAudioPlaying(true)
+    try {
+      let url = audioCache.get(cacheKey)
+      if (!url) {
+        const { audio_base64 } = await apiGenerateAudio(text)
+        const bin = atob(audio_base64)
+        const bytes = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+        url = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))
+        audioCache.set(cacheKey, url)
+      }
+      const audio = new Audio(url)
+      audio.onended = () => setAudioPlaying(false)
+      audio.onerror = () => setAudioPlaying(false)
+      audio.play().catch(() => setAudioPlaying(false))
+    } catch {
+      setAudioPlaying(false)
+    }
+  }
+
+  const handleReveal = async () => {
+    setRevealed(true)
+    const card = cards[index]
+    if (card.example) {
+      setExample(card.example)
+      setExampleJa(card.example_ja)
+      return
+    }
+    setExampleLoading(true)
+    try {
+      const { example: ex, example_ja: exJa } = await apiGenerateFlashcardExample(card.id)
+      setExample(ex)
+      setExampleJa(exJa ?? null)
+      setCards((prev) => prev.map((c, i) => i === index ? { ...c, example: ex, example_ja: exJa ?? null } : c))
+    } catch {
+      // ignore
+    } finally {
+      setExampleLoading(false)
+    }
+  }
 
   const handleReview = async (quality: number) => {
     if (submitting) return
@@ -57,6 +107,9 @@ export default function FlashcardsPage() {
       } else {
         setIndex((i) => i + 1)
         setRevealed(false)
+        setExample(null)
+        setExampleJa(null)
+        setAudioPlaying(false)
       }
     } catch (err) {
       console.error('Review failed:', err)
@@ -174,17 +227,50 @@ export default function FlashcardsPage() {
           <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
             <p className="text-xs text-gray-300 uppercase tracking-widest mb-3">英語</p>
             <p className="text-3xl font-bold text-gray-800">{card.front}</p>
+            <button
+              onClick={() => handlePlayWord(card.front, `word-${card.id}`)}
+              disabled={audioPlaying}
+              className="mt-4 inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-600 disabled:opacity-40 text-sm font-medium transition-colors"
+            >
+              <span className="text-lg">{audioPlaying ? '🔊' : '▶'}</span>
+              {audioPlaying ? '再生中' : '発音を聴く'}
+            </button>
           </div>
 
           {/* Back / Reveal */}
           {revealed ? (
             <>
-              <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-6 text-center">
-                <p className="text-xs text-indigo-300 uppercase tracking-widest mb-2">意味</p>
-                <p className="text-2xl font-bold text-indigo-700">{card.back}</p>
+              <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-6 text-center space-y-3">
+                <div>
+                  <p className="text-xs text-indigo-300 uppercase tracking-widest mb-2">意味</p>
+                  <p className="text-2xl font-bold text-indigo-700">{card.back}</p>
+                </div>
+                <div className="border-t border-indigo-100 pt-3">
+                  <p className="text-xs text-indigo-300 uppercase tracking-widest mb-1.5">例文</p>
+                  {exampleLoading ? (
+                    <p className="text-sm text-indigo-300 italic">生成中...</p>
+                  ) : example ? (
+                    <div className="space-y-1">
+                      <div className="flex items-start gap-2">
+                        <p className="text-sm text-indigo-700 italic leading-relaxed flex-1">{example}</p>
+                        <button
+                          onClick={() => handlePlayWord(example, `ex-${card.id}`)}
+                          disabled={audioPlaying}
+                          className="shrink-0 text-indigo-300 hover:text-indigo-500 disabled:opacity-40 text-base transition-colors"
+                          aria-label="例文を読む"
+                        >
+                          🔊
+                        </button>
+                      </div>
+                      {exampleJa && (
+                        <p className="text-xs text-indigo-400 leading-relaxed">🇯🇵 {exampleJa}</p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
-              <p className="text-center text-xs text-gray-400">
+              <p className="text-center text-xs font-semibold text-gray-500">
                 どれくらい覚えていましたか？
               </p>
 
@@ -194,22 +280,26 @@ export default function FlashcardsPage() {
                 </p>
               )}
 
-              <div className="grid grid-cols-5 gap-2">
-                {QUALITY_OPTIONS.map(({ q, label, bg, text }) => (
+              <div className="space-y-2">
+                {QUALITY_OPTIONS.map(({ q, emoji, label, desc, bg, text }) => (
                   <button
                     key={q}
                     onClick={() => handleReview(q)}
                     disabled={submitting}
-                    className={`${bg} ${text} rounded-xl py-2.5 text-xs font-bold disabled:opacity-50`}
+                    className={`${bg} ${text} rounded-xl px-4 py-3 flex items-center gap-3 w-full text-left disabled:opacity-50 active:scale-95 transition-transform`}
                   >
-                    {label}
+                    <span className="text-2xl shrink-0">{emoji}</span>
+                    <div>
+                      <p className="text-sm font-bold leading-tight">{label}</p>
+                      <p className="text-xs opacity-80 leading-tight">{desc}</p>
+                    </div>
                   </button>
                 ))}
               </div>
             </>
           ) : (
             <button
-              onClick={() => setRevealed(true)}
+              onClick={handleReveal}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl py-4 font-bold text-lg transition-colors"
             >
               答えを見る

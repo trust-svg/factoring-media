@@ -166,7 +166,8 @@ export default function WritingPage() {
 
       <div className="bg-white px-4 pt-4 pb-3 shadow-sm">
         <div className="max-w-sm mx-auto">
-          <p className="text-sm font-semibold text-gray-600">ライティング</p>
+          <p className="text-sm font-semibold text-gray-600">✏️ ライティング</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">テーマについて英語で意見を書いて「採点する」ボタンを押そう。AIがフィードバックをくれるよ！</p>
         </div>
       </div>
 
