@@ -150,17 +150,6 @@ function renderAchievement(data) {
     }
 }
 
-/* ── Payoneer card (static placeholder) ─────────────────── */
-function renderPayoneerStatic() {
-    setText('pyBalance', '$2,840');
-    setText('pySub',     '≈ ¥432,899 (152.4円)');
-    setText('pyIncome',  '+$1,240');
-    const lastDate = document.getElementById('pyLastDate');
-    if (lastDate) lastDate.textContent = '前回 4/9';
-    setText('pyLastAmt', '+$580');
-    setText('pyPending', '$340');
-    setText('pyNext',    '4/16頃');
-}
 
 /* ── KPI Comparison Table ────────────────────────────────── */
 async function loadKpiComparison() {
@@ -213,8 +202,7 @@ function renderKpiComparison(pace, ach) {
         kpiRow('利益率',  `${margin.actual.toFixed(1)}%`, margin.target > 0 ? margin.actual / margin.target * 100 : 0, 'mf-b', `${margSign}${marginDiff.toFixed(1)}pp`, margCls) +
         kpiRow('出品数',  `${listingCount}件`,            Math.min(listingCount / 200 * 100, 100), 'mf-b',   '—',                             'or') +
         kpiRow('在庫切れ',`${oosCount}件`,                Math.min(oosCount / 20 * 100, 100),    'mf-r',    '—',                             'or') +
-        kpiRow('注文数',  `${orderCount}件`,              Math.min(orderCount / 100 * 100, 100), 'mf-b',   `${ordSign}${orderDiffPct}%`,       ordCls) +
-        kpiRow('Payoneer','$2,840',                      70,                                    'mf-o',   '+$580',                             'or');
+        kpiRow('注文数',  `${orderCount}件`,              Math.min(orderCount / 100 * 100, 100), 'mf-b',   `${ordSign}${orderDiffPct}%`,       ordCls);
 }
 
 /* ── freee Cashflow (static placeholder) ─────────────────── */
@@ -655,7 +643,6 @@ async function initOverview() {
         todayEl.textContent = `本日 ${now.getMonth()+1}/${now.getDate()}`;
     }
 
-    renderPayoneerStatic();
     renderFreeeStatic();
 
     const [calData, achData] = await Promise.all([
