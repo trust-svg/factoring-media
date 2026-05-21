@@ -5154,11 +5154,12 @@ async def listing_assistant_sold_no_stock(request: Request):
 @app.post("/api/listing-assistant/search-jp")
 async def listing_assistant_search_jp(request: Request):
     """メルカリ・ヤフオク・Yahoo!フリマを並列検索する"""
-    import asyncio
-
     body = await request.json()
     title = body.get("title", "").strip()
-    purchase_price_jpy = int(body.get("purchase_price_jpy", 0))
+    try:
+        purchase_price_jpy = int(body.get("purchase_price_jpy", 0) or 0)
+    except (ValueError, TypeError):
+        purchase_price_jpy = 0
 
     if not title:
         raise HTTPException(400, "title is required")
@@ -5194,6 +5195,7 @@ async def listing_assistant_search_jp(request: Request):
 
     def _serialize(items_or_exc):
         if isinstance(items_or_exc, Exception):
+            logger.warning(f"[search-jp] スクレイパーエラー: {items_or_exc!r}")
             return []
         return [
             {
