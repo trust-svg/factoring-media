@@ -20,12 +20,16 @@ function extractKeys(sub: PushSubscription): { p256dh: string; auth: string } {
   return { p256dh, auth }
 }
 
+const DAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
+
 export default function SettingsPage() {
   const router = useRouter()
   const { user, setUser } = useAuth()
   const [grade, setGrade] = useState<'pre2' | '2'>(user?.grade ?? 'pre2')
   const [examDate, setExamDate] = useState(user?.exam_date ?? '')
   const [dailyGoal, setDailyGoal] = useState(user?.daily_goal_minutes ?? 30)
+  const [reminderTime, setReminderTime] = useState(user?.reminder_time ?? '20:00')
+  const [reminderDays, setReminderDays] = useState<number[]>(user?.reminder_days ?? [0,1,2,3,4,5,6])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -121,6 +125,8 @@ export default function SettingsPage() {
         grade,
         exam_date: examDate || null,
         daily_goal_minutes: dailyGoal,
+        reminder_time: reminderTime,
+        reminder_days: reminderDays,
       })
       setUser(updated)
       setSaved(true)
@@ -206,13 +212,9 @@ export default function SettingsPage() {
 
         {/* Push notifications */}
         {notifSupported && (
-          <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
-            <div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
               <p className="font-semibold text-gray-800 text-sm">毎日リマインダー通知</p>
-              <p className="text-xs text-gray-400 mt-0.5">毎晩20時に学習のお知らせを受け取ります</p>
-            </div>
-
-            <div className="flex items-center gap-3">
               <button
                 onClick={notifEnabled ? disableNotifications : enableNotifications}
                 disabled={notifLoading}
@@ -227,17 +229,52 @@ export default function SettingsPage() {
                   }`}
                 />
               </button>
-              <span className="text-sm text-gray-600">{notifEnabled ? 'オン' : 'オフ'}</span>
             </div>
 
             {notifEnabled && (
-              <button
-                onClick={sendTest}
-                disabled={notifLoading}
-                className="text-xs text-indigo-600 underline disabled:opacity-50"
-              >
-                テスト通知を送る
-              </button>
+              <>
+                <div>
+                  <p className="text-xs text-gray-400 mb-2">通知時刻</p>
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="border-2 border-gray-200 focus:border-indigo-400 outline-none rounded-xl px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400 mb-2">通知する曜日</p>
+                  <div className="flex gap-1.5">
+                    {DAY_LABELS.map((label, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() =>
+                          setReminderDays((prev) =>
+                            prev.includes(i) ? prev.filter((d) => d !== i) : [...prev, i].sort()
+                          )
+                        }
+                        className={`w-9 h-9 rounded-full text-xs font-bold transition-colors ${
+                          reminderDays.includes(i)
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={sendTest}
+                  disabled={notifLoading}
+                  className="text-xs text-indigo-600 underline disabled:opacity-50"
+                >
+                  テスト通知を送る
+                </button>
+              </>
             )}
 
             {notifStatus && (

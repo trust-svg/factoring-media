@@ -7,6 +7,8 @@ export interface User {
   grade: Grade
   exam_date: string | null
   daily_goal_minutes: number
+  reminder_time: string
+  reminder_days: number[]
 }
 
 export interface TokenResponse {
@@ -33,6 +35,8 @@ export interface UpdateUserRequest {
   grade?: Grade
   exam_date?: string | null
   daily_goal_minutes?: number
+  reminder_time?: string
+  reminder_days?: number[]
 }
 
 export interface Question {

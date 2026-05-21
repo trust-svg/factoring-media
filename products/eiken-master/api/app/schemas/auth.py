@@ -1,6 +1,7 @@
 # products/eiken-master/api/app/schemas/auth.py
+import json
 from datetime import date
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -29,6 +30,8 @@ class UpdateUserRequest(BaseModel):
     grade: Optional[str] = Field(None, pattern=r"^(pre2|2)$")
     exam_date: Optional[date] = None
     daily_goal_minutes: Optional[int] = Field(None, ge=5, le=120)
+    reminder_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    reminder_days: Optional[List[int]] = None
 
 
 class UserOut(BaseModel):
@@ -37,3 +40,5 @@ class UserOut(BaseModel):
     grade: str
     exam_date: Optional[date]
     daily_goal_minutes: int
+    reminder_time: str = "20:00"
+    reminder_days: List[int] = Field(default_factory=lambda: list(range(7)))

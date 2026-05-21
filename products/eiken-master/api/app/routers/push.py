@@ -139,21 +139,42 @@ async def send_test(
 
 @router.post("/send-reminders")
 async def send_reminders(db: Session = Depends(get_db)):
-    """Called by VPS cron at 20:00 JST. No auth — internal use only on private network."""
+    """Called by VPS cron every hour on the hour. No auth — internal use only."""
     if not _webpush_available() or not VAPID_PRIVATE_KEY:
         return {"skipped": True, "reason": "not configured"}
 
     now_jst = datetime.now(JST)
-    payload = {
-        "title": "英検マスター",
-        "body": f"今日の学習、まだですか？ 残り{_hours_left(now_jst)}時間で一日が終わります。",
-        "icon": "/icon-192.png",
-        "url": "/",
-    }
-    subs = db.query(PushSubscription).all()
+    current_hour = now_jst.hour
+    current_weekday = now_jst.weekday()  # 0=Mon, 6=Sun
+
+    subs_with_users = (
+        db.query(PushSubscription, User)
+        .join(User, PushSubscription.user_id == User.id)
+        .all()
+    )
+
     sent = 0
     dead: list[PushSubscription] = []
-    for sub in subs:
+    for sub, user in subs_with_users:
+        try:
+            h = int((user.reminder_time or "20:00").split(":")[0])
+        except (ValueError, AttributeError):
+            h = 20
+        if h != current_hour:
+            continue
+        try:
+            days = json.loads(user.reminder_days or "[0,1,2,3,4,5,6]")
+        except (json.JSONDecodeError, TypeError):
+            days = list(range(7))
+        if current_weekday not in days:
+            continue
+
+        payload = {
+            "title": "英検マスター",
+            "body": f"今日の学習、まだですか？ 残り{_hours_left(now_jst)}時間で一日が終わります。",
+            "icon": "/icon-192.png",
+            "url": "/",
+        }
         try:
             _send_push(sub, payload)
             sent += 1

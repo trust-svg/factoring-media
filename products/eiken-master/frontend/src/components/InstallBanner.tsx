@@ -83,6 +83,14 @@ export default function InstallBanner() {
           </button>
         </div>
       </div>
+      {isIos && (
+        <button
+          onClick={dismiss}
+          className="mt-2 w-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold py-2 rounded-xl text-center"
+        >
+          ホーム画面に追加しました ✓
+        </button>
+      )}
     </div>
   )
 }

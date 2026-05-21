@@ -1,4 +1,6 @@
 # products/eiken-master/api/app/routers/auth.py
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -46,15 +48,25 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/me", response_model=UserOut)
-def me(user: User = Depends(current_user)):
+def _user_out(user: User) -> UserOut:
+    try:
+        reminder_days = json.loads(user.reminder_days or "[0,1,2,3,4,5,6]")
+    except (json.JSONDecodeError, TypeError):
+        reminder_days = list(range(7))
     return UserOut(
         id=str(user.id),
         username=user.username,
         grade=user.grade,
         exam_date=user.exam_date,
         daily_goal_minutes=user.daily_goal_minutes,
+        reminder_time=user.reminder_time or "20:00",
+        reminder_days=reminder_days,
     )
+
+
+@router.get("/me", response_model=UserOut)
+def me(user: User = Depends(current_user)):
+    return _user_out(user)
 
 
 @router.put("/me", response_model=UserOut)
@@ -69,12 +81,10 @@ def update_me(
         user.exam_date = body.exam_date
     if body.daily_goal_minutes is not None:
         user.daily_goal_minutes = body.daily_goal_minutes
+    if body.reminder_time is not None:
+        user.reminder_time = body.reminder_time
+    if body.reminder_days is not None:
+        user.reminder_days = json.dumps(body.reminder_days)
     db.commit()
     db.refresh(user)
-    return UserOut(
-        id=str(user.id),
-        username=user.username,
-        grade=user.grade,
-        exam_date=user.exam_date,
-        daily_goal_minutes=user.daily_goal_minutes,
-    )
+    return _user_out(user)
