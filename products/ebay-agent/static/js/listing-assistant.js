@@ -968,15 +968,7 @@ window.addEventListener('load', function () {
   }
 });
 
-function escapeHtml(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+const escapeHtml = str => escHtml(str ?? '');
 
 // ── 再仕入れ候補タブ ────────────────────────────────────
 
@@ -996,6 +988,7 @@ function switchMode(mode) {
 }
 
 let _soldItemsLoaded = false;
+const _reorderItemsCache = new Map();
 
 async function loadSoldItems() {
   if (_soldItemsLoaded) return;
@@ -1003,6 +996,7 @@ async function loadSoldItems() {
   container.innerHTML = '<div class="la-reorder-empty">読み込み中...</div>';
   try {
     const resp = await fetch('/api/listing-assistant/sold-no-stock');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const items = await resp.json();
     _soldItemsLoaded = true;
     if (!items.length) {
@@ -1016,6 +1010,7 @@ async function loadSoldItems() {
 }
 
 function renderReorderItem(item) {
+  _reorderItemsCache.set(item.id, item);
   const soldDate = item.sold_at
     ? new Date(item.sold_at).toLocaleDateString('ja-JP')
     : '—';
@@ -1030,12 +1025,12 @@ function renderReorderItem(item) {
           <div class="la-reorder-title">${escapeHtml(item.title)}</div>
           <div class="la-reorder-meta">
             <span>仕入: ¥${(item.purchase_price_jpy || 0).toLocaleString()}</span>
-            <span>eBay: $${item.ebay_price_usd || '—'}</span>
+            <span>eBay: $${escapeHtml(String(item.ebay_price_usd || '—'))}</span>
             <span>販売日: ${soldDate}</span>
             ${item.platform ? `<span class="platform-badge">${escapeHtml(item.platform)}</span>` : ''}
           </div>
         </div>
-        <button class="btn btn-sm" onclick="searchJP(${item.id}, ${JSON.stringify(item.title)}, ${item.purchase_price_jpy || 0})">
+        <button class="btn btn-sm" onclick="searchJP(${Number(item.id)})">
           検索
         </button>
       </div>
@@ -1044,7 +1039,11 @@ function renderReorderItem(item) {
   `;
 }
 
-async function searchJP(itemId, title, purchasePriceJpy) {
+async function searchJP(itemId) {
+  const item = _reorderItemsCache.get(itemId);
+  if (!item) return;
+  const { title, purchase_price_jpy } = item;
+
   const btn = document.querySelector(`#reorder-${itemId} .btn`);
   const resultsEl = document.getElementById(`reorder-results-${itemId}`);
   btn.disabled = true;
@@ -1056,8 +1055,9 @@ async function searchJP(itemId, title, purchasePriceJpy) {
     const resp = await fetch('/api/listing-assistant/search-jp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, purchase_price_jpy: purchasePriceJpy }),
+      body: JSON.stringify({ title, purchase_price_jpy: purchase_price_jpy || 0 }),
     });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
 
     if (data.error) {
@@ -1069,7 +1069,7 @@ async function searchJP(itemId, title, purchasePriceJpy) {
     resultsEl.innerHTML = `
       <div class="la-reorder-keyword">
         検索キーワード: <strong>${escapeHtml(data.keyword)}</strong>
-        &nbsp;|&nbsp; 上限: ¥${data.max_price_jpy.toLocaleString()}
+        &nbsp;|&nbsp; 上限: ¥${(data.max_price_jpy ?? 0).toLocaleString()}
         &nbsp;|&nbsp; 合計 ${totalCount} 件
       </div>
       ${renderPlatformResults('メルカリ', data['メルカリ'])}
@@ -1092,16 +1092,20 @@ function renderPlatformResults(platform, items) {
         <div style="font-size:12px;color:var(--text-muted);padding:4px 0">候補なし</div>
       </div>`;
   }
-  const itemsHtml = items.map(i => `
-    <a href="${escapeHtml(i.url)}" target="_blank" rel="noopener" class="la-source-item">
-      ${i.image_url ? `<img src="${escapeHtml(i.image_url)}" class="la-source-img" onerror="this.style.display='none'">` : ''}
-      <div class="la-source-info">
-        <div class="la-source-title">${escapeHtml(i.title)}</div>
-        <div class="la-source-price">¥${i.price_jpy.toLocaleString()}</div>
-        <div class="la-source-condition">${escapeHtml(i.condition)}</div>
-      </div>
-    </a>
-  `).join('');
+  const itemsHtml = items.map(i => {
+    const safeSrc = i.image_url && /^https?:\/\//.test(i.image_url) ? escapeHtml(i.image_url) : '';
+    const safeHref = i.url && /^https?:\/\//.test(i.url) ? escapeHtml(i.url) : '#';
+    return `
+      <a href="${safeHref}" target="_blank" rel="noopener" class="la-source-item">
+        ${safeSrc ? `<img src="${safeSrc}" class="la-source-img" onerror="this.style.display='none'">` : ''}
+        <div class="la-source-info">
+          <div class="la-source-title">${escapeHtml(i.title)}</div>
+          <div class="la-source-price">¥${(i.price_jpy ?? 0).toLocaleString()}</div>
+          <div class="la-source-condition">${escapeHtml(i.condition)}</div>
+        </div>
+      </a>
+    `;
+  }).join('');
   return `
     <div class="la-platform-section">
       <div class="la-platform-name">${escapeHtml(platform)} (${items.length}件)</div>
