@@ -1,0 +1,1162 @@
+{% extends "base.html" %}
+{% block title %}出品アシスタント — eBay Agent Hub{% endblock %}
+{% block breadcrumb %}出品アシスタント{% endblock %}
+{% block page_title %}出品アシスタント{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Step Bar ─────────────────────────────────────── */
+  .la-step-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 28px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    padding: 20px 28px;
+  }
+  .la-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+  .la-step:last-child { flex: none; }
+  .la-step-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    transition: all var(--transition);
+    background: var(--gray-200);
+    color: var(--gray-400);
+  }
+  .la-step-circle.active {
+    background: var(--blue);
+    color: #fff;
+    box-shadow: var(--shadow-glow-blue);
+  }
+  .la-step-circle.done {
+    background: var(--green);
+    color: #fff;
+  }
+  .la-step-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-400);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--transition);
+  }
+  .la-step-label.active { color: var(--blue); }
+  .la-step-label.done   { color: var(--green); }
+  .la-step-connector {
+    flex: 1;
+    height: 2px;
+    background: var(--gray-200);
+    margin: 0 8px;
+    transition: background var(--transition);
+    border-radius: 1px;
+  }
+  .la-step-connector.done { background: var(--green); }
+
+  /* ── Panels ───────────────────────────────────────── */
+  .la-panel {
+    animation: la-fadein 200ms ease;
+  }
+  @keyframes la-fadein {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Two-column grid ──────────────────────────────── */
+  .la-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .la-grid { grid-template-columns: 1fr; } }
+
+  /* ── URL input area ───────────────────────────────── */
+  .la-url-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .la-url-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .la-url-input {
+    flex: 1;
+    font-size: 15px;
+    padding: 14px 18px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: #fff;
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    outline: none;
+  }
+  .la-url-input:focus {
+    border-color: var(--blue);
+    box-shadow: var(--shadow-focus);
+  }
+  .la-url-input::placeholder { color: var(--text-muted); }
+  .la-fetch-btn {
+    padding: 14px 28px;
+    font-size: 15px;
+    font-weight: 700;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .la-fetch-btn:hover { background: var(--blue-dark); transform: scale(1.02); }
+  .la-fetch-btn:disabled { background: var(--gray-300); cursor: not-allowed; transform: none; }
+
+  /* ── Platform badge ───────────────────────────────── */
+  .la-platform-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    transition: all var(--transition);
+  }
+
+  /* ── Spinner ──────────────────────────────────────── */
+  .la-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: la-spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  .la-spinner-dark {
+    border-color: rgba(0,0,0,0.15);
+    border-top-color: var(--blue);
+  }
+  @keyframes la-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Product card (Step 2 left) ───────────────────── */
+  .la-product-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .la-product-img-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .la-product-img {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: var(--radius-sm);
+    object-fit: contain;
+    box-shadow: var(--shadow-md);
+  }
+  .la-product-img-placeholder {
+    width: 200px;
+    height: 160px;
+    background: var(--gray-100);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .la-field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .la-field-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+  }
+  .la-field-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .la-field-input {
+    font-size: 14px;
+    padding: 9px 12px;
+    border-radius: var(--radius-xs);
+    border: 1.5px solid var(--border);
+    background: #fff;
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    width: 100%;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    outline: none;
+  }
+  .la-field-input:focus { border-color: var(--blue); box-shadow: var(--shadow-focus); }
+
+  /* ── Demand panel (Step 2 right) ─────────────────── */
+  .la-demand-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    font-size: 22px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .la-demand-score.green  { background: var(--success-50); color: var(--green); }
+  .la-demand-score.orange { background: var(--warning-50); color: var(--orange); }
+  .la-demand-score.red    { background: var(--error-50);   color: var(--red); }
+
+  .la-demand-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .la-demand-meta { flex: 1; }
+  .la-demand-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .la-demand-rec {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .la-similar-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .la-similar-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius-xs);
+    background: var(--gray-50);
+    font-size: 12px;
+  }
+  .la-similar-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+  .la-similar-price {
+    font-weight: 700;
+    color: var(--blue);
+    flex-shrink: 0;
+  }
+
+  /* ── Price stats ──────────────────────────────────── */
+  .la-price-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .la-price-stat {
+    flex: 1;
+    min-width: 80px;
+    background: var(--gray-50);
+    border-radius: var(--radius-xs);
+    padding: 10px 12px;
+  }
+  .la-price-stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+  }
+  .la-price-stat-value {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-primary);
+  }
+
+  /* ── Step 3: Price calculator ─────────────────────── */
+  .la-calc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .la-calc-table td {
+    padding: 7px 0;
+    color: var(--text-secondary);
+    vertical-align: middle;
+  }
+  .la-calc-table td:last-child {
+    text-align: right;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .la-calc-divider td {
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    margin-top: 4px;
+  }
+  .la-calc-total td {
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--text-primary);
+  }
+  .la-calc-price-big {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--blue);
+    line-height: 1.1;
+    margin: 12px 0 4px;
+  }
+  .la-calc-profit {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--green);
+  }
+  .la-calc-margin-bar-wrap {
+    height: 6px;
+    background: var(--gray-100);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .la-calc-margin-bar {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--green);
+    transition: width 0.4s ease;
+  }
+
+  .la-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .la-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 99px;
+    background: var(--gray-200);
+    outline: none;
+    cursor: pointer;
+  }
+  .la-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--blue);
+    box-shadow: 0 0 0 3px rgba(0,122,255,0.2);
+    cursor: pointer;
+    transition: box-shadow var(--transition-fast);
+  }
+  .la-slider::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 0 5px rgba(0,122,255,0.25);
+  }
+  .la-slider-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--blue);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  /* ── Step 4: Listing form ─────────────────────────── */
+  .la-char-counter {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+    margin-top: 3px;
+    transition: color var(--transition-fast);
+  }
+  .la-char-counter.warn { color: var(--orange); }
+  .la-char-counter.over { color: var(--red); font-weight: 700; }
+
+  .la-specifics-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+  }
+  .la-specifics-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    padding: 6px 8px;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--border);
+  }
+  .la-specifics-table td {
+    padding: 4px 6px;
+    vertical-align: middle;
+  }
+  .la-specifics-table tr:last-child td { border-bottom: none; }
+  .la-spec-input {
+    width: 100%;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: var(--radius-xs);
+    border: 1.5px solid var(--border);
+    background: #fff;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color var(--transition-fast);
+  }
+  .la-spec-input:focus { border-color: var(--blue); }
+  .la-spec-remove {
+    background: none;
+    border: none;
+    color: var(--gray-400);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 16px;
+    line-height: 1;
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+  .la-spec-remove:hover { color: var(--red); background: var(--error-50); }
+
+  /* ── Step 5: Submit ───────────────────────────────── */
+  .la-summary-card {
+    background: linear-gradient(135deg, #F0F7FF 0%, #EFF6FF 100%);
+    border: 1px solid var(--blue-light);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .la-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(0,122,255,0.1);
+  }
+  .la-summary-row:last-child { border-bottom: none; }
+  .la-summary-label { color: var(--text-secondary); }
+  .la-summary-value { font-weight: 700; color: var(--text-primary); }
+  .la-summary-value.price { font-size: 20px; color: var(--blue); }
+
+  .la-progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .la-progress-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: var(--radius-sm);
+    background: var(--gray-50);
+    border: 1px solid var(--border);
+    transition: all var(--transition);
+  }
+  .la-progress-item.success { background: var(--success-50); border-color: var(--success-100); }
+  .la-progress-item.error   { background: var(--error-50);   border-color: var(--error-100); }
+  .la-progress-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    width: 28px;
+    text-align: center;
+    line-height: 1;
+  }
+  .la-progress-label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .la-progress-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .la-progress-link {
+    font-size: 12px;
+    color: var(--blue);
+    text-decoration: none;
+    font-weight: 600;
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 99px;
+    background: var(--blue-light);
+    transition: all var(--transition-fast);
+  }
+  .la-progress-link:hover { background: var(--blue); color: #fff; }
+
+  /* ── Nav Buttons ──────────────────────────────────── */
+  .la-nav-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    gap: 12px;
+  }
+  .la-nav-row.end { justify-content: flex-end; }
+
+  .la-submit-btn {
+    padding: 16px 40px;
+    font-size: 16px;
+    font-weight: 800;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-glow-green);
+  }
+  .la-submit-btn:hover { background: var(--green-dark); transform: scale(1.02); }
+  .la-submit-btn:disabled { background: var(--gray-300); cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ── Inline error/notice ─────────────────────────── */
+  .la-notice {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 10px;
+  }
+  .la-notice.info    { background: var(--blue-light);    color: var(--blue-dark); }
+  .la-notice.success { background: var(--success-50);    color: var(--green-dark); }
+  .la-notice.warning { background: var(--warning-50);    color: var(--warning-600); }
+  .la-notice.error   { background: var(--error-50);      color: var(--error-700); }
+
+  /* ── Loading overlay ──────────────────────────────── */
+  .la-loading-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 32px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  /* ── Section subtitle ────────────────────────────── */
+  .la-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .la-ai-btn {
+    background: linear-gradient(135deg, var(--indigo) 0%, var(--purple) 100%);
+    color: #fff;
+    border: none;
+    padding: 10px 22px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-glow-purple);
+  }
+  .la-ai-btn:hover { opacity: 0.9; transform: scale(1.02); }
+  .la-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ── Step intro text ─────────────────────────────── */
+  .la-step-intro {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .form-select {
+    font-size: 14px;
+    padding: 9px 12px;
+    border-radius: var(--radius-xs);
+    border: 1.5px solid var(--border);
+    background: #fff;
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    width: 100%;
+    outline: none;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .form-select:focus { border-color: var(--blue); box-shadow: var(--shadow-focus); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page subtitle -->
+<p style="margin:-8px 0 20px;font-size:14px;color:var(--text-secondary)">
+  URLを入力して商品情報を取得し、eBay需要を確認・価格を設定して出品
+</p>
+
+<!-- ── Step Bar ─────────────────────────────────────────── -->
+<div class="la-step-bar" id="stepBar">
+
+  <div class="la-step">
+    <div class="la-step-circle active" id="sc1">1</div>
+    <span class="la-step-label active" id="sl1">URL入力</span>
+  </div>
+
+  <div class="la-step-connector" id="conn1"></div>
+
+  <div class="la-step">
+    <div class="la-step-circle" id="sc2">2</div>
+    <span class="la-step-label" id="sl2">商品確認</span>
+  </div>
+
+  <div class="la-step-connector" id="conn2"></div>
+
+  <div class="la-step">
+    <div class="la-step-circle" id="sc3">3</div>
+    <span class="la-step-label" id="sl3">価格設定</span>
+  </div>
+
+  <div class="la-step-connector" id="conn3"></div>
+
+  <div class="la-step">
+    <div class="la-step-circle" id="sc4">4</div>
+    <span class="la-step-label" id="sl4">出品情報</span>
+  </div>
+
+  <div class="la-step-connector" id="conn4"></div>
+
+  <div class="la-step">
+    <div class="la-step-circle" id="sc5">5</div>
+    <span class="la-step-label" id="sl5">確認・出品</span>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Step 1 — URL入力                                       -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="panelStep1" class="section la-panel">
+  <div class="section-header">
+    <h2>① URLから商品情報を取得</h2>
+  </div>
+
+  <p class="la-step-intro">
+    ヤフオク・メルカリ・ハードオフ等の商品URLを貼り付けると、価格・画像・タイトルを自動取得します。
+  </p>
+
+  <div class="la-url-wrap">
+    <div class="la-url-row">
+      <input
+        type="url"
+        id="productUrl"
+        class="la-url-input"
+        placeholder="https://page.auctions.yahoo.co.jp/jp/auction/... または メルカリ・ハードオフなど"
+        autocomplete="off"
+      />
+      <button class="la-fetch-btn" id="fetchBtn" onclick="fetchProductUrl()">
+        <span id="fetchBtnText">情報取得</span>
+        <span id="fetchSpinner" style="display:none"><span class="la-spinner"></span></span>
+      </button>
+    </div>
+
+    <!-- Platform detection badge -->
+    <div id="platformDetect" style="display:none">
+      <span id="platformBadge" class="la-platform-badge">—</span>
+      <span style="font-size:12px;color:var(--text-muted);margin-left:8px">を検出しました</span>
+    </div>
+
+    <div id="step1Notice"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Step 2 — 商品確認 + eBay需要                           -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="panelStep2" class="la-panel" style="display:none">
+  <div class="la-grid">
+
+    <!-- Left: 商品カード -->
+    <div class="section">
+      <div class="section-header">
+        <h2>商品情報</h2>
+        <span id="platformBadge2" class="la-platform-badge" style="font-size:11px;padding:3px 10px"></span>
+      </div>
+
+      <div class="la-product-card">
+        <div class="la-product-img-wrap" id="productImgWrap">
+          <div class="la-product-img-placeholder">画像なし</div>
+        </div>
+
+        <div class="la-field-row">
+          <span class="la-field-label">商品タイトル</span>
+          <input type="text" class="la-field-input" id="productTitle" placeholder="タイトルを入力" />
+        </div>
+
+        <div class="la-field-row">
+          <span class="la-field-label">価格</span>
+          <span class="la-field-value" id="productPrice">—</span>
+        </div>
+
+        <div class="la-field-row">
+          <span class="la-field-label">コンディション</span>
+          <span id="productCondition" class="la-field-value">—</span>
+        </div>
+
+        <div class="la-field-row">
+          <span class="la-field-label">出品者</span>
+          <span class="la-field-value" id="productSeller" style="font-size:13px;color:var(--text-secondary)">—</span>
+        </div>
+
+        <a id="productSourceLink" href="#" target="_blank" rel="noopener"
+           style="font-size:12px;color:var(--blue);text-decoration:none;font-weight:600;display:none">
+          元ページを確認 →
+        </a>
+      </div>
+    </div>
+
+    <!-- Right: eBay需要分析 -->
+    <div class="section">
+      <div class="section-header">
+        <h2>eBay需要分析</h2>
+        <button class="btn-sm btn-outline" onclick="checkDemand()" id="recheckDemandBtn" style="font-size:12px">
+          再取得
+        </button>
+      </div>
+
+      <div id="demandLoading" class="la-loading-overlay">
+        <div class="la-spinner la-spinner-dark"></div>
+        <span>eBay需要を確認中...</span>
+      </div>
+
+      <div id="demandContent" style="display:none">
+
+        <!-- Score + meta -->
+        <div class="la-demand-header">
+          <div class="la-demand-score" id="demandScore">—</div>
+          <div class="la-demand-meta">
+            <div class="la-demand-title" id="demandTitle">需要スコア</div>
+            <div class="la-demand-rec" id="demandRec">—</div>
+          </div>
+        </div>
+
+        <!-- Price stats -->
+        <div class="la-price-row">
+          <div class="la-price-stat">
+            <div class="la-price-stat-label">中央値</div>
+            <div class="la-price-stat-value" id="demandMedian">—</div>
+          </div>
+          <div class="la-price-stat">
+            <div class="la-price-stat-label">最安値</div>
+            <div class="la-price-stat-value" id="demandMin">—</div>
+          </div>
+          <div class="la-price-stat">
+            <div class="la-price-stat-label">最高値</div>
+            <div class="la-price-stat-value" id="demandMax">—</div>
+          </div>
+        </div>
+
+        <!-- Similar items -->
+        <div class="la-section-title" id="similarLabel">類似商品 TOP 3</div>
+        <ul class="la-similar-list" id="similarList">
+          <li style="font-size:12px;color:var(--text-muted);padding:8px 0">検索中...</li>
+        </ul>
+
+      </div>
+
+      <div id="demandNone" style="display:none">
+        <div class="la-notice warning">
+          ⚠️ 需要なし — 類似商品がeBayで見つかりませんでした。<br>
+          出品しても売れにくい可能性があります。
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="la-nav-row">
+    <button class="btn btn-outline" onclick="goToStep(1)">← 戻る</button>
+    <button class="btn" onclick="goToStep(3)">次へ → 価格設定</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Step 3 — 価格設定                                      -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="panelStep3" class="la-panel" style="display:none">
+  <div class="la-grid">
+
+    <!-- Left: コスト入力 -->
+    <div class="section">
+      <div class="section-header">
+        <h2>コスト入力</h2>
+      </div>
+
+      <div class="form-group">
+        <label class="la-field-label">仕入価格（税込）</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:600;color:var(--text-muted)">¥</span>
+          <input type="number" class="la-field-input" id="costPrice" readonly
+                 style="padding-left:28px;background:var(--gray-50);color:var(--text-secondary)" />
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">仕入れ台帳から自動入力</div>
+      </div>
+
+      <div class="form-group">
+        <label class="la-field-label">消費税</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:600;color:var(--text-muted)">¥</span>
+          <input type="number" class="la-field-input" id="costTax" oninput="debouncedCalc()"
+                 style="padding-left:28px" />
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">仕入価格の10%（編集可）</div>
+      </div>
+
+      <div class="form-group">
+        <label class="la-field-label">国内送料</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:600;color:var(--text-muted)">¥</span>
+          <input type="number" class="la-field-input" id="costDomShipping" value="0" oninput="debouncedCalc()"
+                 style="padding-left:28px" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="la-field-label">国際送料</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:600;color:var(--text-muted)">$</span>
+          <input type="number" class="la-field-input" id="costIntlShipping" value="20" step="0.5" oninput="debouncedCalc()"
+                 style="padding-left:24px" />
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="la-field-label">目標利益率</label>
+        <div class="la-slider-row">
+          <input type="range" class="la-slider" id="targetMarginSlider"
+                 min="10" max="40" step="5" value="25" oninput="onMarginSlide(this.value)" />
+          <span class="la-slider-val" id="targetMarginLabel">25%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: 計算結果 -->
+    <div class="section">
+      <div class="section-header">
+        <h2>計算結果</h2>
+        <span id="calcUpdating" style="font-size:11px;color:var(--text-muted);display:none">計算中...</span>
+      </div>
+
+      <table class="la-calc-table" id="calcTable">
+        <tbody>
+          <tr>
+            <td>仕入原価（円）</td>
+            <td id="cr-cost">¥—</td>
+          </tr>
+          <tr>
+            <td>消費税</td>
+            <td id="cr-tax">¥—</td>
+          </tr>
+          <tr>
+            <td>国内送料</td>
+            <td id="cr-dom-ship">¥—</td>
+          </tr>
+          <tr class="la-calc-divider">
+            <td style="font-weight:700;color:var(--text-primary)">仕入合計（円）</td>
+            <td id="cr-subtotal-jpy" style="font-weight:700;color:var(--text-primary)">¥—</td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-muted);font-size:12px">（ドル換算）</td>
+            <td id="cr-subtotal-usd" style="color:var(--text-muted);font-size:12px">$—</td>
+          </tr>
+          <tr style="height:8px"><td colspan="2"></td></tr>
+          <tr>
+            <td>国際送料</td>
+            <td id="cr-intl-ship">$—</td>
+          </tr>
+          <tr>
+            <td>eBay手数料 12.9%</td>
+            <td id="cr-ebay-fee">$—</td>
+          </tr>
+          <tr>
+            <td>Payoneer 2%</td>
+            <td id="cr-payoneer">$—</td>
+          </tr>
+          <tr class="la-calc-divider la-calc-total">
+            <td>推奨販売価格</td>
+            <td id="cr-recommend">$—</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="la-calc-price-big" id="calcPriceBig">$—</div>
+
+      <div class="la-calc-profit" id="calcProfit">純利益 $— (¥—)</div>
+
+      <div class="la-calc-margin-bar-wrap">
+        <div class="la-calc-margin-bar" id="calcMarginBar" style="width:0%"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:5px">
+        実質利益率: <strong id="calcMarginPct">—%</strong>
+      </div>
+
+      <div id="calcNotice" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <div class="la-nav-row">
+    <button class="btn btn-outline" onclick="goToStep(2)">← 戻る</button>
+    <button class="btn" onclick="goToStep(4)">次へ → 出品情報</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Step 4 — 出品情報                                      -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="panelStep4" class="la-panel" style="display:none">
+  <div class="section">
+    <div class="section-header">
+      <h2>出品情報の入力・生成</h2>
+      <button class="la-ai-btn" id="generateBtn" onclick="generateListing()">
+        <span id="generateBtnText">✦ AI生成</span>
+        <span id="generateSpinner" style="display:none"><span class="la-spinner"></span></span>
+      </button>
+    </div>
+
+    <p class="la-step-intro">
+      「AI生成」を押すと商品情報からeBay出品用のタイトル・説明・Item Specificsを自動作成します。
+      生成後は自由に編集できます。
+    </p>
+
+    <div class="la-grid" style="gap:24px">
+      <!-- Left column -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <div>
+          <label class="la-field-label" style="display:block;margin-bottom:4px">eBayタイトル（最大80文字）</label>
+          <input type="text" class="la-field-input" id="listingTitle" maxlength="80"
+                 placeholder="例: Sony WH-1000XM5 Wireless Noise Canceling Headphones Black From Japan"
+                 oninput="updateCharCounter('listingTitle','titleCounter',80)" />
+          <div class="la-char-counter" id="titleCounter">0 / 80</div>
+        </div>
+
+        <div>
+          <label class="la-field-label" style="display:block;margin-bottom:4px">カテゴリID</label>
+          <input type="text" class="la-field-input" id="listingCategoryId" placeholder="例: 112529" />
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
+            eBay カテゴリIDを入力（不明な場合はAI生成で提案）
+          </div>
+        </div>
+
+        <div>
+          <label class="la-field-label" style="display:block;margin-bottom:4px">コンディション</label>
+          <select class="form-select" id="listingCondition">
+            <option value="USED_EXCELLENT">Used – Excellent</option>
+            <option value="USED_VERY_GOOD">Used – Very Good</option>
+            <option value="USED_GOOD">Used – Good</option>
+            <option value="FOR_PARTS_OR_NOT_WORKING">For Parts or Not Working</option>
+            <option value="NEW">New</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- Right column -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <div>
+          <label class="la-field-label" style="display:block;margin-bottom:4px">出品説明</label>
+          <textarea class="la-field-input" id="listingDescription" rows="6"
+                    placeholder="商品の状態、付属品、注意事項などを記載..."
+                    style="resize:vertical;font-size:13px;line-height:1.6"></textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Item Specifics -->
+    <div style="margin-top:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span class="la-section-title" style="margin-bottom:0">Item Specifics</span>
+        <button class="btn btn-outline btn-sm" onclick="addSpecificsRow()" style="font-size:12px">
+          ＋ 追加
+        </button>
+      </div>
+
+      <table class="la-specifics-table">
+        <thead>
+          <tr>
+            <th style="width:35%">キー</th>
+            <th>値</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="specificsTableBody">
+          <!-- Rows added dynamically -->
+        </tbody>
+      </table>
+
+      <div id="generateNotice" style="margin-top:12px"></div>
+    </div>
+
+  </div>
+
+  <div class="la-nav-row">
+    <button class="btn btn-outline" onclick="goToStep(3)">← 戻る</button>
+    <button class="btn" onclick="goToStep(5)">次へ → 確認・出品</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- Step 5 — 確認・出品                                    -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="panelStep5" class="la-panel" style="display:none">
+  <div class="section">
+    <div class="section-header">
+      <h2>出品内容の確認</h2>
+    </div>
+
+    <!-- Summary card -->
+    <div class="la-summary-card">
+      <div class="la-summary-row">
+        <span class="la-summary-label">商品タイトル</span>
+        <span class="la-summary-value" id="sum-title" style="max-width:60%;text-align:right;font-size:13px">—</span>
+      </div>
+      <div class="la-summary-row">
+        <span class="la-summary-label">販売価格（eBay）</span>
+        <span class="la-summary-value price" id="sum-price">$—</span>
+      </div>
+      <div class="la-summary-row">
+        <span class="la-summary-label">仕入総額</span>
+        <span class="la-summary-value" id="sum-cost">¥—</span>
+      </div>
+      <div class="la-summary-row">
+        <span class="la-summary-label">予想純利益</span>
+        <span class="la-summary-value" id="sum-profit" style="color:var(--green)">$—</span>
+      </div>
+      <div class="la-summary-row">
+        <span class="la-summary-label">実質利益率</span>
+        <span class="la-summary-value" id="sum-margin">—%</span>
+      </div>
+      <div class="la-summary-row">
+        <span class="la-summary-label">コンディション</span>
+        <span class="la-summary-value" id="sum-condition" style="font-size:13px">—</span>
+      </div>
+    </div>
+
+    <!-- Progress items -->
+    <div class="la-progress-list" id="progressList">
+
+      <div class="la-progress-item" id="prog-ledger">
+        <div class="la-progress-icon" id="prog-ledger-icon">⏳</div>
+        <div style="flex:1">
+          <div class="la-progress-label">仕入れ台帳登録</div>
+          <div class="la-progress-sub" id="prog-ledger-sub">出品後に仕入れ台帳へ記録されます</div>
+        </div>
+        <a href="/sourcing" class="la-progress-link" id="prog-ledger-link" style="display:none">台帳を見る</a>
+      </div>
+
+      <div class="la-progress-item" id="prog-eship">
+        <div class="la-progress-icon" id="prog-eship-icon">⏳</div>
+        <div style="flex:1">
+          <div class="la-progress-label">eShip登録</div>
+          <div class="la-progress-sub" id="prog-eship-sub">eShipへ発送情報を事前登録します</div>
+        </div>
+        <a href="https://eship-tool.com/orders" target="_blank" rel="noopener"
+           class="la-progress-link" id="prog-eship-link" style="display:none">eShipを開く</a>
+      </div>
+
+      <div class="la-progress-item" id="prog-ebay">
+        <div class="la-progress-icon" id="prog-ebay-icon">⏳</div>
+        <div style="flex:1">
+          <div class="la-progress-label">eBayドラフト作成</div>
+          <div class="la-progress-sub" id="prog-ebay-sub">eBay Seller Hubにドラフト出品を作成します</div>
+        </div>
+        <a href="#" target="_blank" rel="noopener"
+           class="la-progress-link" id="prog-ebay-link" style="display:none">Seller Hubを開く</a>
+      </div>
+
+    </div>
+
+    <div id="submitNotice"></div>
+
+    <div class="la-nav-row">
+      <button class="btn btn-outline" onclick="goToStep(4)" id="backBtn4">← 戻る</button>
+      <button class="la-submit-btn" id="submitBtn" onclick="submitListing()">
+        <span id="submitBtnText">出品する</span>
+        <span id="submitSpinner" style="display:none"><span class="la-spinner"></span></span>
+      </button>
+    </div>
+
+    <!-- Post-success section -->
+    <div id="successSection" style="display:none;margin-top:24px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">🎉</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:6px">出品完了!</div>
+      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:20px">
+        台帳登録・eShip登録・eBayドラフト作成が完了しました。
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <a href="/sourcing" class="btn btn-outline" style="text-decoration:none">仕入れ台帳を確認</a>
+        <a href="https://www.ebay.com/sh/lst/active" target="_blank" rel="noopener"
+           class="btn" style="text-decoration:none">eBay Seller Hub →</a>
+        <button class="btn btn-outline" onclick="resetWizard()">次の商品を出品</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/listing-assistant.js"></script>
+{% endblock %}

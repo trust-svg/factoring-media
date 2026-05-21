@@ -43,6 +43,16 @@
                 <span class="nav-badge" id="navSourcingBadge" style="display:none;background:#F97316;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;margin-left:auto">0</span>
             </a>
         </li>
+        <li class="{{ 'active' if request.url.path == '/listing-assistant' }}">
+            <a href="/listing-assistant">
+                <span class="nav-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                    </svg>
+                </span>
+                <span data-ja="出品アシスタント" class="nav-label-full">出品アシスタント</span><span class="nav-label-short">出品</span>
+            </a>
+        </li>
         <li class="{{ 'active' if request.url.path == '/chat' }}">
             <a href="/chat">
                 <span class="nav-icon">

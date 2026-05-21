@@ -4870,6 +4870,273 @@ async def set_screenshot_dir(request: Request):
     return JSONResponse({"status": "updated", "path": new_path})
 
 
+# ── 出品アシスタント ──────────────────────────────────────
+
+
+@app.get("/listing-assistant", response_class=HTMLResponse)
+async def listing_assistant_page(request: Request):
+    return templates.TemplateResponse(
+        "pages/listing_assistant.html", {"request": request}
+    )
+
+
+@app.post("/api/listing-assistant/fetch-url")
+async def listing_assistant_fetch_url(request: Request):
+    """URLから商品情報を取得"""
+    body = await request.json()
+    url = body.get("url", "").strip()
+    if not url:
+        raise HTTPException(400, "url is required")
+    from scrapers.product_detail import fetch_product_url
+
+    result = await fetch_product_url(url)
+    return JSONResponse(result)
+
+
+@app.post("/api/listing-assistant/demand")
+async def listing_assistant_demand(request: Request):
+    """eBay需要チェック"""
+    body = await request.json()
+    title = body.get("title", "").strip()
+    price_jpy = int(body.get("price_jpy", 50000))
+    if not title:
+        raise HTTPException(400, "title is required")
+    from research.demand import analyze_demand
+
+    result = analyze_demand(query=title, max_source_price_jpy=price_jpy, limit=50)
+    return JSONResponse(result)
+
+
+@app.post("/api/listing-assistant/calculate")
+async def listing_assistant_calculate(request: Request):
+    """価格・利益計算（目標利益率から逆算）"""
+    body = await request.json()
+    price_jpy = float(body.get("price_jpy", 0))
+    tax_jpy = float(body.get("tax_jpy", 0))
+    domestic_shipping_jpy = float(body.get("domestic_shipping_jpy", 0))
+    intl_shipping_usd = float(body.get("intl_shipping_usd", 20.0))
+    target_margin_pct = float(body.get("target_margin_pct", 25.0))
+
+    from ebay_core.exchange_rate import get_usd_to_jpy
+    from config import EBAY_FEE_RATE, PAYONEER_FEE_RATE
+
+    rate = get_usd_to_jpy()
+    total_cost_jpy = price_jpy + tax_jpy + domestic_shipping_jpy
+    total_cost_usd = total_cost_jpy / rate + intl_shipping_usd
+
+    # 手数料控除率: eBay 12.9% + Payoneer 2%（eBay控除後に適用）
+    fee_deduction = EBAY_FEE_RATE + (1 - EBAY_FEE_RATE) * PAYONEER_FEE_RATE
+
+    denom = 1 - fee_deduction - target_margin_pct / 100
+    if denom <= 0:
+        raise HTTPException(400, "目標利益率が高すぎます")
+
+    recommended_price_usd = round(total_cost_usd / denom, 2)
+    ebay_fee_usd = round(recommended_price_usd * EBAY_FEE_RATE, 2)
+    payoneer_fee_usd = round(
+        (recommended_price_usd - ebay_fee_usd) * PAYONEER_FEE_RATE, 2
+    )
+    net_profit_usd = round(
+        recommended_price_usd - total_cost_usd - ebay_fee_usd - payoneer_fee_usd, 2
+    )
+    actual_margin_pct = (
+        round(net_profit_usd / recommended_price_usd * 100, 1)
+        if recommended_price_usd > 0
+        else 0
+    )
+
+    return JSONResponse(
+        {
+            "total_cost_jpy": round(total_cost_jpy),
+            "total_cost_usd": round(total_cost_usd, 2),
+            "recommended_price_usd": recommended_price_usd,
+            "ebay_fee_usd": ebay_fee_usd,
+            "payoneer_fee_usd": payoneer_fee_usd,
+            "net_profit_usd": net_profit_usd,
+            "net_profit_jpy": round(net_profit_usd * rate),
+            "actual_margin_pct": actual_margin_pct,
+            "exchange_rate": round(rate, 1),
+        }
+    )
+
+
+@app.post("/api/listing-assistant/generate")
+async def listing_assistant_generate(request: Request):
+    """AI出品情報生成"""
+    body = await request.json()
+    title = body.get("title", "").strip()
+    condition = body.get("condition", "")
+    description = body.get("description", "")
+    platform = body.get("platform", "")
+    if not title:
+        raise HTTPException(400, "title is required")
+
+    from listing.generator import generate_listing
+
+    product_name = title
+    if platform:
+        product_name = f"{title} (source: {platform})"
+
+    result = await generate_listing(
+        product_name=product_name,
+        condition=condition,
+        competitor_keywords=[],
+    )
+
+    titles = result.get("titles", [])
+    best_title = titles[0]["title"] if titles else title
+    specs = result.get("specs", {})
+    category_suggestion = result.get("category_suggestion", "")
+
+    return JSONResponse(
+        {
+            "title": best_title,
+            "description": result.get("description_html", ""),
+            "aspects": specs,
+            "category_suggestion": category_suggestion,
+            "keywords": result.get("keywords", []),
+        }
+    )
+
+
+@app.post("/api/listing-assistant/submit/ledger")
+async def listing_assistant_submit_ledger(request: Request):
+    """仕入れ台帳に登録"""
+    body = await request.json()
+    product = body.get("product", {})
+    source_url = body.get("source_url", "")
+    price_usd = float(body.get("price_usd", 0))
+    calc = body.get("calc", {})
+
+    price_jpy = int(product.get("price_jpy", 0))
+    tax_jpy = round(price_jpy * 0.10)
+    platform = product.get("platform", "")
+    title = product.get("title", "")
+    seller_id = product.get("seller_id", "")
+    image_url = product.get("image_url", "")
+    domestic_shipping_jpy = int(calc.get("domestic_shipping_jpy", 0))
+
+    db = get_db()
+    try:
+        proc = crud.add_procurement(
+            db,
+            title=title,
+            platform=platform,
+            url=source_url,
+            purchase_price_jpy=price_jpy,
+            consumption_tax_jpy=tax_jpy,
+            shipping_cost_jpy=domestic_shipping_jpy,
+            seller_id=seller_id,
+            status="purchased",
+            ebay_selling_price_usd=price_usd,
+            image_url=image_url,
+        )
+        return JSONResponse(
+            {"ok": True, "id": proc.id, "stock_number": proc.stock_number or ""}
+        )
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    finally:
+        db.close()
+
+
+@app.post("/api/listing-assistant/submit/eship")
+async def listing_assistant_submit_eship(request: Request):
+    """eShipに仕入れ品を登録"""
+    body = await request.json()
+    product = body.get("product", {})
+    source_url = body.get("source_url", "")
+    ebay_title = body.get("ebay_title", product.get("title", ""))
+    price_usd = float(body.get("price_usd", 0))
+    calc = body.get("calc", {})
+
+    price_jpy = int(product.get("price_jpy", 0))
+    tax_jpy = round(price_jpy * 0.10)
+    platform = product.get("platform", "")
+    image_url = product.get("image_url", "")
+    domestic_shipping_jpy = int(calc.get("domestic_shipping_jpy", 0))
+    stock_number = body.get("stock_number", "")
+
+    from comms.eship_client import create_eship_item
+
+    try:
+        result = await create_eship_item(
+            title=ebay_title,
+            supplier_url=source_url,
+            purchase_price=price_jpy + tax_jpy + domestic_shipping_jpy,
+            platform=platform,
+            selling_price_usd=price_usd,
+            sku=stock_number,
+            image_url=image_url,
+        )
+        if result.get("status") == "ok":
+            return JSONResponse(
+                {"ok": True, "inventory_id": result.get("inventory_id", "")}
+            )
+        raise HTTPException(500, result.get("message", "eShip登録失敗"))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/listing-assistant/submit/ebay-draft")
+async def listing_assistant_submit_ebay_draft(request: Request):
+    """eBayドラフト出品を作成"""
+    body = await request.json()
+    product = body.get("product", {})
+    ebay_title = body.get("ebay_title", product.get("title", ""))
+    description = body.get("description", "")
+    category_id = body.get("category_id", "")
+    condition = body.get("condition", "USED_VERY_GOOD")
+    item_specifics = body.get("item_specifics", {})
+    price_usd = float(body.get("price_usd", 0))
+    image_url = product.get("image_url", "")
+    stock_number = body.get("stock_number", "")
+
+    import uuid
+    from ebay_core.client import create_inventory_item, create_offer
+
+    sku = stock_number or f"LA-{uuid.uuid4().hex[:8].upper()}"
+
+    inv_result = create_inventory_item(
+        sku=sku,
+        product={
+            "title": ebay_title,
+            "description": description,
+            "aspects": item_specifics,
+            "imageUrls": [image_url] if image_url else [],
+        },
+        condition=condition,
+    )
+    if not inv_result.get("success"):
+        raise HTTPException(
+            500, inv_result.get("error", "Inventory item creation failed")
+        )
+
+    offer_result = create_offer(
+        sku=sku,
+        category_id=category_id,
+        price_usd=price_usd,
+        condition=condition,
+        fulfillment_policy_id="",
+        return_policy_id="",
+        payment_policy_id="",
+        listing_description=description,
+    )
+    if not offer_result.get("success"):
+        raise HTTPException(500, offer_result.get("error", "Offer creation failed"))
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "offer_id": offer_result.get("offer_id", ""),
+            "sku": sku,
+            "ebay_listing_url": "https://www.ebay.com/sh/lst/active",
+        }
+    )
+
+
 # ── eBayディスカバリー ──────────────────────────────────────
 
 
