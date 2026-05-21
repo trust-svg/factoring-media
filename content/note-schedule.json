@@ -342,7 +342,9 @@
     {
       "date": "2026-05-22",
       "slug": "factoring-koukai",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n4589ac5ff074",
+      "published_at": "2026-05-22"
     },
     {
       "date": "2026-05-23",
