@@ -253,7 +253,6 @@
 <!-- タブバー -->
 <div style="display:flex;gap:0;align-items:center;border-bottom:2px solid var(--border);margin-bottom:16px;">
     <button id="tabRecords" onclick="switchTab('records')" style="padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:#2563EB;border-bottom:2px solid #2563EB;margin-bottom:-2px;">仕入れ記録</button>
-    <button id="tabLedger"  onclick="switchTab('ledger')"  style="display:none;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:#64748B;border-bottom:2px solid transparent;margin-bottom:-2px;">在庫台帳</button>
     <div style="margin-left:auto;padding-bottom:2px;">
         <a href="/api/procurements/export/ledger" download style="padding:5px 12px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:white;color:#374151;text-decoration:none;cursor:pointer;">古物台帳 CSV</a>
     </div>
@@ -622,10 +621,6 @@
 
 </div><!-- /panelRecords -->
 
-<div id="panelLedger" style="display:none;">
-{% include "pages/_ledger_content.html" %}
-</div>
-
 {% endblock %}
 
 {% block scripts %}
@@ -647,16 +642,6 @@ function updateTransactionIdLabel(platform) {
         label.textContent = '取引番号（古物台帳用）';
         input.placeholder = '例: ヤフオク取引番号・メルカリ取引番号';
     }
-}
-function switchTab(tab) {
-    const isRec = tab === 'records';
-    document.getElementById('panelRecords').style.display = isRec ? '' : 'none';
-    document.getElementById('panelLedger').style.display  = isRec ? 'none' : '';
-    document.getElementById('tabRecords').style.color = isRec ? '#2563EB' : '#64748B';
-    document.getElementById('tabRecords').style.borderBottom = isRec ? '2px solid #2563EB' : '2px solid transparent';
-    document.getElementById('tabLedger').style.color  = isRec ? '#64748B' : '#2563EB';
-    document.getElementById('tabLedger').style.borderBottom  = isRec ? '2px solid transparent' : '2px solid #2563EB';
-    if (!isRec) { loadStats(); loadItems(); }
 }
 </script>
 {% endblock %}

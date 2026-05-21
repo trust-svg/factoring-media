@@ -1465,7 +1465,7 @@ input:focus-visible {
 /* ── Achievement Board (top-row) ─────────────────────────── */
 .top-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 190px;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 12px;
     margin-bottom: 14px;
 }
