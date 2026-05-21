@@ -967,3 +967,144 @@ window.addEventListener('load', function () {
     if (!isNaN(parsed)) window._fxRate = parsed;
   }
 });
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ── 再仕入れ候補タブ ────────────────────────────────────
+
+function switchMode(mode) {
+  document.querySelectorAll('.la-mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.la-mode-tab[data-mode="${mode}"]`).classList.add('active');
+  const wizardPanel = document.getElementById('la-wizard-panel');
+  const reorderPanel = document.getElementById('la-reorder-panel');
+  if (mode === 'wizard') {
+    wizardPanel.style.display = '';
+    reorderPanel.style.display = 'none';
+  } else {
+    wizardPanel.style.display = 'none';
+    reorderPanel.style.display = '';
+    loadSoldItems();
+  }
+}
+
+let _soldItemsLoaded = false;
+
+async function loadSoldItems() {
+  if (_soldItemsLoaded) return;
+  const container = document.getElementById('reorderList');
+  container.innerHTML = '<div class="la-reorder-empty">読み込み中...</div>';
+  try {
+    const resp = await fetch('/api/listing-assistant/sold-no-stock');
+    const items = await resp.json();
+    _soldItemsLoaded = true;
+    if (!items.length) {
+      container.innerHTML = '<div class="la-reorder-empty">販売済み商品がありません。<br>仕入れ台帳でステータスを「sold」に更新すると表示されます。</div>';
+      return;
+    }
+    container.innerHTML = items.map(item => renderReorderItem(item)).join('');
+  } catch (e) {
+    container.innerHTML = `<div class="la-reorder-empty">読み込みエラー: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderReorderItem(item) {
+  const soldDate = item.sold_at
+    ? new Date(item.sold_at).toLocaleDateString('ja-JP')
+    : '—';
+  const imgHtml = item.image_url
+    ? `<img src="${escapeHtml(item.image_url)}" class="la-reorder-img" onerror="this.style.display='none'">`
+    : '';
+  return `
+    <div class="la-reorder-item" id="reorder-${item.id}">
+      <div class="la-reorder-info">
+        ${imgHtml}
+        <div class="la-reorder-details">
+          <div class="la-reorder-title">${escapeHtml(item.title)}</div>
+          <div class="la-reorder-meta">
+            <span>仕入: ¥${(item.purchase_price_jpy || 0).toLocaleString()}</span>
+            <span>eBay: $${item.ebay_price_usd || '—'}</span>
+            <span>販売日: ${soldDate}</span>
+            ${item.platform ? `<span class="platform-badge">${escapeHtml(item.platform)}</span>` : ''}
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="searchJP(${item.id}, ${JSON.stringify(item.title)}, ${item.purchase_price_jpy || 0})">
+          検索
+        </button>
+      </div>
+      <div class="la-reorder-results" id="reorder-results-${item.id}" style="display:none"></div>
+    </div>
+  `;
+}
+
+async function searchJP(itemId, title, purchasePriceJpy) {
+  const btn = document.querySelector(`#reorder-${itemId} .btn`);
+  const resultsEl = document.getElementById(`reorder-results-${itemId}`);
+  btn.disabled = true;
+  btn.textContent = '検索中...';
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;padding:8px 0">3サイトを検索中… (最大45秒)</div>';
+
+  try {
+    const resp = await fetch('/api/listing-assistant/search-jp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, purchase_price_jpy: purchasePriceJpy }),
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      resultsEl.innerHTML = `<div style="color:var(--red);font-size:13px">${escapeHtml(data.error)}</div>`;
+      return;
+    }
+
+    const totalCount = (data['メルカリ']?.length || 0) + (data['ヤフオク']?.length || 0) + (data['Yahoo!フリマ']?.length || 0);
+    resultsEl.innerHTML = `
+      <div class="la-reorder-keyword">
+        検索キーワード: <strong>${escapeHtml(data.keyword)}</strong>
+        &nbsp;|&nbsp; 上限: ¥${data.max_price_jpy.toLocaleString()}
+        &nbsp;|&nbsp; 合計 ${totalCount} 件
+      </div>
+      ${renderPlatformResults('メルカリ', data['メルカリ'])}
+      ${renderPlatformResults('ヤフオク', data['ヤフオク'])}
+      ${renderPlatformResults('Yahoo!フリマ', data['Yahoo!フリマ'])}
+    `;
+  } catch (e) {
+    resultsEl.innerHTML = `<div style="color:var(--red);font-size:13px">エラー: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '再検索';
+  }
+}
+
+function renderPlatformResults(platform, items) {
+  if (!items || !items.length) {
+    return `
+      <div class="la-platform-section">
+        <div class="la-platform-name">${escapeHtml(platform)}</div>
+        <div style="font-size:12px;color:var(--text-muted);padding:4px 0">候補なし</div>
+      </div>`;
+  }
+  const itemsHtml = items.map(i => `
+    <a href="${escapeHtml(i.url)}" target="_blank" rel="noopener" class="la-source-item">
+      ${i.image_url ? `<img src="${escapeHtml(i.image_url)}" class="la-source-img" onerror="this.style.display='none'">` : ''}
+      <div class="la-source-info">
+        <div class="la-source-title">${escapeHtml(i.title)}</div>
+        <div class="la-source-price">¥${i.price_jpy.toLocaleString()}</div>
+        <div class="la-source-condition">${escapeHtml(i.condition)}</div>
+      </div>
+    </a>
+  `).join('');
+  return `
+    <div class="la-platform-section">
+      <div class="la-platform-name">${escapeHtml(platform)} (${items.length}件)</div>
+      <div class="la-platform-items">${itemsHtml}</div>
+    </div>`;
+}
