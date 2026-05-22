@@ -2072,7 +2072,6 @@ def _generate_draft_via_cli(email: dict) -> Optional[str]:
                 "text",
                 "--max-turns",
                 "3",
-                "--dangerously-skip-permissions",
             ],
             capture_output=True,
             text=True,
