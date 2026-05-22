@@ -195,8 +195,16 @@ async def _fetch_yahooauction(url: str) -> dict:
 # ── メルカリ ──────────────────────────────────────────────────────────────────
 
 
+_MERCARI_COOKIE_FILE = (
+    __import__("pathlib").Path(__file__).parent.parent
+    / ".playwright"
+    / "mercari_cookies.json"
+)
+
+
 async def _fetch_mercari(url: str) -> dict:
     """メルカリ単品スクレイパー (Playwright)。"""
+    import json
     from playwright.async_api import async_playwright
 
     platform = "メルカリ"
@@ -210,6 +218,14 @@ async def _fetch_mercari(url: str) -> dict:
                 locale="ja-JP",
                 timezone_id="Asia/Tokyo",
             )
+            # ログイン済みCookieを注入してbot検出を回避
+            if _MERCARI_COOKIE_FILE.exists():
+                try:
+                    cookies = json.loads(_MERCARI_COOKIE_FILE.read_text())
+                    await ctx.add_cookies(cookies)
+                    logger.info(f"[mercari] cookies loaded ({len(cookies)} entries)")
+                except Exception as e:
+                    logger.warning(f"[mercari] cookie load failed: {e}")
             page = await ctx.new_page()
             try:
                 # networkidle: 全ネットワークリクエスト完了まで待つ（domcontentloadedはCSR未完了）
