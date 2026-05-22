@@ -536,6 +536,15 @@ function clearCachedPlan() {
   } catch {}
 }
 
+// Notify once per day (persisted across page navigations)
+const NOTIFY_KEY = 'eiken-notify-sent'
+function wasNotifiedToday(): boolean {
+  try { return localStorage.getItem(NOTIFY_KEY) === todayKey() } catch { return false }
+}
+function markNotifiedToday() {
+  try { localStorage.setItem(NOTIFY_KEY, todayKey()) } catch {}
+}
+
 // Stamps (one per day when all tasks done)
 const STAMP_KEY = 'eiken-stamps'
 function loadStamps(): Record<string, boolean> {
@@ -607,7 +616,6 @@ export default function HomePage() {
   const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set())
   const hasRedirected = useRef(false)
   const pendingSkillRef = useRef<string | null>(null)
-  const notifySentRef = useRef(false)
 
   // On mount: capture sessionStorage skill-done signal + restore completed tasks
   useEffect(() => {
@@ -673,8 +681,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!allDone) return
     saveStampToday()
-    if (!notifySentRef.current) {
-      notifySentRef.current = true
+    if (!wasNotifiedToday()) {
+      markNotifiedToday()
       apiNotifyDailyComplete().catch(() => {})
     }
   }, [allDone])
