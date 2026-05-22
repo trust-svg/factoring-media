@@ -1137,48 +1137,40 @@ function _calcMarginFromDemand(purchasePriceJpy, demandResult) {
   return { netProfit, marginPct, medianUsd };
 }
 
-function updateCardWithResearch(itemId, demandResult, purchasePriceJpy) {
+function updateCardWithResearch(itemId, data) {
   const resultEl = document.getElementById(`research-result-${itemId}`);
   if (!resultEl) return;
-  if (!demandResult || demandResult.status === 'no_results' || demandResult.items_found === 0) {
-    resultEl.innerHTML = '<span class="la-profit-badge neg">需要なし</span>';
+  if (!data || data.status !== 'ok') {
+    const msg = data?.status === 'no_results' ? '需要なし' : '価格データなし';
+    resultEl.innerHTML = `<span class="la-profit-badge neg">${msg}</span>`;
     return;
   }
-  const calc = _calcMarginFromDemand(purchasePriceJpy, demandResult);
-  if (!calc) {
-    resultEl.innerHTML = '<span class="la-profit-badge neg">価格データなし</span>';
-    return;
-  }
-  const { netProfit, marginPct, medianUsd } = calc;
-  const cls = marginPct >= 20 ? 'high' : marginPct >= 10 ? 'mid' : marginPct >= 0 ? 'low' : 'neg';
-  const score = demandResult.demand_score || 0;
+  const { margin_pct: m, net_profit_usd: p, median_usd: med, items_found: n } = data;
+  const cls = m >= 20 ? 'high' : m >= 10 ? 'mid' : m >= 0 ? 'low' : 'neg';
   resultEl.innerHTML = `
-    <span class="la-profit-badge ${cls}">
-      利益率 ${marginPct.toFixed(1)}% ／ $${netProfit.toFixed(2)}
-    </span>
-    <span class="la-profit-detail">中央値 $${medianUsd.toFixed(2)} ・需要 ${score}</span>
+    <span class="la-profit-badge ${cls}">利益率 ${m.toFixed(1)}% ／ $${p.toFixed(2)}</span>
+    <span class="la-profit-detail">eBay中央値 $${med.toFixed(2)} ・${n}件</span>
   `;
   const cardEl = document.getElementById(`reorder-${itemId}`);
-  if (cardEl) cardEl.style.opacity = marginPct < 0 ? '0.4' : '1';
+  if (cardEl) cardEl.style.opacity = m < 0 ? '0.4' : '1';
 }
 
 async function _researchOne(item) {
   const resultEl = document.getElementById(`research-result-${item.id}`);
   if (resultEl) resultEl.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">検索中...</span>';
   try {
-    const resp = await fetch('/api/listing-assistant/demand', {
+    const resp = await fetch('/api/listing-assistant/quick-price', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: item.title,
         ebay_query: _extractKeyword(item.title),
-        price_jpy: item.purchase_price_jpy || 10000,
+        purchase_price_jpy: item.purchase_price_jpy || 0,
       }),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     _researchResults.set(item.id, data);
-    updateCardWithResearch(item.id, data, item.purchase_price_jpy || 0);
+    updateCardWithResearch(item.id, data);
   } catch {
     const el = document.getElementById(`research-result-${item.id}`);
     if (el) el.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">エラー</span>';
@@ -1194,14 +1186,9 @@ async function startBatchResearch() {
     .slice(0, 20);
   if (!allItems.length) { btn.textContent = '候補なし'; return; }
 
-  const BATCH = 4;
-  let done = 0;
-  for (let i = 0; i < allItems.length; i += BATCH) {
-    btn.textContent = `リサーチ中 ${done}/${allItems.length}`;
-    const batch = allItems.slice(i, i + BATCH);
-    await Promise.all(batch.map(item => _researchOne(item)));
-    done += batch.length;
-    btn.textContent = `リサーチ中 ${done}/${allItems.length}`;
+  for (let i = 0; i < allItems.length; i++) {
+    btn.textContent = `リサーチ中 ${i + 1}/${allItems.length}`;
+    await _researchOne(allItems[i]);
   }
 
   btn.textContent = '再リサーチ';

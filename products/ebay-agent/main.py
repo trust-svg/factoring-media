@@ -5036,6 +5036,59 @@ async def listing_assistant_demand(request: Request):
     return JSONResponse(result)
 
 
+@app.post("/api/listing-assistant/quick-price")
+async def listing_assistant_quick_price(request: Request):
+    """軽量需要チェック: Finding API 1コールのみ。バッチリサーチ用。
+
+    売れた商品8件を取得 → 中央値 + 利益率を計算して返す。
+    """
+    body = await request.json()
+    query = (body.get("ebay_query") or body.get("title") or "").strip()
+    purchase_price_jpy = int(body.get("purchase_price_jpy") or 0)
+    if not query:
+        return JSONResponse({"status": "no_results"})
+
+    from ebay_core.client import search_ebay_sold
+    from ebay_core.exchange_rate import get_usd_to_jpy
+    from config import EBAY_FEE_RATE, PAYONEER_FEE_RATE
+
+    try:
+        sold_items = await asyncio.wait_for(
+            asyncio.to_thread(search_ebay_sold, query, 8),
+            timeout=15.0,
+        )
+    except asyncio.TimeoutError:
+        return JSONResponse({"status": "timeout", "items_found": 0})
+
+    if not sold_items:
+        return JSONResponse({"status": "no_results", "items_found": 0})
+
+    prices = sorted(
+        float(i.get("price", 0)) for i in sold_items if i.get("price", 0) > 0
+    )
+    if not prices:
+        return JSONResponse({"status": "no_price_data", "items_found": len(sold_items)})
+
+    median_usd = prices[len(prices) // 2]
+    rate = get_usd_to_jpy()
+    source_usd = purchase_price_jpy / rate
+    ebay_fee = median_usd * EBAY_FEE_RATE
+    payoneer_fee = (median_usd - ebay_fee) * PAYONEER_FEE_RATE
+    net_profit = median_usd - ebay_fee - payoneer_fee - source_usd - 20.0
+    margin_pct = (net_profit / median_usd * 100) if median_usd > 0 else 0
+
+    return JSONResponse(
+        {
+            "status": "ok",
+            "median_usd": round(median_usd, 2),
+            "net_profit_usd": round(net_profit, 2),
+            "margin_pct": round(margin_pct, 1),
+            "items_found": len(sold_items),
+            "exchange_rate": rate,
+        }
+    )
+
+
 @app.post("/api/listing-assistant/calculate")
 async def listing_assistant_calculate(request: Request):
     """価格・利益計算（目標利益率から逆算）"""
