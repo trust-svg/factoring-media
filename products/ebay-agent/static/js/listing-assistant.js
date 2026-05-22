@@ -1061,8 +1061,6 @@ function renderReorderItem(item) {
   const platformBadge = item.platform
     ? `<span class="platform-badge">${escHtml(item.platform ?? '')}</span>`
     : '';
-  const kw = _extractKeyword(item.title || '');
-  const enc = encodeURIComponent(kw);
   const id = Number(item.id);
   return `
     <div class="la-reorder-item" id="reorder-${id}">
@@ -1076,11 +1074,8 @@ function renderReorderItem(item) {
             ${soldBadge}${platformBadge}
           </div>
           <div class="la-research-result" id="research-result-${id}"></div>
-          <div class="la-search-links" style="margin-top:6px">
-            <a href="https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50" target="_blank" rel="noopener" class="la-search-link">ヤフオク</a>
-            <a href="https://jp.mercari.com/search?keyword=${enc}&status=on_sale" target="_blank" rel="noopener" class="la-search-link">メルカリ</a>
-            <a href="https://paypayfleamarket.yahoo.co.jp/search/${enc}" target="_blank" rel="noopener" class="la-search-link">Yahoo!フリマ</a>
-          </div>
+          <button class="la-source-btn" id="source-btn-${id}" onclick="_searchSourcingCandidates(${id})">仕入れ候補を検索</button>
+          <div id="sourcing-result-${id}"></div>
         </div>
       </div>
       <div class="la-reorder-reflect">
@@ -1233,6 +1228,55 @@ function _reorderByResearch() {
   items.forEach(item => container.appendChild(item));
 
   container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function _searchSourcingCandidates(itemId) {
+  const item = _reorderItemsCache.get(itemId);
+  if (!item) return;
+  const btn = document.getElementById(`source-btn-${itemId}`);
+  const resultEl = document.getElementById(`sourcing-result-${itemId}`);
+  if (!resultEl) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = '検索中...'; }
+  resultEl.innerHTML = '';
+
+  try {
+    const resp = await fetch('/api/listing-assistant/search-jp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: item.title || '',
+        purchase_price_jpy: item.purchase_price_jpy || 0,
+      }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const platforms = ['ヤフオク', 'メルカリ', 'Yahoo!フリマ'];
+    let rows = '';
+    for (const p of platforms) {
+      const candidates = (data[p] || []).slice(0, 3);
+      for (const c of candidates) {
+        const price = (c.price_jpy || 0).toLocaleString();
+        rows += `
+          <a href="${escHtml(c.url || '#')}" target="_blank" rel="noopener" class="la-cand-row">
+            <span class="la-cand-platform">${escHtml(p)}</span>
+            <span class="la-cand-title">${escHtml((c.title || '').slice(0, 55))}</span>
+            <span class="la-cand-price">¥${price}</span>
+          </a>`;
+      }
+    }
+
+    if (!rows) {
+      resultEl.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">候補が見つかりませんでした</span>';
+    } else {
+      resultEl.innerHTML = `<div class="la-cand-list">${rows}</div>`;
+    }
+    if (btn) btn.textContent = '再検索';
+  } catch (e) {
+    resultEl.innerHTML = `<span style="font-size:12px;color:var(--red,#dc2626)">エラー: ${escHtml(e.message ?? '')}</span>`;
+    if (btn) { btn.disabled = false; btn.textContent = '仕入れ候補を検索'; }
+  }
 }
 
 async function reflectToEship(itemId) {
