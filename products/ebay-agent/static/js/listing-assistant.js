@@ -1021,39 +1021,6 @@ async function loadSoldItems(force = false) {
   }
 }
 
-function renderReorderItem(item) {
-  _reorderItemsCache.set(item.id, item);
-  const imgHtml = item.image_url
-    ? `<img src="${escHtml(item.image_url ?? '')}" class="la-reorder-img" onerror="this.style.display='none'">`
-    : '';
-  const soldBadge = item.sold_count > 0
-    ? `<span class="category-badge sold-badge">Sold ${item.sold_count}</span>`
-    : '';
-  const platformBadge = item.platform
-    ? `<span class="platform-badge">${escHtml(item.platform ?? '')}</span>`
-    : '';
-  return `
-    <div class="la-reorder-item" id="reorder-${item.id}">
-      <div class="la-reorder-info">
-        ${imgHtml}
-        <div class="la-reorder-details">
-          <div class="la-reorder-title">${escHtml(item.title ?? '')}</div>
-          <div class="la-reorder-meta">
-            <span>仕入: ¥${(item.purchase_price_jpy || 0).toLocaleString()}</span>
-            <span>eBay: $${escHtml(String(item.ebay_price_usd || '—') ?? '')}</span>
-            ${soldBadge}
-            ${platformBadge}
-          </div>
-        </div>
-        <button class="btn btn-sm" onclick="toggleSearchLinks(${Number(item.id)})">
-          検索
-        </button>
-      </div>
-      <div class="la-reorder-results" id="reorder-results-${item.id}" style="display:none"></div>
-    </div>
-  `;
-}
-
 function _extractKeyword(title) {
   const tokens = title.split(/[\s/,()[\]]+/);
   const candidates = tokens
@@ -1065,34 +1032,44 @@ function _extractKeyword(title) {
   return pool.reduce((a, b) => a.length >= b.length ? a : b);
 }
 
-function toggleSearchLinks(itemId) {
-  const item = _reorderItemsCache.get(itemId);
-  if (!item) return;
-  const resultsEl = document.getElementById(`reorder-results-${itemId}`);
-  if (resultsEl.style.display !== 'none') {
-    resultsEl.style.display = 'none';
-    return;
-  }
+function renderReorderItem(item) {
+  _reorderItemsCache.set(item.id, item);
+  const imgHtml = item.image_url
+    ? `<img src="${escHtml(item.image_url ?? '')}" class="la-reorder-img" onerror="this.style.display='none'">`
+    : '';
+  const soldBadge = item.sold_count > 0
+    ? `<span class="category-badge sold-badge">Sold ${item.sold_count}</span>`
+    : '';
+  const platformBadge = item.platform
+    ? `<span class="platform-badge">${escHtml(item.platform ?? '')}</span>`
+    : '';
   const kw = _extractKeyword(item.title || '');
   const enc = encodeURIComponent(kw);
-  resultsEl.style.display = 'block';
-  resultsEl.innerHTML = `
-    <div class="la-reorder-keyword">
-      キーワード: <strong>${escHtml(kw ?? '')}</strong>
-    </div>
-    <div class="la-search-links">
-      <a href="https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50" target="_blank" rel="noopener" class="la-search-link">ヤフオク</a>
-      <a href="https://jp.mercari.com/search?keyword=${enc}&status=on_sale" target="_blank" rel="noopener" class="la-search-link">メルカリ</a>
-      <a href="https://paypayfleamarket.yahoo.co.jp/search/${enc}" target="_blank" rel="noopener" class="la-search-link">Yahoo!フリマ</a>
-    </div>
-    <div class="la-eship-reflect" id="eship-reflect-${itemId}">
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">仕入れ元URLをeShipに反映</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="url" id="eship-url-${itemId}" placeholder="仕入れ元URL を貼り付け"
-          class="form-control" style="flex:1;min-width:200px;font-size:13px"
-          oninput="_onEshipUrlInput(${itemId}, this.value)">
-        <select id="eship-platform-${itemId}" class="form-control" style="width:130px;font-size:13px">
-          <option value="">プラットフォーム</option>
+  const id = Number(item.id);
+  return `
+    <div class="la-reorder-item" id="reorder-${id}">
+      <div class="la-reorder-info">
+        ${imgHtml}
+        <div class="la-reorder-details">
+          <div class="la-reorder-title">${escHtml(item.title ?? '')}</div>
+          <div class="la-reorder-meta">
+            <span>仕入: ¥${(item.purchase_price_jpy || 0).toLocaleString()}</span>
+            <span>eBay: $${escHtml(String(item.ebay_price_usd || '—') ?? '')}</span>
+            ${soldBadge}${platformBadge}
+          </div>
+          <div class="la-search-links" style="margin-top:6px">
+            <a href="https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50" target="_blank" rel="noopener" class="la-search-link">ヤフオク</a>
+            <a href="https://jp.mercari.com/search?keyword=${enc}&status=on_sale" target="_blank" rel="noopener" class="la-search-link">メルカリ</a>
+            <a href="https://paypayfleamarket.yahoo.co.jp/search/${enc}" target="_blank" rel="noopener" class="la-search-link">Yahoo!フリマ</a>
+          </div>
+        </div>
+      </div>
+      <div class="la-reorder-reflect">
+        <input type="url" id="eship-url-${id}" placeholder="仕入れ元URLを貼り付け"
+          class="form-control" style="font-size:13px"
+          oninput="_onEshipUrlInput(${id}, this.value)">
+        <select id="eship-platform-${id}" class="form-control" style="width:120px;font-size:13px;flex-shrink:0">
+          <option value="">自動判定</option>
           <option value="ヤフオク">ヤフオク</option>
           <option value="メルカリ">メルカリ</option>
           <option value="Yahoo!フリマ">Yahoo!フリマ</option>
@@ -1100,12 +1077,12 @@ function toggleSearchLinks(itemId) {
           <option value="ハードオフ">ハードオフ</option>
           <option value="駿河屋">駿河屋</option>
         </select>
-        <button class="btn btn-primary btn-sm" id="eship-submit-${itemId}"
-          onclick="reflectToEship(${itemId})" disabled>
+        <button class="btn btn-primary btn-sm" id="eship-submit-${id}"
+          onclick="reflectToEship(${id})" disabled style="white-space:nowrap;flex-shrink:0">
           eShipに反映
         </button>
+        <div id="eship-result-${id}" style="font-size:12px;min-width:80px"></div>
       </div>
-      <div id="eship-result-${itemId}" style="margin-top:6px;font-size:13px"></div>
     </div>
   `;
 }
