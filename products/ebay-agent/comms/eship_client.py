@@ -195,6 +195,21 @@ async def create_eship_item(
             await browser.close()
 
 
+def _extract_search_keyword(title: str) -> str:
+    """タイトルから検索用キーワードを抽出。モデル番号優先、なければ先頭2語。"""
+    tokens = re.split(r"[\s/,()[\]]+", title)
+    candidates = [
+        t.strip("-.")
+        for t in tokens
+        if len(t) >= 3 and re.search(r"[A-Za-z]", t) and re.search(r"\d", t)
+    ]
+    if candidates:
+        letter_first = [c for c in candidates if c[0].isalpha()]
+        pool = letter_first if letter_first else candidates
+        return max(pool, key=len)
+    return " ".join(title.split()[:2])
+
+
 def _detect_platform_from_url(url: str) -> str:
     if "auctions.yahoo.co.jp" in url:
         return "ヤフオク"
@@ -254,9 +269,8 @@ async def update_eship_source(
             )
             await asyncio.sleep(random.uniform(0.8, 1.5))
 
-            # タイトルキーワードで検索してページを絞る
-            search_words = [w for w in item_title.split() if len(w) > 2][:4]
-            query = " ".join(search_words)
+            # モデル番号キーワードで検索（4語AND検索より確実）
+            query = _extract_search_keyword(item_title)
             search_input = await page.query_selector(
                 'input[name="q[ebay_item_id_or_supplier_url_or_name_or_sku_or_memo_cont]"]'
             )
@@ -270,14 +284,28 @@ async def update_eship_source(
                     await page.wait_for_load_state("networkidle", timeout=15000)
                     await asyncio.sleep(random.uniform(0.8, 1.5))
 
-            # eship_id で対象行を特定
-            id_inputs = await page.query_selector_all('input[name="inventories[][id]"]')
+            # eship_id で対象行を特定（複数ページを最大3ページまで探索）
             target_idx = None
-            for i, hid in enumerate(id_inputs):
-                val = await hid.get_attribute("value")
-                if val and int(val) == eship_id:
-                    target_idx = i
+            for page_num in range(1, 4):
+                id_inputs = await page.query_selector_all(
+                    'input[name="inventories[][id]"]'
+                )
+                for i, hid in enumerate(id_inputs):
+                    val = await hid.get_attribute("value")
+                    if val and int(val) == eship_id:
+                        target_idx = i
+                        break
+                if target_idx is not None:
                     break
+                # 次ページへ
+                next_btn = await page.query_selector(
+                    'a[rel="next"], .next a, a:has-text("次へ")'
+                )
+                if not next_btn:
+                    break
+                await next_btn.click()
+                await page.wait_for_load_state("networkidle", timeout=15000)
+                await asyncio.sleep(random.uniform(0.8, 1.5))
 
             if target_idx is None:
                 return {
