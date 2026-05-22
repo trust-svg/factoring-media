@@ -1018,6 +1018,7 @@ async function loadSoldItems(force = false) {
     const byMargin = (a, b) => _estimateMarginFast(b) - _estimateMarginFast(a);
     const soldOut = items.filter(i => i.category === 'sold_out').sort(byMargin);
     const unlisted = items.filter(i => i.category === 'unlisted').sort(byMargin);
+    console.log('[loadSoldItems] total:', items.length, 'sold_out:', soldOut.length, 'unlisted:', unlisted.length);
     let html = '';
     if (soldOut.length) {
       html += `<div class="la-reorder-section-header">売れて在庫切れ（${soldOut.length}件）</div>`;
@@ -1181,9 +1182,21 @@ async function startBatchResearch() {
   const btn = document.getElementById('batch-research-btn');
   if (!btn) return;
   btn.disabled = true;
+
   const allItems = Array.from(_reorderItemsCache.values())
     .sort((a, b) => _estimateMarginFast(b) - _estimateMarginFast(a))
     .slice(0, 20);
+
+  // Debug: log cache/DOM state to console (open DevTools → Console to see)
+  console.log('[research] cache:', _reorderItemsCache.size, 'batch:', allItems.length);
+  let domMissing = 0;
+  allItems.forEach((item, i) => {
+    const el = document.getElementById(`research-result-${item.id}`);
+    if (!el) domMissing++;
+    console.log(`[research] #${i + 1} id=${item.id} price_usd=${item.ebay_price_usd} dom=${el ? 'ok' : 'MISSING'}`);
+  });
+  console.log('[research] DOM missing:', domMissing, '/', allItems.length);
+
   if (!allItems.length) { btn.textContent = '候補なし'; return; }
 
   for (let i = 0; i < allItems.length; i++) {
