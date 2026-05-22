@@ -21,15 +21,28 @@ function extractKeys(sub: PushSubscription): { p256dh: string; auth: string } {
 }
 
 const DAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
+const DEFAULT_TIME = '20:00'
+
+function initSchedule(user: { reminder_schedule: Record<string, string> | null; reminder_days: number[]; reminder_time: string } | null): Record<string, string> {
+  if (user?.reminder_schedule && Object.keys(user.reminder_schedule).length > 0) {
+    return user.reminder_schedule
+  }
+  // migrate from old reminder_days + reminder_time
+  const sched: Record<string, string> = {}
+  const days = user?.reminder_days ?? [0, 1, 2, 3, 4, 5, 6]
+  const time = user?.reminder_time ?? DEFAULT_TIME
+  days.forEach((d) => { sched[String(d)] = time })
+  return sched
+}
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { user, setUser } = useAuth()
+  const { user, setUser, logout } = useAuth()
   const [grade, setGrade] = useState<'pre2' | '2'>(user?.grade ?? 'pre2')
   const [examDate, setExamDate] = useState(user?.exam_date ?? '')
   const [dailyGoal, setDailyGoal] = useState(user?.daily_goal_minutes ?? 30)
-  const [reminderTime, setReminderTime] = useState(user?.reminder_time ?? '20:00')
-  const [reminderDays, setReminderDays] = useState<number[]>(user?.reminder_days ?? [0,1,2,3,4,5,6])
+  // reminder_schedule: key=weekday index string, value=HH:MM time
+  const [schedule, setSchedule] = useState<Record<string, string>>(() => initSchedule(user))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -125,8 +138,7 @@ export default function SettingsPage() {
         grade,
         exam_date: examDate || null,
         daily_goal_minutes: dailyGoal,
-        reminder_time: reminderTime,
-        reminder_days: reminderDays,
+        reminder_schedule: schedule,
       })
       setUser(updated)
       setSaved(true)
@@ -234,39 +246,51 @@ export default function SettingsPage() {
             {notifEnabled && (
               <>
                 <div>
-                  <p className="text-xs text-gray-400 mb-2">通知時刻</p>
-                  <input
-                    type="time"
-                    value={reminderTime}
-                    onChange={(e) => setReminderTime(e.target.value)}
-                    className="border-2 border-gray-200 focus:border-indigo-400 outline-none rounded-xl px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-400 mb-2">通知する曜日</p>
-                  <div className="flex gap-1.5">
-                    {DAY_LABELS.map((label, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() =>
-                          setReminderDays((prev) =>
-                            prev.includes(i) ? prev.filter((d) => d !== i) : [...prev, i].sort()
-                          )
-                        }
-                        className={`w-9 h-9 rounded-full text-xs font-bold transition-colors ${
-                          reminderDays.includes(i)
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                  <p className="text-xs text-gray-400 mb-3">曜日ごとの通知時刻</p>
+                  <div className="space-y-2">
+                    {DAY_LABELS.map((label, i) => {
+                      const key = String(i)
+                      const enabled = key in schedule
+                      const time = schedule[key] ?? DEFAULT_TIME
+                      return (
+                        <div key={i} className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSchedule((prev) => {
+                                const next = { ...prev }
+                                if (enabled) {
+                                  delete next[key]
+                                } else {
+                                  next[key] = DEFAULT_TIME
+                                }
+                                return next
+                              })
+                            }
+                            className={`w-9 h-9 rounded-full text-xs font-bold shrink-0 transition-colors ${
+                              enabled ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                          {enabled ? (
+                            <input
+                              type="time"
+                              value={time}
+                              onChange={(e) =>
+                                setSchedule((prev) => ({ ...prev, [key]: e.target.value }))
+                              }
+                              className="border-2 border-gray-200 focus:border-indigo-400 outline-none rounded-xl px-3 py-1.5 text-sm"
+                            />
+                          ) : (
+                            <span className="text-xs text-gray-300">通知しない</span>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                  {reminderDays.length === 0 && (
-                    <p className="text-xs text-amber-500 mt-1.5">曜日が選択されていません。通知は届きません。</p>
+                  {Object.keys(schedule).length === 0 && (
+                    <p className="text-xs text-amber-500 mt-2">曜日が選択されていません。通知は届きません。</p>
                   )}
                 </div>
 
@@ -285,6 +309,13 @@ export default function SettingsPage() {
             )}
           </div>
         )}
+
+        <button
+          onClick={logout}
+          className="w-full border-2 border-red-200 text-red-500 py-3.5 rounded-xl font-bold active:bg-red-50"
+        >
+          ログアウト
+        </button>
       </div>
     </main>
   )

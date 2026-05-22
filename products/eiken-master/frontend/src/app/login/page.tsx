@@ -18,6 +18,8 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const { access_token } = await apiLogin(username.trim(), pin)
+      // Clear any previous user's local state before saving new token
+      ;['eiken-notify-sent'].forEach((k) => localStorage.removeItem(k))
       saveToken(access_token)
       window.location.href = '/home'
     } catch (err) {
