@@ -174,8 +174,12 @@ async def contact(form: ContactForm):
 
 
 @app.get("/", response_class=HTMLResponse)
-async def landing(request: Request):
-    return templates.TemplateResponse("landing.html", {"request": request})
+async def landing():
+    from pathlib import Path
+
+    return HTMLResponse(
+        content=Path("templates/landing.html").read_text(encoding="utf-8")
+    )
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
