@@ -82,11 +82,17 @@ def notify_complete(
     user: User = Depends(current_user),
     db: DbSession = Depends(get_db),
 ):
-    """Called by frontend when all daily tasks are done. Sends one Telegram notification."""
+    """Called by frontend when all daily tasks are done. Sends one Telegram daily summary."""
     from datetime import date, datetime, timedelta, timezone
 
     JST = timezone(timedelta(hours=9))
-    today = datetime.now(JST).date()
+    now_jst = datetime.now(JST)
+    today = now_jst.date()
+    today_start = now_jst.replace(
+        hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+    )
+
+    # Streak
     session_dates: set[date] = set()
     for (s,) in (
         db.query(StudySession.started_at).filter(StudySession.user_id == user.id).all()
@@ -99,10 +105,33 @@ def notify_complete(
         streak += 1
         check -= timedelta(days=1)
 
+    # Today's sessions
+    today_sessions = (
+        db.query(StudySession)
+        .filter(
+            StudySession.user_id == user.id,
+            StudySession.started_at >= today_start,
+            StudySession.questions_attempted.isnot(None),
+            StudySession.questions_attempted > 0,
+        )
+        .order_by(StudySession.started_at)
+        .all()
+    )
+    sessions_data = [
+        {
+            "skill": s.skill,
+            "duration": s.duration_seconds or 0,
+            "attempted": s.questions_attempted or 0,
+            "correct": round((s.accuracy_rate or 0) * (s.questions_attempted or 0)),
+        }
+        for s in today_sessions
+    ]
+
     background_tasks.add_task(
-        telegram.send_daily_complete,
+        telegram.send_daily_summary,
         username=user.username,
         streak=streak,
+        sessions=sessions_data,
     )
     return {"ok": True}
 

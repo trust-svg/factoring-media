@@ -62,17 +62,41 @@ def send_session_summary(
         pass
 
 
-def send_daily_complete(username: str, streak: int) -> None:
+def send_daily_summary(
+    username: str,
+    streak: int,
+    sessions: list[dict],
+) -> None:
     if not _TOKEN or not _CHAT_ID:
         return
 
-    text = (
-        f"🎉 <b>今日の学習、全完了！</b>\n"
-        f"━━━━━━━━━━━━\n"
-        f"👤 {username}\n"
-        f"🔥 {streak}日連続達成\n"
-        f"ホーホー！フクロウ博士もとっても誇りに思ってるよ！"
-    )
+    skill_ja = {
+        "reading": "リーディング",
+        "listening": "リスニング",
+        "writing": "ライティング",
+        "speaking": "スピーキング",
+    }
+
+    lines = [
+        f"📋 <b>今日の学習まとめ</b>\n━━━━━━━━━━━━\n👤 {username}  🔥 {streak}日連続\n"
+    ]
+    for s in sessions:
+        emoji = SKILL_EMOJI.get(s["skill"], "📚")
+        skill = skill_ja.get(s["skill"], s["skill"])
+        minutes = s["duration"] // 60
+        seconds = s["duration"] % 60
+        duration_str = f"{minutes}分{seconds}秒" if minutes > 0 else f"{seconds}秒"
+        accuracy = (
+            f"{round(s['correct'] / s['attempted'] * 100)}%"
+            if s["attempted"] > 0
+            else "—"
+        )
+        lines.append(
+            f"{emoji} {skill}\n"
+            f"⏱ {duration_str}  📝 {s['attempted']}問 / 正答率 {accuracy}"
+        )
+
+    text = "\n\n".join(lines)
 
     try:
         httpx.post(
