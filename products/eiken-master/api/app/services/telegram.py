@@ -60,3 +60,25 @@ def send_session_summary(
         )
     except Exception:
         pass
+
+
+def send_daily_complete(username: str, streak: int) -> None:
+    if not _TOKEN or not _CHAT_ID:
+        return
+
+    text = (
+        f"🎉 <b>今日の学習、全完了！</b>\n"
+        f"━━━━━━━━━━━━\n"
+        f"👤 {username}\n"
+        f"🔥 {streak}日連続達成\n"
+        f"ホーホー！フクロウ博士もとっても誇りに思ってるよ！"
+    )
+
+    try:
+        httpx.post(
+            _BASE,
+            json={"chat_id": _CHAT_ID, "text": text, "parse_mode": "HTML"},
+            timeout=5,
+        )
+    except Exception:
+        pass

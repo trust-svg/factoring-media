@@ -50,7 +50,6 @@ def start_session(
 def end_session(
     session_id: str,
     body: SessionEnd,
-    background_tasks: BackgroundTasks,
     user: User = Depends(current_user),
     db: DbSession = Depends(get_db),
 ):
@@ -74,7 +73,16 @@ def end_session(
     db.commit()
     db.refresh(session)
 
-    # Streak: consecutive days studied ending today
+    return session
+
+
+@router.post("/notify-complete", status_code=200)
+def notify_complete(
+    background_tasks: BackgroundTasks,
+    user: User = Depends(current_user),
+    db: DbSession = Depends(get_db),
+):
+    """Called by frontend when all daily tasks are done. Sends one Telegram notification."""
     from datetime import date, datetime, timedelta, timezone
 
     JST = timezone(timedelta(hours=9))
@@ -91,18 +99,12 @@ def end_session(
         streak += 1
         check -= timedelta(days=1)
 
-    if (body.questions_attempted or 0) > 0:
-        background_tasks.add_task(
-            telegram.send_session_summary,
-            username=user.username,
-            skill=session.skill,
-            duration_seconds=body.duration_seconds or 0,
-            questions_attempted=body.questions_attempted or 0,
-            correct_count=body.correct_count or 0,
-            streak=streak,
-        )
-
-    return session
+    background_tasks.add_task(
+        telegram.send_daily_complete,
+        username=user.username,
+        streak=streak,
+    )
+    return {"ok": True}
 
 
 @router.post("/{session_id}/attempt", status_code=201)

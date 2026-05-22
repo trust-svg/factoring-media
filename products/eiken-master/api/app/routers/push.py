@@ -250,38 +250,6 @@ async def send_reminders(
     return {"sent": sent, "removed_stale": len(dead)}
 
 
-@router.post("/send-completion")
-async def send_completion(
-    user: User = Depends(current_user),
-    db: Session = Depends(get_db),
-):
-    """Called by frontend when the user finishes all daily tasks."""
-    if not _webpush_available() or not VAPID_PRIVATE_KEY:
-        return {"skipped": True, "reason": "not configured"}
-    subs = db.query(PushSubscription).filter_by(user_id=user.id).all()
-    if not subs:
-        return {"sent": 0}
-    payload = {
-        "title": "🎉 今日の学習、完了！",
-        "body": "ホーホー！全タスク達成だよ！フクロウ博士もとっても誇りに思ってるよ！",
-        "icon": "/icon-192.png",
-        "url": "/home",
-    }
-    sent = 0
-    dead: list[PushSubscription] = []
-    for sub in subs:
-        try:
-            _send_push(sub, payload)
-            sent += 1
-        except Exception:
-            dead.append(sub)
-    for sub in dead:
-        db.delete(sub)
-    if dead:
-        db.commit()
-    return {"sent": sent, "removed_stale": len(dead)}
-
-
 def _hours_left(now: datetime) -> int:
     tomorrow = (now + timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0
