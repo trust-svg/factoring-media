@@ -112,87 +112,23 @@ function TitleBadge({ streak }: { streak: number }) {
   )
 }
 
-/* ── Pace bar (exam progress visualization) ───── */
-function PaceBar({
-  passProbability,
-  trend,
-  daysRemaining,
-}: {
-  passProbability: number | null
-  trend: 'up' | 'flat' | 'down'
-  daysRemaining: number | null
-}) {
-  if (passProbability === null || daysRemaining === null) return null
+/* ── Pace status badge ──────────────────────────── */
+function PaceStatus({ trend, passProbability }: { trend: 'up' | 'flat' | 'down'; passProbability: number | null }) {
+  if (passProbability === null) return null
 
-  const currentPct = Math.round(passProbability * 100)
-
-  // Simple linear projection: trend=up +5%/week, flat=0, down=-5%/week
-  const weeklyDelta = trend === 'up' ? 5 : trend === 'down' ? -5 : 0
-  const projectedPct = Math.min(100, Math.max(0, currentPct + Math.round((weeklyDelta * daysRemaining) / 7)))
-
-  const onTrack = projectedPct >= 100
+  const config = {
+    up:   { emoji: '📈', text: '上昇中！このペースで合格圏内',     bg: 'rgba(16,185,129,0.18)', color: '#6EE7B7' },
+    flat: { emoji: '→',  text: '毎日続ければ合格圏内に入れるよ',   bg: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.7)' },
+    down: { emoji: '⚠️', text: 'もう少しペースアップが必要かも',   bg: 'rgba(239,68,68,0.18)',   color: '#FCA5A5' },
+  }[trend]
 
   return (
     <div
-      className="rounded-2xl px-4 py-3"
-      style={{
-        background: 'rgba(255,255,255,0.08)',
-        border: '1px solid rgba(255,255,255,0.12)',
-      }}
+      className="rounded-2xl px-4 py-2.5 flex items-center gap-2"
+      style={{ background: config.bg, border: '1px solid rgba(255,255,255,0.10)' }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-white/50 text-[10px] font-black uppercase tracking-widest">合格ペース予測</p>
-        <span
-          className="text-[10px] font-black px-2 py-0.5 rounded-full"
-          style={
-            onTrack
-              ? { background: 'rgba(16,185,129,0.2)', color: '#6EE7B7' }
-              : { background: 'rgba(239,68,68,0.2)', color: '#FCA5A5' }
-          }
-        >
-          {onTrack ? '✓ 合格圏内' : '要ペースアップ'}
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        {/* Current */}
-        <div className="text-center shrink-0">
-          <p className="text-white font-black text-lg leading-none">{currentPct}%</p>
-          <p className="text-white/40 text-[9px] font-bold mt-0.5">現在</p>
-        </div>
-        {/* Bar */}
-        <div className="flex-1 relative">
-          <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${currentPct}%`,
-                background: 'linear-gradient(90deg, #818CF8, #A78BFA)',
-              }}
-            />
-          </div>
-          {/* Projected marker */}
-          {projectedPct !== currentPct && (
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white/80 bg-yellow-400 transition-all duration-700"
-              style={{ left: `${Math.min(97, projectedPct)}%` }}
-              title={`試験日予測: ${projectedPct}%`}
-            />
-          )}
-        </div>
-        {/* Projected */}
-        <div className="text-center shrink-0">
-          <p
-            className="font-black text-lg leading-none"
-            style={{ color: onTrack ? '#6EE7B7' : '#FCA5A5' }}
-          >
-            {projectedPct}%
-          </p>
-          <p className="text-white/40 text-[9px] font-bold mt-0.5">試験日予測</p>
-        </div>
-      </div>
-      <p className="text-white/30 text-[9px] font-semibold mt-2">
-        ※ 直近7日のトレンドをもとにした予測です
-      </p>
+      <span className="text-base leading-none shrink-0">{config.emoji}</span>
+      <p className="text-[12px] font-bold" style={{ color: config.color }}>{config.text}</p>
     </div>
   )
 }
@@ -801,13 +737,12 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Pace bar */}
+          {/* Pace status */}
           {progress && (
-            <div className="mt-4 animate-slide-up delay-450">
-              <PaceBar
-                passProbability={progress.pass_probability}
+            <div className="mt-3 animate-slide-up delay-450">
+              <PaceStatus
                 trend={progress.trend}
-                daysRemaining={progress.days_remaining}
+                passProbability={progress.pass_probability}
               />
             </div>
           )}
