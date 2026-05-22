@@ -1139,6 +1139,7 @@ function _calcMarginFromDemand(purchasePriceJpy, demandResult) {
 
 function updateCardWithResearch(itemId, data) {
   const resultEl = document.getElementById(`research-result-${itemId}`);
+  console.log(`[uC] itemId=${itemId} resultEl=${resultEl ? 'ok' : 'NULL'} status=${data?.status}`);
   if (!resultEl) return;
   if (!data || data.status !== 'ok') {
     const msg = data?.status === 'no_results' ? '需要なし' : '価格データなし';
@@ -1146,20 +1147,25 @@ function updateCardWithResearch(itemId, data) {
     return;
   }
   const { margin_pct: m, net_profit_usd: p, median_usd: med, items_found: n } = data;
+  console.log(`[uC] margin=${m} net=${p} median=${med}`);
   const cls = m >= 20 ? 'high' : m >= 10 ? 'mid' : m >= 0 ? 'low' : 'neg';
   resultEl.innerHTML = `
     <span class="la-profit-badge ${cls}">利益率 ${m.toFixed(1)}% ／ $${p.toFixed(2)}</span>
     <span class="la-profit-detail">eBay現在相場 $${med.toFixed(2)} ・${n}件</span>
   `;
+  console.log(`[uC] innerHTML set for ${itemId}: ${resultEl.innerHTML.slice(0, 80)}`);
   const cardEl = document.getElementById(`reorder-${itemId}`);
   if (cardEl) cardEl.style.opacity = m < 0 ? '0.4' : '1';
 }
 
 async function _researchOne(item) {
+  console.log(`[ri] START id=${item.id} title="${(item.title||'').slice(0,30)}"`);
   const resultEl = document.getElementById(`research-result-${item.id}`);
+  console.log(`[ri] resultEl=${resultEl ? 'FOUND' : 'NULL'} for research-result-${item.id}`);
   if (resultEl) resultEl.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">検索中...</span>';
   try {
     const kw = _extractKeyword(item.title || '');
+    console.log(`[ri] query="${kw}" price_jpy=${item.purchase_price_jpy}`);
     const resp = await fetch('/api/listing-assistant/quick-price', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1168,12 +1174,15 @@ async function _researchOne(item) {
         purchase_price_jpy: item.purchase_price_jpy || 0,
       }),
     });
+    console.log(`[ri] resp.ok=${resp.ok} status=${resp.status}`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
+    console.log(`[ri] data.status=${data.status} margin=${data.margin_pct} median=${data.median_usd}`);
     _researchResults.set(item.id, data);
     updateCardWithResearch(item.id, data);
+    console.log(`[ri] updateCard done for id=${item.id}`);
   } catch (e) {
-    console.warn(`[research] id=${item.id} error:`, e?.message);
+    console.warn(`[ri] CATCH id=${item.id}:`, e?.message);
     const el = document.getElementById(`research-result-${item.id}`);
     if (el) el.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">エラー</span>';
   }
