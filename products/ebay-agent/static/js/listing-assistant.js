@@ -987,6 +987,17 @@ function switchMode(mode) {
 
 let _soldItemsLoaded = false;
 const _reorderItemsCache = new Map();
+const _researchResults = new Map();
+
+function _estimateMarginFast(item) {
+  const rate = window._fxRate || 155;
+  const revenueUsd = parseFloat(item.ebay_price_usd) || 0;
+  if (!revenueUsd) return -999;
+  const sourceCostUsd = (item.purchase_price_jpy || 0) / rate;
+  const fees = revenueUsd * (0.129 + (1 - 0.129) * 0.02);
+  const net = revenueUsd - fees - 20 - sourceCostUsd;
+  return net / revenueUsd * 100;
+}
 
 async function loadSoldItems(force = false) {
   if (_soldItemsLoaded && !force) return;
@@ -1004,8 +1015,9 @@ async function loadSoldItems(force = false) {
       container.innerHTML = '<div class="la-reorder-empty">再仕入れ候補がありません。</div>';
       return;
     }
-    const soldOut = items.filter(i => i.category === 'sold_out');
-    const unlisted = items.filter(i => i.category === 'unlisted');
+    const byMargin = (a, b) => _estimateMarginFast(b) - _estimateMarginFast(a);
+    const soldOut = items.filter(i => i.category === 'sold_out').sort(byMargin);
+    const unlisted = items.filter(i => i.category === 'unlisted').sort(byMargin);
     let html = '';
     if (soldOut.length) {
       html += `<div class="la-reorder-section-header">売れて在庫切れ（${soldOut.length}件）</div>`;
@@ -1063,6 +1075,7 @@ function renderReorderItem(item) {
             <span>eBay: $${escHtml(String(item.ebay_price_usd || '—') ?? '')}</span>
             ${soldBadge}${platformBadge}
           </div>
+          <div class="la-research-result" id="research-result-${id}"></div>
           <div class="la-search-links" style="margin-top:6px">
             <a href="https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50" target="_blank" rel="noopener" class="la-search-link">ヤフオク</a>
             <a href="https://jp.mercari.com/search?keyword=${enc}&status=on_sale" target="_blank" rel="noopener" class="la-search-link">メルカリ</a>
@@ -1109,6 +1122,81 @@ function _onEshipUrlInput(itemId, url) {
   if (sel && platform) sel.value = platform;
   const btn = document.getElementById(`eship-submit-${itemId}`);
   if (btn) btn.disabled = !url.startsWith('http');
+}
+
+function _calcMarginFromDemand(purchasePriceJpy, demandResult) {
+  const rate = demandResult.exchange_rate || window._fxRate || 155;
+  const medianUsd = demandResult.price_analysis?.median_usd;
+  if (!medianUsd) return null;
+  const sourceCostUsd = (purchasePriceJpy || 0) / rate;
+  const totalCostUsd = sourceCostUsd + 20;  // 国際送料$20固定
+  const ebayFee = medianUsd * 0.129;
+  const payoneerFee = (medianUsd - ebayFee) * 0.02;
+  const netProfit = medianUsd - ebayFee - payoneerFee - totalCostUsd;
+  const marginPct = medianUsd > 0 ? (netProfit / medianUsd * 100) : 0;
+  return { netProfit, marginPct, medianUsd };
+}
+
+function updateCardWithResearch(itemId, demandResult, purchasePriceJpy) {
+  const resultEl = document.getElementById(`research-result-${itemId}`);
+  if (!resultEl) return;
+  if (!demandResult || demandResult.status === 'no_results' || demandResult.items_found === 0) {
+    resultEl.innerHTML = '<span class="la-profit-badge neg">需要なし</span>';
+    return;
+  }
+  const calc = _calcMarginFromDemand(purchasePriceJpy, demandResult);
+  if (!calc) {
+    resultEl.innerHTML = '<span class="la-profit-badge neg">価格データなし</span>';
+    return;
+  }
+  const { netProfit, marginPct, medianUsd } = calc;
+  const cls = marginPct >= 20 ? 'high' : marginPct >= 10 ? 'mid' : marginPct >= 0 ? 'low' : 'neg';
+  const score = demandResult.demand_score || 0;
+  resultEl.innerHTML = `
+    <span class="la-profit-badge ${cls}">
+      利益率 ${marginPct.toFixed(1)}% ／ $${netProfit.toFixed(2)}
+    </span>
+    <span class="la-profit-detail">中央値 $${medianUsd.toFixed(2)} ・需要 ${score}</span>
+  `;
+  const cardEl = document.getElementById(`reorder-${itemId}`);
+  if (cardEl) cardEl.style.opacity = marginPct < 0 ? '0.4' : '1';
+}
+
+async function startBatchResearch() {
+  const btn = document.getElementById('batch-research-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  const allItems = Array.from(_reorderItemsCache.values())
+    .filter(i => (parseFloat(i.ebay_price_usd) || 0) > 0)
+    .sort((a, b) => _estimateMarginFast(b) - _estimateMarginFast(a))
+    .slice(0, 20);
+  if (!allItems.length) { btn.textContent = '候補なし'; return; }
+  for (let i = 0; i < allItems.length; i++) {
+    const item = allItems[i];
+    btn.textContent = `リサーチ中 ${i + 1}/${allItems.length}`;
+    const resultEl = document.getElementById(`research-result-${item.id}`);
+    if (resultEl) resultEl.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">検索中...</span>';
+    try {
+      const resp = await fetch('/api/listing-assistant/demand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title,
+          ebay_query: _extractKeyword(item.title),
+          price_jpy: item.purchase_price_jpy || 10000,
+        }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      _researchResults.set(item.id, data);
+      updateCardWithResearch(item.id, data, item.purchase_price_jpy || 0);
+    } catch {
+      const el = document.getElementById(`research-result-${item.id}`);
+      if (el) el.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">エラー</span>';
+    }
+  }
+  btn.textContent = '再リサーチ';
+  btn.disabled = false;
 }
 
 async function reflectToEship(itemId) {

@@ -820,6 +820,31 @@
   border-radius: 6px;
   border: 1px solid var(--border-color);
 }
+.la-profit-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.la-profit-badge.high { background: #d1fae5; color: #065f46; }
+.la-profit-badge.mid  { background: #fef3c7; color: #92400e; }
+.la-profit-badge.low  { background: #ffedd5; color: #9a3412; }
+.la-profit-badge.neg  { background: #f3f4f6; color: #9ca3af; }
+.la-profit-detail {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 8px;
+}
+.la-research-result {
+  margin-top: 5px;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
 .la-reorder-reflect {
   display: flex;
   align-items: center;
@@ -1376,13 +1401,18 @@
 
 <!-- ── 再仕入れ候補パネル ────────────────────────────── -->
 <div id="la-reorder-panel" style="display:none">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <p style="margin:0;font-size:14px;color:var(--text-secondary)">
-      eShipの在庫切れ商品一覧です。「検索」でメルカリ・ヤフオク・Yahoo!フリマの在庫を確認できます。
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:8px;flex-wrap:wrap">
+    <p style="margin:0;font-size:14px;color:var(--text-secondary);flex:1">
+      eShipの在庫切れ商品を利益率推定で降順表示。「上位20件リサーチ」でeBay現在相場から利益率を自動計算します。
     </p>
-    <button class="btn btn-sm" style="white-space:nowrap;margin-left:12px" onclick="_soldItemsLoaded=false;loadSoldItems(true)">
-      更新
-    </button>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <button id="batch-research-btn" class="btn btn-primary btn-sm" style="white-space:nowrap" onclick="startBatchResearch()">
+        上位20件リサーチ
+      </button>
+      <button class="btn btn-sm" style="white-space:nowrap" onclick="_soldItemsLoaded=false;loadSoldItems(true)">
+        更新
+      </button>
+    </div>
   </div>
   <div id="reorderList"></div>
 </div>
@@ -1390,5 +1420,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/listing-assistant.js?v=20260522f"></script>
+<script src="/static/js/listing-assistant.js?v=20260522g"></script>
 {% endblock %}
