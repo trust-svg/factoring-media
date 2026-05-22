@@ -1162,39 +1162,48 @@ function updateCardWithResearch(itemId, demandResult, purchasePriceJpy) {
   if (cardEl) cardEl.style.opacity = marginPct < 0 ? '0.4' : '1';
 }
 
+async function _researchOne(item) {
+  const resultEl = document.getElementById(`research-result-${item.id}`);
+  if (resultEl) resultEl.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">検索中...</span>';
+  try {
+    const resp = await fetch('/api/listing-assistant/demand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: item.title,
+        ebay_query: _extractKeyword(item.title),
+        price_jpy: item.purchase_price_jpy || 10000,
+      }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    _researchResults.set(item.id, data);
+    updateCardWithResearch(item.id, data, item.purchase_price_jpy || 0);
+  } catch {
+    const el = document.getElementById(`research-result-${item.id}`);
+    if (el) el.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">エラー</span>';
+  }
+}
+
 async function startBatchResearch() {
   const btn = document.getElementById('batch-research-btn');
   if (!btn) return;
   btn.disabled = true;
   const allItems = Array.from(_reorderItemsCache.values())
-    .filter(i => (parseFloat(i.ebay_price_usd) || 0) > 0)
     .sort((a, b) => _estimateMarginFast(b) - _estimateMarginFast(a))
     .slice(0, 20);
   if (!allItems.length) { btn.textContent = '候補なし'; return; }
-  for (let i = 0; i < allItems.length; i++) {
-    const item = allItems[i];
-    btn.textContent = `リサーチ中 ${i + 1}/${allItems.length}`;
-    const resultEl = document.getElementById(`research-result-${item.id}`);
-    if (resultEl) resultEl.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">検索中...</span>';
-    try {
-      const resp = await fetch('/api/listing-assistant/demand', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: item.title,
-          ebay_query: _extractKeyword(item.title),
-          price_jpy: item.purchase_price_jpy || 10000,
-        }),
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      _researchResults.set(item.id, data);
-      updateCardWithResearch(item.id, data, item.purchase_price_jpy || 0);
-    } catch {
-      const el = document.getElementById(`research-result-${item.id}`);
-      if (el) el.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">エラー</span>';
-    }
+
+  const BATCH = 4;
+  let done = 0;
+  for (let i = 0; i < allItems.length; i += BATCH) {
+    btn.textContent = `リサーチ中 ${done}/${allItems.length}`;
+    const batch = allItems.slice(i, i + BATCH);
+    await Promise.all(batch.map(item => _researchOne(item)));
+    done += batch.length;
+    btn.textContent = `リサーチ中 ${done}/${allItems.length}`;
   }
+
   btn.textContent = '再リサーチ';
   btn.disabled = false;
 }
