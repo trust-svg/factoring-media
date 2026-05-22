@@ -988,20 +988,34 @@ function switchMode(mode) {
 let _soldItemsLoaded = false;
 const _reorderItemsCache = new Map();
 
-async function loadSoldItems() {
-  if (_soldItemsLoaded) return;
+async function loadSoldItems(force = false) {
+  if (_soldItemsLoaded && !force) return;
   const container = document.getElementById('reorderList');
-  container.innerHTML = '<div class="la-reorder-empty">読み込み中...</div>';
+  const url = force ? '/api/listing-assistant/sold-no-stock?refresh=1' : '/api/listing-assistant/sold-no-stock';
+  container.innerHTML = '<div class="la-reorder-empty">eShipから取得中...<br><small style="color:var(--text-secondary)">初回は15〜30秒かかります</small></div>';
   try {
-    const resp = await fetch('/api/listing-assistant/sold-no-stock');
+    const resp = await fetch(url);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const items = await resp.json();
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    const items = Array.isArray(data) ? data : [];
     _soldItemsLoaded = true;
     if (!items.length) {
-      container.innerHTML = '<div class="la-reorder-empty">販売済み商品がありません。<br>仕入れ台帳でステータスを「sold」に更新すると表示されます。</div>';
+      container.innerHTML = '<div class="la-reorder-empty">再仕入れ候補がありません。</div>';
       return;
     }
-    container.innerHTML = items.map(item => renderReorderItem(item)).join('');
+    const soldOut = items.filter(i => i.category === 'sold_out');
+    const unlisted = items.filter(i => i.category === 'unlisted');
+    let html = '';
+    if (soldOut.length) {
+      html += `<div class="la-reorder-section-header">売れて在庫切れ（${soldOut.length}件）</div>`;
+      html += soldOut.map(item => renderReorderItem(item)).join('');
+    }
+    if (unlisted.length) {
+      html += `<div class="la-reorder-section-header">未出品在庫切れ（${unlisted.length}件）</div>`;
+      html += unlisted.map(item => renderReorderItem(item)).join('');
+    }
+    container.innerHTML = html;
   } catch (e) {
     container.innerHTML = `<div class="la-reorder-empty">読み込みエラー: ${escHtml(e.message ?? '')}</div>`;
   }
@@ -1009,11 +1023,14 @@ async function loadSoldItems() {
 
 function renderReorderItem(item) {
   _reorderItemsCache.set(item.id, item);
-  const soldDate = item.sold_at
-    ? new Date(item.sold_at).toLocaleDateString('ja-JP')
-    : '—';
   const imgHtml = item.image_url
     ? `<img src="${escHtml(item.image_url ?? '')}" class="la-reorder-img" onerror="this.style.display='none'">`
+    : '';
+  const soldBadge = item.sold_count > 0
+    ? `<span class="category-badge sold-badge">Sold ${item.sold_count}</span>`
+    : '';
+  const platformBadge = item.platform
+    ? `<span class="platform-badge">${escHtml(item.platform ?? '')}</span>`
     : '';
   return `
     <div class="la-reorder-item" id="reorder-${item.id}">
@@ -1024,8 +1041,8 @@ function renderReorderItem(item) {
           <div class="la-reorder-meta">
             <span>仕入: ¥${(item.purchase_price_jpy || 0).toLocaleString()}</span>
             <span>eBay: $${escHtml(String(item.ebay_price_usd || '—') ?? '')}</span>
-            <span>販売日: ${soldDate}</span>
-            ${item.platform ? `<span class="platform-badge">${escHtml(item.platform ?? '')}</span>` : ''}
+            ${soldBadge}
+            ${platformBadge}
           </div>
         </div>
         <button class="btn btn-sm" onclick="searchJP(${Number(item.id)})">

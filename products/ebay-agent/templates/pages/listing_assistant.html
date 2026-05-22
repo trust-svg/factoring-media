@@ -767,6 +767,30 @@
   color: var(--text-secondary);
   font-size: 14px;
 }
+.la-reorder-section-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 16px 0 8px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+.la-reorder-section-header:first-child {
+  padding-top: 4px;
+}
+.category-badge.sold-badge {
+  background: #1a7f37;
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.la-reorder-refresh {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
 </style>
 {% endblock %}
 
@@ -1312,16 +1336,19 @@
 
 <!-- ── 再仕入れ候補パネル ────────────────────────────── -->
 <div id="la-reorder-panel" style="display:none">
-  <p style="margin:-8px 0 20px;font-size:14px;color:var(--text-secondary)">
-    eBayで販売実績のある商品を一覧表示します。「検索」でメルカリ・ヤフオク・Yahoo!フリマの在庫を確認できます。
-  </p>
-  <div id="reorderList">
-    <div class="la-reorder-empty">読み込み中...</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <p style="margin:0;font-size:14px;color:var(--text-secondary)">
+      eShipの在庫切れ商品一覧です。「検索」でメルカリ・ヤフオク・Yahoo!フリマの在庫を確認できます。
+    </p>
+    <button class="btn btn-sm" style="white-space:nowrap;margin-left:12px" onclick="_soldItemsLoaded=false;loadSoldItems(true)">
+      更新
+    </button>
   </div>
+  <div id="reorderList"></div>
 </div>
 
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/listing-assistant.js?v=20260522a"></script>
+<script src="/static/js/listing-assistant.js?v=20260522b"></script>
 {% endblock %}

@@ -5127,72 +5127,20 @@ async def listing_assistant_generate(request: Request):
 
 @app.get("/api/listing-assistant/sold-no-stock")
 async def listing_assistant_sold_no_stock(request: Request):
-    """eBayで売れた実績があり現在在庫のない商品一覧（SalesRecord基準、Listing/Procurementで補完）"""
-    import json as _json
-    from database.models import SalesRecord
-    from sqlalchemy import desc as _desc
+    """eShip在庫一覧から再仕入れ候補を返す。sold_out（実績あり在庫切れ）+ unlisted（未出品在庫切れ）"""
+    import asyncio as _asyncio
 
-    db = get_db()
-    try:
-        # 現在在庫あり（Listing.quantity > 0）のSKUを除外対象として収集
-        in_stock_skus: set = {
-            row.sku for row in db.query(Listing.sku).filter(Listing.quantity > 0).all()
-        }
+    from comms.eship_inventory import fetch_reorder_candidates
 
-        records = (
-            db.query(SalesRecord)
-            .filter(SalesRecord.sku != "", ~SalesRecord.sku.in_(in_stock_skus))
-            .order_by(_desc(SalesRecord.sold_at))
-            .all()
-        )
+    force = request.query_params.get("refresh") == "1"
+    data = await _asyncio.get_event_loop().run_in_executor(
+        None, lambda: fetch_reorder_candidates(force=force)
+    )
+    if data.get("error"):
+        return JSONResponse({"error": data["error"]}, status_code=502)
 
-        # SKU重複排除（同一SKUは最新販売のみ）
-        seen: set = set()
-        unique: list = []
-        for r in records:
-            if r.sku not in seen:
-                seen.add(r.sku)
-                unique.append(r)
-            if len(unique) >= 50:
-                break
-
-        results = []
-        for r in unique:
-            # Procurementから platform / condition / image_url を補完
-            proc = (
-                db.query(Procurement)
-                .filter(Procurement.sku == r.sku)
-                .order_by(_desc(Procurement.created_at))
-                .first()
-            )
-            # image_url: Procurement → Listing（eBay画像の先頭）→ 空
-            image_url = proc.image_url if proc and proc.image_url else ""
-            if not image_url:
-                listing = db.query(Listing).filter(Listing.sku == r.sku).first()
-                if listing and listing.image_urls_json:
-                    try:
-                        urls = _json.loads(listing.image_urls_json)
-                        image_url = urls[0] if urls else ""
-                    except (ValueError, IndexError):
-                        pass
-
-            results.append(
-                {
-                    "id": r.id,
-                    "sku": r.sku,
-                    "title": r.title,
-                    "purchase_price_jpy": r.source_cost_jpy,
-                    "platform": proc.platform if proc else "",
-                    "sold_at": r.sold_at.isoformat() if r.sold_at else None,
-                    "ebay_price_usd": r.sale_price_usd,
-                    "image_url": image_url,
-                    "condition": proc.condition if proc else "",
-                }
-            )
-
-        return JSONResponse(results)
-    finally:
-        db.close()
+    results = data["sold_out"] + data["unlisted"][:300]
+    return JSONResponse(results)
 
 
 @app.post("/api/listing-assistant/search-jp")
