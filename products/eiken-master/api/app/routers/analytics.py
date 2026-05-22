@@ -22,8 +22,10 @@ WEIGHTS = {"reading": 0.25, "listening": 0.25, "writing": 0.25, "speaking": 0.25
 def get_progress(user: User = Depends(current_user), db: Session = Depends(get_db)):
     now = datetime.now(JST)
     today = now.date()
-    cutoff14 = now - timedelta(days=14)
-    cutoff7 = now - timedelta(days=7)
+    # DB stores TIMESTAMP WITHOUT TIMEZONE (naive JST) — comparisons must use naive
+    now_naive = now.replace(tzinfo=None)
+    cutoff14 = now_naive - timedelta(days=14)
+    cutoff7 = now_naive - timedelta(days=7)
 
     # Skill accuracy (last 14 days)
     attempts = (
@@ -145,7 +147,7 @@ _SKILL_LABELS_JA = {
 @router.get("/errors")
 def get_errors(user: User = Depends(current_user), db: Session = Depends(get_db)):
     now = datetime.now(JST)
-    cutoff30 = now - timedelta(days=30)
+    cutoff30 = now.replace(tzinfo=None) - timedelta(days=30)
 
     attempts = (
         db.query(QuestionAttempt)

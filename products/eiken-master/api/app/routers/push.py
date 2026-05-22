@@ -14,6 +14,7 @@ from app.config import (
 )
 from app.db import get_db
 from app.models.push_subscription import PushSubscription
+from app.models.session import StudySession
 from app.routers.auth import current_user
 from app.models.user import User
 
@@ -163,20 +164,66 @@ async def send_reminders(
         .all()
     )
 
+    # Group subscriptions by user so multi-device users get ONE notification decision
+    user_subs: dict[str, list[PushSubscription]] = {}
+    user_map: dict[str, User] = {}
+    for sub, user in subs_with_users:
+        user_subs.setdefault(user.id, []).append(sub)
+        user_map[user.id] = user
+
+    today_start = now_jst.replace(
+        hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+    )
     sent = 0
     dead: list[PushSubscription] = []
-    for sub, user in subs_with_users:
-        try:
-            h = int((user.reminder_time or "20:00").split(":")[0])
-        except (ValueError, AttributeError):
-            h = 20
-        if h != current_hour:
-            continue
-        try:
-            days = json.loads(user.reminder_days or "[0,1,2,3,4,5,6]")
-        except (json.JSONDecodeError, TypeError):
-            days = list(range(7))
-        if current_weekday not in days:
+
+    for user_id, subs in user_subs.items():
+        user = user_map[user_id]
+
+        # reminder_schedule takes priority: {"0": "19:00", "2": "21:00", ...}
+        schedule = None
+        if user.reminder_schedule:
+            try:
+                schedule = json.loads(user.reminder_schedule)
+            except (json.JSONDecodeError, TypeError):
+                schedule = None
+
+        if schedule is not None:
+            # New per-day schedule mode
+            time_for_today = schedule.get(str(current_weekday))
+            if not time_for_today:
+                continue  # this day not in schedule
+            try:
+                h = int(time_for_today.split(":")[0])
+            except (ValueError, AttributeError):
+                continue
+            if h != current_hour:
+                continue
+        else:
+            # Legacy mode: single reminder_time + reminder_days
+            try:
+                h = int((user.reminder_time or "20:00").split(":")[0])
+            except (ValueError, AttributeError):
+                h = 20
+            if h != current_hour:
+                continue
+            try:
+                days = json.loads(user.reminder_days or "[0,1,2,3,4,5,6]")
+            except (json.JSONDecodeError, TypeError):
+                days = list(range(7))
+            if current_weekday not in days:
+                continue
+
+        # Skip if already studied today
+        studied_today = (
+            db.query(StudySession)
+            .filter(
+                StudySession.user_id == user_id,
+                StudySession.started_at >= today_start,
+            )
+            .first()
+        )
+        if studied_today:
             continue
 
         payload = {
@@ -185,11 +232,17 @@ async def send_reminders(
             "icon": "/icon-192.png",
             "url": "/",
         }
-        try:
-            _send_push(sub, payload)
+        # Send to ALL devices of this user at once; count as 1 user notified
+        user_sent = False
+        for sub in subs:
+            try:
+                _send_push(sub, payload)
+                user_sent = True
+            except Exception:
+                dead.append(sub)
+        if user_sent:
             sent += 1
-        except Exception:
-            dead.append(sub)
+
     for sub in dead:
         db.delete(sub)
     if dead:
@@ -198,5 +251,7 @@ async def send_reminders(
 
 
 def _hours_left(now: datetime) -> int:
-    midnight = now.replace(hour=23, minute=59, second=59)
-    return max(0, int((midnight - now).total_seconds() // 3600))
+    tomorrow = (now + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    return max(0, int((tomorrow - now).total_seconds() // 3600))
