@@ -5149,6 +5149,33 @@ async def listing_assistant_sold_no_stock(request: Request):
     return JSONResponse(results)
 
 
+@app.post("/api/listing-assistant/update-eship-source")
+async def listing_assistant_update_eship_source(request: Request):
+    """再仕入れ候補の仕入れ元URLとプラットフォームをeShipに反映し、在庫数を1にする"""
+    body = await request.json()
+    try:
+        eship_id = int(body.get("eship_id", 0))
+    except (ValueError, TypeError):
+        raise HTTPException(400, "eship_id must be an integer")
+    source_url = (body.get("source_url") or "").strip()
+    item_title = (body.get("item_title") or "").strip()
+    platform = (body.get("platform") or "").strip()
+
+    if not eship_id or not source_url:
+        raise HTTPException(400, "eship_id and source_url are required")
+
+    from comms.eship_client import update_eship_source
+
+    result = await update_eship_source(
+        eship_id=eship_id,
+        item_title=item_title,
+        source_url=source_url,
+        platform=platform,
+    )
+    status_code = 200 if result.get("status") == "ok" else 502
+    return JSONResponse(result, status_code=status_code)
+
+
 @app.post("/api/listing-assistant/search-jp")
 async def listing_assistant_search_jp(request: Request):
     """メルカリ・ヤフオク・Yahoo!フリマを並列検索する"""

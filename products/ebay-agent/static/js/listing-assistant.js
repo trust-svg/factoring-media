@@ -1081,17 +1081,94 @@ function toggleSearchLinks(itemId) {
       キーワード: <strong>${escHtml(kw ?? '')}</strong>
     </div>
     <div class="la-search-links">
-      <a href="https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50" target="_blank" rel="noopener" class="la-search-link">
-        ヤフオク
-      </a>
-      <a href="https://jp.mercari.com/search?keyword=${enc}&status=on_sale" target="_blank" rel="noopener" class="la-search-link">
-        メルカリ
-      </a>
-      <a href="https://paypayfleamarket.yahoo.co.jp/search/${enc}" target="_blank" rel="noopener" class="la-search-link">
-        Yahoo!フリマ
-      </a>
+      <a href="https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50" target="_blank" rel="noopener" class="la-search-link">ヤフオク</a>
+      <a href="https://jp.mercari.com/search?keyword=${enc}&status=on_sale" target="_blank" rel="noopener" class="la-search-link">メルカリ</a>
+      <a href="https://paypayfleamarket.yahoo.co.jp/search/${enc}" target="_blank" rel="noopener" class="la-search-link">Yahoo!フリマ</a>
+    </div>
+    <div class="la-eship-reflect" id="eship-reflect-${itemId}">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">仕入れ元URLをeShipに反映</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="url" id="eship-url-${itemId}" placeholder="仕入れ元URL を貼り付け"
+          class="form-control" style="flex:1;min-width:200px;font-size:13px"
+          oninput="_onEshipUrlInput(${itemId}, this.value)">
+        <select id="eship-platform-${itemId}" class="form-control" style="width:130px;font-size:13px">
+          <option value="">プラットフォーム</option>
+          <option value="ヤフオク">ヤフオク</option>
+          <option value="メルカリ">メルカリ</option>
+          <option value="Yahoo!フリマ">Yahoo!フリマ</option>
+          <option value="ラクマ">ラクマ</option>
+          <option value="ハードオフ">ハードオフ</option>
+          <option value="駿河屋">駿河屋</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="eship-submit-${itemId}"
+          onclick="reflectToEship(${itemId})" disabled>
+          eShipに反映
+        </button>
+      </div>
+      <div id="eship-result-${itemId}" style="margin-top:6px;font-size:13px"></div>
     </div>
   `;
+}
+
+function _detectPlatform(url) {
+  if (url.includes('auctions.yahoo.co.jp')) return 'ヤフオク';
+  if (url.includes('mercari.com')) return 'メルカリ';
+  if (url.includes('paypayfleamarket')) return 'Yahoo!フリマ';
+  if (url.includes('fril.jp')) return 'ラクマ';
+  if (url.includes('hardoff')) return 'ハードオフ';
+  if (url.includes('suruga-ya')) return '駿河屋';
+  return '';
+}
+
+function _onEshipUrlInput(itemId, url) {
+  const platform = _detectPlatform(url);
+  const sel = document.getElementById(`eship-platform-${itemId}`);
+  if (sel && platform) sel.value = platform;
+  const btn = document.getElementById(`eship-submit-${itemId}`);
+  if (btn) btn.disabled = !url.startsWith('http');
+}
+
+async function reflectToEship(itemId) {
+  const item = _reorderItemsCache.get(itemId);
+  if (!item) return;
+  const urlInput = document.getElementById(`eship-url-${itemId}`);
+  const platformSel = document.getElementById(`eship-platform-${itemId}`);
+  const btn = document.getElementById(`eship-submit-${itemId}`);
+  const resultEl = document.getElementById(`eship-result-${itemId}`);
+
+  const sourceUrl = urlInput?.value?.trim() || '';
+  const platform = platformSel?.value || '';
+  if (!sourceUrl) return;
+
+  btn.disabled = true;
+  btn.textContent = '反映中...';
+  resultEl.innerHTML = '<span style="color:var(--text-secondary)">eShipを更新中... (20〜40秒)</span>';
+
+  try {
+    const resp = await fetch('/api/listing-assistant/update-eship-source', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eship_id: Number(item.eship_id ?? item.id),
+        source_url: sourceUrl,
+        item_title: item.title || '',
+        platform,
+      }),
+    });
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      resultEl.innerHTML = `<span style="color:var(--green,#1a7f37)">✓ ${escHtml(data.message ?? '更新完了')}</span>`;
+      btn.textContent = '反映済み';
+    } else {
+      resultEl.innerHTML = `<span style="color:var(--red)">✗ ${escHtml(data.message ?? 'エラー')}</span>`;
+      btn.disabled = false;
+      btn.textContent = 'eShipに反映';
+    }
+  } catch (e) {
+    resultEl.innerHTML = `<span style="color:var(--red)">エラー: ${escHtml(e.message ?? '')}</span>`;
+    btn.disabled = false;
+    btn.textContent = 'eShipに反映';
+  }
 }
 
 function renderPlatformResults(platform, items) {
