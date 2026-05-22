@@ -1045,7 +1045,7 @@ function renderReorderItem(item) {
             ${platformBadge}
           </div>
         </div>
-        <button class="btn btn-sm" onclick="searchJP(${Number(item.id)})">
+        <button class="btn btn-sm" onclick="toggleSearchLinks(${Number(item.id)})">
           検索
         </button>
       </div>
@@ -1054,49 +1054,44 @@ function renderReorderItem(item) {
   `;
 }
 
-async function searchJP(itemId) {
+function _extractKeyword(title) {
+  const tokens = title.split(/[\s/,()[\]]+/);
+  const candidates = tokens
+    .map(t => t.replace(/^[-.]|[-.]$/g, ''))
+    .filter(t => t.length >= 3 && /[A-Za-z]/.test(t) && /\d/.test(t));
+  if (!candidates.length) return title.split(' ').slice(0, 3).join(' ');
+  const letterFirst = candidates.filter(c => /^[A-Za-z]/.test(c));
+  const pool = letterFirst.length ? letterFirst : candidates;
+  return pool.reduce((a, b) => a.length >= b.length ? a : b);
+}
+
+function toggleSearchLinks(itemId) {
   const item = _reorderItemsCache.get(itemId);
   if (!item) return;
-  const { title, purchase_price_jpy } = item;
-
-  const btn = document.querySelector(`#reorder-${itemId} .btn`);
   const resultsEl = document.getElementById(`reorder-results-${itemId}`);
-  btn.disabled = true;
-  btn.textContent = '検索中...';
-  resultsEl.style.display = 'block';
-  resultsEl.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;padding:8px 0">3サイトを検索中… (最大45秒)</div>';
-
-  try {
-    const resp = await fetch('/api/listing-assistant/search-jp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, purchase_price_jpy: purchase_price_jpy || 0 }),
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-
-    if (data.error) {
-      resultsEl.innerHTML = `<div style="color:var(--red);font-size:13px">${escHtml(data.error ?? '')}</div>`;
-      return;
-    }
-
-    const totalCount = (data['メルカリ']?.length || 0) + (data['ヤフオク']?.length || 0) + (data['Yahoo!フリマ']?.length || 0);
-    resultsEl.innerHTML = `
-      <div class="la-reorder-keyword">
-        検索キーワード: <strong>${escHtml(data.keyword ?? '')}</strong>
-        &nbsp;|&nbsp; 上限: ¥${(data.max_price_jpy ?? 0).toLocaleString()}
-        &nbsp;|&nbsp; 合計 ${totalCount} 件
-      </div>
-      ${renderPlatformResults('メルカリ', data['メルカリ'])}
-      ${renderPlatformResults('ヤフオク', data['ヤフオク'])}
-      ${renderPlatformResults('Yahoo!フリマ', data['Yahoo!フリマ'])}
-    `;
-  } catch (e) {
-    resultsEl.innerHTML = `<div style="color:var(--red);font-size:13px">エラー: ${escHtml(e.message ?? '')}</div>`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '再検索';
+  if (resultsEl.style.display !== 'none') {
+    resultsEl.style.display = 'none';
+    return;
   }
+  const kw = _extractKeyword(item.title || '');
+  const enc = encodeURIComponent(kw);
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = `
+    <div class="la-reorder-keyword">
+      キーワード: <strong>${escHtml(kw ?? '')}</strong>
+    </div>
+    <div class="la-search-links">
+      <a href="https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50" target="_blank" rel="noopener" class="la-search-link">
+        ヤフオク
+      </a>
+      <a href="https://jp.mercari.com/search?keyword=${enc}&status=on_sale" target="_blank" rel="noopener" class="la-search-link">
+        メルカリ
+      </a>
+      <a href="https://paypayfleamarket.yahoo.co.jp/search/${enc}" target="_blank" rel="noopener" class="la-search-link">
+        Yahoo!フリマ
+      </a>
+    </div>
+  `;
 }
 
 function renderPlatformResults(platform, items) {

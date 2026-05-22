@@ -791,6 +791,28 @@
   justify-content: flex-end;
   margin-bottom: 12px;
 }
+.la-search-links {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0 4px;
+  flex-wrap: wrap;
+}
+.la-search-link {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--border-color);
+  transition: background 0.15s;
+}
+.la-search-link:hover {
+  background: var(--bg-secondary, #e0e0e0);
+  text-decoration: none;
+}
 </style>
 {% endblock %}
 
@@ -1350,5 +1372,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/listing-assistant.js?v=20260522b"></script>
+<script src="/static/js/listing-assistant.js?v=20260522c"></script>
 {% endblock %}
