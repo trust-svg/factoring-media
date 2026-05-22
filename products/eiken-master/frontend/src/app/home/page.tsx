@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiGetDueFlashcards, apiGetProgress, apiGetTodayPlan } from '@/lib/api'
+import { apiGetDueFlashcards, apiGetProgress, apiGetTodayPlan, apiSendCompletionNotification } from '@/lib/api'
 import { useAuth } from '@/providers/AuthProvider'
 import type { DailyPlan, DailyTask, ProgressData, Skill } from '@/lib/types'
 import TutorialModal from '@/components/TutorialModal'
@@ -488,6 +488,7 @@ export default function HomePage() {
   const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set())
   const hasRedirected = useRef(false)
   const pendingSkillRef = useRef<string | null>(null)
+  const completionSentRef = useRef(false)
 
   // On mount: capture sessionStorage skill-done signal + restore completed tasks
   useEffect(() => {
@@ -546,12 +547,17 @@ export default function HomePage() {
     }
   }, [loading, user])
 
-  // Save stamp when all tasks done
+  // Save stamp and send completion push when all tasks done
   const allDone = dailyPlan
     ? dailyPlan.tasks.length > 0 && completedTasks.size >= dailyPlan.tasks.length
     : false
   useEffect(() => {
-    if (allDone) saveStampToday()
+    if (!allDone) return
+    saveStampToday()
+    if (!completionSentRef.current) {
+      completionSentRef.current = true
+      apiSendCompletionNotification().catch(() => {})
+    }
   }, [allDone])
 
   if (loading) {

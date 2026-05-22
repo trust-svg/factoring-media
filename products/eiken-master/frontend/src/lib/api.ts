@@ -215,6 +215,9 @@ export const apiPushUnsubscribe = (sub: { endpoint: string; p256dh: string; auth
 export const apiPushTest = () =>
   request<{ sent: number; removed_stale: number }>('/push/test', { method: 'POST' })
 
+export const apiSendCompletionNotification = () =>
+  request<{ sent: number; removed_stale: number; skipped?: boolean }>('/push/send-completion', { method: 'POST' })
+
 export async function apiScoreSpeaking(
   sessionId: string,
   questionId: string,
