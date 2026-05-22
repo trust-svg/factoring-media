@@ -91,6 +91,112 @@ function StreakBadge({ streak }: { streak: number }) {
   )
 }
 
+/* ── Title badge based on streak ───────────────── */
+function getTitle(streak: number): { label: string; emoji: string; color: string } {
+  if (streak >= 30) return { label: '英検マスター', emoji: '👑', color: '#F59E0B' }
+  if (streak >= 14) return { label: '英語の達人',   emoji: '⭐', color: '#8B5CF6' }
+  if (streak >=  7) return { label: '努力家',       emoji: '🔥', color: '#EF4444' }
+  if (streak >=  3) return { label: '学習中',       emoji: '📚', color: '#3B82F6' }
+  return                    { label: '見習い',       emoji: '🐣', color: '#6B7280' }
+}
+
+function TitleBadge({ streak }: { streak: number }) {
+  const t = getTitle(streak)
+  return (
+    <span
+      className="text-[10px] font-black px-2 py-0.5 rounded-full"
+      style={{ background: `${t.color}22`, color: t.color, border: `1px solid ${t.color}44` }}
+    >
+      {t.emoji} {t.label}
+    </span>
+  )
+}
+
+/* ── Pace bar (exam progress visualization) ───── */
+function PaceBar({
+  passProbability,
+  trend,
+  daysRemaining,
+}: {
+  passProbability: number | null
+  trend: 'up' | 'flat' | 'down'
+  daysRemaining: number | null
+}) {
+  if (passProbability === null || daysRemaining === null) return null
+
+  const currentPct = Math.round(passProbability * 100)
+
+  // Simple linear projection: trend=up +5%/week, flat=0, down=-5%/week
+  const weeklyDelta = trend === 'up' ? 5 : trend === 'down' ? -5 : 0
+  const projectedPct = Math.min(100, Math.max(0, currentPct + Math.round((weeklyDelta * daysRemaining) / 7)))
+
+  const onTrack = projectedPct >= 100
+
+  return (
+    <div
+      className="rounded-2xl px-4 py-3"
+      style={{
+        background: 'rgba(255,255,255,0.08)',
+        border: '1px solid rgba(255,255,255,0.12)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-white/50 text-[10px] font-black uppercase tracking-widest">合格ペース予測</p>
+        <span
+          className="text-[10px] font-black px-2 py-0.5 rounded-full"
+          style={
+            onTrack
+              ? { background: 'rgba(16,185,129,0.2)', color: '#6EE7B7' }
+              : { background: 'rgba(239,68,68,0.2)', color: '#FCA5A5' }
+          }
+        >
+          {onTrack ? '✓ 合格圏内' : '要ペースアップ'}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        {/* Current */}
+        <div className="text-center shrink-0">
+          <p className="text-white font-black text-lg leading-none">{currentPct}%</p>
+          <p className="text-white/40 text-[9px] font-bold mt-0.5">現在</p>
+        </div>
+        {/* Bar */}
+        <div className="flex-1 relative">
+          <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${currentPct}%`,
+                background: 'linear-gradient(90deg, #818CF8, #A78BFA)',
+              }}
+            />
+          </div>
+          {/* Projected marker */}
+          {projectedPct !== currentPct && (
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white/80 bg-yellow-400 transition-all duration-700"
+              style={{ left: `${Math.min(97, projectedPct)}%` }}
+              title={`試験日予測: ${projectedPct}%`}
+            />
+          )}
+        </div>
+        {/* Projected */}
+        <div className="text-center shrink-0">
+          <p
+            className="font-black text-lg leading-none"
+            style={{ color: onTrack ? '#6EE7B7' : '#FCA5A5' }}
+          >
+            {projectedPct}%
+          </p>
+          <p className="text-white/40 text-[9px] font-bold mt-0.5">試験日予測</p>
+        </div>
+      </div>
+      <p className="text-white/30 text-[9px] font-semibold mt-2">
+        ※ 直近7日のトレンドをもとにした予測です
+      </p>
+    </div>
+  )
+}
+
 /* ── Mission card (3D tilt + shimmer) ─────────── */
 interface Mission {
   skill: Skill
@@ -264,13 +370,15 @@ const SKILL_ROUTE: Record<string, string> = {
   flashcards: '/flashcards',
 }
 
-function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTasks, advice }: {
+function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTasks, advice, praise, weeklySessions }: {
   plan: DailyPlan
   onRefresh: () => void
   refreshing: boolean
   onTaskClick: (skill: string) => void
   completedTasks: Set<number>
   advice?: string | null
+  praise?: string | null
+  weeklySessions?: number
 }) {
   const total = plan.tasks.reduce((s, t) => s + t.minutes, 0)
   const allDone = plan.tasks.length > 0 && completedTasks.size >= plan.tasks.length
@@ -317,13 +425,24 @@ function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTask
           <div className="flex items-center gap-3">
             <Mascot scene="celebrate" size={64} className="shrink-0" />
             <div>
-              <p className="text-emerald-800 font-black text-base leading-tight">今日の学習完了！</p>
+              <p className="text-emerald-800 font-black text-base leading-tight">今日の学習完了！🎉</p>
               <p className="text-emerald-700 text-xs font-semibold mt-1">
-                {plan.tasks.length}タスク全部やり切ったね 🎉 すごい！
+                {plan.tasks.length}タスク全部やり切ったね！すごい！
               </p>
+              {weeklySessions != null && weeklySessions > 0 && (
+                <p className="text-emerald-600 text-[11px] font-bold mt-1">
+                  📊 今週 {weeklySessions} セッション達成
+                </p>
+              )}
             </div>
           </div>
-          {advice && (
+          {praise && (
+            <div className="bg-white/70 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">🦉 フクロウ博士より</p>
+              <p className="text-emerald-900 text-xs font-semibold leading-relaxed">{praise}</p>
+            </div>
+          )}
+          {advice && !praise && (
             <div className="bg-white/60 rounded-xl px-3 py-2.5">
               <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">AIコーチより</p>
               <p className="text-emerald-900 text-xs font-semibold leading-relaxed">{advice}</p>
@@ -616,6 +735,7 @@ export default function HomePage() {
                 <span className="glass-dark text-white text-xs font-black px-3 py-1 rounded-full">
                   英検 {gradeLabel}
                 </span>
+                {progress && <TitleBadge streak={progress.streak} />}
                 {progress?.trend === 'up' && (
                   <span className="glass-dark text-white text-xs font-bold px-3 py-1 rounded-full">
                     📈 上昇中
@@ -673,6 +793,17 @@ export default function HomePage() {
             )}
           </div>
 
+          {/* Pace bar */}
+          {progress && (
+            <div className="mt-4 animate-slide-up delay-450">
+              <PaceBar
+                passProbability={progress.pass_probability}
+                trend={progress.trend}
+                daysRemaining={progress.days_remaining}
+              />
+            </div>
+          )}
+
           {/* Detail link */}
           <div className="mt-4 animate-slide-up delay-500">
             <button
@@ -723,6 +854,8 @@ export default function HomePage() {
               onTaskClick={handleTaskClick}
               completedTasks={completedTasks}
               advice={progress?.advice}
+              praise={progress?.praise}
+              weeklySessions={progress?.weekly_sessions}
               onRefresh={async () => {
                 setPlanRefreshing(true)
                 clearCachedPlan()

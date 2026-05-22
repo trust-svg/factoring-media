@@ -128,6 +128,7 @@ export interface ProgressData {
   trend: 'up' | 'flat' | 'down'
   days_remaining: number | null
   total_sessions: number
+  weekly_sessions: number
   grade: string
   advice: string | null
   praise: string | null

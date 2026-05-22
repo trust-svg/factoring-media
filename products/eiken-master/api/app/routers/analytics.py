@@ -100,6 +100,13 @@ def get_progress(user: User = Depends(current_user), db: Session = Depends(get_d
         db.query(StudySession).filter(StudySession.user_id == user.id).count()
     )
 
+    week_start = now_naive - timedelta(days=7)
+    weekly_sessions = (
+        db.query(StudySession)
+        .filter(StudySession.user_id == user.id, StudySession.started_at >= week_start)
+        .count()
+    )
+
     # AI advice + praise (Claude Haiku) — returns None if API unavailable
     advice: Optional[str] = None
     praise: Optional[str] = None
@@ -129,6 +136,7 @@ def get_progress(user: User = Depends(current_user), db: Session = Depends(get_d
         "trend": trend,
         "days_remaining": days_remaining,
         "total_sessions": total_sessions,
+        "weekly_sessions": weekly_sessions,
         "grade": user.grade,
         "advice": advice,
         "praise": praise,
