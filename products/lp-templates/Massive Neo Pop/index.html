@@ -8,6 +8,7 @@
   <meta property="og:title" content="まだいける。絶頂期は、今。| Massive">
   <meta property="og:description" content="50代以上の男性のための完全匿名シークレットマッチング。累計18万人登録。">
   <meta property="og:type" content="website">
+  <!-- TODO: Update og:image to absolute URL before deploying: https://YOUR_DOMAIN/img/w01.jpg -->
   <meta property="og:image" content="img/w01.jpg">
   <meta property="og:url" content="https://massive-matching.jp/">
   <meta name="twitter:card" content="summary_large_image">
@@ -390,7 +391,7 @@
     .faq__q .icon { font-size: 1rem; color: var(--clr-accent-a); flex-shrink: 0; transition: transform 0.3s; }
     .faq__q[aria-expanded="true"] .icon { transform: rotate(45deg); }
     .faq__a { font-size: 0.9rem; color: var(--clr-text-sub); line-height: 1.8; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.35s; padding: 0; }
-    .faq__a.open { max-height: 200px; padding-bottom: 16px; }
+    .faq__a.open { max-height: 400px; padding-bottom: 16px; }
 
     /* =============================================
        Section 10: Final CTA
@@ -553,10 +554,10 @@
           <div class="sim__step-label">STEP 02</div>
           <div class="sim__step-q">職業は？</div>
           <div class="sim__chips" id="simJobChips">
-            <div class="sim__chip" data-val="2" onclick="simSelectChip(this,'job')">会社員</div>
-            <div class="sim__chip" data-val="8" onclick="simSelectChip(this,'job')">経営者・役員</div>
-            <div class="sim__chip" data-val="5" onclick="simSelectChip(this,'job')">自営業</div>
-            <div class="sim__chip" data-val="1" onclick="simSelectChip(this,'job')">その他</div>
+            <div class="sim__chip" data-val="2" onclick="simSelectChip(this)">会社員</div>
+            <div class="sim__chip" data-val="8" onclick="simSelectChip(this)">経営者・役員</div>
+            <div class="sim__chip" data-val="5" onclick="simSelectChip(this)">自営業</div>
+            <div class="sim__chip" data-val="1" onclick="simSelectChip(this)">その他</div>
           </div>
         </div>
         <div class="sim__step">
@@ -761,7 +762,7 @@
       <div class="final-cta__proof">すでに 18万人以上 が登録済み</div>
       <h2 class="final-cta__title">あなたの絶頂期は、<br><span class="grad-text">まだ始まっていない。</span></h2>
       <p class="final-cta__sub">今日登録すれば、今夜にはマッチングが届くかもしれない。</p>
-      <button class="btn-line" style="font-size:1.1rem;padding:16px 36px;margin:0 auto;">
+      <button class="btn-line" style="font-size:1.1rem;padding:16px 36px;margin:0 auto;" onclick="window.open('https://lin.ee/massive','_blank')">
         <i class="fa-brands fa-line icon"></i>LINEで無料登録する
       </button>
       <p class="final-cta__disclaimer">※ 登録・マッチングまで無料。個人情報の入力不要。</p>
@@ -781,6 +782,7 @@
   <script>
     // AOS Init
     AOS.init({ duration: 700, once: true, offset: 60 });
+    (function() { var s = document.getElementById('simAge'); if(s) { var pct = (parseInt(s.value) - 50) / (75 - 50) * 100; s.style.setProperty('--pct', pct + '%'); } })();
 
     // =============================================
     // Count-up (Intersection Observer)
@@ -822,7 +824,7 @@
       el.style.setProperty('--pct', pct + '%');
     }
 
-    function simSelectChip(el, group) {
+    function simSelectChip(el) {
       document.querySelectorAll('#simJobChips .sim__chip').forEach(function(c) { c.classList.remove('selected'); });
       el.classList.add('selected');
       simState.job = parseInt(el.dataset.val);
