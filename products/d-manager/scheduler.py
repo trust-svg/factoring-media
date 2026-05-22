@@ -2043,7 +2043,13 @@ def _extract_email_address(from_header: str) -> str:
 
 
 def _generate_draft_via_cli(email: dict) -> Optional[str]:
-    """Generate a reply draft body via `claude -p` (subscription, no API cost)."""
+    """Generate a reply draft body via `claude -p` (subscription, no API cost).
+
+    Security note: --dangerously-skip-permissions is required for non-interactive subprocess
+    execution (without it, claude tries an IDE handshake that fails → UND_ERR_INVALID_ARG).
+    Mitigated by --disallowedTools blocking all execution/network/write tools, limiting
+    blast radius of any prompt injection via email content.
+    """
     import subprocess
 
     prompt = (
@@ -2071,16 +2077,22 @@ def _generate_draft_via_cli(email: dict) -> Optional[str]:
                 "--output-format",
                 "text",
                 "--max-turns",
-                "3",
+                "1",
+                "--model",
+                config.CLAUDE_MODEL_CLI,
+                "--dangerously-skip-permissions",
+                "--disallowedTools",
+                "Bash WebFetch WebSearch Task Edit Write",
             ],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=180,
             cwd=str(config.COMPANY_DIR),
         )
         if result.returncode != 0:
             logger.warning(
-                f"claude -p draft generation failed rc={result.returncode} stderr={result.stderr[:300]}"
+                f"claude -p draft generation failed rc={result.returncode} "
+                f"stderr={result.stderr[:300]} stdout={result.stdout[:300]}"
             )
             return None
         body = (result.stdout or "").strip()
