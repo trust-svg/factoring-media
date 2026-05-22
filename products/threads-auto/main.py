@@ -173,6 +173,11 @@ async def contact(form: ContactForm):
     return {"status": "ok"}
 
 
+@app.get("/", response_class=HTMLResponse)
+async def landing(request: Request):
+    return templates.TemplateResponse("landing.html", {"request": request})
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     history = get_post_history(limit=50)
