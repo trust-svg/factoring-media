@@ -83,6 +83,40 @@ export default function SpeakingPage() {
     }
   }, [])
 
+  const handlePlayAgain = async () => {
+    if (prepTimerRef.current) clearInterval(prepTimerRef.current)
+    if (recTimerRef.current) clearInterval(recTimerRef.current)
+    mediaRecorderRef.current?.stop()
+    chunksRef.current = []
+    setPhase('prep')
+    setScore(null)
+    setPraise(null)
+    setError('')
+    setPrepCountdown(30)
+    setRecCountdown(0)
+    setLoading(true)
+    endedRef.current = false
+    startRef.current = Date.now()
+    try {
+      const [session, qs] = await Promise.all([
+        apiStartSession('speaking'),
+        apiGetQuestions('speaking', 1),
+      ])
+      setSessionId(session.id)
+      sessionIdRef.current = session.id
+      if (qs.length > 0) {
+        setQuestion(qs[0])
+      } else {
+        const generated = await apiGenerateQuestion('speaking')
+        setQuestion(generated)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '読み込みに失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const startPrep = () => {
     setPrepCountdown(30)
     prepTimerRef.current = setInterval(() => {
@@ -369,6 +403,12 @@ export default function SpeakingPage() {
                 </div>
               )}
 
+              <button
+                onClick={handlePlayAgain}
+                className="w-full bg-rose-500 text-white py-3 rounded-xl font-bold"
+              >
+                続けて問題を解く
+              </button>
               <button
                 onClick={() => {
                   sessionStorage.setItem('eiken-skill-done', 'speaking')

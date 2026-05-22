@@ -77,6 +77,34 @@ export default function WritingPage() {
     }
   }, [])
 
+  const handlePlayAgain = async () => {
+    setAnswer('')
+    setScore(null)
+    setPraise(null)
+    setError('')
+    setLoading(true)
+    endedRef.current = false
+    startRef.current = Date.now()
+    try {
+      const [session, qs] = await Promise.all([
+        apiStartSession('writing'),
+        apiGetQuestions('writing', 1),
+      ])
+      setSessionId(session.id)
+      sessionIdRef.current = session.id
+      if (qs.length > 0) {
+        setQuestion(qs[0])
+      } else {
+        const generated = await apiGenerateQuestion('writing')
+        setQuestion(generated)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '読み込みに失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!question || !sessionId || scoring || answer.trim().length === 0) return
     setScoring(true)
@@ -255,6 +283,12 @@ export default function WritingPage() {
                 </div>
               )}
 
+              <button
+                onClick={handlePlayAgain}
+                className="w-full bg-amber-500 text-white py-3 rounded-xl font-bold"
+              >
+                続けて問題を解く
+              </button>
               <button
                 onClick={() => {
                   sessionStorage.setItem('eiken-skill-done', 'writing')

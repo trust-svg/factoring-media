@@ -764,6 +764,22 @@ export default function HomePage() {
       {/* ══════════ MAIN CONTENT ══════════ */}
       <div className="max-w-5xl mx-auto px-4 lg:px-8 pt-6 pb-14">
 
+        {/* 試験日未設定バナー */}
+        {!user.exam_date && (
+          <button
+            onClick={() => router.push('/settings')}
+            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 mb-4 text-left animate-slide-up"
+            style={{ background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', border: '1px solid #FCD34D' }}
+          >
+            <span className="text-xl shrink-0">📅</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-800 text-xs font-black">試験日を設定しよう！</p>
+              <p className="text-amber-600 text-[11px] font-semibold mt-0.5">設定すると合格確率・カウントダウンが表示されるよ</p>
+            </div>
+            <span className="text-amber-400 text-sm shrink-0">→</span>
+          </button>
+        )}
+
         {/* ── 今日の目標 + AIプラン — 常に最上段 (mobile / desktop 共通) ── */}
         <div className="space-y-4 mb-5">
 
