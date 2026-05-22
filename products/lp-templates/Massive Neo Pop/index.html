@@ -240,7 +240,7 @@
     .empathy__card:nth-child(6) .empathy__icon { animation-delay: 2.0s; }
     .empathy__text { font-size: 0.95rem; color: var(--clr-text); line-height: 1.7; }
     .empathy__img { margin-top: 48px; border-radius: var(--radius-lg); overflow: hidden; }
-    .empathy__img img { width: 100%; height: 320px; object-fit: cover; object-position: top; }
+    .empathy__img img { width: 100%; height: 340px; object-fit: cover; object-position: center; }
 
     /* ===== Section 4: Why 50s ===== */
     .why50__grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 20px; margin-top: 40px; }
@@ -298,6 +298,24 @@
     .features__desc { font-size: 0.9rem; color: var(--clr-text-sub); line-height: 1.8; }
     .features__divider { height: 280px; overflow: hidden; }
     .features__divider img { width: 100%; height: 100%; object-fit: cover; object-position: center 40%; }
+
+    /* ===== Comparison Table ===== */
+    .compare { background: var(--clr-bg); }
+    .compare__wrap { margin-top: 40px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .compare__tbl { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.09); min-width: 560px; }
+    .compare__tbl th { padding: 16px 20px; font-size: 0.88rem; font-weight: 900; letter-spacing: 0.05em; }
+    .compare__tbl td { padding: 15px 20px; font-size: 0.9rem; border-bottom: 1px solid var(--clr-border); text-align: center; vertical-align: middle; }
+    .compare__tbl tr:last-child td { border-bottom: none; }
+    .th-label { background: #EEEEEE; color: var(--clr-text-sub); text-align: left; }
+    .th-normal { background: #555; color: #fff; }
+    .th-massive { background: var(--clr-line); color: #fff; position: relative; }
+    .th-massive::after { content: '★ おすすめ'; position: absolute; top: -10px; right: 12px; background: var(--clr-accent-b); color: var(--clr-text); font-size: 0.62rem; font-weight: 900; padding: 3px 8px; border-radius: var(--radius-full); }
+    .td-label { text-align: left; font-weight: 700; font-size: 0.88rem; background: #FAFAFA; color: var(--clr-text); }
+    .td-normal { color: var(--clr-text-sub); }
+    .td-normal .bad { color: #FF4444; font-weight: 700; }
+    .td-massive { background: #F0FFF5; color: #028a3a; font-weight: 700; }
+    .compare__tbl tbody tr:hover td { filter: brightness(0.97); }
+    .compare__note { text-align: center; font-size: 0.78rem; color: var(--clr-text-sub); margin-top: 16px; }
 
     /* ===== Section 7: Steps (white bg) ===== */
     .steps { background: #F8F8F8; }
@@ -366,7 +384,7 @@
         <div class="hero__content">
           <div class="hero__eyebrow">50代以上限定 シークレットマッチング</div>
           <h1 class="hero__title">まだいける。<br><span class="grad-text">絶頂期は、今。</span></h1>
-          <p class="hero__sub">年齢が、最強の武器になる。<br>50代からが本当の勝負。</p>
+          <p class="hero__sub">若い男に負けると思っていた。<br>でも50代には、若さじゃ勝てない武器がある。</p>
           <div class="hero__active"><span class="dot"></span>今 <strong>324人</strong> の女性がオンライン</div>
           <p class="hero__proof">累計 <strong>18万人</strong> 以上が登録 · 毎日 <strong>320件</strong> のマッチング</p>
           <button class="btn-line" onclick="document.querySelector('#cta').scrollIntoView({behavior:'smooth'})">
@@ -408,15 +426,15 @@
   <section class="section section--gray" id="empathy">
     <div class="container">
       <div class="sec-label" data-aos="fade-up">Are you one of them?</div>
-      <h2 class="sec-title" data-aos="fade-up">こんな50代、<br><span class="grad-text">いませんか？</span></h2>
-      <p class="sec-sub" data-aos="fade-up">多くの男性が同じ悩みを抱えています。あなただけじゃない。</p>
+      <h2 class="sec-title" data-aos="fade-up">こんな悩みを持って<br><span class="grad-text">いませんか？</span></h2>
+      <p class="sec-sub" data-aos="fade-up">あなたのせいじゃない。ただ、戦う場所が間違っていただけ。</p>
       <div class="empathy__grid">
-        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="0"><span class="empathy__icon">😔</span><p class="empathy__text">「出会いの場がなくなった」と感じている</p></div>
-        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="80"><span class="empathy__icon">📱</span><p class="empathy__text">マッチングアプリは若い子ばかりで使いづらい</p></div>
-        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="160"><span class="empathy__icon">🪞</span><p class="empathy__text">年齢のせいで女性に相手にされないと思っている</p></div>
-        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="240"><span class="empathy__icon">🔒</span><p class="empathy__text">身バレが怖くてマッチングアプリに踏み出せない</p></div>
-        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="320"><span class="empathy__icon">💬</span><p class="empathy__text">女性との会話の仕方がわからない・自信がない</p></div>
-        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="400"><span class="empathy__icon">❤️‍🔥</span><p class="empathy__text">まだ恋愛したいのに、チャンスが回ってこない</p></div>
+        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="0"><span class="empathy__icon">😔</span><p class="empathy__text">プロフィール写真を撮っても全然マッチングしない</p></div>
+        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="80"><span class="empathy__icon">📱</span><p class="empathy__text">20〜30代のイケメンと同じ土俵で戦わされている</p></div>
+        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="160"><span class="empathy__icon">🪞</span><p class="empathy__text">年齢を正直に書いたら、スワイプすら来なかった</p></div>
+        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="240"><span class="empathy__icon">🔒</span><p class="empathy__text">家族や会社にバレたら終わりだと思うと動けない</p></div>
+        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="320"><span class="empathy__icon">💬</span><p class="empathy__text">「おじさん構文」と言われそうで怖くてメッセージが送れない</p></div>
+        <div class="empathy__card" data-aos="zoom-in" data-aos-delay="400"><span class="empathy__icon">❤️‍🔥</span><p class="empathy__text">もうチャンスはないのかと諦めかけている自分がいる</p></div>
       </div>
       <div class="empathy__img" data-aos="fade-up">
         <img src="img/m01.jpg" alt="出会いを探す50代男性" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\'img-placeholder\' style=\'height:320px\'>m01.jpg</div>'">
@@ -539,6 +557,35 @@
   <div class="features__divider" data-aos="fade-up">
     <img src="img/s04.jpg" alt="" loading="lazy">
   </div>
+
+  <!-- Section: Massive vs 一般アプリ -->
+  <section class="section compare" id="compare">
+    <div class="container">
+      <div class="sec-label" data-aos="fade-up">Why Different</div>
+      <h2 class="sec-title" data-aos="fade-up">普通のアプリと<br><span class="grad-text">何が違う？</span></h2>
+      <p class="sec-sub" data-aos="fade-up">50代が「戦える場所」か「戦えない場所」か。その差が結果を分ける。</p>
+      <div class="compare__wrap" data-aos="fade-up">
+        <table class="compare__tbl">
+          <thead>
+            <tr>
+              <th class="th-label">比較ポイント</th>
+              <th class="th-normal">一般マッチングアプリ</th>
+              <th class="th-massive">Massive</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="td-label">ライバル</td><td class="td-normal"><span class="bad">20〜30代の若いイケメン</span></td><td class="td-massive">同世代（50代以上）のみ</td></tr>
+            <tr><td class="td-label">顔写真</td><td class="td-normal"><span class="bad">必須・顔で判断される</span></td><td class="td-massive">不要・任意</td></tr>
+            <tr><td class="td-label">身バレリスク</td><td class="td-normal"><span class="bad">高い（知人に見られる）</span></td><td class="td-massive">完全匿名・ゼロ</td></tr>
+            <tr><td class="td-label">女性の好み</td><td class="td-normal"><span class="bad">年齢問わず玉石混交</span></td><td class="td-massive">年上好き限定（30〜45歳）</td></tr>
+            <tr><td class="td-label">50代のマッチ率</td><td class="td-normal"><span class="bad">極めて低い</span></td><td class="td-massive">年齢が武器になる</td></tr>
+            <tr><td class="td-label">登録方法</td><td class="td-normal"><span class="bad">個人情報の入力が多い</span></td><td class="td-massive">LINEだけでOK・3分</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="compare__note">※ 一般アプリとの比較はMassive調べ</p>
+    </div>
+  </section>
 
   <!-- Section 7: Steps -->
   <section class="section steps" id="steps">
