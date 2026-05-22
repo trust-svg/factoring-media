@@ -212,8 +212,10 @@ async def _fetch_mercari(url: str) -> dict:
             )
             page = await ctx.new_page()
             try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                await page.wait_for_timeout(3000)
+                # networkidle: 全ネットワークリクエスト完了まで待つ（domcontentloadedはCSR未完了）
+                await page.goto(url, wait_until="networkidle", timeout=40000)
+                # React描画の追加バッファ
+                await page.wait_for_timeout(2000)
 
                 data = await page.evaluate("""() => {
                     const og = (prop) => {
@@ -228,41 +230,114 @@ async def _fetch_mercari(url: str) -> dict:
                     // 画像
                     const imageUrl = og('og:image');
 
-                    // 価格: ¥XX,XXX 形式の最初のもの
-                    const body = document.body.innerText || '';
-                    const priceMatch = body.match(/¥([\\d,]+)/);
-                    const priceRaw = priceMatch ? priceMatch[1].replace(/,/g, '') : '0';
+                    // ── JSON-LD から price / condition / seller を優先取得 ──
+                    let jsonPrice = 0, jsonCondition = '', jsonSeller = '';
+                    for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
+                        try {
+                            const items = [].concat(JSON.parse(s.textContent));
+                            for (const d of items) {
+                                const offers = [].concat(d.offers || []);
+                                for (const o of offers) {
+                                    if (o.price) jsonPrice = parseInt(o.price, 10) || 0;
+                                }
+                                if (d.itemCondition) {
+                                    const c = d.itemCondition;
+                                    if (c.includes('New'))          jsonCondition = '新品';
+                                    else if (c.includes('LikeNew')) jsonCondition = '未使用に近い';
+                                    else if (c.includes('VeryGood'))jsonCondition = '目立った傷や汚れなし';
+                                    else if (c.includes('Good'))    jsonCondition = 'やや傷や汚れあり';
+                                    else if (c.includes('Used'))    jsonCondition = 'やや傷や汚れあり';
+                                }
+                                if (!jsonSeller && d.seller && d.seller.name) {
+                                    jsonSeller = d.seller.name;
+                                }
+                            }
+                        } catch(e) {}
+                    }
 
-                    // コンディション
-                    let condition = '';
-                    const allText = [...document.querySelectorAll('*')];
-                    for (const el of allText) {
-                        if (el.children.length > 0) continue;
-                        const txt = el.innerText || '';
-                        if (txt.includes('商品の状態')) {
-                            // 次の兄弟または親の次要素にコンディション値があることが多い
-                            const parent = el.closest('li, div, tr, section');
-                            if (parent) {
-                                const next = parent.nextElementSibling;
-                                if (next) {
-                                    condition = next.innerText.trim();
-                                    break;
+                    // ── 価格: DOM取得 (JSON-LDが0の場合のフォールバック) ──
+                    let priceRaw = jsonPrice > 0 ? String(jsonPrice) : '0';
+                    if (!jsonPrice) {
+                        // mer-price カスタム要素
+                        const merPrice = document.querySelector('mer-price');
+                        if (merPrice) {
+                            const v = merPrice.getAttribute('value') || merPrice.innerText || '';
+                            priceRaw = v.replace(/[¥￥,\\s]/g, '') || '0';
+                        }
+                        if (!priceRaw || priceRaw === '0') {
+                            const priceEl = document.querySelector(
+                                "[data-testid='price'], [class*='ItemPrice'], [class*='item-price'],"
+                                + "[class*='sellingPrice'], [class*='selling-price']"
+                            );
+                            if (priceEl) {
+                                priceRaw = priceEl.innerText.replace(/[¥￥,\\s円]/g, '') || '0';
+                            }
+                        }
+                        if (!priceRaw || priceRaw === '0') {
+                            // ¥ (U+00A5) と ￥ (U+FFE5) 両方を対象にした正規表現
+                            const m = document.body.innerText.match(/[¥￥]([\\d,]+)/);
+                            if (m) priceRaw = m[1].replace(/,/g, '');
+                        }
+                    }
+
+                    // ── コンディション: DOM取得 (JSON-LDが空の場合のフォールバック) ──
+                    let condition = jsonCondition;
+                    if (!condition) {
+                        // 方法1: TreeWalker でラベルノードを見つけ、
+                        //         親コンテナの innerText を改行分割して index+1 を取る
+                        const walker = document.createTreeWalker(
+                            document.body, NodeFilter.SHOW_TEXT, null
+                        );
+                        let node;
+                        outer: while ((node = walker.nextNode())) {
+                            if (node.textContent.trim() === '商品の状態') {
+                                // 同じコンテナの全テキストを改行分割して値を探す
+                                let p = node.parentElement;
+                                for (let i = 0; i < 5; i++) {
+                                    if (!p) break;
+                                    const lines = (p.innerText || '').split('\\n')
+                                        .map(t => t.trim()).filter(t => t);
+                                    const idx = lines.indexOf('商品の状態');
+                                    if (idx !== -1 && idx + 1 < lines.length) {
+                                        condition = lines[idx + 1];
+                                        break outer;
+                                    }
+                                    p = p.parentElement;
                                 }
                             }
                         }
                     }
-
-                    // セラーID
-                    let sellerId = '';
-                    const sellerLink = document.querySelector('a[href*="/user/profile/"]');
-                    if (sellerLink) {
-                        const m = sellerLink.href.match(/\\/user\\/profile\\/([^/?#]+)/);
-                        if (m) sellerId = m[1];
+                    if (!condition) {
+                        // 方法2: body 全体を改行分割してラベルの次行を取る
+                        const lines = (document.body.innerText || '').split('\\n')
+                            .map(t => t.trim()).filter(t => t);
+                        const idx = lines.indexOf('商品の状態');
+                        if (idx !== -1 && idx + 1 < lines.length) {
+                            condition = lines[idx + 1];
+                        }
                     }
 
-                    // 説明文
+                    // ── セラーID ──
+                    let sellerId = jsonSeller;
+                    if (!sellerId) {
+                        const sellerLink = document.querySelector(
+                            'a[href*="/user/profile/"], a[href*="/users/"]'
+                        );
+                        if (sellerLink) {
+                            const m = sellerLink.href.match(/\\/users?\\/(?:profile\\/)?([^/?#]+)/);
+                            if (m) {
+                                sellerId = m[1];
+                            } else {
+                                const nameEl = sellerLink.querySelector('[class*="name"], [class*="seller"]');
+                                sellerId = nameEl
+                                    ? nameEl.innerText.trim()
+                                    : sellerLink.innerText.trim().split('\\n')[0];
+                            }
+                        }
+                    }
+
+                    // ── 説明文 ──
                     let description = '';
-                    // data-testid="description" や class に description が含む要素
                     const descEl = document.querySelector(
                         '[data-testid="description"], [class*="description"], [class*="Description"]'
                     );
@@ -283,8 +358,11 @@ async def _fetch_mercari(url: str) -> dict:
                 result["seller_id"] = data.get("seller_id", "")
                 result["description"] = data.get("description", "")
 
-                price_raw = data.get("price_raw", "0")
-                result["price_jpy"] = int(price_raw) if price_raw.isdigit() else 0
+                price_raw = data.get("price_raw", "0") or "0"
+                try:
+                    result["price_jpy"] = int(price_raw.replace(",", ""))
+                except (ValueError, AttributeError):
+                    result["price_jpy"] = 0
 
                 raw_cond = data.get("condition", "")
                 result["condition"] = _normalize_condition(raw_cond) if raw_cond else ""
