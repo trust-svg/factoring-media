@@ -378,6 +378,14 @@
     .final-cta__disclaimer { font-size: 0.75rem; color: rgba(255,255,255,0.55); margin-top: 20px; }
     .final-cta__img { margin: 40px auto 0; max-width: 480px; border-radius: var(--radius-lg); overflow: hidden; }
     .final-cta__img img { width: 100%; height: 320px; object-fit: cover; object-position: top; }
+    .final-cta .grad-text { background: none; -webkit-text-fill-color: #fff; color: #fff; text-shadow: 0 2px 16px rgba(0,0,0,0.18); }
+
+    /* ===== Footer ===== */
+    .site-footer { background: var(--clr-gray-bg); border-top: 1px solid var(--clr-border); padding: 28px 0; text-align: center; }
+    .footer-nav { display: flex; justify-content: center; gap: clamp(20px,4vw,40px); flex-wrap: wrap; margin-bottom: 14px; }
+    .footer-nav a { font-size: 0.82rem; color: var(--clr-text-sub); text-decoration: none; transition: color 0.2s; }
+    .footer-nav a:hover { color: var(--clr-text); }
+    .footer-copy { font-size: 0.72rem; color: #c0c0c0; }
   </style>
 </head>
 <body>
@@ -883,5 +891,15 @@
       if (!expanded) { btn.setAttribute('aria-expanded','true'); btn.nextElementSibling.classList.add('open'); }
     }
   </script>
+
+  <footer class="site-footer">
+    <nav class="footer-nav">
+      <a href="#">利用規約</a>
+      <a href="#">プライバシーポリシー</a>
+      <a href="#">特商法の表記</a>
+    </nav>
+    <p class="footer-copy">&copy; 2026 Massive. All rights reserved.</p>
+  </footer>
+
 </body>
 </html>
