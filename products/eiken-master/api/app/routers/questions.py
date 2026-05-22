@@ -36,7 +36,7 @@ def get_questions(
 ):
     cutoff = datetime.now(JST).replace(tzinfo=None) - timedelta(days=_SEEN_DAYS)
     seen_ids = {
-        row.question_id
+        row
         for (row,) in db.query(QuestionAttempt.question_id)
         .filter(
             QuestionAttempt.user_id == user.id,
