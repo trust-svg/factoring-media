@@ -299,23 +299,20 @@
     .features__divider { height: 280px; overflow: hidden; }
     .features__divider img { width: 100%; height: 100%; object-fit: cover; object-position: center 40%; }
 
-    /* ===== Comparison Table ===== */
-    .compare { background: var(--clr-bg); }
-    .compare__wrap { margin-top: 40px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .compare__tbl { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.09); min-width: 560px; }
-    .compare__tbl th { padding: 16px 20px; font-size: 0.88rem; font-weight: 900; letter-spacing: 0.05em; }
-    .compare__tbl td { padding: 15px 20px; font-size: 0.9rem; border-bottom: 1px solid var(--clr-border); text-align: center; vertical-align: middle; }
-    .compare__tbl tr:last-child td { border-bottom: none; }
-    .th-label { background: #EEEEEE; color: var(--clr-text-sub); text-align: left; }
-    .th-normal { background: #555; color: #fff; }
-    .th-massive { background: var(--clr-line); color: #fff; position: relative; }
-    .th-massive::after { content: '★ おすすめ'; position: absolute; top: -10px; right: 12px; background: var(--clr-accent-b); color: var(--clr-text); font-size: 0.62rem; font-weight: 900; padding: 3px 8px; border-radius: var(--radius-full); }
-    .td-label { text-align: left; font-weight: 700; font-size: 0.88rem; background: #FAFAFA; color: var(--clr-text); }
-    .td-normal { color: var(--clr-text-sub); }
-    .td-normal .bad { color: #FF4444; font-weight: 700; }
-    .td-massive { background: #F0FFF5; color: #028a3a; font-weight: 700; }
-    .compare__tbl tbody tr:hover td { filter: brightness(0.97); }
-    .compare__note { text-align: center; font-size: 0.78rem; color: var(--clr-text-sub); margin-top: 16px; }
+    /* ===== Women's Voice ===== */
+    .voice { background: var(--clr-gray-bg); }
+    .voice__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 48px; }
+    @media (max-width: 640px) { .voice__grid { grid-template-columns: 1fr; } }
+    .voice__card { background: #fff; border-radius: var(--radius-lg); padding: 28px 28px 24px; box-shadow: 0 4px 28px rgba(0,0,0,0.07); display: flex; flex-direction: column; gap: 16px; }
+    .voice__header { display: flex; align-items: center; gap: 14px; }
+    .voice__avatar { width: 58px; height: 58px; border-radius: 50%; object-fit: cover; object-position: top; flex-shrink: 0; border: 3px solid transparent; background: linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg, var(--clr-accent-a), var(--clr-accent-b)) border-box; }
+    .voice__name { display: block; font-weight: 900; font-size: 1rem; color: var(--clr-text); }
+    .voice__age { display: block; font-size: 0.78rem; color: var(--clr-text-sub); margin-top: 2px; }
+    .voice__bubble { background: var(--clr-gray-bg); border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg); padding: 18px 20px; position: relative; font-size: 0.93rem; line-height: 1.75; color: var(--clr-text); }
+    .voice__bubble::before { content: ''; position: absolute; top: -10px; left: 18px; border: 10px solid transparent; border-bottom-color: var(--clr-gray-bg); border-top-width: 0; }
+    .voice__bubble strong { color: var(--clr-accent-a); font-weight: 900; }
+    .voice__reaction { font-size: 0.78rem; color: var(--clr-text-sub); text-align: right; }
+    .voice__reaction span { background: #FFF0F0; color: #FF6B6B; border-radius: var(--radius-full); padding: 3px 10px; font-weight: 700; }
 
     /* ===== Section 7: Steps (white bg) ===== */
     .steps { background: #F8F8F8; }
@@ -558,32 +555,71 @@
     <img src="img/s04.jpg" alt="" loading="lazy">
   </div>
 
-  <!-- Section: Massive vs 一般アプリ -->
-  <section class="section compare" id="compare">
+  <!-- Section: Women's Voice -->
+  <section class="section voice" id="voice">
     <div class="container">
-      <div class="sec-label" data-aos="fade-up">Why Different</div>
-      <h2 class="sec-title" data-aos="fade-up">普通のアプリと<br><span class="grad-text">何が違う？</span></h2>
-      <p class="sec-sub" data-aos="fade-up">50代が「戦える場所」か「戦えない場所」か。その差が結果を分ける。</p>
-      <div class="compare__wrap" data-aos="fade-up">
-        <table class="compare__tbl">
-          <thead>
-            <tr>
-              <th class="th-label">比較ポイント</th>
-              <th class="th-normal">一般マッチングアプリ</th>
-              <th class="th-massive">Massive</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td class="td-label">ライバル</td><td class="td-normal"><span class="bad">20〜30代の若いイケメン</span></td><td class="td-massive">同世代（50代以上）のみ</td></tr>
-            <tr><td class="td-label">顔写真</td><td class="td-normal"><span class="bad">必須・顔で判断される</span></td><td class="td-massive">不要・任意</td></tr>
-            <tr><td class="td-label">身バレリスク</td><td class="td-normal"><span class="bad">高い（知人に見られる）</span></td><td class="td-massive">完全匿名・ゼロ</td></tr>
-            <tr><td class="td-label">女性の好み</td><td class="td-normal"><span class="bad">年齢問わず玉石混交</span></td><td class="td-massive">年上好き限定（30〜45歳）</td></tr>
-            <tr><td class="td-label">50代のマッチ率</td><td class="td-normal"><span class="bad">極めて低い</span></td><td class="td-massive">年齢が武器になる</td></tr>
-            <tr><td class="td-label">登録方法</td><td class="td-normal"><span class="bad">個人情報の入力が多い</span></td><td class="td-massive">LINEだけでOK・3分</td></tr>
-          </tbody>
-        </table>
+      <div class="sec-label" data-aos="fade-up">Women's Voice</div>
+      <h2 class="sec-title" data-aos="fade-up">女性たちが50代を選ぶ、<br><span class="grad-text">本当の理由。</span></h2>
+      <p class="sec-sub" data-aos="fade-up">「年上がいい」と言う女性たちは、いったい何を求めているのか。</p>
+      <div class="voice__grid">
+
+        <div class="voice__card" data-aos="fade-up">
+          <div class="voice__header">
+            <img src="img/w02.jpg" alt="" class="voice__avatar">
+            <div>
+              <span class="voice__name">さくら</span>
+              <span class="voice__age">34歳 / 会社員</span>
+            </div>
+          </div>
+          <div class="voice__bubble">
+            若い男の子って、見た目はいいけど話してても<strong>薄い</strong>んですよ。年上の方は話に深みがあって、こっちの話もちゃんと聞いてくれる。それだけで全然違う。
+          </div>
+          <div class="voice__reaction"><span>❤️ 同じ気持ち 847人</span></div>
+        </div>
+
+        <div class="voice__card" data-aos="fade-up" data-aos-delay="80">
+          <div class="voice__header">
+            <img src="img/w04.jpg" alt="" class="voice__avatar">
+            <div>
+              <span class="voice__name">みゆき</span>
+              <span class="voice__age">29歳 / 看護師</span>
+            </div>
+          </div>
+          <div class="voice__bubble">
+            年上の方って、<strong>急かさない</strong>んですよね。デートのペースも、関係を進めるテンポも、こちらに合わせてくれる。それって若い男の子には絶対できないと思う。
+          </div>
+          <div class="voice__reaction"><span>❤️ 同じ気持ち 1,203人</span></div>
+        </div>
+
+        <div class="voice__card" data-aos="fade-up" data-aos-delay="40">
+          <div class="voice__header">
+            <img src="img/w05.jpg" alt="" class="voice__avatar">
+            <div>
+              <span class="voice__name">あかね</span>
+              <span class="voice__age">38歳 / 自営業</span>
+            </div>
+          </div>
+          <div class="voice__bubble">
+            経済的に安定してる方を選びたいって、打算じゃなくて<strong>安心感</strong>の話。毎回割り勘で「どこ行く？」って相談してるデートに疲れちゃって。大人の男性ってそこが違う。
+          </div>
+          <div class="voice__reaction"><span>❤️ 同じ気持ち 962人</span></div>
+        </div>
+
+        <div class="voice__card" data-aos="fade-up" data-aos-delay="120">
+          <div class="voice__header">
+            <img src="img/w07.jpg" alt="" class="voice__avatar">
+            <div>
+              <span class="voice__name">ひな</span>
+              <span class="voice__age">36歳 / 事務職</span>
+            </div>
+          </div>
+          <div class="voice__bubble">
+            最初は年齢差が気になってたんですけど、一回会ったら全部吹き飛びました。<strong>大人の余裕</strong>ってこういうことかって。あの落ち着き、同世代の男性には出せない。
+          </div>
+          <div class="voice__reaction"><span>❤️ 同じ気持ち 1,581人</span></div>
+        </div>
+
       </div>
-      <p class="compare__note">※ 一般アプリとの比較はMassive調べ</p>
     </div>
   </section>
 
