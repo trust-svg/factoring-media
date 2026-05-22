@@ -4876,23 +4876,32 @@ import re as _re
 
 
 def _extract_model_number(title: str) -> str:
-    """英語eBayタイトルから型番トークンを抽出する。
-    例: 'Pioneer DJ DDJ-SB3 Black DJ Controller 2-Channel' → 'DDJ-SB3'
-    ルール: 文字始まりの候補（DDJ-SB3等）を優先し、数字始まり（2-Channel等）は除外。
-    候補が複数ある場合は最長を返す。
+    """英語eBayタイトルからブランド名+型番を抽出する。
+    例: 'Pioneer DJ DDJ-SB3 Black DJ Controller 2-Channel' → 'Pioneer DDJ-SB3'
+    ルール: 文字始まりの候補（DDJ-SB3等）を優先し、型番の直前にあるブランド名を付加。
     """
     tokens = _re.split(r"[\s/,()[\]]+", title)
+    cleaned = [t.strip("-.") for t in tokens]
     candidates = [
-        t.strip("-.")
-        for t in tokens
+        t
+        for t in cleaned
         if len(t) >= 3 and _re.search(r"[A-Za-z]", t) and _re.search(r"\d", t)
     ]
     if not candidates:
         return ""
-    # 数字始まり（2-Channel、4-Track等）は型番ではないので除外
     letter_first = [c for c in candidates if c[0].isalpha()]
     pool = letter_first if letter_first else candidates
-    return max(pool, key=len)
+    model_num = max(pool, key=len)
+    # 型番の前にあるブランド名（英字のみ・先頭大文字）を付加
+    model_idx = cleaned.index(model_num) if model_num in cleaned else -1
+    if model_idx > 0:
+        brand = next(
+            (t for t in tokens[:model_idx] if _re.match(r"^[A-Z][a-zA-Z]+$", t)),
+            None,
+        )
+        if brand:
+            return f"{brand} {model_num}"
+    return model_num
 
 
 async def _generate_jp_search_keyword(title: str) -> str:

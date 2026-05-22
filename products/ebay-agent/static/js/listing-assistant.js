@@ -1022,14 +1022,20 @@ async function loadSoldItems(force = false) {
 }
 
 function _extractKeyword(title) {
-  const tokens = title.split(/[\s/,()[\]]+/);
-  const candidates = tokens
-    .map(t => t.replace(/^[-.]|[-.]$/g, ''))
-    .filter(t => t.length >= 3 && /[A-Za-z]/.test(t) && /\d/.test(t));
+  const tokens = title.split(/[\s/,()[\]]+/).filter(t => t.length > 0);
+  const cleaned = tokens.map(t => t.replace(/^[-.]|[-.]$/g, ''));
+  const candidates = cleaned.filter(t => t.length >= 3 && /[A-Za-z]/.test(t) && /\d/.test(t));
   if (!candidates.length) return title.split(' ').slice(0, 3).join(' ');
   const letterFirst = candidates.filter(c => /^[A-Za-z]/.test(c));
   const pool = letterFirst.length ? letterFirst : candidates;
-  return pool.reduce((a, b) => a.length >= b.length ? a : b);
+  const modelNum = pool.reduce((a, b) => a.length >= b.length ? a : b);
+  // モデル番号の前にあるブランド名（英字のみ・先頭大文字）を付加
+  const modelIdx = cleaned.indexOf(modelNum);
+  if (modelIdx > 0) {
+    const brand = tokens.slice(0, modelIdx).find(t => /^[A-Z][a-zA-Z]+$/.test(t));
+    if (brand) return `${brand} ${modelNum}`;
+  }
+  return modelNum;
 }
 
 function renderReorderItem(item) {
