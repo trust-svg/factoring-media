@@ -208,7 +208,7 @@
     @keyframes scrollBounce { 0%,100% { transform:translateY(0); opacity:1; } 50% { transform:translateY(10px); opacity:0.35; } }
 
     /* ===== Section 2: Stats ===== */
-    .stats { background: var(--clr-text); padding: clamp(36px,6vw,60px) 0; position: relative; overflow: hidden; }
+    .stats { background: var(--clr-gray-bg); padding: clamp(36px,6vw,60px) 0; position: relative; overflow: hidden; }
     .stats__grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; text-align: center; }
     @media (max-width: 480px) { .stats__grid { grid-template-columns: 1fr; gap: 32px; } }
     .stats__num {
@@ -218,7 +218,7 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       animation: shimmerText 3.5s linear infinite; margin-bottom: 6px;
     }
-    .stats__label { font-size: 0.85rem; color: rgba(255,255,255,0.7); }
+    .stats__label { font-size: 0.85rem; color: var(--clr-text-sub); }
 
     /* ===== Section 3: Empathy ===== */
     .empathy__grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 16px; margin-top: 40px; }
@@ -299,6 +299,24 @@
     .features__divider { height: 280px; overflow: hidden; }
     .features__divider img { width: 100%; height: 100%; object-fit: cover; object-position: center 40%; }
 
+    /* ===== Comparison Table ===== */
+    .compare { background: var(--clr-bg); }
+    .compare__wrap { margin-top: 56px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .compare__tbl { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.09); min-width: 560px; }
+    .compare__tbl th { padding: 16px 20px; font-size: 0.88rem; font-weight: 900; letter-spacing: 0.05em; }
+    .compare__tbl td { padding: 15px 20px; font-size: 0.9rem; border-bottom: 1px solid var(--clr-border); text-align: center; vertical-align: middle; }
+    .compare__tbl tr:last-child td { border-bottom: none; }
+    .th-label { background: #F0F0F0; color: var(--clr-text-sub); text-align: left; }
+    .th-normal { background: #E8E8E8; color: var(--clr-text); }
+    .th-massive { background: var(--clr-line); color: #fff; position: relative; }
+    .th-massive .best-badge { display: inline-block; background: var(--clr-accent-b); color: var(--clr-text); font-size: 0.6rem; font-weight: 900; padding: 2px 8px; border-radius: var(--radius-full); margin-bottom: 6px; }
+    .td-label { text-align: left; font-weight: 700; font-size: 0.88rem; background: #FAFAFA; color: var(--clr-text); }
+    .td-normal { color: var(--clr-text-sub); }
+    .td-normal .bad { color: #FF4444; font-weight: 700; }
+    .td-massive { background: #F0FFF5; color: #028a3a; font-weight: 700; }
+    .compare__tbl tbody tr:hover td { filter: brightness(0.97); }
+    .compare__note { text-align: center; font-size: 0.78rem; color: var(--clr-text-sub); margin-top: 16px; }
+
     /* ===== Women's Voice ===== */
     .voice { background: var(--clr-gray-bg); }
     .voice__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 48px; }
@@ -350,14 +368,14 @@
     .faq__a.open { max-height: 400px; padding-bottom: 16px; }
 
     /* ===== Section 10: Final CTA ===== */
-    .final-cta { background: var(--clr-text); padding: var(--section-pad) 0; text-align: center; position: relative; overflow: hidden; }
-    .final-cta .blob--a { top: -40px; left: -40px; opacity: 0.2; }
-    .final-cta .blob--b { bottom: -20px; right: -20px; opacity: 0.2; }
-    .final-cta .blob--c { top: 30%; right: 5%; opacity: 0.15; }
-    .final-cta__proof { font-family: var(--font-en); font-size: 0.8rem; letter-spacing: 0.2em; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 16px; }
-    .final-cta__title { font-size: clamp(1.8rem,5vw,3rem); font-weight: 900; color: #fff; line-height: 1.2; margin-bottom: 16px; }
-    .final-cta__sub { font-size: 1rem; color: rgba(255,255,255,0.7); margin-bottom: 32px; }
-    .final-cta__disclaimer { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 20px; }
+    .final-cta { background: linear-gradient(135deg, #FF6B6B 0%, #FF9A5C 35%, #FFD166 100%); padding: var(--section-pad) 0; text-align: center; position: relative; overflow: hidden; }
+    .final-cta .blob--a { top: -40px; left: -40px; opacity: 0.18; }
+    .final-cta .blob--b { bottom: -20px; right: -20px; opacity: 0.18; }
+    .final-cta .blob--c { top: 30%; right: 5%; opacity: 0.12; }
+    .final-cta__proof { font-family: var(--font-en); font-size: 0.8rem; letter-spacing: 0.2em; color: rgba(255,255,255,0.75); text-transform: uppercase; margin-bottom: 16px; }
+    .final-cta__title { font-size: clamp(1.8rem,5vw,3rem); font-weight: 900; color: #fff; line-height: 1.2; margin-bottom: 16px; text-shadow: 0 2px 12px rgba(0,0,0,0.12); }
+    .final-cta__sub { font-size: 1rem; color: rgba(255,255,255,0.9); margin-bottom: 32px; }
+    .final-cta__disclaimer { font-size: 0.75rem; color: rgba(255,255,255,0.55); margin-top: 20px; }
     .final-cta__img { margin: 40px auto 0; max-width: 480px; border-radius: var(--radius-lg); overflow: hidden; }
     .final-cta__img img { width: 100%; height: 320px; object-fit: cover; object-position: top; }
   </style>
@@ -620,6 +638,35 @@
         </div>
 
       </div>
+    </div>
+  </section>
+
+  <!-- Section: Massive vs 一般アプリ -->
+  <section class="section compare" id="compare">
+    <div class="container">
+      <div class="sec-label" data-aos="fade-up">Why Different</div>
+      <h2 class="sec-title" data-aos="fade-up">普通のアプリと<br><span class="grad-text">何が違う？</span></h2>
+      <p class="sec-sub" data-aos="fade-up">50代が「戦える場所」か「戦えない場所」か。その差が結果を分ける。</p>
+      <div class="compare__wrap" data-aos="fade-up">
+        <table class="compare__tbl">
+          <thead>
+            <tr>
+              <th class="th-label">比較ポイント</th>
+              <th class="th-normal">一般マッチングアプリ</th>
+              <th class="th-massive"><span class="best-badge">★ おすすめ</span><br>Massive</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="td-label">ライバル</td><td class="td-normal"><span class="bad">20〜30代の若いイケメン</span></td><td class="td-massive">同世代（50代以上）のみ</td></tr>
+            <tr><td class="td-label">顔写真</td><td class="td-normal"><span class="bad">必須・顔で判断される</span></td><td class="td-massive">不要・任意</td></tr>
+            <tr><td class="td-label">身バレリスク</td><td class="td-normal"><span class="bad">高い（知人に見られる）</span></td><td class="td-massive">完全匿名・ゼロ</td></tr>
+            <tr><td class="td-label">女性の好み</td><td class="td-normal"><span class="bad">年齢問わず玉石混交</span></td><td class="td-massive">年上好き限定（30〜45歳）</td></tr>
+            <tr><td class="td-label">50代のマッチ率</td><td class="td-normal"><span class="bad">極めて低い</span></td><td class="td-massive">年齢が武器になる</td></tr>
+            <tr><td class="td-label">登録方法</td><td class="td-normal"><span class="bad">個人情報の入力が多い</span></td><td class="td-massive">LINEだけでOK・3分</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="compare__note">※ 一般アプリとの比較はMassive調べ</p>
     </div>
   </section>
 
