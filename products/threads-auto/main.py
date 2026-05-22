@@ -26,6 +26,7 @@ from state_manager import (
     is_kill_switch_active,
     get_analyst_feedback,
 )
+from pydantic import BaseModel
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +40,18 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
 templates = Jinja2Templates(directory="templates")
+
+
+# ------------------------------------------------------------------
+# Pydantic スキーマ
+# ------------------------------------------------------------------
+
+
+class ContactForm(BaseModel):
+    name: str
+    company: str
+    email: str
+    message: str
 
 
 # ------------------------------------------------------------------
@@ -138,6 +151,26 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Threads Auto", lifespan=lifespan)
+
+
+@app.post("/contact")
+async def contact(form: ContactForm):
+    """ASPお問い合わせフォーム → Telegram通知"""
+    from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+    text = (
+        f"📬 ASPお問い合わせ\n\n"
+        f"名前: {form.name}\n"
+        f"会社: {form.company}\n"
+        f"メール: {form.email}\n\n"
+        f"内容:\n{form.message}"
+    )
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        await client.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": TELEGRAM_CHAT_ID, "text": text},
+        )
+    return {"status": "ok"}
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
