@@ -1018,7 +1018,6 @@ async function loadSoldItems(force = false) {
     const byMargin = (a, b) => _estimateMarginFast(b) - _estimateMarginFast(a);
     const soldOut = items.filter(i => i.category === 'sold_out').sort(byMargin);
     const unlisted = items.filter(i => i.category === 'unlisted').sort(byMargin);
-    console.log('[loadSoldItems] total:', items.length, 'sold_out:', soldOut.length, 'unlisted:', unlisted.length);
     let html = '';
     if (soldOut.length) {
       html += `<div class="la-reorder-section-header">売れて在庫切れ（${soldOut.length}件）</div>`;
@@ -1160,11 +1159,12 @@ async function _researchOne(item) {
   const resultEl = document.getElementById(`research-result-${item.id}`);
   if (resultEl) resultEl.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">検索中...</span>';
   try {
+    const kw = _extractKeyword(item.title || '');
     const resp = await fetch('/api/listing-assistant/quick-price', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ebay_query: _extractKeyword(item.title),
+        ebay_query: kw,
         purchase_price_jpy: item.purchase_price_jpy || 0,
       }),
     });
@@ -1172,7 +1172,8 @@ async function _researchOne(item) {
     const data = await resp.json();
     _researchResults.set(item.id, data);
     updateCardWithResearch(item.id, data);
-  } catch {
+  } catch (e) {
+    console.warn(`[research] id=${item.id} error:`, e?.message);
     const el = document.getElementById(`research-result-${item.id}`);
     if (el) el.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">エラー</span>';
   }
@@ -1187,21 +1188,16 @@ async function startBatchResearch() {
     .sort((a, b) => _estimateMarginFast(b) - _estimateMarginFast(a))
     .slice(0, 20);
 
-  // Debug: log cache/DOM state to console (open DevTools → Console to see)
-  console.log('[research] cache:', _reorderItemsCache.size, 'batch:', allItems.length);
-  let domMissing = 0;
-  allItems.forEach((item, i) => {
-    const el = document.getElementById(`research-result-${item.id}`);
-    if (!el) domMissing++;
-    console.log(`[research] #${i + 1} id=${item.id} price_usd=${item.ebay_price_usd} dom=${el ? 'ok' : 'MISSING'}`);
-  });
-  console.log('[research] DOM missing:', domMissing, '/', allItems.length);
+  if (!allItems.length) { btn.textContent = '候補なし'; btn.disabled = false; return; }
 
-  if (!allItems.length) { btn.textContent = '候補なし'; return; }
-
-  for (let i = 0; i < allItems.length; i++) {
-    btn.textContent = `リサーチ中 ${i + 1}/${allItems.length}`;
-    await _researchOne(allItems[i]);
+  // 4件並列で処理（Browse API はレートリミット緩い）
+  const CONCURRENCY = 4;
+  let done = 0;
+  for (let i = 0; i < allItems.length; i += CONCURRENCY) {
+    const batch = allItems.slice(i, i + CONCURRENCY);
+    btn.textContent = `リサーチ中 ${Math.min(i + CONCURRENCY, allItems.length)}/${allItems.length}`;
+    await Promise.all(batch.map(item => _researchOne(item)));
+    done += batch.length;
   }
 
   btn.textContent = '再リサーチ';
