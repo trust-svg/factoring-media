@@ -4877,8 +4877,9 @@ import re as _re
 
 def _extract_model_number(title: str) -> str:
     """英語eBayタイトルから型番トークンを抽出する。
-    英字＋数字を含む3文字以上のトークンを候補とし、最長のものを返す。
-    例: 'Sony WH-1000XM4 Headphones' → 'WH-1000XM4'
+    例: 'Pioneer DJ DDJ-SB3 Black DJ Controller 2-Channel' → 'DDJ-SB3'
+    ルール: 文字始まりの候補（DDJ-SB3等）を優先し、数字始まり（2-Channel等）は除外。
+    候補が複数ある場合は最長を返す。
     """
     tokens = _re.split(r"[\s/,()[\]]+", title)
     candidates = [
@@ -4886,7 +4887,12 @@ def _extract_model_number(title: str) -> str:
         for t in tokens
         if len(t) >= 3 and _re.search(r"[A-Za-z]", t) and _re.search(r"\d", t)
     ]
-    return max(candidates, key=len) if candidates else ""
+    if not candidates:
+        return ""
+    # 数字始まり（2-Channel、4-Track等）は型番ではないので除外
+    letter_first = [c for c in candidates if c[0].isalpha()]
+    pool = letter_first if letter_first else candidates
+    return max(pool, key=len)
 
 
 async def _generate_jp_search_keyword(title: str) -> str:
@@ -5156,8 +5162,15 @@ async def listing_assistant_search_jp(request: Request):
     if not title:
         raise HTTPException(400, "title is required")
 
-    # 上限価格: 仕入れ価格の1.5倍（最低3,000円）
-    max_price_jpy = max(int(purchase_price_jpy * 1.5), 3000)
+    # 上限価格: リクエスト側で指定可能。未指定の場合は仕入れ価格の3倍（最低5,000円）
+    try:
+        max_price_jpy_override = body.get("max_price_jpy")
+        if max_price_jpy_override is not None:
+            max_price_jpy = int(max_price_jpy_override)
+        else:
+            max_price_jpy = max(int(purchase_price_jpy * 3), 5000)
+    except (ValueError, TypeError):
+        max_price_jpy = max(int(purchase_price_jpy * 3), 5000)
 
     # キーワード決定: 型番 → Haiku生成 → タイトルそのまま
     keyword = _extract_model_number(title)
