@@ -5270,20 +5270,29 @@ async def listing_assistant_search_jp(request: Request):
     from scrapers.yahoo_auction import YahooAuctionScraper
     from scrapers.paypay_flea import PayPayFleaScraper
 
-    async def _do_search():
-        return await asyncio.gather(
+    async def _run(coro, timeout_sec: float):
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout_sec)
+        except Exception as e:
+            logger.warning(f"[search-jp] スクレイパータイムアウト/エラー: {e!r}")
+            return []
+
+    results = await asyncio.gather(
+        _run(
             MercariScraper().search(keyword, max_price_jpy, junk_ok=False, limit=5),
+            30.0,
+        ),
+        _run(
             YahooAuctionScraper().search(
                 keyword, max_price_jpy, junk_ok=False, limit=5
             ),
+            15.0,
+        ),
+        _run(
             PayPayFleaScraper().search(keyword, max_price_jpy, junk_ok=False, limit=5),
-            return_exceptions=True,
-        )
-
-    try:
-        results = await asyncio.wait_for(_do_search(), timeout=45.0)
-    except asyncio.TimeoutError:
-        return JSONResponse({"error": "検索タイムアウト（45秒）"}, status_code=408)
+            30.0,
+        ),
+    )
 
     def _serialize(items_or_exc):
         if isinstance(items_or_exc, Exception):
