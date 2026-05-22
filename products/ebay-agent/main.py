@@ -5038,9 +5038,9 @@ async def listing_assistant_demand(request: Request):
 
 @app.post("/api/listing-assistant/quick-price")
 async def listing_assistant_quick_price(request: Request):
-    """軽量需要チェック: Finding API 1コールのみ。バッチリサーチ用。
+    """軽量需要チェック: Browse API(OAuth)でアクティブ出品を検索。Finding API不使用。
 
-    売れた商品8件を取得 → 中央値 + 利益率を計算して返す。
+    アクティブ出品10件の中央値 + 利益率を計算して返す。
     """
     body = await request.json()
     query = (body.get("ebay_query") or body.get("title") or "").strip()
@@ -5048,26 +5048,24 @@ async def listing_assistant_quick_price(request: Request):
     if not query:
         return JSONResponse({"status": "no_results"})
 
-    from ebay_core.client import search_ebay_sold
+    from ebay_core.client import search_ebay
     from ebay_core.exchange_rate import get_usd_to_jpy
     from config import EBAY_FEE_RATE, PAYONEER_FEE_RATE
 
     try:
-        sold_items = await asyncio.wait_for(
-            asyncio.to_thread(search_ebay_sold, query, 8),
+        items = await asyncio.wait_for(
+            asyncio.to_thread(search_ebay, query, 10),
             timeout=15.0,
         )
     except asyncio.TimeoutError:
         return JSONResponse({"status": "timeout", "items_found": 0})
 
-    if not sold_items:
+    if not items:
         return JSONResponse({"status": "no_results", "items_found": 0})
 
-    prices = sorted(
-        float(i.get("price", 0)) for i in sold_items if i.get("price", 0) > 0
-    )
+    prices = sorted(float(i.get("price", 0)) for i in items if i.get("price", 0) > 0)
     if not prices:
-        return JSONResponse({"status": "no_price_data", "items_found": len(sold_items)})
+        return JSONResponse({"status": "no_price_data", "items_found": len(items)})
 
     median_usd = prices[len(prices) // 2]
     rate = get_usd_to_jpy()
@@ -5083,7 +5081,7 @@ async def listing_assistant_quick_price(request: Request):
             "median_usd": round(median_usd, 2),
             "net_profit_usd": round(net_profit, 2),
             "margin_pct": round(margin_pct, 1),
-            "items_found": len(sold_items),
+            "items_found": len(items),
             "exchange_rate": rate,
         }
     )

@@ -1149,7 +1149,7 @@ function updateCardWithResearch(itemId, data) {
   const cls = m >= 20 ? 'high' : m >= 10 ? 'mid' : m >= 0 ? 'low' : 'neg';
   resultEl.innerHTML = `
     <span class="la-profit-badge ${cls}">利益率 ${m.toFixed(1)}% ／ $${p.toFixed(2)}</span>
-    <span class="la-profit-detail">eBay中央値 $${med.toFixed(2)} ・${n}件</span>
+    <span class="la-profit-detail">eBay現在相場 $${med.toFixed(2)} ・${n}件</span>
   `;
   const cardEl = document.getElementById(`reorder-${itemId}`);
   if (cardEl) cardEl.style.opacity = m < 0 ? '0.4' : '1';
