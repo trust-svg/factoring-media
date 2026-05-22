@@ -335,7 +335,7 @@ export default function ListeningPage() {
             onClick={handlePlayAgain}
             className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl font-bold text-base"
           >
-            もう1問解く
+            続けて問題を解く
           </button>
           <button
             onClick={() => {
