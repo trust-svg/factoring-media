@@ -242,6 +242,41 @@ export default function ListeningPage() {
     router.push('/home')
   }, [router])
 
+  const handlePlayAgain = async () => {
+    audioCacheRef.current.forEach((url) => URL.revokeObjectURL(url))
+    audioCacheRef.current.clear()
+    setDone(false)
+    setIndex(0)
+    setSelected(null)
+    setRevealed(false)
+    setCorrectCount(0)
+    setPraise(null)
+    setJaExplain(null)
+    setSpeaking(false)
+    setError('')
+    setLoading(true)
+    endedRef.current = false
+    startRef.current = Date.now()
+    questionStartRef.current = Date.now()
+    latestRef.current = { correctCount: 0, attempted: 0 }
+    wrongOnce.current = new Set()
+    try {
+      const [session, qs] = await Promise.all([apiStartSession('listening'), apiGetQuestions('listening', 5)])
+      setSessionId(session.id)
+      sessionIdRef.current = session.id
+      if (qs.length > 0) {
+        setQuestions(qs)
+      } else {
+        const generated = await apiGenerateQuestion('listening')
+        setQuestions([generated])
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '読み込みに失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBreak = useCallback(() => {
     setBreakDialog(true)
     if (!endedRef.current && sessionIdRef.current) {
@@ -279,9 +314,9 @@ export default function ListeningPage() {
 
   if (done || questions.length === 0) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-green-50 px-4">
-        <div className="text-center max-w-sm w-full space-y-4">
-          <Mascot scene={questions.length === 0 ? 'thinking' : 'celebrate'} size={150} className="mx-auto" />
+      <main className="min-h-screen bg-green-50 flex flex-col items-center overflow-y-auto">
+        <div className="text-center max-w-sm w-full space-y-4 px-4 py-12">
+          <Mascot scene={questions.length === 0 ? 'thinking' : 'celebrate'} size={120} className="mx-auto" />
           <div>
             <h2 className="text-2xl font-bold text-gray-800">
               {questions.length === 0 ? '問題がありません' : 'リスニング完了！'}
@@ -297,7 +332,7 @@ export default function ListeningPage() {
             </div>
           )}
           <button
-            onClick={() => router.push('/study/listening')}
+            onClick={handlePlayAgain}
             className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl font-bold text-base"
           >
             もう1問解く

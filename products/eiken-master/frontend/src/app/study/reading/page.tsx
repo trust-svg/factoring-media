@@ -196,6 +196,39 @@ export default function ReadingPage() {
     router.push('/home')
   }, [router])
 
+  const handlePlayAgain = async () => {
+    setDone(false)
+    setIndex(0)
+    setSelected(null)
+    setRevealed(false)
+    setCorrectCount(0)
+    setPraise(null)
+    setJaExplain(null)
+    setWordPopup(null)
+    setError('')
+    setLoading(true)
+    endedRef.current = false
+    startRef.current = Date.now()
+    questionStartRef.current = Date.now()
+    latestRef.current = { correctCount: 0, attempted: 0 }
+    wrongOnce.current = new Set()
+    try {
+      const [session, qs] = await Promise.all([apiStartSession('reading'), apiGetQuestions('reading', 5)])
+      setSessionId(session.id)
+      sessionIdRef.current = session.id
+      if (qs.length > 0) {
+        setQuestions(qs)
+      } else {
+        const generated = await apiGenerateQuestion('reading')
+        setQuestions([generated])
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '読み込みに失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBreak = useCallback(() => {
     setBreakDialog(true)
     if (!endedRef.current && sessionIdRef.current) {
@@ -268,7 +301,7 @@ export default function ReadingPage() {
             </div>
           )}
           <button
-            onClick={() => router.push('/study/reading')}
+            onClick={handlePlayAgain}
             className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl font-bold text-base"
           >
             もう1問解く
