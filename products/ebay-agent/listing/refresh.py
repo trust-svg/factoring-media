@@ -449,8 +449,14 @@ async def refresh_single(
             category=listing.category_name,
         )
     except Exception as e:
-        logger.exception(f"タイトル生成失敗 sku={listing.sku}")
-        _log_run(db, listing.sku, "error", note=f"title_gen_failed: {e}")
+        # タイトル生成失敗は Anthropic API の一時障害（529 overloaded 等）が主因。
+        # outcome="error" にすると repeated_error_skus（count>=2）の恒久除外に
+        # カウントされ、健全なUSD出品が一時的なAPI混雑だけで永久に対象外になる。
+        # → 一時障害用の outcome="skipped_transient" で記録し、次スロットで再挑戦させる。
+        logger.warning(
+            f"タイトル生成失敗（一時障害・再挑戦対象） sku={listing.sku}: {e}"
+        )
+        _log_run(db, listing.sku, "skipped_transient", note=f"title_gen_failed: {e}")
         return {"sku": listing.sku, "success": False, "error": f"title_gen: {e}"}
 
     check = validate_new_title(listing.title, new_title)
