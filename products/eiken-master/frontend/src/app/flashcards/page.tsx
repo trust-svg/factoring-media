@@ -190,7 +190,10 @@ export default function FlashcardsPage() {
           <p className="text-green-600 text-sm font-bold">✓ 単語を追加しました！明日から復習できます</p>
         )}
         <button
-          onClick={() => router.push('/home')}
+          onClick={() => {
+            if (done) sessionStorage.setItem('eiken-skill-done', 'flashcards')
+            router.push('/home')
+          }}
           className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold"
         >
           ホームへ

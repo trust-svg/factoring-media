@@ -264,13 +264,17 @@ const SKILL_ROUTE: Record<string, string> = {
   flashcards: '/flashcards',
 }
 
-function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick }: {
+function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTasks, advice }: {
   plan: DailyPlan
   onRefresh: () => void
   refreshing: boolean
   onTaskClick: (skill: string) => void
+  completedTasks: Set<number>
+  advice?: string | null
 }) {
   const total = plan.tasks.reduce((s, t) => s + t.minutes, 0)
+  const allDone = plan.tasks.length > 0 && completedTasks.size >= plan.tasks.length
+
   return (
     <div
       className="card-premium rounded-3xl p-5 animate-slide-up"
@@ -285,7 +289,9 @@ function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick }: {
           <p className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">今日のAIプラン</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-indigo-400 font-bold">{total}分</span>
+          <span className="text-xs text-indigo-400 font-bold">
+            {completedTasks.size}/{plan.tasks.length}完了 · {total}分
+          </span>
           <button
             onClick={onRefresh}
             disabled={refreshing}
@@ -298,22 +304,62 @@ function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick }: {
         </div>
       </div>
       <p className="text-indigo-800 text-sm font-semibold leading-relaxed mb-4">{plan.message}</p>
+
+      {/* All-done celebration */}
+      {allDone && (
+        <div
+          className="rounded-2xl p-4 mb-4 space-y-3"
+          style={{
+            background: 'linear-gradient(135deg, #D1FAE5, #A7F3D0)',
+            boxShadow: '0 2px 12px rgba(16,185,129,0.2)',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <Mascot scene="celebrate" size={64} className="shrink-0" />
+            <div>
+              <p className="text-emerald-800 font-black text-base leading-tight">今日の学習完了！</p>
+              <p className="text-emerald-700 text-xs font-semibold mt-1">
+                {plan.tasks.length}タスク全部やり切ったね 🎉 すごい！
+              </p>
+            </div>
+          </div>
+          {advice && (
+            <div className="bg-white/60 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">AIコーチより</p>
+              <p className="text-emerald-900 text-xs font-semibold leading-relaxed">{advice}</p>
+            </div>
+          )}
+          <WeekStampCard todayStamped={true} />
+        </div>
+      )}
+
       <div className="space-y-2">
         {plan.tasks.map((task: DailyTask, i: number) => {
           const meta = SKILL_TASK_META[task.skill] ?? { emoji: '📌', color: 'text-gray-600' }
           const hasRoute = task.skill in SKILL_ROUTE
+          const done = completedTasks.has(i)
           return (
             <button
               key={i}
               onClick={() => onTaskClick(task.skill)}
               disabled={!hasRoute}
-              className="w-full flex items-center gap-3 bg-white/70 hover:bg-white active:scale-[0.98] rounded-2xl px-4 py-2.5 text-left transition-all disabled:cursor-default"
+              className={`w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all active:scale-[0.98] disabled:cursor-default ${
+                done ? 'bg-emerald-50/80 border border-emerald-200/60' : 'bg-white/70 hover:bg-white'
+              }`}
             >
-              <span className="text-base shrink-0">{meta.emoji}</span>
-              <p className={`text-sm font-bold flex-1 ${meta.color}`}>{task.description}</p>
+              {/* Status indicator */}
+              <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm ${
+                done ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-300'
+              }`}>
+                {done ? '✓' : <span className="text-base">{meta.emoji}</span>}
+              </div>
+              <p className={`text-sm font-bold flex-1 min-w-0 ${done ? 'line-through text-gray-400' : meta.color}`}>
+                {task.description}
+              </p>
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs text-gray-400 font-bold">{task.minutes}分</span>
-                {hasRoute && <span className="text-indigo-300 text-xs font-bold">→</span>}
+                <span className={`text-xs font-bold ${done ? 'text-gray-300' : 'text-gray-400'}`}>{task.minutes}分</span>
+                {hasRoute && !done && <span className="text-indigo-300 text-xs font-bold">→</span>}
+                {done && <span className="text-emerald-400 text-xs font-bold">完了</span>}
               </div>
             </button>
           )
@@ -330,6 +376,107 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.max(0, Math.ceil(ms / 86_400_000))
 }
 
+/* ── localStorage helpers ────── */
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// Completed tasks (which plan tasks are done today)
+function loadCompletedTasks(): Set<number> {
+  try {
+    const raw = localStorage.getItem(`eiken-plan-done-${todayKey()}`)
+    if (!raw) return new Set()
+    return new Set<number>(JSON.parse(raw))
+  } catch {
+    return new Set()
+  }
+}
+function saveCompletedTasks(s: Set<number>) {
+  try {
+    localStorage.setItem(`eiken-plan-done-${todayKey()}`, JSON.stringify([...s]))
+  } catch {}
+}
+
+// Daily plan cache (fixed for the day)
+function loadCachedPlan(): DailyPlan | null {
+  try {
+    const raw = localStorage.getItem(`eiken-daily-plan-${todayKey()}`)
+    return raw ? (JSON.parse(raw) as DailyPlan) : null
+  } catch {
+    return null
+  }
+}
+function cachePlan(plan: DailyPlan) {
+  try {
+    localStorage.setItem(`eiken-daily-plan-${todayKey()}`, JSON.stringify(plan))
+  } catch {}
+}
+function clearCachedPlan() {
+  try {
+    localStorage.removeItem(`eiken-daily-plan-${todayKey()}`)
+  } catch {}
+}
+
+// Stamps (one per day when all tasks done)
+const STAMP_KEY = 'eiken-stamps'
+function loadStamps(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(STAMP_KEY) || '{}')
+  } catch {
+    return {}
+  }
+}
+function saveStampToday() {
+  try {
+    const stamps = loadStamps()
+    stamps[todayKey()] = true
+    localStorage.setItem(STAMP_KEY, JSON.stringify(stamps))
+  } catch {}
+}
+
+/* ── Week stamp card ────── */
+function WeekStampCard({ todayStamped }: { todayStamped: boolean }) {
+  const today = new Date()
+  const stamps = loadStamps()
+  const key0 = todayKey()
+  const dow = today.getDay()
+  const mondayOffset = dow === 0 ? -6 : 1 - dow
+  const monday = new Date(today)
+  monday.setDate(today.getDate() + mondayOffset)
+  const DAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
+  const days = DAY_LABELS.map((label, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    const k = d.toISOString().slice(0, 10)
+    return { label, isToday: k === key0, stamped: k === key0 ? todayStamped : !!stamps[k] }
+  })
+  return (
+    <div className="bg-white/50 rounded-2xl px-4 py-3">
+      <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest mb-2">今週のスタンプ</p>
+      <div className="flex justify-between gap-1">
+        {days.map((d) => (
+          <div key={d.label} className="flex flex-col items-center gap-1">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-base transition-all ${
+                d.stamped
+                  ? 'bg-yellow-400 shadow-md'
+                  : d.isToday
+                  ? 'bg-emerald-50 border-2 border-emerald-300'
+                  : 'bg-white/40 border border-gray-200'
+              }`}
+            >
+              {d.stamped ? '⭐' : ''}
+            </div>
+            <p className={`text-[9px] font-black ${d.isToday ? 'text-emerald-700' : d.stamped ? 'text-yellow-600' : 'text-gray-400'}`}>
+              {d.label}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /* ── Main page ────────────────────────────────── */
 export default function HomePage() {
   const { user, loading, logout } = useAuth()
@@ -338,7 +485,19 @@ export default function HomePage() {
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null)
   const [planRefreshing, setPlanRefreshing] = useState(false)
   const [dueCount, setDueCount] = useState<number | null>(null)
+  const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set())
   const hasRedirected = useRef(false)
+  const pendingSkillRef = useRef<string | null>(null)
+
+  // On mount: capture sessionStorage skill-done signal + restore completed tasks
+  useEffect(() => {
+    const skill = sessionStorage.getItem('eiken-skill-done')
+    if (skill) {
+      sessionStorage.removeItem('eiken-skill-done')
+      pendingSkillRef.current = skill
+    }
+    setCompletedTasks(loadCompletedTasks())
+  }, [])
 
   const handleTaskClick = useCallback((skill: string) => {
     const route = SKILL_ROUTE[skill]
@@ -355,10 +514,45 @@ export default function HomePage() {
   useEffect(() => {
     if (!loading && user) {
       apiGetProgress().then(setProgress).catch(() => {})
-      apiGetTodayPlan().then(setDailyPlan).catch(() => {})
       apiGetDueFlashcards().then((cards) => setDueCount(cards.length)).catch(() => {})
+
+      const autoCheckSkill = (plan: DailyPlan) => {
+        const skill = pendingSkillRef.current
+        if (!skill) return
+        pendingSkillRef.current = null
+        const completed = loadCompletedTasks()
+        const idx = plan.tasks.findIndex((t, i) => t.skill === skill && !completed.has(i))
+        if (idx !== -1) {
+          const next = new Set(completed)
+          next.add(idx)
+          saveCompletedTasks(next)
+          setCompletedTasks(next)
+        }
+      }
+
+      const cached = loadCachedPlan()
+      if (cached) {
+        setDailyPlan(cached)
+        autoCheckSkill(cached)
+      } else {
+        apiGetTodayPlan()
+          .then((plan) => {
+            setDailyPlan(plan)
+            cachePlan(plan)
+            autoCheckSkill(plan)
+          })
+          .catch(() => {})
+      }
     }
   }, [loading, user])
+
+  // Save stamp when all tasks done
+  const allDone = dailyPlan
+    ? dailyPlan.tasks.length > 0 && completedTasks.size >= dailyPlan.tasks.length
+    : false
+  useEffect(() => {
+    if (allDone) saveStampToday()
+  }, [allDone])
 
   if (loading) {
     return (
@@ -521,11 +715,15 @@ export default function HomePage() {
               plan={dailyPlan}
               refreshing={planRefreshing}
               onTaskClick={handleTaskClick}
+              completedTasks={completedTasks}
+              advice={progress?.advice}
               onRefresh={async () => {
                 setPlanRefreshing(true)
+                clearCachedPlan()
                 try {
                   const fresh = await apiGetTodayPlan()
                   setDailyPlan(fresh)
+                  cachePlan(fresh)
                 } catch {
                   // silently ignore
                 } finally {

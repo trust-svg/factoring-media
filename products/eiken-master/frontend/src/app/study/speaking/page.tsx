@@ -369,7 +369,13 @@ export default function SpeakingPage() {
                 </div>
               )}
 
-              <button onClick={() => router.push('/home')} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">
+              <button
+                onClick={() => {
+                  sessionStorage.setItem('eiken-skill-done', 'speaking')
+                  router.push('/home')
+                }}
+                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold"
+              >
                 ホームへ
               </button>
             </>

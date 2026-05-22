@@ -250,9 +250,9 @@ export default function ReadingPage() {
 
   if (done || questions.length === 0) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-blue-50 px-4">
-        <div className="text-center max-w-sm w-full space-y-4">
-          <Mascot scene={questions.length === 0 ? 'thinking' : 'celebrate'} size={150} className="mx-auto" />
+      <main className="min-h-screen bg-blue-50 flex flex-col items-center overflow-y-auto">
+        <div className="text-center max-w-sm w-full space-y-4 px-4 py-12">
+          <Mascot scene={questions.length === 0 ? 'thinking' : 'celebrate'} size={120} className="mx-auto" />
           <div>
             <h2 className="text-2xl font-bold text-gray-800">
               {questions.length === 0 ? '問題がありません' : 'リーディング完了！'}
@@ -274,8 +274,11 @@ export default function ReadingPage() {
             もう1問解く
           </button>
           <button
-            onClick={() => router.push('/home')}
-            className="w-full text-gray-400 text-sm underline"
+            onClick={() => {
+              if (questions.length > 0) sessionStorage.setItem('eiken-skill-done', 'reading')
+              router.push('/home')
+            }}
+            className="w-full bg-white text-indigo-600 border-2 border-indigo-200 py-3.5 rounded-2xl font-bold text-base"
           >
             ホームへ
           </button>

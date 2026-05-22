@@ -255,7 +255,13 @@ export default function WritingPage() {
                 </div>
               )}
 
-              <button onClick={() => router.push('/home')} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">
+              <button
+                onClick={() => {
+                  sessionStorage.setItem('eiken-skill-done', 'writing')
+                  router.push('/home')
+                }}
+                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold"
+              >
                 ホームへ
               </button>
             </>

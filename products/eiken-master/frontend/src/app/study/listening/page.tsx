@@ -303,8 +303,11 @@ export default function ListeningPage() {
             もう1問解く
           </button>
           <button
-            onClick={() => router.push('/home')}
-            className="w-full text-gray-400 text-sm underline"
+            onClick={() => {
+              sessionStorage.setItem('eiken-skill-done', 'listening')
+              router.push('/home')
+            }}
+            className="w-full bg-white text-indigo-600 border-2 border-indigo-200 py-3.5 rounded-2xl font-bold text-base"
           >
             ホームへ
           </button>
