@@ -253,6 +253,18 @@
         .btn-eship:disabled { opacity: 0.4; cursor: not-allowed; }
         .btn-eship.sent { border-color: var(--green); color: var(--green); }
 
+        /* whitebg+eShip button */
+        .btn-whitebg {
+            background: none; border: 1px solid #7c3aed; color: #7c3aed;
+            padding: 5px 10px; border-radius: 6px; font-size: 11px;
+            cursor: pointer; transition: all 0.15s; white-space: nowrap;
+            font-weight: 600;
+        }
+        .btn-whitebg:hover { background: #7c3aed; color: #fff; }
+        .btn-whitebg:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-whitebg.done { border-color: #28a745; color: #28a745; }
+        .btn-whitebg.err { border-color: #dc3545; color: #dc3545; }
+
         /* NEW badge */
         .new-badge {
             display: inline-block; padding: 1px 6px; border-radius: 6px;
@@ -473,9 +485,14 @@
                         </span>
                         <span class="child-price">{{ '¥{:,}'.format(item.price) if item.price else '-' }}</span>
                         <span class="child-time">{{ item.found_at[:10] if item.found_at else '' }}</span>
-                        <span>
+                        <span style="display:flex;gap:4px;align-items:center;">
                             {% if group.ebay_title %}
                             <button class="btn-eship" onclick="sendToEship(this, {{ item.id }}, '{{ group.ebay_title|replace("'", "\\'") }}')" title="eShipに送る">eShip</button>
+                            {% endif %}
+                            {% if group.ebay_listing_id and item.image_url %}
+                            <button class="btn-whitebg"
+                              onclick="whitebgEship(this, {{ item.id }}, '{{ group.ebay_listing_id }}', '{{ item.image_url|replace("'", "\\'") }}')"
+                              title="白背景化+eBay更新+eShip登録">🖼️</button>
                             {% endif %}
                         </span>
                         <form action="/listings/{{ item.id }}/hide" method="post" style="display:inline;"
@@ -594,6 +611,44 @@ async function sendToEship(btn, listingId, ebayTitle) {
     } catch (e) {
         btn.textContent = 'NG';
         alert('eShip error: ' + e.message);
+        btn.disabled = false;
+    }
+}
+
+// --- whitebg + eBay image update + eShip ---
+async function whitebgEship(btn, listingId, ebayItemId, imageUrl) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    const form = new FormData();
+    form.append('listing_id', listingId);
+    form.append('ebay_item_id', ebayItemId);
+    form.append('image_url', imageUrl);
+
+    try {
+        const res = await fetch('/api/image/whitebg-eship', { method: 'POST', body: form });
+        const data = await res.json();
+        const s = data.steps || {};
+        const lines = [
+            s.whitebg?.ok    ? '✅ 白背景化' : '❌ 白背景化: ' + (s.whitebg?.error || '?'),
+            s.ebay_upload?.ok ? '✅ eBayアップ' : '❌ eBayアップ: ' + (s.ebay_upload?.error || '?'),
+            s.ebay_revise?.ok ? '✅ eBay画像差替' : '❌ eBay画像差替: ' + (s.ebay_revise?.error || '?'),
+            s.eship?.ok      ? '✅ eShip登録' : '❌ eShip登録: ' + (s.eship?.error || '?'),
+        ];
+        if (data.overall_success) {
+            btn.textContent = '✅';
+            btn.classList.add('done');
+        } else {
+            btn.textContent = '⚠️';
+            btn.classList.add('err');
+            btn.disabled = false;
+        }
+        alert(lines.join('\n'));
+    } catch (e) {
+        btn.textContent = '❌';
+        btn.classList.add('err');
+        alert('エラー: ' + e.message);
         btn.disabled = false;
     }
 }
