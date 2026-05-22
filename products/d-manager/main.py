@@ -537,6 +537,117 @@ async def _ideas_thread_reply(message: discord.Message) -> None:
         await _ideas_send_as_reid(thread, f"📊 **Reid の評価**\n\n{evaluation}")
 
 
+# ── Remote Ops ────────────────────────────────────────────────────────────
+
+_OPS_RESTART_KEYWORDS = re.compile(r"再起動|restart|リスタート", re.IGNORECASE)
+_OPS_DIAGNOSE_KEYWORDS = re.compile(
+    r"エラー.*確認|ログ.*見|診断|エラー.*教え|直して|修正して", re.IGNORECASE
+)
+_OPS_SERVICE_KEYWORDS = {
+    "deal-watcher": re.compile(
+        r"deal.?watcher|仕入れ監視|ディールウォッチャー", re.IGNORECASE
+    ),
+}
+
+
+def _ops_detect(text: str) -> tuple[str, str] | None:
+    """テキストから (service, action) を検出。該当なしは None。"""
+    for svc, pat in _OPS_SERVICE_KEYWORDS.items():
+        if pat.search(text):
+            if _OPS_RESTART_KEYWORDS.search(text):
+                return svc, "restart"
+            if _OPS_DIAGNOSE_KEYWORDS.search(text):
+                return svc, "diagnose"
+    return None
+
+
+async def _ops_diagnose_deal_watcher() -> str:
+    """deal-watcher の直近エラーを要約して返す。"""
+    log_path = "/Users/Mac_air/Services/deal-watcher/logs/stderr.log"
+    try:
+        result = subprocess.run(
+            ["grep", "-E", "ERROR|Trading API error|出品失敗", log_path],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        lines = result.stdout.strip().splitlines()
+        recent = lines[-10:] if lines else []
+        if not recent:
+            return "直近のエラーは見つかりませんでした。"
+        return "📋 **直近エラー（最大10件）**\n```\n" + "\n".join(recent) + "\n```"
+    except Exception as e:
+        return f"ログ読み取り失敗: {e}"
+
+
+async def _ops_restart_service(service: str) -> str:
+    """pkill でサービスを停止 → launchd KeepAlive で自動復帰。"""
+    pattern = config.OPS_SERVICES.get(service)
+    if not pattern:
+        return f"❌ 不明なサービス: {service}"
+    try:
+        result = subprocess.run(
+            ["pkill", "-f", pattern],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return f"✅ **{service}** を停止しました。launchd が自動再起動します（約5秒）。"
+        elif result.returncode == 1:
+            return f"⚠️ **{service}** の対象プロセスが見つかりませんでした（すでに停止中？）。"
+        else:
+            return f"❌ pkill 失敗 (code={result.returncode}): {result.stderr}"
+    except Exception as e:
+        return f"❌ 再起動失敗: {e}"
+
+
+async def _handle_remote_ops(message: discord.Message) -> bool:
+    """リモート ops コマンドを検出・確認・実行する。処理した場合 True を返す。"""
+    if message.author.id not in config.OWNER_DISCORD_USER_IDS:
+        return False
+
+    detected = _ops_detect(message.content)
+    if not detected:
+        return False
+
+    service, action = detected
+    action_label = {"restart": "再起動", "diagnose": "エラー診断"}.get(action, action)
+
+    confirm_msg = await message.channel.send(
+        f"⚙️ **{service} {action_label}** を実行しますか？\n✅ 実行　❌ キャンセル"
+    )
+    await confirm_msg.add_reaction("✅")
+    await confirm_msg.add_reaction("❌")
+
+    def _check(reaction: discord.Reaction, user: discord.User) -> bool:
+        return (
+            user.id == message.author.id
+            and reaction.message.id == confirm_msg.id
+            and str(reaction.emoji) in ("✅", "❌")
+        )
+
+    try:
+        reaction, _ = await bot.wait_for("reaction_add", timeout=60.0, check=_check)
+    except asyncio.TimeoutError:
+        await message.channel.send("⏱ タイムアウト。キャンセルしました。")
+        return True
+
+    if str(reaction.emoji) == "❌":
+        await message.channel.send("❌ キャンセルしました。")
+        return True
+
+    await message.channel.send(f"⏳ {service} {action_label}中...")
+
+    if action == "restart":
+        result_text = await _ops_restart_service(service)
+    else:
+        result_text = await _ops_diagnose_deal_watcher()
+
+    await message.channel.send(result_text)
+    return True
+
+
 @bot.event
 async def on_message(message: discord.Message):
     # Debug logging
@@ -563,6 +674,10 @@ async def on_message(message: discord.Message):
     # Ignore non-text channels and read-only channels
     channel_name = message.channel.name
     if channel_name in ("アラート-alerts", "記録-backup-log", "日報-daily-digest"):
+        return
+
+    # Remote ops コマンド（Hiroのみ・確認ステップ付き）
+    if await _handle_remote_ops(message):
         return
 
     # Determine department from channel
@@ -668,6 +783,26 @@ async def on_message(message: discord.Message):
             "- `!rule list` — カテゴリ一覧\n"
             "- `!rule show` — 現在のルール全文",
             channel_name,
+        )
+        return
+
+    # Quick command: !dev <task> — Larry（開発エージェント）に直接コーディング依頼
+    if raw.startswith("!dev "):
+        task = raw[5:].strip()
+        if not task:
+            await send_as_character_with_avatar(
+                message.channel,
+                "⚠️ 使い方: `!dev <タスクの説明>`\n例: `!dev ebay-agentに検索フィルター機能を追加して`",
+                channel_name,
+            )
+            return
+        await send_as_character_with_avatar(
+            message.channel,
+            f"📋 **Larry** に作業を依頼しました。完了後に `#開発-larry-product` へ報告します。\n> {task[:100]}{'…' if len(task) > 100 else ''}",
+            channel_name,
+        )
+        asyncio.create_task(
+            _run_dispatched_task("Larry", task, "開発-larry-product", is_coding=True)
         )
         return
 

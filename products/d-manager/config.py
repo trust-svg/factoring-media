@@ -17,6 +17,7 @@ if not DISCORD_BOT_TOKEN:
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = "claude-sonnet-4-20250514"  # API mode
 CLAUDE_MODEL_CLI = os.getenv("CLAUDE_MODEL_CLI", "claude-sonnet-4-20250514")  # CLI mode
+CODE_ENGINE: str = os.getenv("CODE_ENGINE", "claude")  # "claude" or "codex"
 
 # Google
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "credentials.json")
@@ -86,6 +87,7 @@ CHANNEL_MAP = {
     "経理-ケイ-finance": "finance",
     "調査-アキラ-research": "research",
     "戦略-ナオ-strategy": "strategy",
+    "アイディア-ideas": "strategy",
     "決裁-decisions": "secretary",
     "アラート-alerts": "secretary",
     "日報-daily-digest": "research",
@@ -103,6 +105,12 @@ LEARNING_REVIEW_ENABLED = (
     os.getenv("LEARNING_REVIEW_ENABLED", "false").lower() == "true"
 )
 LEARNING_REVIEW_DRYRUN = os.getenv("LEARNING_REVIEW_DRYRUN", "true").lower() == "true"
+
+# 週次キュレーター（weekly_review から呼ばれる）の独立ガード。Reviewer と同じ Phase 設計。
+LEARNING_CURATOR_ENABLED = (
+    os.getenv("LEARNING_CURATOR_ENABLED", "false").lower() == "true"
+)
+LEARNING_CURATOR_DRYRUN = os.getenv("LEARNING_CURATOR_DRYRUN", "true").lower() == "true"
 
 LEARNING_REVIEW_HOUR = int(os.getenv("LEARNING_REVIEW_HOUR", "23"))
 LEARNING_MIN_TURNS = int(os.getenv("LEARNING_MIN_TURNS", "2"))
@@ -129,6 +137,20 @@ SKILL_BLOAT_COUNT_THRESHOLD = int(os.getenv("SKILL_BLOAT_COUNT_THRESHOLD", "25")
 LEARNING_ALLOWED_TOOLS = "Read Write Edit Glob Grep"
 LEARNING_DRYRUN_ALLOWED_TOOLS = "Read Glob Grep"
 LEARNING_DISALLOWED_TOOLS = "Bash WebFetch WebSearch Task"
+
+# ── Remote Ops ────────────────────────────────────────────────────────────
+# Discord の user ID（整数）をカンマ区切りで設定。このIDからのみ ops コマンドを受け付ける。
+# 設定例: OWNER_DISCORD_USER_IDS=123456789012345678
+OWNER_DISCORD_USER_IDS: set[int] = {
+    int(uid.strip())
+    for uid in os.getenv("OWNER_DISCORD_USER_IDS", "").split(",")
+    if uid.strip().isdigit()
+}
+
+# 操作可能なサービス: サービス名 → pkill パターン
+OPS_SERVICES: dict[str, str] = {
+    "deal-watcher": "Services/deal-watcher/app.py",
+}
 
 # ── Knowledge engine（フェーズ1: 議事録化）─────────────────────────────────
 KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
