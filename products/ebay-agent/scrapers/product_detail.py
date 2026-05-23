@@ -229,16 +229,11 @@ async def _capture_mercari_token_playwright() -> Optional[str]:
             ),
         )
 
-        # Load non-auth cookies only; omitting auth.mercari.com cookies forces
-        # the browser to run a fresh PKCE exchange → /token is always called
+        # op_sess (auth.mercari.com) is required for prompt=none silent PKCE auth
         if _MERCARI_COOKIE_FILE.exists():
             try:
                 cookies = json.loads(_MERCARI_COOKIE_FILE.read_text())
-                non_auth = [
-                    c for c in cookies if "auth.mercari" not in c.get("domain", "")
-                ]
-                if non_auth:
-                    await ctx.add_cookies(non_auth)
+                await ctx.add_cookies(cookies)
             except Exception as e:
                 logger.warning(f"[mercari] cookie load failed: {e}")
 
