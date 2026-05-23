@@ -2019,6 +2019,24 @@ _NOISE_SUBJECT_PATTERNS = (
     "自動通知",
     "alert",
     "no-reply",
+    # b-manager 自身の eBay 在庫切れ通知（返信対象外）
+    "【ebay在庫切れ】",
+    "在庫切れ",
+    # マーケ系・出品ピックアップ通知（商業的勧誘・返信不要）
+    "イイですね",
+    "いいですね",
+    "🔥",
+    "大特価",
+    "限定セール",
+    "セール中",
+    "今だけ",
+    "出品情報",
+    "新着出品",
+    "おすすめ商品",
+    "再入荷",
+    "値下げ",
+    "クーポン",
+    "ポイント",
 )
 
 
@@ -2042,15 +2060,42 @@ def _extract_email_address(from_header: str) -> str:
     return (from_header or "").strip()
 
 
-def _generate_draft_via_cli(email: dict) -> Optional[str]:
-    """Generate a reply draft body via `claude -p` (subscription, no API cost).
+# Anthropic SDK クライアント（メール下書き専用・lazy init）
+_draft_api_client = None
 
-    Security note: --dangerously-skip-permissions is required for non-interactive subprocess
-    execution (without it, claude tries an IDE handshake that fails → UND_ERR_INVALID_ARG).
-    Mitigated by --disallowedTools blocking all execution/network/write tools, limiting
-    blast radius of any prompt injection via email content.
+# メール下書きは Haiku で十分（軽量・安価・速い）。Claude Max のサブスク枠は使わない。
+DRAFT_MODEL = "claude-haiku-4-5-20251001"
+
+
+def _get_draft_api_client():
+    """Lazy-init the Anthropic client for email drafts."""
+    global _draft_api_client
+    if _draft_api_client is not None:
+        return _draft_api_client
+    if not config.ANTHROPIC_API_KEY:
+        return None
+    from anthropic import Anthropic
+
+    _draft_api_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    return _draft_api_client
+
+
+def _generate_draft_via_api(email: dict) -> Optional[str]:
+    """Generate a reply draft body via Anthropic API (Haiku).
+
+    Replaces the old `claude -p` subprocess approach which consumed Claude Max
+    subscription quota and was prone to IDE handshake failures (UND_ERR_INVALID_ARG)
+    and rate limits ("hit your limit · resets 7am"). Uses the API directly so
+    drafts cost ~$0.001 each and never block on subscription limits.
     """
-    import subprocess
+    from anthropic import APIStatusError
+
+    client = _get_draft_api_client()
+    if client is None:
+        logger.warning(
+            "_generate_draft_via_api: ANTHROPIC_API_KEY not configured — skipping draft"
+        )
+        return None
 
     prompt = (
         "以下のメールへの返信下書きを作成してください。\n\n"
@@ -2068,38 +2113,39 @@ def _generate_draft_via_cli(email: dict) -> Optional[str]:
         f"Subject: {email.get('subject')}\n"
         f"Snippet: {email.get('snippet')}\n"
     )
+
     try:
-        cmd = [
-            "claude",
-            "-p",
-            prompt,
-            "--output-format",
-            "text",
-            "--max-turns",
-            "1",
-            "--dangerously-skip-permissions",
-            "--disallowedTools",
-            "Bash WebFetch WebSearch Task Edit Write",
-        ]
-        if config.CLAUDE_MODEL_CLI:
-            cmd.extend(["--model", config.CLAUDE_MODEL_CLI])
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=180,
-            cwd=str(config.COMPANY_DIR),
-        )
-        if result.returncode != 0:
-            logger.warning(
-                f"claude -p draft generation failed rc={result.returncode} "
-                f"stderr={result.stderr[:300]} stdout={result.stdout[:300]}"
-            )
+        for attempt in range(3):
+            try:
+                response = client.messages.create(
+                    model=DRAFT_MODEL,
+                    max_tokens=1024,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                break
+            except APIStatusError as e:
+                if e.status_code in (429, 529) and attempt < 2:
+                    wait = 3 * (2**attempt)
+                    logger.warning(
+                        f"draft API {e.status_code}, retrying in {wait}s "
+                        f"(attempt {attempt + 1}/3)"
+                    )
+                    import time
+
+                    time.sleep(wait)
+                else:
+                    raise
+        else:
             return None
-        body = (result.stdout or "").strip()
+
+        parts = []
+        for block in response.content:
+            if getattr(block, "type", None) == "text":
+                parts.append(block.text)
+        body = "\n".join(parts).strip()
         return body or None
     except Exception as e:
-        logger.error(f"_generate_draft_via_cli failed: {e}")
+        logger.error(f"_generate_draft_via_api failed: {e}")
         return None
 
 
@@ -2142,10 +2188,10 @@ async def hourly_email_drafts():
                 skipped_filter += 1
                 continue
 
-            body = await loop.run_in_executor(None, _generate_draft_via_cli, e)
+            body = await loop.run_in_executor(None, _generate_draft_via_api, e)
             if not body:
                 logger.warning(f"draft generation returned nothing: {subj}")
-                failures.append((subj, "claude -p 失敗/空応答"))
+                failures.append((subj, "API 失敗/空応答"))
                 continue
             if "[SKIP]" in body[:20].upper():
                 skipped_ai += 1
