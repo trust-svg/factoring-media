@@ -6,6 +6,12 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function esc(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
 async function apiFetch(url, options = {}) {
     const resp = await fetch(url, {
         headers: { 'Content-Type': 'application/json' },
