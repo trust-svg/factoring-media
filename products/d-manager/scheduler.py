@@ -2069,21 +2069,22 @@ def _generate_draft_via_cli(email: dict) -> Optional[str]:
         f"Snippet: {email.get('snippet')}\n"
     )
     try:
+        cmd = [
+            "claude",
+            "-p",
+            prompt,
+            "--output-format",
+            "text",
+            "--max-turns",
+            "1",
+            "--dangerously-skip-permissions",
+            "--disallowedTools",
+            "Bash WebFetch WebSearch Task Edit Write",
+        ]
+        if config.CLAUDE_MODEL_CLI:
+            cmd.extend(["--model", config.CLAUDE_MODEL_CLI])
         result = subprocess.run(
-            [
-                "claude",
-                "-p",
-                prompt,
-                "--output-format",
-                "text",
-                "--max-turns",
-                "1",
-                "--model",
-                config.CLAUDE_MODEL_CLI,
-                "--dangerously-skip-permissions",
-                "--disallowedTools",
-                "Bash WebFetch WebSearch Task Edit Write",
-            ],
+            cmd,
             capture_output=True,
             text=True,
             timeout=180,
