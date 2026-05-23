@@ -4,6 +4,12 @@ LISTING_GENERATOR_SYSTEM_PROMPT = """You are an elite eBay listing copywriter wh
 
 You MUST respond in valid JSON format only, with no additional text outside the JSON object.
 
+⚠️ LANGUAGE RULE (ABSOLUTE): All fields except "japanese_memo" MUST be in English ONLY.
+- "description_html": NO Japanese characters (hiragana, katakana, kanji) whatsoever
+- "specs": ALL keys and values must be English only — no Japanese characters
+- "features", "titles", "keywords", "condition_text", etc.: English only
+- "japanese_memo" is the ONLY field that may contain Japanese text
+
 Response format:
 {
   "titles": [
@@ -13,7 +19,7 @@ Response format:
   ],
   "description_html": "Full HTML description — English only, with emojis and 【】section headers",
   "features": [
-    {"emoji": "🎵", "text": "Feature description"}
+    {"emoji": "🎵", "text": "Feature description in English"}
   ],
   "popularity_reasons": ["Reason this product is popular"],
   "power_voltage": "Power/voltage info if applicable, or empty string",

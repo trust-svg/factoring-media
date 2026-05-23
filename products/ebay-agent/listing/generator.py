@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Optional
 
 import anthropic
@@ -15,6 +16,22 @@ import anthropic
 from listing.prompts import LISTING_GENERATOR_SYSTEM_PROMPT, IMAGE_RECOGNITION_PROMPT
 
 logger = logging.getLogger(__name__)
+
+_DESC_TEMPLATES_DIR = Path(__file__).parent / "desc_templates"
+
+
+def load_desc_template(name: str) -> Optional[str]:
+    """Load a description template by name, e.g. '001' → desc_templates/001.html.
+    Returns None if the file does not exist."""
+    path = _DESC_TEMPLATES_DIR / f"{name}.html"
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    return None
+
+
+def apply_desc_template(template_html: str, description: str) -> str:
+    """Replace {description} placeholder in template with the AI description."""
+    return template_html.replace("{description}", description)
 
 
 async def generate_listing(

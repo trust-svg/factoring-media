@@ -5167,7 +5167,11 @@ async def listing_assistant_generate(request: Request):
     if not title:
         raise HTTPException(400, "title is required")
 
-    from listing.generator import generate_listing
+    from listing.generator import (
+        apply_desc_template,
+        generate_listing,
+        load_desc_template,
+    )
 
     product_name = title
     if platform:
@@ -5181,13 +5185,34 @@ async def listing_assistant_generate(request: Request):
 
     titles = result.get("titles", [])
     best_title = titles[0]["title"] if titles else title
-    specs = result.get("specs", {})
     category_id = result.get("category_id", result.get("category_suggestion", ""))
+
+    import re as _re
+
+    def _strip_japanese(text: str) -> str:
+        """Remove hiragana, katakana, and kanji from a string."""
+        return _re.sub(r"[぀-ゟ゠-ヿ一-鿿㐀-䶿]", "", text).strip()
+
+    # Strip Japanese from specs keys and values
+    raw_specs = result.get("specs", {})
+    specs = {
+        _strip_japanese(str(k)): _strip_japanese(str(v))
+        for k, v in raw_specs.items()
+        if _strip_japanese(str(k))
+    }
+
+    description = _strip_japanese(result.get("description_html", ""))
+
+    # Apply description template if one exists (e.g. listing/desc_templates/001.html)
+    desc_template_name = body.get("desc_template", "001")
+    tmpl_html = load_desc_template(desc_template_name)
+    if tmpl_html:
+        description = apply_desc_template(tmpl_html, description)
 
     return JSONResponse(
         {
             "title": best_title,
-            "description": result.get("description_html", ""),
+            "description": description,
             "item_specifics": specs,
             "category_id": category_id,
             "keywords": result.get("keywords", []),
