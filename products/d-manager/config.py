@@ -15,8 +15,8 @@ if not DISCORD_BOT_TOKEN:
 
 # Anthropic
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = "claude-sonnet-4-20250514"  # API mode
-CLAUDE_MODEL_CLI = os.getenv("CLAUDE_MODEL_CLI", "claude-sonnet-4-20250514")  # CLI mode
+CLAUDE_MODEL = "claude-sonnet-4-6"  # API mode
+CLAUDE_MODEL_CLI = os.getenv("CLAUDE_MODEL_CLI", "claude-sonnet-4-6")  # CLI mode
 CODE_ENGINE: str = os.getenv("CODE_ENGINE", "claude")  # "claude" or "codex"
 
 # Google

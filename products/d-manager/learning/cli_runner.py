@@ -38,8 +38,6 @@ def run_claude(
         "claude",
         "-p",
         prompt,
-        "--model",
-        model,
         "--allowedTools",
         allowed_tools,
         "--disallowedTools",
@@ -50,6 +48,8 @@ def run_claude(
         str(max_turns),
         "--dangerously-skip-permissions",
     ]
+    if model:
+        cmd.extend(["--model", model])
     try:
         proc = subprocess.run(
             cmd, cwd=str(cwd), capture_output=True, text=True, timeout=timeout_sec

@@ -88,9 +88,17 @@ CURATOR_PERSONA = """あなたは TrustLink のスキルキュレーターです
 削除は決してしてはいけません（アーカイブ＝`.company/skills/.archive/` への移動のみ）。判断に迷ったら触らないでください。"""
 
 
-def build_curator_prompt(skill_overview: str, recent_hits: list[str]) -> str:
+def build_curator_prompt(
+    skill_overview: str, recent_hits: list[str], dryrun: bool = False
+) -> str:
     hits_str = ", ".join(recent_hits) if recent_hits else "(記録なし)"
-    return f"""`.company/skills/` 全体を棚卸ししてください。やることは次の3つだけです。
+    dryrun_note = (
+        "\n\n【ドライランモード】ファイルは一切書くな・移動するな（Write/Edit するな）。"
+        "もし本番なら何をどう変えるつもりだったか（merge / archive / fix それぞれの対象ファイルと理由）を <summary> に詳細に列挙せよ。"
+        if dryrun
+        else ""
+    )
+    return f"""`.company/skills/` 全体を棚卸ししてください。やることは次の3つだけです。{dryrun_note}
 1. 内容が重なる狭いスキルを「クラスレベルの包括スキル」に統合する（元スキルの手順・品質チェックリスト・失敗時の対応を取りこぼさず織り込み、元ファイルは `.company/skills/.archive/` へ移動）。
 2. 明らかに陳腐化・未使用のスキルを `.company/skills/.archive/` に移動する（削除ではなく移動）。
 3. frontmatter（`name` / `owner` / `trigger`）が崩れているものを直す。
@@ -119,42 +127,51 @@ def run_curation(
     skill_hits_path: Path,
     *,
     allowed_tools: str = "Read Write Edit Glob Grep",
+    dryrun_allowed_tools: str = "Read Glob Grep",
     disallowed_tools: str = "Bash WebFetch WebSearch Task",
     max_turns: int = 25,
     timeout_sec: int = 600,
     snapshot_keep: int = 8,
+    dryrun: bool = False,
 ) -> dict:
-    """戻り値: {status, note, summary, head_before, out_of_bounds}."""
+    """戻り値: {status, note, summary, head_before, out_of_bounds, dryrun}."""
     head_before = cli_runner.git_head(company_dir)
-    try:
-        _make_snapshot(company_dir, keep=snapshot_keep)
-    except Exception:  # noqa: BLE001
-        logger.exception("skills スナップショット作成に失敗（処理は続行）")
+    if not dryrun:
+        try:
+            _make_snapshot(company_dir, keep=snapshot_keep)
+        except Exception:  # noqa: BLE001
+            logger.exception("skills スナップショット作成に失敗（処理は続行）")
 
     overview = _skill_overview(company_dir)
     hits = _recent_skill_hits(skill_hits_path)
-    prompt = build_curator_prompt(overview, hits)
+    prompt = build_curator_prompt(overview, hits, dryrun=dryrun)
+    effective_allowed_tools = dryrun_allowed_tools if dryrun else allowed_tools
     result = cli_runner.run_claude(
         prompt=prompt,
         cwd=company_dir,
         model=model,
-        allowed_tools=allowed_tools,
+        allowed_tools=effective_allowed_tools,
         disallowed_tools=disallowed_tools,
         system_prompt_append=CURATOR_PERSONA,
         max_turns=max_turns,
         timeout_sec=timeout_sec,
     )
 
-    status_lines = cli_runner.git_status_short(company_dir)
-    # キュレーターは skills/ と skills/.archive/ のみ許可（DEPT_KNOWLEDGE は対象外）
-    oob = []
-    for ln in status_lines:
-        p = cli_runner.parse_status_path(ln)
-        if not (p.startswith("skills/")):
-            oob.append(p)
-    if oob:
-        cli_runner.revert_out_of_bounds(company_dir, status_lines, oob)
-        logger.warning("curator touched out-of-bounds paths, reverted: %s", oob)
+    # dryrun 時は書き込み不可なので変更は起きない。
+    # git_status_short を実行すると事前の uncommitted changes を oob 判定してしまい
+    # revert_out_of_bounds が既存変更を消す事故につながるためスキップする。
+    if dryrun:
+        oob: list[str] = []
+    else:
+        status_lines = cli_runner.git_status_short(company_dir)
+        oob = []
+        for ln in status_lines:
+            p = cli_runner.parse_status_path(ln)
+            if not (p.startswith("skills/")):
+                oob.append(p)
+        if oob:
+            cli_runner.revert_out_of_bounds(company_dir, status_lines, oob)
+            logger.warning("curator touched out-of-bounds paths, reverted: %s", oob)
 
     if result.timed_out:
         return {
@@ -163,6 +180,7 @@ def run_curation(
             "summary": "",
             "head_before": head_before,
             "out_of_bounds": oob,
+            "dryrun": dryrun,
         }
     if not result.ok:
         return {
@@ -171,6 +189,7 @@ def run_curation(
             "summary": "",
             "head_before": head_before,
             "out_of_bounds": oob,
+            "dryrun": dryrun,
         }
     summary = _parse_summary(result.stdout)
     if summary is None:
@@ -180,6 +199,7 @@ def run_curation(
             "summary": "",
             "head_before": head_before,
             "out_of_bounds": oob,
+            "dryrun": dryrun,
         }
     return {
         "status": "done",
@@ -187,4 +207,5 @@ def run_curation(
         "summary": summary,
         "head_before": head_before,
         "out_of_bounds": oob,
+        "dryrun": dryrun,
     }

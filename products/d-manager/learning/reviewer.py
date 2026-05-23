@@ -228,7 +228,12 @@ def run_review(
     if result.timed_out:
         status, note = "error", "timeout"
     elif not result.ok:
-        status, note = "error", f"exit={result.returncode}: {result.stderr[-300:]}"
+        stderr_tail = result.stderr[-200:] if result.stderr else ""
+        stdout_tail = result.stdout[-200:] if result.stdout else ""
+        status, note = (
+            "error",
+            f"exit={result.returncode} stderr={stderr_tail!r} stdout={stdout_tail!r}",
+        )
     else:
         parsed = parse_summary(result.stdout)
         if parsed is None:

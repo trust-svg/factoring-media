@@ -83,6 +83,48 @@ def test_run_curation_reverts_out_of_bounds(company, tmp_path, monkeypatch):
     assert "skills/.archive/old.md" not in reverted
 
 
+def test_run_curation_dryrun(company, tmp_path, monkeypatch):
+    """dryrun=True 時: スナップショット作成せず、allowed_tools が制限版になり、プロンプトに dryrun 文言が入り、oob チェックをスキップする。"""
+    snap_calls = []
+    git_status_calls = []
+    monkeypatch.setattr(
+        curator, "_make_snapshot", lambda company_dir, keep: snap_calls.append("snap")
+    )
+    monkeypatch.setattr(cli_runner, "git_head", lambda repo: "abc")
+    monkeypatch.setattr(
+        cli_runner,
+        "git_status_short",
+        lambda repo: git_status_calls.append("called") or [],
+    )
+    monkeypatch.setattr(cli_runner, "git_checkout_paths", lambda repo, paths: None)
+    captured = {}
+
+    def fake_run_claude(**kw):
+        captured.update(kw)
+        return cli_runner.CliResult(
+            True,
+            "<summary>before=2 after=2 merged=[] archived=[] created=[] fixed=[a:frontmatter]</summary>",
+            "",
+            0,
+            False,
+        )
+
+    monkeypatch.setattr(cli_runner, "run_claude", fake_run_claude)
+    res = curator.run_curation(
+        company_dir=company,
+        model="m",
+        skill_hits_path=tmp_path / "h.jsonl",
+        dryrun=True,
+    )
+    assert res["status"] == "done"
+    assert res["dryrun"] is True
+    assert res["out_of_bounds"] == []
+    assert snap_calls == []  # dryrun ではスナップショット作成しない
+    assert git_status_calls == []  # dryrun では git status を呼ばない
+    assert captured["allowed_tools"] == "Read Glob Grep"  # 書き込み系ツール無し
+    assert "ドライラン" in captured["prompt"]
+
+
 def test_run_curation_timeout(company, tmp_path, monkeypatch):
     monkeypatch.setattr(curator, "_make_snapshot", lambda company_dir, keep: None)
     monkeypatch.setattr(cli_runner, "git_head", lambda repo: "x")
