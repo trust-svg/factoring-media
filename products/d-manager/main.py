@@ -788,6 +788,8 @@ async def on_message(message: discord.Message):
 
     # Quick command: !dev <task> — Larry（開発エージェント）に直接コーディング依頼
     if raw.startswith("!dev "):
+        if message.author.id not in config.OWNER_DISCORD_USER_IDS:
+            return
         task = raw[5:].strip()
         if not task:
             await send_as_character_with_avatar(

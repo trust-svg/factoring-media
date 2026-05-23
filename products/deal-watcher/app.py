@@ -339,6 +339,7 @@ async def whitebg_eship(
     import os as _os
     import uuid
     import xml.etree.ElementTree as ET
+    from xml.sax.saxutils import escape as _xml_esc
 
     import aiosqlite
     import httpx
@@ -360,6 +361,12 @@ async def whitebg_eship(
 
     if not listing:
         return JSONResponse({"overall_success": False, "error": "Listing not found"})
+
+    from urllib.parse import urlparse as _urlparse
+
+    _parsed_url = _urlparse(image_url)
+    if _parsed_url.scheme not in ("http", "https") or not _parsed_url.netloc:
+        return JSONResponse({"overall_success": False, "error": "Invalid image URL"})
 
     # Step 1: 白背景化
     jpeg_bytes = None
@@ -436,9 +443,9 @@ async def whitebg_eship(
                 xml_revise = f"""<?xml version="1.0" encoding="utf-8"?>
 <ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <Item>
-    <ItemID>{ebay_item_id}</ItemID>
+    <ItemID>{_xml_esc(ebay_item_id)}</ItemID>
     <PictureDetails>
-      <PictureURL>{steps["ebay_upload"]["url"]}</PictureURL>
+      <PictureURL>{_xml_esc(steps["ebay_upload"]["url"] or "")}</PictureURL>
     </PictureDetails>
   </Item>
 </ReviseItemRequest>"""

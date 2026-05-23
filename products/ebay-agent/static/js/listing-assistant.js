@@ -1276,7 +1276,8 @@ function _renderSourcingLinks(resultEl, keyword, urls) {
   let html = `<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 ${escHtml(keyword)}</div>`;
   html += `<div class="la-search-links" style="margin-top:3px">`;
   for (const [name, url] of Object.entries(links)) {
-    html += `<a href="${escHtml(url)}" target="_blank" rel="noopener" class="la-search-link">${escHtml(name)}↗</a>`;
+    const safeUrl = url.startsWith('https://') ? url : '#';
+    html += `<a href="${escHtml(safeUrl)}" target="_blank" rel="noopener" class="la-search-link">${escHtml(name)}↗</a>`;
   }
   html += `</div>`;
   resultEl.innerHTML = html;
