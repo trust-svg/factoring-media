@@ -108,8 +108,9 @@ ESHIP_EMAIL = os.getenv("ESHIP_EMAIL", "")
 ESHIP_PASSWORD = os.getenv("ESHIP_PASSWORD", "")
 
 # ── Pricing ───────────────────────────────────────────────
-EBAY_FEE_RATE = 0.129  # eBay final value fee (12.9%)
+EBAY_FEE_RATE = 0.17  # eBay final value fee (17%)
 PAYONEER_FEE_RATE = 0.02  # Payoneer為替手数料 (2%)
+CUSTOMS_DUTY_RATE = 0.20  # 関税 (20% of purchase price)
 PRICE_CHECK_INTERVAL_HOURS = 6
 COMPETITOR_CACHE_TTL_HOURS = int(os.getenv("COMPETITOR_CACHE_TTL_HOURS", "24"))
 

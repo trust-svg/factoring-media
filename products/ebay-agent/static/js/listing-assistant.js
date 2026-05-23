@@ -499,29 +499,33 @@ async function calculate() {
 }
 
 function clientSideCalc(priceJpy, taxJpy, domShipJpy, intlShipUsd, targetPct) {
-  // Use a reasonable fallback FX rate
   const fxRate = window._fxRate || 155;
+  const EBAY_FEE   = 0.17;
+  const PAYONEER   = 0.02;
+  const CUSTOMS    = 0.20;
 
-  const costJpy = priceJpy + taxJpy + domShipJpy;
-  const costUsd = costJpy / fxRate;
+  const customsJpy = Math.round(priceJpy * CUSTOMS);
+  const costJpy    = priceJpy + taxJpy + domShipJpy + customsJpy;
+  const costUsd    = costJpy / fxRate;
 
-  // Solve for sell price P:
-  // P - (costUsd + intlShipUsd + 0.129*P + 0.02*P) = targetPct/100 * P
-  // P * (1 - 0.129 - 0.02 - targetPct/100) = costUsd + intlShipUsd
-  const margin = targetPct / 100;
-  const denom  = 1 - 0.129 - 0.02 - margin;
+  // Solve for sell price P (eBay fee applied to P, Payoneer to P after eBay):
+  // P * (1 - EBAY_FEE - (1-EBAY_FEE)*PAYONEER - margin) = costUsd + intlShipUsd
+  const feeDeduction = EBAY_FEE + (1 - EBAY_FEE) * PAYONEER;
+  const margin   = targetPct / 100;
+  const denom    = 1 - feeDeduction - margin;
   const priceUsd = denom > 0.01 ? (costUsd + intlShipUsd) / denom : 0;
 
-  const ebayFeeUsd    = priceUsd * 0.129;
-  const payoneerFeeUsd= priceUsd * 0.02;
-  const profitUsd     = priceUsd - costUsd - intlShipUsd - ebayFeeUsd - payoneerFeeUsd;
-  const profitJpy     = Math.round(profitUsd * fxRate);
-  const actualMargin  = priceUsd > 0 ? (profitUsd / priceUsd * 100) : 0;
+  const ebayFeeUsd     = priceUsd * EBAY_FEE;
+  const payoneerFeeUsd = (priceUsd - ebayFeeUsd) * PAYONEER;
+  const profitUsd      = priceUsd - costUsd - intlShipUsd - ebayFeeUsd - payoneerFeeUsd;
+  const profitJpy      = Math.round(profitUsd * fxRate);
+  const actualMargin   = priceUsd > 0 ? (profitUsd / priceUsd * 100) : 0;
 
   return {
     cost_jpy:                  priceJpy,
     tax_jpy:                   taxJpy,
     domestic_shipping_jpy:     domShipJpy,
+    customs_jpy:               customsJpy,
     total_cost_jpy:            costJpy,
     domestic_cost_usd:         costUsd,
     total_cost_usd:            costUsd + intlShipUsd,
@@ -539,8 +543,9 @@ function fillCalcResults(data) {
   setTextContent('cr-cost',          fmtJpy(data.cost_jpy));
   setTextContent('cr-tax',           fmtJpy(data.tax_jpy));
   setTextContent('cr-dom-ship',      fmtJpy(data.domestic_shipping_jpy));
+  setTextContent('cr-customs',       fmtJpy(data.customs_jpy));
   setTextContent('cr-subtotal-jpy',  fmtJpy(data.total_cost_jpy));
-  setTextContent('cr-subtotal-usd',  fmtUsd(data.domestic_cost_usd));  // 国内コストのみ（intl送料除く）
+  setTextContent('cr-subtotal-usd',  fmtUsd(data.domestic_cost_usd));
   setTextContent('cr-intl-ship',     fmtUsd(data.international_shipping_usd));
   setTextContent('cr-ebay-fee',      fmtUsd(data.ebay_fee_usd));
   setTextContent('cr-payoneer',      fmtUsd(data.payoneer_fee_usd));

@@ -5101,19 +5101,22 @@ async def listing_assistant_calculate(request: Request):
     target_margin_pct = float(body.get("target_margin_pct", 25.0))
 
     from ebay_core.exchange_rate import get_usd_to_jpy
-    from config import EBAY_FEE_RATE, PAYONEER_FEE_RATE
+    from config import EBAY_FEE_RATE, PAYONEER_FEE_RATE, CUSTOMS_DUTY_RATE
 
     rate = get_usd_to_jpy()
-    total_cost_jpy = price_jpy + tax_jpy + domestic_shipping_jpy
+    customs_jpy = round(price_jpy * CUSTOMS_DUTY_RATE)
+    total_cost_jpy = price_jpy + tax_jpy + domestic_shipping_jpy + customs_jpy
     domestic_cost_usd = total_cost_jpy / rate
     total_cost_usd = domestic_cost_usd + intl_shipping_usd
 
-    # 手数料控除率: eBay 12.9% + Payoneer 2%（eBay控除後に適用）
+    # 手数料控除率: eBay 17% + Payoneer 2%（eBay控除後に適用）
     fee_deduction = EBAY_FEE_RATE + (1 - EBAY_FEE_RATE) * PAYONEER_FEE_RATE
 
     denom = 1 - fee_deduction - target_margin_pct / 100
-    if denom <= 0:
-        raise HTTPException(400, "目標利益率が高すぎます")
+    if denom <= 0.01:
+        raise HTTPException(
+            400, "目標利益率が高すぎます（手数料と合計が100%を超えます）"
+        )
 
     recommended_price_usd = round(total_cost_usd / denom, 2)
     ebay_fee_usd = round(recommended_price_usd * EBAY_FEE_RATE, 2)
@@ -5135,6 +5138,7 @@ async def listing_assistant_calculate(request: Request):
             "cost_jpy": round(price_jpy),
             "tax_jpy": round(tax_jpy),
             "domestic_shipping_jpy": round(domestic_shipping_jpy),
+            "customs_jpy": customs_jpy,
             "international_shipping_usd": round(intl_shipping_usd, 2),
             # 集計値
             "total_cost_jpy": round(total_cost_jpy),

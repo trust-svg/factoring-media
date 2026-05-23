@@ -1155,7 +1155,7 @@
         <label class="la-field-label">目標利益率</label>
         <div class="la-slider-row">
           <input type="range" class="la-slider" id="targetMarginSlider"
-                 min="10" max="40" step="5" value="25" oninput="onMarginSlide(this.value)" />
+                 min="10" max="100" step="5" value="25" oninput="onMarginSlide(this.value)" />
           <span class="la-slider-val" id="targetMarginLabel">25%</span>
         </div>
       </div>
@@ -1182,6 +1182,10 @@
             <td>国内送料</td>
             <td id="cr-dom-ship">¥—</td>
           </tr>
+          <tr>
+            <td>関税 20%</td>
+            <td id="cr-customs">¥—</td>
+          </tr>
           <tr class="la-calc-divider">
             <td style="font-weight:700;color:var(--text-primary)">仕入合計（円）</td>
             <td id="cr-subtotal-jpy" style="font-weight:700;color:var(--text-primary)">¥—</td>
@@ -1196,7 +1200,7 @@
             <td id="cr-intl-ship">$—</td>
           </tr>
           <tr>
-            <td>eBay手数料 12.9%</td>
+            <td>eBay手数料 17%</td>
             <td id="cr-ebay-fee">$—</td>
           </tr>
           <tr>

@@ -3,6 +3,7 @@
 ebay-listing-generator Chrome拡張のAI生成ロジックをPythonに移植。
 サーバーサイドで出品データを生成可能にする。
 """
+
 from __future__ import annotations
 
 import json
@@ -67,22 +68,37 @@ async def generate_listing(
     else:
         content = user_message
 
+    # Prefill "{" forces the model to start the JSON immediately,
+    # reducing cases where extra text or newlines break the parse.
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=8192,
         system=LISTING_GENERATOR_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": content}],
+        messages=[
+            {"role": "user", "content": content},
+            {"role": "assistant", "content": "{"},
+        ],
     )
 
-    text = response.content[0].text
-    # JSON抽出
+    text = "{" + response.content[0].text
     import re
+
     match = re.search(r"\{[\s\S]*\}", text)
     if not match:
         raise ValueError("AIの応答からJSONを抽出できませんでした")
 
-    result = json.loads(match.group(0))
-    logger.info(f"出品生成完了: {product_name} (タイトル{len(result.get('titles', []))}件)")
+    raw = match.group(0)
+
+    # Fix unescaped literal newlines/tabs inside JSON string values
+    # (AI sometimes outputs actual \n instead of \\n inside HTML strings)
+    def _escape_str_newlines(m: re.Match) -> str:
+        return m.group(0).replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+
+    raw = re.sub(r'"(?:[^"\\]|\\.)*"', _escape_str_newlines, raw, flags=re.DOTALL)
+    result = json.loads(raw)
+    logger.info(
+        f"出品生成完了: {product_name} (タイトル{len(result.get('titles', []))}件)"
+    )
     return result
 
 
@@ -97,27 +113,30 @@ async def recognize_image(
         model="claude-sonnet-4-6",
         max_tokens=1024,
         system=IMAGE_RECOGNITION_PROMPT,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": image_media_type,
-                        "data": image_base64,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": image_media_type,
+                            "data": image_base64,
+                        },
                     },
-                },
-                {
-                    "type": "text",
-                    "text": "Identify this product. Provide full name, brand, model, category. JSON only.",
-                },
-            ],
-        }],
+                    {
+                        "type": "text",
+                        "text": "Identify this product. Provide full name, brand, model, category. JSON only.",
+                    },
+                ],
+            }
+        ],
     )
 
     text = response.content[0].text
     import re
+
     match = re.search(r"\{[\s\S]*\}", text)
     if not match:
         raise ValueError("画像認識の応答を解析できませんでした")
