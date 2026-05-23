@@ -93,7 +93,7 @@ function RadarChart({ breakdown }: { breakdown: ProgressData['skill_breakdown'] 
       {/* Center % labels */}
       {skills.map((s, i) => {
         const v = breakdown[s]
-        if (v === null) return null
+        if (v == null) return null
         const p = toPoint(angles[i], v)
         return (
           <text key={`pct-${s}`} x={p.x} y={p.y - 7} textAnchor="middle" fontSize={8} fill="#4338ca" fontWeight="bold">
