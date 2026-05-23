@@ -207,15 +207,18 @@ _TOKEN_TTL = 3000  # Mercari tokens expire ~3600s; cache for 50 min to be safe
 
 
 async def _capture_mercari_token_playwright() -> Optional[str]:
-    """Run Playwright to intercept access_token from auth.mercari.com/jp/v1/token.
+    """Intercept access_token from auth.mercari.com/jp/v1/token via route handler.
 
-    Deliberately excludes auth.mercari.com cookies so the browser has no cached
-    auth session and must perform a full PKCE code exchange, guaranteeing a
-    /token response every time.
+    Uses ctx.route() instead of on_response so the body is read while the
+    request is still in-flight — avoids the race where resp.json() fails
+    because browser.close() runs before the async callback completes.
+    asyncio.Event ensures we wait for the token before closing.
     """
+    import asyncio
     from playwright.async_api import async_playwright
 
-    token = None
+    token: Optional[str] = None
+    token_ready = asyncio.Event()
 
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
@@ -237,31 +240,40 @@ async def _capture_mercari_token_playwright() -> Optional[str]:
             except Exception as e:
                 logger.warning(f"[mercari] cookie load failed: {e}")
 
-        page = await ctx.new_page()
-
-        async def on_response(resp):
+        async def intercept_token(route, request):
             nonlocal token
-            if token:
-                return
-            if "token" in resp.url and "mercari" in resp.url and resp.status == 200:
+            # Fetch the response ourselves so the body is available before browser closes
+            response = await route.fetch()
+            if not token:
                 try:
-                    body = await resp.json()
+                    body = json.loads(await response.body())
                     if "access_token" in body:
                         token = body["access_token"]
-                        logger.info("[mercari] access_token captured from network")
+                        logger.info("[mercari] access_token captured")
+                        token_ready.set()
                 except Exception:
                     pass
+            await route.fulfill(response=response)
 
-        ctx.on("response", on_response)
+        # Intercept only the token endpoint to avoid slowing down other requests
+        await ctx.route(
+            lambda url: "mercari" in url and "/jp/v1/token" in url,
+            intercept_token,
+        )
+
+        page = await ctx.new_page()
 
         try:
-            # Homepage load triggers auth without hitting item-page bot detection
             await page.goto(
                 "https://jp.mercari.com/",
                 wait_until="networkidle",
                 timeout=40000,
             )
-            await page.wait_for_timeout(2000)
+            # Wait up to 8s for token capture after networkidle
+            try:
+                await asyncio.wait_for(token_ready.wait(), timeout=8.0)
+            except asyncio.TimeoutError:
+                pass
         except Exception as e:
             logger.warning(f"[mercari] Playwright navigation failed: {e}")
         finally:
