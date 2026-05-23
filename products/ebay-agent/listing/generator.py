@@ -68,19 +68,14 @@ async def generate_listing(
     else:
         content = user_message
 
-    # Prefill "{" forces the model to start the JSON immediately,
-    # reducing cases where extra text or newlines break the parse.
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=8192,
         system=LISTING_GENERATOR_SYSTEM_PROMPT,
-        messages=[
-            {"role": "user", "content": content},
-            {"role": "assistant", "content": "{"},
-        ],
+        messages=[{"role": "user", "content": content}],
     )
 
-    text = "{" + response.content[0].text
+    text = response.content[0].text
     import re
 
     match = re.search(r"\{[\s\S]*\}", text)
@@ -89,8 +84,8 @@ async def generate_listing(
 
     raw = match.group(0)
 
-    # Fix unescaped literal newlines/tabs inside JSON string values
-    # (AI sometimes outputs actual \n instead of \\n inside HTML strings)
+    # AI sometimes emits literal newlines/tabs inside JSON string values instead
+    # of \\n — fix them before parsing to avoid "Expecting ',' delimiter" errors
     def _escape_str_newlines(m: re.Match) -> str:
         return m.group(0).replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
 
