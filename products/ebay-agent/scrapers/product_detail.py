@@ -14,8 +14,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
+import time
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -194,200 +197,197 @@ async def _fetch_yahooauction(url: str) -> dict:
 
 # ── メルカリ ──────────────────────────────────────────────────────────────────
 
-
 _MERCARI_COOKIE_FILE = (
-    __import__("pathlib").Path(__file__).parent.parent
-    / ".playwright"
-    / "mercari_cookies.json"
+    Path(__file__).parent.parent / ".playwright" / "mercari_cookies.json"
 )
+_MERCARI_TOKEN_CACHE = (
+    Path(__file__).parent.parent / ".playwright" / "mercari_token_cache.json"
+)
+_TOKEN_TTL = 3000  # Mercari tokens expire ~3600s; cache for 50 min to be safe
+
+
+async def _capture_mercari_token_playwright() -> Optional[str]:
+    """Run Playwright to intercept access_token from auth.mercari.com/jp/v1/token.
+
+    Deliberately excludes auth.mercari.com cookies so the browser has no cached
+    auth session and must perform a full PKCE code exchange, guaranteeing a
+    /token response every time.
+    """
+    from playwright.async_api import async_playwright
+
+    token = None
+
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        ctx = await browser.new_context(
+            locale="ja-JP",
+            timezone_id="Asia/Tokyo",
+            user_agent=(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+        )
+
+        # Load non-auth cookies only; omitting auth.mercari.com cookies forces
+        # the browser to run a fresh PKCE exchange → /token is always called
+        if _MERCARI_COOKIE_FILE.exists():
+            try:
+                cookies = json.loads(_MERCARI_COOKIE_FILE.read_text())
+                non_auth = [
+                    c for c in cookies if "auth.mercari" not in c.get("domain", "")
+                ]
+                if non_auth:
+                    await ctx.add_cookies(non_auth)
+            except Exception as e:
+                logger.warning(f"[mercari] cookie load failed: {e}")
+
+        page = await ctx.new_page()
+
+        async def on_response(resp):
+            nonlocal token
+            if token:
+                return
+            if "token" in resp.url and "mercari" in resp.url and resp.status == 200:
+                try:
+                    body = await resp.json()
+                    if "access_token" in body:
+                        token = body["access_token"]
+                        logger.info("[mercari] access_token captured from network")
+                except Exception:
+                    pass
+
+        ctx.on("response", on_response)
+
+        try:
+            # Homepage load triggers auth without hitting item-page bot detection
+            await page.goto(
+                "https://jp.mercari.com/",
+                wait_until="networkidle",
+                timeout=40000,
+            )
+            await page.wait_for_timeout(2000)
+        except Exception as e:
+            logger.warning(f"[mercari] Playwright navigation failed: {e}")
+        finally:
+            await browser.close()
+
+    return token
+
+
+async def _get_mercari_token() -> Optional[str]:
+    """Return a valid Mercari access_token, calling Playwright only when cache is stale."""
+    if _MERCARI_TOKEN_CACHE.exists():
+        try:
+            cache = json.loads(_MERCARI_TOKEN_CACHE.read_text())
+            if time.time() < cache.get("expires_at", 0):
+                logger.debug("[mercari] using cached token")
+                return cache["access_token"]
+        except Exception:
+            pass
+
+    token = await _capture_mercari_token_playwright()
+    if token:
+        try:
+            _MERCARI_TOKEN_CACHE.write_text(
+                json.dumps(
+                    {
+                        "access_token": token,
+                        "expires_at": time.time() + _TOKEN_TTL,
+                    }
+                )
+            )
+        except Exception:
+            pass
+    return token
 
 
 async def _fetch_mercari(url: str) -> dict:
-    """メルカリ単品スクレイパー (Playwright)。"""
-    import json
-    from playwright.async_api import async_playwright
+    """メルカリ: access_tokenをネットワーク傍受→直接APIで商品情報を取得。"""
+    import urllib.request
+    import urllib.error
 
     platform = "メルカリ"
     result = _empty_result(url, platform)
 
+    m = re.search(r"/item/(m\d+)", url)
+    if not m:
+        result["error"] = "URLからアイテムIDを取得できません"
+        return result
+    item_id = m.group(1)
+
     try:
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
-            ctx = await browser.new_context(
-                user_agent=HEADERS["User-Agent"],
-                locale="ja-JP",
-                timezone_id="Asia/Tokyo",
-            )
-            # ログイン済みCookieを注入してbot検出を回避
-            if _MERCARI_COOKIE_FILE.exists():
-                try:
-                    cookies = json.loads(_MERCARI_COOKIE_FILE.read_text())
-                    await ctx.add_cookies(cookies)
-                    logger.info(f"[mercari] cookies loaded ({len(cookies)} entries)")
-                except Exception as e:
-                    logger.warning(f"[mercari] cookie load failed: {e}")
-            page = await ctx.new_page()
-            try:
-                # networkidle: 全ネットワークリクエスト完了まで待つ（domcontentloadedはCSR未完了）
-                await page.goto(url, wait_until="networkidle", timeout=40000)
-                # React描画の追加バッファ
-                await page.wait_for_timeout(2000)
-
-                data = await page.evaluate("""() => {
-                    const og = (prop) => {
-                        const el = document.querySelector(`meta[property="${prop}"]`);
-                        return el ? el.content : '';
-                    };
-
-                    // タイトル
-                    const h1 = document.querySelector('h1');
-                    const title = h1 ? h1.innerText.trim() : og('og:title');
-
-                    // 画像
-                    const imageUrl = og('og:image');
-
-                    // ── JSON-LD から price / condition / seller を優先取得 ──
-                    let jsonPrice = 0, jsonCondition = '', jsonSeller = '';
-                    for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
-                        try {
-                            const items = [].concat(JSON.parse(s.textContent));
-                            for (const d of items) {
-                                const offers = [].concat(d.offers || []);
-                                for (const o of offers) {
-                                    if (o.price) jsonPrice = parseInt(o.price, 10) || 0;
-                                }
-                                if (d.itemCondition) {
-                                    const c = d.itemCondition;
-                                    if (c.includes('New'))          jsonCondition = '新品';
-                                    else if (c.includes('LikeNew')) jsonCondition = '未使用に近い';
-                                    else if (c.includes('VeryGood'))jsonCondition = '目立った傷や汚れなし';
-                                    else if (c.includes('Good'))    jsonCondition = 'やや傷や汚れあり';
-                                    else if (c.includes('Used'))    jsonCondition = 'やや傷や汚れあり';
-                                }
-                                if (!jsonSeller && d.seller && d.seller.name) {
-                                    jsonSeller = d.seller.name;
-                                }
-                            }
-                        } catch(e) {}
-                    }
-
-                    // ── 価格: DOM取得 (JSON-LDが0の場合のフォールバック) ──
-                    let priceRaw = jsonPrice > 0 ? String(jsonPrice) : '0';
-                    if (!jsonPrice) {
-                        // mer-price カスタム要素
-                        const merPrice = document.querySelector('mer-price');
-                        if (merPrice) {
-                            const v = merPrice.getAttribute('value') || merPrice.innerText || '';
-                            priceRaw = v.replace(/[¥￥,\\s]/g, '') || '0';
-                        }
-                        if (!priceRaw || priceRaw === '0') {
-                            const priceEl = document.querySelector(
-                                "[data-testid='price'], [class*='ItemPrice'], [class*='item-price'],"
-                                + "[class*='sellingPrice'], [class*='selling-price']"
-                            );
-                            if (priceEl) {
-                                priceRaw = priceEl.innerText.replace(/[¥￥,\\s円]/g, '') || '0';
-                            }
-                        }
-                        if (!priceRaw || priceRaw === '0') {
-                            // ¥ (U+00A5) と ￥ (U+FFE5) 両方を対象にした正規表現
-                            const m = document.body.innerText.match(/[¥￥]([\\d,]+)/);
-                            if (m) priceRaw = m[1].replace(/,/g, '');
-                        }
-                    }
-
-                    // ── コンディション: DOM取得 (JSON-LDが空の場合のフォールバック) ──
-                    let condition = jsonCondition;
-                    if (!condition) {
-                        // 方法1: TreeWalker でラベルノードを見つけ、
-                        //         親コンテナの innerText を改行分割して index+1 を取る
-                        const walker = document.createTreeWalker(
-                            document.body, NodeFilter.SHOW_TEXT, null
-                        );
-                        let node;
-                        outer: while ((node = walker.nextNode())) {
-                            if (node.textContent.trim() === '商品の状態') {
-                                // 同じコンテナの全テキストを改行分割して値を探す
-                                let p = node.parentElement;
-                                for (let i = 0; i < 5; i++) {
-                                    if (!p) break;
-                                    const lines = (p.innerText || '').split('\\n')
-                                        .map(t => t.trim()).filter(t => t);
-                                    const idx = lines.indexOf('商品の状態');
-                                    if (idx !== -1 && idx + 1 < lines.length) {
-                                        condition = lines[idx + 1];
-                                        break outer;
-                                    }
-                                    p = p.parentElement;
-                                }
-                            }
-                        }
-                    }
-                    if (!condition) {
-                        // 方法2: body 全体を改行分割してラベルの次行を取る
-                        const lines = (document.body.innerText || '').split('\\n')
-                            .map(t => t.trim()).filter(t => t);
-                        const idx = lines.indexOf('商品の状態');
-                        if (idx !== -1 && idx + 1 < lines.length) {
-                            condition = lines[idx + 1];
-                        }
-                    }
-
-                    // ── セラーID ──
-                    let sellerId = jsonSeller;
-                    if (!sellerId) {
-                        const sellerLink = document.querySelector(
-                            'a[href*="/user/profile/"], a[href*="/users/"]'
-                        );
-                        if (sellerLink) {
-                            const m = sellerLink.href.match(/\\/users?\\/(?:profile\\/)?([^/?#]+)/);
-                            if (m) {
-                                sellerId = m[1];
-                            } else {
-                                const nameEl = sellerLink.querySelector('[class*="name"], [class*="seller"]');
-                                sellerId = nameEl
-                                    ? nameEl.innerText.trim()
-                                    : sellerLink.innerText.trim().split('\\n')[0];
-                            }
-                        }
-                    }
-
-                    // ── 説明文 ──
-                    let description = '';
-                    const descEl = document.querySelector(
-                        '[data-testid="description"], [class*="description"], [class*="Description"]'
-                    );
-                    if (descEl) description = descEl.innerText.trim().substring(0, 2000);
-
-                    return {
-                        title,
-                        image_url: imageUrl,
-                        price_raw: priceRaw,
-                        condition,
-                        seller_id: sellerId,
-                        description,
-                    };
-                }""")
-
-                result["title"] = data.get("title", "")
-                result["image_url"] = data.get("image_url", "")
-                result["seller_id"] = data.get("seller_id", "")
-                result["description"] = data.get("description", "")
-
-                price_raw = data.get("price_raw", "0") or "0"
-                try:
-                    result["price_jpy"] = int(price_raw.replace(",", ""))
-                except (ValueError, AttributeError):
-                    result["price_jpy"] = 0
-
-                raw_cond = data.get("condition", "")
-                result["condition"] = _normalize_condition(raw_cond) if raw_cond else ""
-
-            finally:
-                await browser.close()
-
+        token = await _get_mercari_token()
     except Exception as e:
-        result["error"] = f"Playwright失敗: {e}"
+        result["error"] = f"トークン取得失敗: {e}"
+        return result
+
+    if not token:
+        result["error"] = "アクセストークンを取得できませんでした"
+        return result
+
+    req = urllib.request.Request(
+        f"https://api.mercari.jp/items/get?id={item_id}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-Platform": "web",
+            "Accept": "application/json",
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            ),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            # Token expired; invalidate cache so next call refreshes it
+            try:
+                _MERCARI_TOKEN_CACHE.unlink(missing_ok=True)
+            except Exception:
+                pass
+            result["error"] = (
+                "認証エラー(401): トークンを無効化しました。再度URLを入力してください"
+            )
+        else:
+            result["error"] = f"API HTTPエラー: {e.code}"
+        return result
+    except Exception as e:
+        result["error"] = f"APIリクエスト失敗: {e}"
+        return result
+
+    item = data.get("data", {})
+
+    result["title"] = item.get("name", "")
+
+    price = item.get("price")
+    if price is not None:
+        try:
+            result["price_jpy"] = int(price)
+        except (ValueError, TypeError):
+            pass
+
+    cond = item.get("item_condition")
+    if isinstance(cond, dict):
+        raw_cond = cond.get("name", "")
+    elif isinstance(cond, str):
+        raw_cond = cond
+    else:
+        raw_cond = ""
+    result["condition"] = _normalize_condition(raw_cond) if raw_cond else ""
+
+    seller = item.get("seller")
+    if isinstance(seller, dict):
+        result["seller_id"] = seller.get("name", "")
+    elif isinstance(seller, str):
+        result["seller_id"] = seller
+
+    thumbnails = item.get("thumbnails", [])
+    if thumbnails:
+        result["image_url"] = thumbnails[0]
+
+    result["description"] = (item.get("description", "") or "")[:2000]
 
     return result
 
