@@ -1237,9 +1237,10 @@ async function _searchSourcingCandidates(itemId) {
   const resultEl = document.getElementById(`sourcing-result-${itemId}`);
   if (!resultEl) return;
 
-  if (btn) { btn.disabled = true; btn.textContent = '検索中...'; }
+  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
   resultEl.innerHTML = '';
 
+  // キーワードをサーバーで生成（型番抽出 + Haiku fallback）してリンクを表示
   try {
     const resp = await fetch('/api/listing-assistant/search-jp', {
       method: 'POST',
@@ -1251,32 +1252,29 @@ async function _searchSourcingCandidates(itemId) {
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
-
-    const platforms = ['ヤフオク', 'メルカリ', 'Yahoo!フリマ'];
-    let rows = '';
-    for (const p of platforms) {
-      const candidates = (data[p] || []).slice(0, 3);
-      for (const c of candidates) {
-        const price = (c.price_jpy || 0).toLocaleString();
-        rows += `
-          <a href="${escHtml(c.url || '#')}" target="_blank" rel="noopener" class="la-cand-row">
-            <span class="la-cand-platform">${escHtml(p)}</span>
-            <span class="la-cand-title">${escHtml((c.title || '').slice(0, 55))}</span>
-            <span class="la-cand-price">¥${price}</span>
-          </a>`;
-      }
-    }
-
-    if (!rows) {
-      resultEl.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">候補が見つかりませんでした</span>';
-    } else {
-      resultEl.innerHTML = `<div class="la-cand-list">${rows}</div>`;
-    }
-    if (btn) btn.textContent = '再検索';
-  } catch (e) {
-    resultEl.innerHTML = `<span style="font-size:12px;color:var(--red,#dc2626)">エラー: ${escHtml(e.message ?? '')}</span>`;
-    if (btn) { btn.disabled = false; btn.textContent = '仕入れ候補を検索'; }
+    _renderSourcingLinks(resultEl, data.keyword || item.title, data.urls || {});
+  } catch (_e) {
+    // サーバーエラー時はクライアントサイドのキーワードでフォールバック
+    _renderSourcingLinks(resultEl, _extractKeyword(item.title || ''), {});
   }
+  if (btn) { btn.disabled = false; btn.textContent = '再検索'; }
+}
+
+function _renderSourcingLinks(resultEl, keyword, urls) {
+  const enc = encodeURIComponent(keyword);
+  const links = {
+    'ヤフオク': urls['ヤフオク'] || `https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50`,
+    'メルカリ': urls['メルカリ'] || `https://jp.mercari.com/search?keyword=${enc}&status=on_sale`,
+    'Yahoo!フリマ': urls['Yahoo!フリマ'] || `https://paypayfleamarket.yahoo.co.jp/search/${enc}`,
+    'ラクマ': urls['ラクマ'] || `https://fril.jp/search/${enc}`,
+  };
+  let html = `<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 ${escHtml(keyword)}</div>`;
+  html += `<div class="la-search-links" style="margin-top:3px">`;
+  for (const [name, url] of Object.entries(links)) {
+    html += `<a href="${escHtml(url)}" target="_blank" rel="noopener" class="la-search-link">${escHtml(name)}↗</a>`;
+  }
+  html += `</div>`;
+  resultEl.innerHTML = html;
 }
 
 async function reflectToEship(itemId) {

@@ -5266,57 +5266,19 @@ async def listing_assistant_search_jp(request: Request):
     if not keyword:
         keyword = title[:50]
 
-    from scrapers.mercari_search import MercariScraper
-    from scrapers.yahoo_auction import YahooAuctionScraper
-    from scrapers.paypay_flea import PayPayFleaScraper
+    import urllib.parse as _up
 
-    async def _run(coro, timeout_sec: float):
-        try:
-            return await asyncio.wait_for(coro, timeout=timeout_sec)
-        except Exception as e:
-            logger.warning(f"[search-jp] スクレイパータイムアウト/エラー: {e!r}")
-            return []
-
-    results = await asyncio.gather(
-        _run(
-            MercariScraper().search(keyword, max_price_jpy, junk_ok=False, limit=5),
-            30.0,
-        ),
-        _run(
-            YahooAuctionScraper().search(
-                keyword, max_price_jpy, junk_ok=False, limit=5
-            ),
-            15.0,
-        ),
-        _run(
-            PayPayFleaScraper().search(keyword, max_price_jpy, junk_ok=False, limit=5),
-            30.0,
-        ),
-    )
-
-    def _serialize(items_or_exc):
-        if isinstance(items_or_exc, Exception):
-            logger.warning(f"[search-jp] スクレイパーエラー: {items_or_exc!r}")
-            return []
-        return [
-            {
-                "title": i.title,
-                "price_jpy": i.price_jpy,
-                "platform": i.platform,
-                "url": i.url,
-                "image_url": i.image_url,
-                "condition": i.condition,
-            }
-            for i in items_or_exc
-        ]
-
+    enc = _up.quote(keyword, safe="")
     return JSONResponse(
         {
             "keyword": keyword,
             "max_price_jpy": max_price_jpy,
-            "メルカリ": _serialize(results[0]),
-            "ヤフオク": _serialize(results[1]),
-            "Yahoo!フリマ": _serialize(results[2]),
+            "urls": {
+                "ヤフオク": f"https://auctions.yahoo.co.jp/search/search/{enc}/0/?n=50",
+                "メルカリ": f"https://jp.mercari.com/search?keyword={enc}&status=on_sale",
+                "Yahoo!フリマ": f"https://paypayfleamarket.yahoo.co.jp/search/{enc}",
+                "ラクマ": f"https://fril.jp/search/{enc}",
+            },
         }
     )
 
