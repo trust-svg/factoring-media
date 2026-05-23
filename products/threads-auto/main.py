@@ -173,6 +173,14 @@ async def contact(form: ContactForm):
     return {"status": "ok"}
 
 
+@app.get("/go")
+async def affiliate_redirect():
+    """転職AGENT Navi アフィリエイトリダイレクト"""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse("https://px.a8.net/svt/ejp?a8mat=4AZLSE+3WIBJM+5BJK+5Z6WY")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def landing():
     from pathlib import Path
