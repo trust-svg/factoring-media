@@ -16,8 +16,9 @@ if not DISCORD_BOT_TOKEN:
 # Anthropic
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = "claude-sonnet-4-6"  # API mode
-CLAUDE_MODEL_CLI = os.getenv("CLAUDE_MODEL_CLI", "claude-sonnet-4-6")  # CLI mode
-CODE_ENGINE: str = os.getenv("CODE_ENGINE", "claude")  # "claude" or "codex"
+# `or` で空文字を default に倒す（os.getenv は env が "" のとき "" を返す Python の罠への対策）
+CLAUDE_MODEL_CLI = os.getenv("CLAUDE_MODEL_CLI") or "claude-sonnet-4-6"  # CLI mode
+CODE_ENGINE: str = os.getenv("CODE_ENGINE") or "claude"  # "claude" or "codex"
 
 # Google
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "credentials.json")
@@ -123,8 +124,8 @@ LEARNING_STUCK_MINUTES = int(os.getenv("LEARNING_STUCK_MINUTES", "30"))
 TURNS_RETENTION_DAYS = int(os.getenv("TURNS_RETENTION_DAYS", "180"))
 
 # レビュー/キュレーター用モデル（CLIモードの --model に渡す）。既定は日次=現行CLIモデル、週次=Opus。
-REVIEW_MODEL_CLI = os.getenv("REVIEW_MODEL_CLI", CLAUDE_MODEL_CLI)
-CURATOR_MODEL_CLI = os.getenv("CURATOR_MODEL_CLI", "claude-opus-4-7")
+REVIEW_MODEL_CLI = os.getenv("REVIEW_MODEL_CLI") or CLAUDE_MODEL_CLI
+CURATOR_MODEL_CLI = os.getenv("CURATOR_MODEL_CLI") or "claude-opus-4-7"
 
 # 学習ループの通知先 Discord チャンネル名（既定: 開発チャンネル）
 LEARNING_NOTIFY_CHANNEL = os.getenv("LEARNING_NOTIFY_CHANNEL", "開発-larry-product")
