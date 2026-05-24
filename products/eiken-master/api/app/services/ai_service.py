@@ -1,7 +1,9 @@
 import base64
 import json
+import logging
 import os
 import tempfile
+import time
 from typing import Any
 
 from app.config import ANTHROPIC_API_KEY, OPENAI_API_KEY
@@ -12,11 +14,65 @@ from app.schemas.ai import (
     WritingScoreResponse,
 )
 
+logger = logging.getLogger(__name__)
+
 # Module-level client references — initialised lazily on first use so that
 # importing this module does not trigger the Anthropic/OpenAI SDK at startup
 # (avoids issues when credentials sub-packages are sandboxed in tests).
 anthropic_client: Any = None
 openai_client: Any = None
+
+
+def _strip_fences(text: str) -> str:
+    """Strip markdown code fences (```json ... ```) that Claude occasionally adds."""
+    import re
+
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```\w*\n?", "", text)
+        text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
+
+
+def _safe_json_loads(text: str) -> dict:
+    """Parse JSON from Claude response, repairing common formatting issues."""
+    text = _strip_fences(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Claude sometimes embeds literal newlines/tabs inside JSON string values.
+        # Replace unescaped control characters so the JSON becomes parseable.
+        import re
+
+        repaired = re.sub(r"(?<!\\)\n", " ", text)
+        repaired = re.sub(r"(?<!\\)\r", "", repaired)
+        repaired = re.sub(r"(?<!\\)\t", " ", repaired)
+        return json.loads(repaired)
+
+
+def _call_with_retry(fn, max_retries: int = 2, initial_delay: float = 2.0):
+    """Call fn() with retry on transient Anthropic API errors (5xx / connection)."""
+    import anthropic
+
+    last_exc: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except (anthropic.InternalServerError, anthropic.APIConnectionError) as e:
+            last_exc = e
+            if attempt < max_retries:
+                delay = initial_delay * (2**attempt)
+                logger.warning(
+                    "Anthropic transient error attempt %d/%d, retrying in %.0fs: %s",
+                    attempt + 1,
+                    max_retries + 1,
+                    delay,
+                    e,
+                )
+                time.sleep(delay)
+        except Exception:
+            raise  # non-transient errors (auth, bad request, etc.) — don't retry
+    raise last_exc
 
 
 def _get_anthropic():
@@ -89,18 +145,20 @@ def _parse_criteria(raw: dict) -> dict[str, CriterionScore]:
 
 
 def score_writing(prompt: str, answer: str) -> WritingScoreResponse:
-    msg = _get_anthropic().messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=512,
-        messages=[
-            {
-                "role": "user",
-                "content": _WRITING_PROMPT.format(prompt=prompt, answer=answer),
-            }
-        ],
+    msg = _call_with_retry(
+        lambda: _get_anthropic().messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            messages=[
+                {
+                    "role": "user",
+                    "content": _WRITING_PROMPT.format(prompt=prompt, answer=answer),
+                }
+            ],
+        )
     )
     try:
-        data = json.loads(msg.content[0].text)
+        data = _safe_json_loads(msg.content[0].text)
         score = float(data["score"])
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         raise ValueError(
@@ -144,7 +202,11 @@ def generate_flashcard_example(front: str, back: str) -> dict:
 
 
 def generate_audio(text: str, voice: str = "alloy") -> AudioResponse:
-    resp = _get_openai().audio.speech.create(model="tts-1", voice=voice, input=text)
+    resp = _call_with_retry(
+        lambda: _get_openai().audio.speech.create(
+            model="tts-1", voice=voice, input=text
+        )
+    )
     return AudioResponse(audio_base64=base64.b64encode(resp.content).decode())
 
 
@@ -168,22 +230,24 @@ def score_speaking(
     topic: str, speaking_points: list[str], audio_bytes: bytes
 ) -> SpeakingScoreResponse:
     transcript = transcribe_audio(audio_bytes)
-    msg = _get_anthropic().messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=512,
-        messages=[
-            {
-                "role": "user",
-                "content": _SPEAKING_PROMPT.format(
-                    topic=topic,
-                    points=", ".join(speaking_points),
-                    transcript=transcript,
-                ),
-            }
-        ],
+    msg = _call_with_retry(
+        lambda: _get_anthropic().messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            messages=[
+                {
+                    "role": "user",
+                    "content": _SPEAKING_PROMPT.format(
+                        topic=topic,
+                        points=", ".join(speaking_points),
+                        transcript=transcript,
+                    ),
+                }
+            ],
+        )
     )
     try:
-        data = json.loads(msg.content[0].text)
+        data = _safe_json_loads(msg.content[0].text)
         score = float(data["score"])
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         raise ValueError(
@@ -230,24 +294,41 @@ _QUESTION_PROMPTS = {
 answerは0〜3の正答インデックス。選択肢は4つ。パッセージは完全な英文で。""",
     "listening": """\
 英検{grade_label}レベルのリスニング問題を1問生成してください。
-日常的な場面の短い会話や説明を想定した問題です。
+日常的な場面の短い会話または説明文を作り、その内容に関する設問にしてください。
+
+【重要】毎回異なるシナリオにすること:
+- 登場人物: Tom, Emma, Mike, Lisa, David, Anna, Kevin, Yuki, Chris, Maya など、毎回変えること（Sarah は使わない）
+- 場面: 学校・図書館・スーパー・駅・病院・公園・オフィス・レストラン・カフェ・旅行など多様に
+- 質問タイプ: What / When / Where / Why / How / Who など偏らず変化させること
+
 以下のJSON形式で返してください（他のテキスト不要）:
 {{
-  "question": "状況・設問（英語）例: 'A girl is talking to her teacher. What does she want to do?'",
+  "conversation": "実際に読み上げる会話または説明文（英語）。会話なら 'A: ... B: ...' 形式、説明文なら平文で。80〜120語程度。",
+  "question": "設問（英語）例: 'What does the woman decide to do?'",
   "choices": ["選択肢A（英語）", "選択肢B（英語）", "選択肢C（英語）", "選択肢D（英語）"],
   "answer": 0,
   "explanation": "正答の解説（日本語、2〜3文）"
 }}
 answerは0〜3の正答インデックス。選択肢は4つ。""",
-    "writing": """\
-英検{grade_label}レベルのライティング問題を1問生成してください。
+    "writing_pre2": """\
+英検準2級レベルのライティング問題を1問生成してください。
 以下のJSON形式で返してください（他のテキスト不要）:
 {{
-  "prompt": "英作文の課題（英語）例: 'Do you think ... ? Write about 80 words.'",
-  "min_words": 80,
-  "example_response": "模範解答（英語、80〜100語）"
+  "prompt": "英作文の課題（英語）例: 'Do you think students should ... ? Write about 50 words.'",
+  "min_words": 50,
+  "example_response": "模範解答（英語、50〜60語）"
 }}
-課題は賛否を問うもの（Do you agree...? / Do you think...?）で。""",
+課題は中学生〜高校生が身近に感じる話題で、賛否を問う形式（Do you agree...? / Do you think...?）。""",
+    "writing_2": """\
+英検2級レベルのライティング問題を1問生成してください。
+以下のJSON形式で返してください（他のテキスト不要）:
+{{
+  "prompt": "英作文の課題（英語）例: 'Do you think ... ? Write about 80 to 100 words. Use TWO of the following POINTS: [Point1] / [Point2] / [Point3]'",
+  "points": ["観点A（英語）", "観点B（英語）", "観点C（英語）"],
+  "min_words": 80,
+  "example_response": "模範解答（英語、80〜100語。2つの観点を含む）"
+}}
+課題は社会・環境・テクノロジーなど高校生〜社会人向けのテーマで、賛否を問う形式。観点を3つ提示し生徒が2つ選んで使う形式にする。""",
     "speaking": """\
 英検{grade_label}レベルのスピーキング問題を1問生成してください。
 以下のJSON形式で返してください（他のテキスト不要）:
@@ -263,9 +344,8 @@ _GRADE_LABELS = {"pre2": "準2級", "2": "2級"}
 
 
 def generate_question(skill: str, grade: str) -> dict:
-    prompt = _QUESTION_PROMPTS[skill].format(
-        grade_label=_GRADE_LABELS.get(grade, grade)
-    )
+    key = f"writing_{grade}" if skill == "writing" else skill
+    prompt = _QUESTION_PROMPTS[key].format(grade_label=_GRADE_LABELS.get(grade, grade))
     msg = _get_anthropic().messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=1024,
@@ -523,19 +603,29 @@ _DAILY_PLAN_PROMPT = """\
 
 目標: 英検{grade_label}
 試験まで: {days}日
-1日の目標学習時間: {daily_minutes}分
+1日の目標学習時間: {daily_minutes}分（週4日のみ勉強）
 最近の技能別正答率:
   リーディング: {reading}
   リスニング: {listening}
   ライティング: {writing}
   スピーキング: {speaking}
 
+英検の試験構造（重要）:
+- 一次試験（筆記）: リーディング・リスニング・ライティングの3技能
+- 二次試験（面接）: スピーキングのみ（一次合格者だけが受ける）
+- まず一次合格を優先すること
+
 ルール:
 1. 合計時間が {daily_minutes} 分以内に収まるようにする
-2. 弱い技能（正答率が低いもの）を優先する
-3. 単語カード（flashcards）を毎日5〜10分含める
-4. 残り日数が30日以内なら全技能を満遍なく、それ以上なら弱点集中
-5. 1タスク5〜20分の範囲に収める
+2. 一次試験3技能（reading/listening/writing）を中心に配分する
+3. 弱い技能（正答率が低いもの）に多く時間を割く
+   - 60%未満: 最優先（20〜25分）
+   - 60〜75%: 優先（15〜20分）
+   - 75%以上: 維持（10〜15分）
+4. 単語カード（flashcards）を毎日10分含める
+5. 残り日数が20日以内はspeakingも必ず5〜10分含める
+6. 1タスク10〜25分の範囲に収める
+7. データなしの技能は「60%未満」扱いで優先する
 
 以下のJSON形式のみで返してください（マークダウン不要）:
 {{
