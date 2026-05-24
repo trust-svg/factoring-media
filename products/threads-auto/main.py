@@ -204,6 +204,14 @@ async def affiliate_redirect():
     return RedirectResponse("https://px.a8.net/svt/ejp?a8mat=4AZLSE+3WIBJM+5BJK+5Z6WY")
 
 
+@app.get("/go2")
+async def affiliate_redirect2():
+    """ワンキャリア転職 アフィリエイトリダイレクト"""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse("https://px.a8.net/svt/ejp?a8mat=4B3XBA+J1W4Y+5O7E+BWVTE")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def landing():
     from pathlib import Path

@@ -37,6 +37,22 @@
   "affiliate": {
     "method": "コメント欄にPRリンク配置",
     "frequency": "5投稿に1回程度",
+    "programs": [
+      {
+        "name": "転職AGENT Navi",
+        "link": "https://career.trustmedialab.com/go",
+        "reward": "登録CV",
+        "pr_template": "👇 転職で年収上げたい人はこちら\n{affiliate_link}\n※PR",
+        "best_for": ["転職エージェント活用", "年収交渉", "担当者マッチング"]
+      },
+      {
+        "name": "ワンキャリア転職",
+        "link": "https://career.trustmedialab.com/go2",
+        "reward": "新規会員登録3000円・確定率100%",
+        "pr_template": "👇 企業の年収・クチコミ・選考対策はこちら\n{affiliate_link}\n※PR",
+        "best_for": ["企業研究", "年収情報", "面接対策", "クチコミ確認"]
+      }
+    ],
     "affiliate_link": "https://career.trustmedialab.com/go",
     "pr_template": "👇 転職で年収上げたい人はこちら\n{affiliate_link}\n※PR",
     "categories": ["転職エージェント", "プログラミングスクール", "キャリアコーチング"]
