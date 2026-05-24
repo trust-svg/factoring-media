@@ -1579,42 +1579,50 @@ def mark_messages_read(message_ids: list[str], read: bool = True) -> dict:
 def upload_image_bytes(image_bytes: bytes, filename: str = "image.jpg") -> dict:
     """Trading API (UploadSiteHostedPictures) でメモリ上の画像をEPSにアップロード。
 
+    multipart/form-data 方式（XML+raw bytes）を使う。
+    XML embedded base64 (PictureData) は eBay 側で "File has corrupt image data"
+    として弾かれる事例が多いため不採用。
+
     Returns:
         {"success": bool, "url": str | None, "error": str | None}
     """
-    import base64
-
     token = get_access_token()
-    image_data = base64.b64encode(image_bytes).decode("ascii")
 
-    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+    picture_name = filename.rsplit(".", 1)[0] or "image"
+    xml_payload = f"""<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-    <RequesterCredentials>
-        <eBayAuthToken>{token}</eBayAuthToken>
-    </RequesterCredentials>
-    <PictureName>{_xml_escape(filename)}</PictureName>
-    <PictureData>{image_data}</PictureData>
+  <PictureName>{_xml_escape(picture_name)}</PictureName>
+  <PictureSet>Standard</PictureSet>
 </UploadSiteHostedPicturesRequest>"""
 
     headers = {
         "X-EBAY-API-SITEID": "0",
         "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
         "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
-        "Content-Type": "text/xml",
+        "X-EBAY-API-IAF-TOKEN": token,
     }
+
+    files = [
+        ("XML Payload", ("", xml_payload, "text/xml;charset=utf-8")),
+        ("dummy", (filename, image_bytes, "image/jpeg")),
+    ]
 
     resp = requests.post(
         f"{EBAY_API_BASE}/ws/api.dll",
         headers=headers,
-        data=xml_body.encode("utf-8"),
+        files=files,
         timeout=120,
     )
 
     ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
     if resp.status_code != 200:
-        return {"success": False, "url": None, "error": f"HTTP {resp.status_code}"}
+        return {
+            "success": False,
+            "url": None,
+            "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
+        }
 
-    root = ET.fromstring(resp.text)
+    root = ET.fromstring(resp.content)
     ack = root.findtext("e:Ack", "", namespaces=ns_map)
     if ack in ("Success", "Warning"):
         full_url = root.findtext(
@@ -1631,55 +1639,16 @@ def upload_image_bytes(image_bytes: bytes, filename: str = "image.jpg") -> dict:
 def upload_message_image(image_path: str) -> dict:
     """Trading API (UploadSiteHostedPictures) で画像をEPSにアップロードする。
 
+    multipart/form-data 方式（XML+raw bytes）を使う。
+
     Returns:
         {"success": bool, "url": str | None, "error": str | None}
     """
-    import base64
-
-    token = get_access_token()
-
     with open(image_path, "rb") as f:
-        image_data = base64.b64encode(f.read()).decode("ascii")
+        image_bytes = f.read()
 
-    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
-<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-    <RequesterCredentials>
-        <eBayAuthToken>{token}</eBayAuthToken>
-    </RequesterCredentials>
-    <PictureName>{_xml_escape(image_path.rsplit("/", 1)[-1])}</PictureName>
-    <PictureData>{image_data}</PictureData>
-</UploadSiteHostedPicturesRequest>"""
-
-    headers = {
-        "X-EBAY-API-SITEID": "0",
-        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
-        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
-        "Content-Type": "text/xml",
-    }
-
-    resp = requests.post(
-        f"{EBAY_API_BASE}/ws/api.dll",
-        headers=headers,
-        data=xml_body.encode("utf-8"),
-        timeout=120,
-    )
-
-    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
-    if resp.status_code != 200:
-        return {"success": False, "url": None, "error": f"HTTP {resp.status_code}"}
-
-    root = ET.fromstring(resp.text)
-    ack = root.findtext("e:Ack", "", namespaces=ns_map)
-    if ack in ("Success", "Warning"):
-        full_url = root.findtext(
-            ".//e:SiteHostedPictureDetails/e:FullURL", "", namespaces=ns_map
-        )
-        logger.info(f"画像アップロード成功: {full_url}")
-        return {"success": True, "url": full_url}
-    else:
-        errors = root.findall(".//e:Errors/e:ShortMessage", namespaces=ns_map)
-        error_msg = errors[0].text if errors else "Unknown error"
-        return {"success": False, "url": None, "error": error_msg}
+    filename = image_path.rsplit("/", 1)[-1]
+    return upload_image_bytes(image_bytes, filename=filename)
 
 
 # ── Post-Order API (リターン・キャンセル) ────────────────
