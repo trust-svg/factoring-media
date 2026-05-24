@@ -1283,6 +1283,13 @@ async def morning_briefing():
         await _send_fn("ceo-steve-general", nightly_summary)
         logger.info("Nightly QA summary sent")
 
+    # 0-b: 昨日のメール下書き集計（カウンタをスナップ → 0にリセット）
+    draft_stats = _reset_email_draft_stats()
+    draft_report = _format_email_draft_daily_report(draft_stats)
+    if draft_report and _send_fn:
+        await _send_fn("ceo-steve-general", draft_report)
+        logger.info("Email draft daily report sent")
+
     # 1. Task board with buttons to CEOチャンネル
     tasks = _parse_active_tasks()
     task_board = _build_task_board()
@@ -2060,42 +2067,55 @@ def _extract_email_address(from_header: str) -> str:
     return (from_header or "").strip()
 
 
-# Anthropic SDK クライアント（メール下書き専用・lazy init）
-_draft_api_client = None
-
-# メール下書きは Haiku で十分（軽量・安価・速い）。Claude Max のサブスク枠は使わない。
-DRAFT_MODEL = "claude-haiku-4-5-20251001"
-
-
-def _get_draft_api_client():
-    """Lazy-init the Anthropic client for email drafts."""
-    global _draft_api_client
-    if _draft_api_client is not None:
-        return _draft_api_client
-    if not config.ANTHROPIC_API_KEY:
-        return None
-    from anthropic import Anthropic
-
-    _draft_api_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    return _draft_api_client
+# メール下書きの日次カウンタ（朝のbriefingで集計→リセット）
+# Claude Max のサブスク枠で動かしているため使用量はAPIコンソールから見えない。
+# 自前でカウンタを持って「何件試行/成功/失敗したか」を可視化する。
+_email_draft_stats = {
+    "attempted": 0,  # claude -p を呼んだ回数
+    "succeeded": 0,  # 下書きまで作成成功
+    "failed_rate_limit": 0,  # Claude Max のレート制限
+    "failed_other": 0,  # その他の失敗（タイムアウト/プロセスエラー）
+    "skipped_filter": 0,  # subject/from のノイズ事前除外
+    "skipped_dup": 0,  # 既に下書きあり
+    "skipped_ai": 0,  # AIが [SKIP] 返答
+    "skipped_phrase": 0,  # AIメタコメント検知
+}
 
 
-def _generate_draft_via_api(email: dict) -> Optional[str]:
-    """Generate a reply draft body via Anthropic API (Haiku).
+def _reset_email_draft_stats() -> dict:
+    """カウンタをスナップショット返却して0にリセット。morning_briefing から呼ぶ。"""
+    snapshot = dict(_email_draft_stats)
+    for k in _email_draft_stats:
+        _email_draft_stats[k] = 0
+    return snapshot
 
-    Replaces the old `claude -p` subprocess approach which consumed Claude Max
-    subscription quota and was prone to IDE handshake failures (UND_ERR_INVALID_ARG)
-    and rate limits ("hit your limit · resets 7am"). Uses the API directly so
-    drafts cost ~$0.001 each and never block on subscription limits.
+
+# Claude Max のレート制限を検知するためのフレーズ（claude -p の出力に含まれる）
+_RATE_LIMIT_MARKERS = (
+    "hit your limit",
+    "rate limit",
+    "resets 7am",
+    "usage limit",
+)
+
+
+def _generate_draft_via_cli(email: dict) -> Optional[str]:
+    """Generate a reply draft body via `claude -p` (Claude Max subscription).
+
+    Returns:
+        - 下書き本文（str）on success
+        - None on failure（呼び出し側でログのみ、Steve通知は抑制）
+
+    レート制限を検知した場合は logger.info（warningではない）で静かに記録し、
+    カウンタに `failed_rate_limit` として集計する。
+
+    Security note: --dangerously-skip-permissions は非対話サブプロセス実行に必須
+    （無いと IDE handshake → UND_ERR_INVALID_ARG で失敗）。--disallowedTools で
+    実行系/ネットワーク系/書き込み系を全て封じてプロンプトインジェクション耐性を確保。
     """
-    from anthropic import APIStatusError
+    import subprocess
 
-    client = _get_draft_api_client()
-    if client is None:
-        logger.warning(
-            "_generate_draft_via_api: ANTHROPIC_API_KEY not configured — skipping draft"
-        )
-        return None
+    _email_draft_stats["attempted"] += 1
 
     prompt = (
         "以下のメールへの返信下書きを作成してください。\n\n"
@@ -2113,39 +2133,61 @@ def _generate_draft_via_api(email: dict) -> Optional[str]:
         f"Subject: {email.get('subject')}\n"
         f"Snippet: {email.get('snippet')}\n"
     )
-
     try:
-        for attempt in range(3):
-            try:
-                response = client.messages.create(
-                    model=DRAFT_MODEL,
-                    max_tokens=1024,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                break
-            except APIStatusError as e:
-                if e.status_code in (429, 529) and attempt < 2:
-                    wait = 3 * (2**attempt)
-                    logger.warning(
-                        f"draft API {e.status_code}, retrying in {wait}s "
-                        f"(attempt {attempt + 1}/3)"
-                    )
-                    import time
+        cmd = [
+            "claude",
+            "-p",
+            prompt,
+            "--output-format",
+            "text",
+            "--max-turns",
+            "1",
+            "--dangerously-skip-permissions",
+            "--disallowedTools",
+            "Bash WebFetch WebSearch Task Edit Write",
+        ]
+        if config.CLAUDE_MODEL_CLI:
+            cmd.extend(["--model", config.CLAUDE_MODEL_CLI])
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            cwd=str(config.COMPANY_DIR),
+        )
 
-                    time.sleep(wait)
-                else:
-                    raise
-        else:
+        combined = (result.stdout or "") + " " + (result.stderr or "")
+        is_rate_limit = any(m in combined.lower() for m in _RATE_LIMIT_MARKERS)
+
+        if result.returncode != 0:
+            if is_rate_limit:
+                _email_draft_stats["failed_rate_limit"] += 1
+                logger.info("claude -p hit Claude Max rate limit (silently skipped)")
+            else:
+                _email_draft_stats["failed_other"] += 1
+                logger.warning(
+                    f"claude -p draft generation failed rc={result.returncode} "
+                    f"stderr={result.stderr[:300]} stdout={result.stdout[:300]}"
+                )
             return None
 
-        parts = []
-        for block in response.content:
-            if getattr(block, "type", None) == "text":
-                parts.append(block.text)
-        body = "\n".join(parts).strip()
-        return body or None
+        body = (result.stdout or "").strip()
+        if not body:
+            if is_rate_limit:
+                _email_draft_stats["failed_rate_limit"] += 1
+                logger.info(
+                    "claude -p returned empty (likely rate limit, silently skipped)"
+                )
+            else:
+                _email_draft_stats["failed_other"] += 1
+                logger.warning("claude -p returned empty body")
+            return None
+
+        # 成功扱いは呼び出し側で confirm（[SKIP] 判定後）
+        return body
     except Exception as e:
-        logger.error(f"_generate_draft_via_api failed: {e}")
+        _email_draft_stats["failed_other"] += 1
+        logger.error(f"_generate_draft_via_cli failed: {e}")
         return None
 
 
@@ -2154,9 +2196,9 @@ async def hourly_email_drafts():
 
     - 重複除外: 既に下書きがあるスレッドはスキップ
     - ノイズ除外: noreply / メルマガ系 / AIが返信不要と判断したもの
-    - 通知: 新規分があれば ceo-steve-general へサマリー送信。下書き生成に
-      失敗(claude -p エラー等)した件があれば、その件数と件名も併記する
-      (サイレント故障対策)。
+    - 通知: **成功時のみ** ceo-steve-general へサマリー送信。失敗（レート制限/
+      生成失敗）はカウンタに集計し、毎朝の morning_briefing で日次レポートとして
+      まとめて送る（30分ごとのノイズ通知を抑制）。
     """
     logger.info("Running hourly email drafts...")
     try:
@@ -2172,29 +2214,24 @@ async def hourly_email_drafts():
         )
 
         new_drafts = []
-        failures = []  # (subject, reason) — claude -p 失敗・create_draft 失敗
-        skipped_dup = 0
-        skipped_filter = 0  # 送信元/件名のノイズパターン
-        skipped_ai = 0  # AI が [SKIP] 判定
-        skipped_phrase = 0  # AI返信本文の冒頭がノイズフレーズ
+        create_draft_failures = []  # create_draft 自体の失敗（Gmail API側）— これは通知する
 
         for e in emails:
             tid = e.get("threadId")
             subj = (e.get("subject") or "")[:60]
             if tid in drafted:
-                skipped_dup += 1
+                _email_draft_stats["skipped_dup"] += 1
                 continue
             if _is_noise_email(e):
-                skipped_filter += 1
+                _email_draft_stats["skipped_filter"] += 1
                 continue
 
-            body = await loop.run_in_executor(None, _generate_draft_via_api, e)
+            # claude -p 失敗はここで return None。カウンタは _generate_draft_via_cli 内で更新済み。
+            body = await loop.run_in_executor(None, _generate_draft_via_cli, e)
             if not body:
-                logger.warning(f"draft generation returned nothing: {subj}")
-                failures.append((subj, "API 失敗/空応答"))
                 continue
             if "[SKIP]" in body[:20].upper():
-                skipped_ai += 1
+                _email_draft_stats["skipped_ai"] += 1
                 continue
             # AI が指示を無視して「これは～自動配信」と前置きを書いた場合の保険
             body_head = body[:80].lower()
@@ -2202,7 +2239,7 @@ async def hourly_email_drafts():
                 logger.info(
                     f"AI returned meta-comment instead of [SKIP] — treating as noise: {subj}"
                 )
-                skipped_phrase += 1
+                _email_draft_stats["skipped_phrase"] += 1
                 continue
 
             try:
@@ -2223,23 +2260,25 @@ async def hourly_email_drafts():
                     ),
                 )
                 new_drafts.append(e)
+                _email_draft_stats["succeeded"] += 1
                 if tid:
                     drafted.add(tid)  # 同一実行内の重複防止
             except Exception as ce:
                 logger.error(f"create_draft failed for {e.get('id')}: {ce}")
-                failures.append((subj, f"create_draft 失敗: {str(ce)[:80]}"))
+                create_draft_failures.append(
+                    (subj, f"create_draft 失敗: {str(ce)[:80]}")
+                )
 
         logger.info(
-            "hourly_email_drafts: new=%d dup=%d noise_filter=%d ai_skip=%d phrase=%d failed=%d",
+            "hourly_email_drafts: new=%d create_draft_fail=%d (counters: %s)",
             len(new_drafts),
-            skipped_dup,
-            skipped_filter,
-            skipped_ai,
-            skipped_phrase,
-            len(failures),
+            len(create_draft_failures),
+            _email_draft_stats,
         )
 
-        if (new_drafts or failures) and _send_fn:
+        # 通知は「成功あり」または「Gmail API側の失敗あり」のときのみ。
+        # claude -p の失敗（レート制限/生成失敗）は日次サマリに集約。
+        if (new_drafts or create_draft_failures) and _send_fn:
             lines = []
             if new_drafts:
                 lines.append(
@@ -2251,21 +2290,52 @@ async def hourly_email_drafts():
                     lines.append(f"- `{sender_short}` — {subj_short}")
                 if len(new_drafts) > 10:
                     lines.append(f"…他 {len(new_drafts) - 10}件")
-            if failures:
+            if create_draft_failures:
                 if lines:
                     lines.append("")
                 lines.append(
-                    f"⚠️ 下書き生成に失敗 **{len(failures)}件**（手動対応してください）"
+                    f"⚠️ Gmail下書き作成に失敗 **{len(create_draft_failures)}件**（手動対応してください）"
                 )
-                for subj, reason in failures[:10]:
+                for subj, reason in create_draft_failures[:10]:
                     lines.append(f"- {subj} — {reason}")
-                if len(failures) > 10:
-                    lines.append(f"…他 {len(failures) - 10}件")
+                if len(create_draft_failures) > 10:
+                    lines.append(f"…他 {len(create_draft_failures) - 10}件")
             if new_drafts:
                 lines.append("\nGmail下書きから確認・編集して送信してください。")
             await _send_fn("ceo-steve-general", "\n".join(lines))
     except Exception as e:
         logger.error(f"hourly_email_drafts failed: {e}", exc_info=True)
+
+
+def _format_email_draft_daily_report(stats: dict) -> Optional[str]:
+    """日次集計を読みやすいテキストに整形。全件0なら None。"""
+    if not any(stats.values()):
+        return None
+    total_attempts = stats.get("attempted", 0)
+    succeeded = stats.get("succeeded", 0)
+    rate_limit = stats.get("failed_rate_limit", 0)
+    other = stats.get("failed_other", 0)
+    ai_skip = stats.get("skipped_ai", 0)
+    phrase = stats.get("skipped_phrase", 0)
+    noise = stats.get("skipped_filter", 0)
+    dup = stats.get("skipped_dup", 0)
+
+    lines = [
+        "📊 **昨日のメール下書き集計**",
+        f"- claude呼び出し: {total_attempts}回 / 下書き作成成功: {succeeded}件",
+    ]
+    if rate_limit or other:
+        fail_parts = []
+        if rate_limit:
+            fail_parts.append(f"Max枠制限 {rate_limit}件")
+        if other:
+            fail_parts.append(f"その他 {other}件")
+        lines.append(f"- 生成失敗: " + " / ".join(fail_parts))
+    if ai_skip or phrase:
+        lines.append(f"- AI判定 [SKIP]: {ai_skip + phrase}件")
+    if noise or dup:
+        lines.append(f"- 事前除外: ノイズ {noise}件 / 重複 {dup}件")
+    return "\n".join(lines)
 
 
 _JOB_ERROR_NOTIFY = {
