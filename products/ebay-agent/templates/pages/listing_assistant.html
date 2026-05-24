@@ -843,6 +843,94 @@
 .la-cand-platform { font-size: 11px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; min-width: 70px; }
 .la-cand-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .la-cand-price { font-weight: 600; white-space: nowrap; }
+/* 検索候補カード (search-candidates 経由) */
+.la-candidates-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.la-candidates-keyword { font-weight: 600; color: var(--text-primary); }
+.la-candidates-count { color: var(--text-secondary); }
+.la-candidate-platform-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+  font-size: 11px;
+}
+.la-candidate-count { color: var(--text-secondary); }
+.la-candidate-err { color: var(--text-muted, #999); font-size: 11px; }
+.la-candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.la-candidate-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-tertiary, #f8f8f8);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.la-candidate-img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: var(--bg-secondary, #eee);
+}
+.la-candidate-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.la-candidate-title {
+  color: var(--text-primary);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.la-candidate-title:hover { text-decoration: underline; }
+.la-candidate-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.la-candidate-price { font-weight: 600; color: var(--text-primary); }
+.la-candidate-cond {
+  padding: 1px 6px;
+  background: var(--bg-secondary, #eee);
+  border-radius: 4px;
+  font-size: 10px;
+}
+.la-candidate-junk {
+  padding: 1px 6px;
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 4px;
+  font-size: 10px;
+}
+.la-candidate-pick {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 11px !important;
+  padding: 4px 10px !important;
+}
+.la-candidate-pick:disabled { opacity: 0.5; cursor: not-allowed; }
 .la-eship-reflect {
   margin-top: 12px;
   padding: 10px 12px;
@@ -1446,5 +1534,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/listing-assistant.js?v=20260524a"></script>
+<script src="/static/js/listing-assistant.js?v=20260525a"></script>
 {% endblock %}

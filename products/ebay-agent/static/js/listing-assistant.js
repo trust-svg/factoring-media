@@ -1235,30 +1235,123 @@ async function _searchSourcingCandidates(itemId) {
   const resultEl = document.getElementById(`sourcing-result-${itemId}`);
   if (!resultEl) return;
 
-  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
-  resultEl.innerHTML = '';
+  if (btn) { btn.disabled = true; btn.textContent = '検索中...'; }
+  resultEl.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 メルカリ・ヤフオク・Yahoo!フリマを検索中... (20〜40秒)</div>';
 
-  // キーワードをサーバーで生成（型番抽出 + Haiku fallback）してリンクを表示
   try {
-    const resp = await fetch('/api/listing-assistant/search-jp', {
+    const resp = await fetch('/api/listing-assistant/search-candidates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: item.title || '',
         purchase_price_jpy: item.purchase_price_jpy || 0,
+        limit: 5,
       }),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
-    _renderSourcingLinks(resultEl, data.keyword || item.title, data.urls || {});
+
+    if (data.fallback || !data.ok) {
+      _renderSourcingLinks(resultEl, data.keyword || item.title, data.urls || {}, data.error || 'ローカル検索サーバ未接続');
+    } else {
+      _renderSearchCandidates(resultEl, itemId, data);
+    }
   } catch (_e) {
-    // サーバーエラー時はクライアントサイドのキーワードでフォールバック
-    _renderSourcingLinks(resultEl, _extractKeyword(item.title || ''), {});
+    _renderSourcingLinks(resultEl, _extractKeyword(item.title || ''), {}, _e?.message || 'エラー');
   }
   if (btn) { btn.disabled = false; btn.textContent = '再検索'; }
 }
 
-function _renderSourcingLinks(resultEl, keyword, urls) {
+function _renderSearchCandidates(resultEl, itemId, data) {
+  const keyword = data.keyword || '';
+  const byPlatform = data.by_platform || {};
+  const errors = data.errors || {};
+  const urls = data.urls || {};
+  const totalCount = (data.items || []).length;
+
+  let html = `<div class="la-candidates-head"><span class="la-candidates-keyword">🔍 ${escHtml(keyword)}</span>`;
+  html += `<span class="la-candidates-count">${totalCount}件</span>`;
+  if (urls['ヤフオク']) {
+    html += ` <a href="${escHtml(urls['ヤフオク'])}" target="_blank" rel="noopener" class="la-search-link">ヤフオク全件↗</a>`;
+  }
+  if (urls['メルカリ']) {
+    html += ` <a href="${escHtml(urls['メルカリ'])}" target="_blank" rel="noopener" class="la-search-link">メルカリ全件↗</a>`;
+  }
+  if (urls['Yahoo!フリマ']) {
+    html += ` <a href="${escHtml(urls['Yahoo!フリマ'])}" target="_blank" rel="noopener" class="la-search-link">フリマ全件↗</a>`;
+  }
+  html += `</div>`;
+
+  const platforms = ['ヤフオク', 'メルカリ', 'Yahoo!フリマ'];
+  for (const platform of platforms) {
+    const items = byPlatform[platform] || [];
+    const err = errors[platform];
+    html += `<div class="la-candidate-platform-head"><span class="platform-badge">${escHtml(platform)}</span>`;
+    if (err) {
+      html += `<span class="la-candidate-err">エラー: ${escHtml(err)}</span>`;
+    } else if (!items.length) {
+      html += `<span class="la-candidate-err">候補なし</span>`;
+    } else {
+      html += `<span class="la-candidate-count">${items.length}件</span>`;
+    }
+    html += `</div>`;
+    if (items.length) {
+      html += `<div class="la-candidate-list">`;
+      for (const c of items) {
+        html += _renderCandidateCard(itemId, c);
+      }
+      html += `</div>`;
+    }
+  }
+  resultEl.innerHTML = html;
+}
+
+function _renderCandidateCard(itemId, c) {
+  const imgHtml = c.image_url
+    ? `<img src="${escHtml(c.image_url)}" class="la-candidate-img" onerror="this.style.display='none'">`
+    : '';
+  const total = c.total_price_jpy ?? c.price_jpy ?? 0;
+  const ship = c.shipping_jpy ? ` (+送¥${Number(c.shipping_jpy).toLocaleString()})` : '';
+  const cond = c.condition ? ` <span class="la-candidate-cond">${escHtml(c.condition)}</span>` : '';
+  const junk = c.is_junk ? `<span class="la-candidate-junk">ジャンク</span>` : '';
+  const safeUrl = (c.url && typeof c.url === 'string' && c.url.startsWith('http')) ? c.url : '';
+  const platform = c.platform || '';
+  // base64 にして onclick の引用符問題を回避
+  const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ url: safeUrl, platform }))));
+  return `
+    <div class="la-candidate-card">
+      ${imgHtml}
+      <div class="la-candidate-body">
+        <a href="${escHtml(safeUrl || '#')}" target="_blank" rel="noopener" class="la-candidate-title">${escHtml(c.title || '')}</a>
+        <div class="la-candidate-meta">
+          <span class="la-candidate-price">¥${Number(c.price_jpy || 0).toLocaleString()}${ship}</span>
+          ${cond}${junk}
+        </div>
+      </div>
+      <button class="btn btn-sm btn-primary la-candidate-pick" onclick="_pickCandidate(${itemId}, '${payload}')" ${safeUrl ? '' : 'disabled'}>この候補で反映</button>
+    </div>
+  `;
+}
+
+function _pickCandidate(itemId, payload) {
+  let picked;
+  try {
+    picked = JSON.parse(decodeURIComponent(escape(atob(payload))));
+  } catch (_e) { return; }
+  const url = picked.url || '';
+  const platform = picked.platform || '';
+  if (!url) return;
+
+  const urlInput = document.getElementById(`eship-url-${itemId}`);
+  const sel = document.getElementById(`eship-platform-${itemId}`);
+  if (urlInput) urlInput.value = url;
+  if (sel && platform) sel.value = platform;
+  _onEshipUrlInput(itemId, url);
+  // ユーザー回答: ボタン1クリックで自動登録
+  reflectToEship(itemId);
+}
+
+function _renderSourcingLinks(resultEl, keyword, urls, errMsg) {
   const enc = encodeURIComponent(keyword);
   const links = {
     'ヤフオク': urls['ヤフオク'] || `https://auctions.yahoo.co.jp/search/search/${enc}/0/?n=50`,
@@ -1266,7 +1359,9 @@ function _renderSourcingLinks(resultEl, keyword, urls) {
     'Yahoo!フリマ': urls['Yahoo!フリマ'] || `https://paypayfleamarket.yahoo.co.jp/search/${enc}`,
     'ラクマ': urls['ラクマ'] || `https://fril.jp/search/${enc}`,
   };
-  let html = `<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 ${escHtml(keyword)}</div>`;
+  let html = `<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 ${escHtml(keyword)}`;
+  if (errMsg) html += ` <span style="color:var(--red,#b42318)">(${escHtml(errMsg)} — リンクのみ表示)</span>`;
+  html += `</div>`;
   html += `<div class="la-search-links" style="margin-top:3px">`;
   for (const [name, url] of Object.entries(links)) {
     const safeUrl = url.startsWith('https://') ? url : '#';

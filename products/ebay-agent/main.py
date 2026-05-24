@@ -5312,6 +5312,103 @@ async def listing_assistant_search_jp(request: Request):
     )
 
 
+# ローカルMacで動くスクレイパー検索サーバ (autossh で VPS:5759 にトンネル)
+LOCAL_SEARCH_URL = os.getenv("LOCAL_SEARCH_URL", "http://127.0.0.1:5759")
+
+
+@app.post("/api/listing-assistant/search-candidates")
+async def listing_assistant_search_candidates(request: Request):
+    """メルカリ・ヤフオク・Yahoo!フリマの実際の出品データを並列取得する
+
+    ローカルMac側の local/server.py に委譲する (autossh tunnel 経由)。
+    スクレイパーは VPS IP がブロックされているためローカル実行が必須。
+    失敗時は search-jp 同等の検索URLにフォールバックする。
+    """
+    import httpx
+    import urllib.parse as _up
+
+    body = await request.json()
+    title = body.get("title", "").strip()
+    try:
+        purchase_price_jpy = int(body.get("purchase_price_jpy", 0) or 0)
+    except (ValueError, TypeError):
+        purchase_price_jpy = 0
+    try:
+        limit = int(body.get("limit", 5))
+    except (ValueError, TypeError):
+        limit = 5
+    junk_ok = bool(body.get("junk_ok", False))
+
+    if not title:
+        raise HTTPException(400, "title is required")
+
+    try:
+        max_price_jpy_override = body.get("max_price_jpy")
+        if max_price_jpy_override is not None:
+            max_price_jpy = int(max_price_jpy_override)
+        else:
+            max_price_jpy = max(int(purchase_price_jpy * 3), 5000)
+    except (ValueError, TypeError):
+        max_price_jpy = max(int(purchase_price_jpy * 3), 5000)
+
+    keyword = _extract_model_number(title)
+    if not keyword:
+        keyword = await _generate_jp_search_keyword(title)
+    if not keyword:
+        keyword = title[:50]
+
+    enc = _up.quote(keyword, safe="")
+    fallback_urls = {
+        "ヤフオク": f"https://auctions.yahoo.co.jp/search/search/{enc}/0/?n=50",
+        "メルカリ": f"https://jp.mercari.com/search?keyword={enc}&status=on_sale",
+        "Yahoo!フリマ": f"https://paypayfleamarket.yahoo.co.jp/search/{enc}",
+        "ラクマ": f"https://fril.jp/search/{enc}",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            resp = await client.post(
+                f"{LOCAL_SEARCH_URL}/search",
+                json={
+                    "keyword": keyword,
+                    "max_price_jpy": max_price_jpy,
+                    "limit": limit,
+                    "junk_ok": junk_ok,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        logger.warning(
+            f"local search server unreachable: {e!r} — falling back to URL list"
+        )
+        return JSONResponse(
+            {
+                "ok": False,
+                "fallback": True,
+                "error": str(e),
+                "keyword": keyword,
+                "max_price_jpy": max_price_jpy,
+                "items": [],
+                "by_platform": {},
+                "urls": fallback_urls,
+            }
+        )
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "fallback": False,
+            "keyword": keyword,
+            "max_price_jpy": max_price_jpy,
+            "items": data.get("items", []),
+            "by_platform": data.get("by_platform", {}),
+            "errors": data.get("errors", {}),
+            "urls": fallback_urls,
+        }
+    )
+
+
 @app.post("/api/listing-assistant/submit/ledger")
 async def listing_assistant_submit_ledger(request: Request):
     """仕入れ台帳に登録"""
