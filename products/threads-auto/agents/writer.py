@@ -151,6 +151,9 @@ def _build_prompt(
 3. 1行目は必ずフックとして機能させる（スクロールを止める力）
 4. {batch_size}本中1本はアフィリエイト投稿（post_typeを"affiliate"に設定）
 5. アフィリエイト投稿の場合、pr_commentフィールドにPRコメントを入れる
+6. アフィリエイト投稿では投稿テーマに合わせて以下から最適なリンクを選び、affiliate_linkフィールドに設定する:
+   - 転職エージェント活用・年収交渉・担当者選びがテーマ → "https://career.trustmedialab.com/go"（転職AGENT Navi）
+   - 企業研究・年収情報・面接対策・クチコミ確認がテーマ → "https://career.trustmedialab.com/go2"（ワンキャリア転職）
 
 ## パターン配分（重要 — データ分析に基づく必須ルール）
 10本のバッチでは、以下の配分を厳守すること:
@@ -192,6 +195,7 @@ def _build_prompt(
     "post_type": "normal|comment_bait|thread_tree|affiliate",
     "comment_text": "コメント誘導型の場合の続き（nullable）",
     "pr_comment": "アフィリエイト投稿の場合のPRコメント（nullable）",
+    "affiliate_link": "アフィリエイト投稿の場合のリンクURL（nullableだがaffiliate型では必須）",
     "thread_texts": ["ツリー型の場合の返信テキスト配列（nullable）"],
     "scores": {{
       "hook_strength": 8,
