@@ -1236,18 +1236,22 @@ async function _searchSourcingCandidates(itemId) {
   if (!resultEl) return;
 
   if (btn) { btn.disabled = true; btn.textContent = '検索中...'; }
-  resultEl.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 メルカリ・ヤフオク・Yahoo!フリマを検索中... (20〜40秒)</div>';
+  resultEl.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 メルカリ・ヤフオク・Yahoo!フリマを検索中... (最大3分かかる場合があります)</div>';
 
   try {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 210_000);
     const resp = await fetch('/api/listing-assistant/search-candidates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         title: item.title || '',
         purchase_price_jpy: item.purchase_price_jpy || 0,
         limit: 5,
       }),
     });
+    clearTimeout(tid);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
 

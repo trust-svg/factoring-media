@@ -5366,7 +5366,7 @@ async def listing_assistant_search_candidates(request: Request):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(200.0)) as client:
             resp = await client.post(
                 f"{LOCAL_SEARCH_URL}/search",
                 json={
