@@ -5355,7 +5355,7 @@ async def listing_assistant_submit_ledger(request: Request):
 
 @app.post("/api/listing-assistant/submit/eship")
 async def listing_assistant_submit_eship(request: Request):
-    """eShipに仕入れ品を登録"""
+    """eShipに仕入れ品を登録 (eBay出品後の ItemID を ebay_item_id に紐付け可)"""
     body = await request.json()
     product = body.get("product", {})
     source_url = body.get("source_url", "")
@@ -5369,6 +5369,7 @@ async def listing_assistant_submit_eship(request: Request):
     image_url = product.get("image_url", "")
     domestic_shipping_jpy = int(calc.get("domestic_shipping_jpy", 0))
     stock_number = body.get("stock_number", "")
+    ebay_item_id = body.get("ebay_item_id", "")
 
     from comms.eship_client import create_eship_item
 
@@ -5380,6 +5381,7 @@ async def listing_assistant_submit_eship(request: Request):
             platform=platform,
             selling_price_usd=price_usd,
             sku=stock_number,
+            ebay_item_id=ebay_item_id,
             image_url=image_url,
         )
         if result.get("status") == "ok":
@@ -5393,9 +5395,9 @@ async def listing_assistant_submit_eship(request: Request):
         raise HTTPException(500, str(e))
 
 
-@app.post("/api/listing-assistant/submit/ebay-draft")
-async def listing_assistant_submit_ebay_draft(request: Request):
-    """eBayドラフト出品を作成"""
+@app.post("/api/listing-assistant/submit/ebay-publish")
+async def listing_assistant_submit_ebay_publish(request: Request):
+    """eBay実出品: ギャラリー画像を全枚 white-bg → EPS upload → 公開 → ItemID 返却。"""
     body = await request.json()
     product = body.get("product", {})
     ebay_title = body.get("ebay_title", product.get("title", ""))
@@ -5404,21 +5406,58 @@ async def listing_assistant_submit_ebay_draft(request: Request):
     condition = body.get("condition", "USED_VERY_GOOD")
     item_specifics = body.get("item_specifics", {})
     price_usd = float(body.get("price_usd", 0))
-    image_url = product.get("image_url", "")
     stock_number = body.get("stock_number", "")
 
+    image_urls = product.get("image_urls") or []
+    if not image_urls and product.get("image_url"):
+        image_urls = [product["image_url"]]
+    if not image_urls:
+        raise HTTPException(400, "画像URLが見つかりません")
+
     import uuid
-    from ebay_core.client import create_inventory_item, create_offer
+    from ebay_core.client import (
+        create_inventory_item,
+        create_offer,
+        publish_offer,
+        upload_image_bytes,
+    )
+    from listing.image_utils import whitebg_many
 
     sku = stock_number or f"LA-{uuid.uuid4().hex[:8].upper()}"
 
+    # 1) White-bg every gallery image in parallel
+    wb_results = await whitebg_many(image_urls)
+    eps_urls: list[str] = []
+    images_failed: list[dict] = []
+    for idx, (src_url, jpeg_bytes, err) in enumerate(wb_results):
+        if err or not jpeg_bytes:
+            images_failed.append({"url": src_url, "stage": "whitebg", "error": err})
+            continue
+        # 2) Upload each white-bg JPEG to eBay EPS
+        up = await asyncio.to_thread(
+            upload_image_bytes, jpeg_bytes, f"{sku}_{idx + 1}.jpg"
+        )
+        if up.get("success") and up.get("url"):
+            eps_urls.append(up["url"])
+        else:
+            images_failed.append(
+                {"url": src_url, "stage": "eps", "error": up.get("error")}
+            )
+
+    if not eps_urls:
+        raise HTTPException(
+            500,
+            f"画像処理に全て失敗しました: {images_failed[:3]}",
+        )
+
+    # 3) Create inventory item with EPS URLs
     inv_result = create_inventory_item(
         sku=sku,
         product={
             "title": ebay_title,
             "description": description,
             "aspects": item_specifics,
-            "imageUrls": [image_url] if image_url else [],
+            "imageUrls": eps_urls,
         },
         condition=condition,
     )
@@ -5427,6 +5466,7 @@ async def listing_assistant_submit_ebay_draft(request: Request):
             500, inv_result.get("error", "Inventory item creation failed")
         )
 
+    # 4) Create offer (draft)
     offer_result = create_offer(
         sku=sku,
         category_id=category_id,
@@ -5440,12 +5480,29 @@ async def listing_assistant_submit_ebay_draft(request: Request):
     if not offer_result.get("success"):
         raise HTTPException(500, offer_result.get("error", "Offer creation failed"))
 
+    offer_id = offer_result.get("offer_id", "")
+
+    # 5) Publish offer to get the real ItemID (listing_id)
+    pub_result = await asyncio.to_thread(publish_offer, offer_id)
+    if not pub_result.get("success"):
+        raise HTTPException(
+            500,
+            f"Offer 公開失敗 (offer_id={offer_id}): {pub_result.get('error', '')}",
+        )
+
+    listing_id = pub_result.get("listing_id", "")
+
     return JSONResponse(
         {
             "ok": True,
-            "offer_id": offer_result.get("offer_id", ""),
+            "item_id": listing_id,
+            "offer_id": offer_id,
             "sku": sku,
-            "ebay_listing_url": "https://www.ebay.com/sh/lst/active",
+            "ebay_listing_url": (
+                f"https://www.ebay.com/itm/{listing_id}" if listing_id else ""
+            ),
+            "images_processed": len(eps_urls),
+            "images_failed": images_failed,
         }
     )
 

@@ -727,58 +727,50 @@ async function submitListing() {
   const payload = buildSubmitPayload();
 
   let allSuccess = true;
-  let stockNumber = '';
+  let ebayItemId = '';
+  let ebayListingUrl = '';
 
-  // 1. 仕入れ台帳登録
-  setProgressState('ledger', 'loading', '登録中...');
+  // 1. eBay出品（画像white-bg化 → EPS upload → publish → ItemID取得）
+  setProgressState('ebay', 'loading', '画像処理 & 出品中...');
   try {
-    const r1 = await apiPost('/api/listing-assistant/submit/ledger', payload);
+    const r1 = await apiPost('/api/listing-assistant/submit/ebay-publish', payload);
     if (r1.ok) {
       const d1 = await r1.json();
-      stockNumber = d1.stock_number || '';
-      setProgressState('ledger', 'success', '登録完了', '/sourcing');
+      ebayItemId = d1.item_id || '';
+      ebayListingUrl = d1.ebay_listing_url || (ebayItemId ? 'https://www.ebay.com/itm/' + ebayItemId : 'https://www.ebay.com/sh/lst/active');
+      const failedCount = (d1.images_failed || []).length;
+      const subMsg = ebayItemId
+        ? ('出品完了 (ItemID: ' + ebayItemId + (failedCount ? ', 画像失敗 ' + failedCount + '件' : '') + ')')
+        : '出品完了';
+      setProgressState('ebay', 'success', subMsg, ebayListingUrl);
     } else {
       const e1 = await safeJson(r1);
-      setProgressState('ledger', 'error', '登録失敗: ' + (e1.detail || r1.statusText));
-      allSuccess = false;
-    }
-  } catch (e) {
-    setProgressState('ledger', 'error', 'エラー: ' + e.message);
-    allSuccess = false;
-  }
-
-  // 2. eShip登録（台帳のstock_numberを引き継ぐ）
-  setProgressState('eship', 'loading', '登録中...');
-  try {
-    const r2 = await apiPost('/api/listing-assistant/submit/eship', { ...payload, stock_number: stockNumber });
-    if (r2.ok) {
-      setProgressState('eship', 'success', '登録完了', 'https://eship-tool.com/orders');
-    } else {
-      const e2 = await safeJson(r2);
-      setProgressState('eship', 'error', '登録失敗: ' + (e2.detail || r2.statusText));
-      allSuccess = false;
-    }
-  } catch (e) {
-    setProgressState('eship', 'error', 'エラー: ' + e.message);
-    allSuccess = false;
-  }
-
-  // 3. eBayドラフト作成
-  setProgressState('ebay', 'loading', 'ドラフト作成中...');
-  try {
-    const r3 = await apiPost('/api/listing-assistant/submit/ebay-draft', payload);
-    if (r3.ok) {
-      const d3 = await r3.json();
-      const ebayUrl = d3.ebay_listing_url || 'https://www.ebay.com/sh/lst/active';
-      setProgressState('ebay', 'success', 'ドラフト作成完了', ebayUrl);
-    } else {
-      const e3 = await safeJson(r3);
-      setProgressState('ebay', 'error', '作成失敗: ' + (e3.detail || r3.statusText));
+      setProgressState('ebay', 'error', '出品失敗: ' + (e1.detail || r1.statusText));
       allSuccess = false;
     }
   } catch (e) {
     setProgressState('ebay', 'error', 'エラー: ' + e.message);
     allSuccess = false;
+  }
+
+  // 2. eShip登録（eBay ItemIDを引き継ぐ）
+  if (allSuccess) {
+    setProgressState('eship', 'loading', '登録中...');
+    try {
+      const r2 = await apiPost('/api/listing-assistant/submit/eship', { ...payload, ebay_item_id: ebayItemId });
+      if (r2.ok) {
+        setProgressState('eship', 'success', '登録完了 (ItemID紐付け済み)', 'https://eship-tool.com/orders');
+      } else {
+        const e2 = await safeJson(r2);
+        setProgressState('eship', 'error', '登録失敗: ' + (e2.detail || r2.statusText));
+        allSuccess = false;
+      }
+    } catch (e) {
+      setProgressState('eship', 'error', 'エラー: ' + e.message);
+      allSuccess = false;
+    }
+  } else {
+    setProgressState('eship', 'error', 'eBay出品が失敗したためスキップ');
   }
 
   btn.disabled          = false;
@@ -788,6 +780,8 @@ async function submitListing() {
 
   if (allSuccess) {
     btn.disabled = true;
+    const successLink = document.getElementById('successEbayLink');
+    if (successLink && ebayListingUrl) successLink.href = ebayListingUrl;
     document.getElementById('successSection').style.display = '';
     showNotice('submitNotice', 'success', '✓ すべての処理が完了しました。');
   } else {
@@ -865,16 +859,15 @@ function resetWizard() {
   if (detectedDiv) detectedDiv.style.display = 'none';
 
   // Reset progress
-  ['ledger', 'eship', 'ebay'].forEach(key => {
+  ['ebay', 'eship'].forEach(key => {
     const item = document.getElementById('prog-' + key);
     if (item) item.classList.remove('success', 'error');
     const icon = document.getElementById('prog-' + key + '-icon');
     if (icon) icon.textContent = '⏳';
     const sub = document.getElementById('prog-' + key + '-sub');
     const defaults = {
-      ledger: '出品後に仕入れ台帳へ記録されます',
-      eship:  'eShipへ発送情報を事前登録します',
-      ebay:   'eBay Seller Hubにドラフト出品を作成します',
+      ebay:  '画像を白背景化してeBayに実出品します',
+      eship: 'eBay ItemIDを含めてeShipに在庫登録します',
     };
     if (sub) sub.textContent = defaults[key] || '';
     const link = document.getElementById('prog-' + key + '-link');

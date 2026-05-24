@@ -1120,7 +1120,7 @@
           <input type="number" class="la-field-input" id="costPrice" readonly
                  style="padding-left:28px;background:var(--gray-50);color:var(--text-secondary)" />
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">仕入れ台帳から自動入力</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">仕入元ページから自動入力</div>
       </div>
 
       <div class="form-group">
@@ -1372,33 +1372,24 @@
     <!-- Progress items -->
     <div class="la-progress-list" id="progressList">
 
-      <div class="la-progress-item" id="prog-ledger">
-        <div class="la-progress-icon" id="prog-ledger-icon">⏳</div>
+      <div class="la-progress-item" id="prog-ebay">
+        <div class="la-progress-icon" id="prog-ebay-icon">⏳</div>
         <div style="flex:1">
-          <div class="la-progress-label">仕入れ台帳登録</div>
-          <div class="la-progress-sub" id="prog-ledger-sub">出品後に仕入れ台帳へ記録されます</div>
+          <div class="la-progress-label">eBay出品</div>
+          <div class="la-progress-sub" id="prog-ebay-sub">画像を白背景化してeBayに実出品します</div>
         </div>
-        <a href="/sourcing" class="la-progress-link" id="prog-ledger-link" style="display:none">台帳を見る</a>
+        <a href="#" target="_blank" rel="noopener"
+           class="la-progress-link" id="prog-ebay-link" style="display:none">出品ページを開く</a>
       </div>
 
       <div class="la-progress-item" id="prog-eship">
         <div class="la-progress-icon" id="prog-eship-icon">⏳</div>
         <div style="flex:1">
           <div class="la-progress-label">eShip登録</div>
-          <div class="la-progress-sub" id="prog-eship-sub">eShipへ発送情報を事前登録します</div>
+          <div class="la-progress-sub" id="prog-eship-sub">eBay ItemIDを含めてeShipに在庫登録します</div>
         </div>
         <a href="https://eship-tool.com/orders" target="_blank" rel="noopener"
            class="la-progress-link" id="prog-eship-link" style="display:none">eShipを開く</a>
-      </div>
-
-      <div class="la-progress-item" id="prog-ebay">
-        <div class="la-progress-icon" id="prog-ebay-icon">⏳</div>
-        <div style="flex:1">
-          <div class="la-progress-label">eBayドラフト作成</div>
-          <div class="la-progress-sub" id="prog-ebay-sub">eBay Seller Hubにドラフト出品を作成します</div>
-        </div>
-        <a href="#" target="_blank" rel="noopener"
-           class="la-progress-link" id="prog-ebay-link" style="display:none">Seller Hubを開く</a>
       </div>
 
     </div>
@@ -1418,12 +1409,13 @@
       <div style="font-size:32px;margin-bottom:12px">🎉</div>
       <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:6px">出品完了!</div>
       <div style="font-size:14px;color:var(--text-secondary);margin-bottom:20px">
-        台帳登録・eShip登録・eBayドラフト作成が完了しました。
+        eBay出品・eShip登録が完了しました。
       </div>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-        <a href="/sourcing" class="btn btn-outline" style="text-decoration:none">仕入れ台帳を確認</a>
-        <a href="https://www.ebay.com/sh/lst/active" target="_blank" rel="noopener"
-           class="btn" style="text-decoration:none">eBay Seller Hub →</a>
+        <a href="#" id="successEbayLink" target="_blank" rel="noopener"
+           class="btn" style="text-decoration:none">eBay出品ページを開く →</a>
+        <a href="https://eship-tool.com/orders" target="_blank" rel="noopener"
+           class="btn btn-outline" style="text-decoration:none">eShipを開く</a>
         <button class="btn btn-outline" onclick="resetWizard()">次の商品を出品</button>
       </div>
     </div>

@@ -1576,6 +1576,58 @@ def mark_messages_read(message_ids: list[str], read: bool = True) -> dict:
     return {"success": False, "error": "ReviseMyMessages failed"}
 
 
+def upload_image_bytes(image_bytes: bytes, filename: str = "image.jpg") -> dict:
+    """Trading API (UploadSiteHostedPictures) でメモリ上の画像をEPSにアップロード。
+
+    Returns:
+        {"success": bool, "url": str | None, "error": str | None}
+    """
+    import base64
+
+    token = get_access_token()
+    image_data = base64.b64encode(image_bytes).decode("ascii")
+
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <PictureName>{_xml_escape(filename)}</PictureName>
+    <PictureData>{image_data}</PictureData>
+</UploadSiteHostedPicturesRequest>"""
+
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+        "Content-Type": "text/xml",
+    }
+
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        headers=headers,
+        data=xml_body.encode("utf-8"),
+        timeout=120,
+    )
+
+    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    if resp.status_code != 200:
+        return {"success": False, "url": None, "error": f"HTTP {resp.status_code}"}
+
+    root = ET.fromstring(resp.text)
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack in ("Success", "Warning"):
+        full_url = root.findtext(
+            ".//e:SiteHostedPictureDetails/e:FullURL", "", namespaces=ns_map
+        )
+        logger.info(f"画像アップロード成功(bytes): {full_url}")
+        return {"success": True, "url": full_url}
+    else:
+        errors = root.findall(".//e:Errors/e:ShortMessage", namespaces=ns_map)
+        error_msg = errors[0].text if errors else "Unknown error"
+        return {"success": False, "url": None, "error": error_msg}
+
+
 def upload_message_image(image_path: str) -> dict:
     """Trading API (UploadSiteHostedPictures) で画像をEPSにアップロードする。
 
@@ -1588,16 +1640,6 @@ def upload_message_image(image_path: str) -> dict:
 
     with open(image_path, "rb") as f:
         image_data = base64.b64encode(f.read()).decode("ascii")
-
-    # ファイル拡張子からMIMEタイプ推定
-    ext = image_path.rsplit(".", 1)[-1].lower() if "." in image_path else "jpg"
-    mime_map = {
-        "jpg": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "png": "image/png",
-        "gif": "image/gif",
-    }
-    mime_type = mime_map.get(ext, "image/jpeg")
 
     xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">

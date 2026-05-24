@@ -90,12 +90,21 @@ def _empty_result(url: str, platform: str, error: Optional[str] = None) -> dict:
         "title": "",
         "price_jpy": 0,
         "image_url": "",
+        "image_urls": [],
         "product_url": url,
         "condition": "",
         "seller_id": "",
         "description": "",
         "error": error,
     }
+
+
+def _finalize_images(result: dict) -> None:
+    """image_urls が空なら image_url の単一画像でフォールバック。"""
+    if not result.get("image_urls") and result.get("image_url"):
+        result["image_urls"] = [result["image_url"]]
+    if result.get("image_urls") and not result.get("image_url"):
+        result["image_url"] = result["image_urls"][0]
 
 
 # ── ヤフオク ──────────────────────────────────────────────────────────────────
@@ -192,6 +201,7 @@ async def _fetch_yahooauction(url: str) -> dict:
     except Exception as e:
         result["error"] = f"パース失敗: {e}"
 
+    _finalize_images(result)
     return result
 
 
@@ -393,9 +403,11 @@ async def _fetch_mercari(url: str) -> dict:
     thumbnails = item.get("thumbnails", [])
     if thumbnails:
         result["image_url"] = thumbnails[0]
+        result["image_urls"] = [t for t in thumbnails if t]
 
     result["description"] = (item.get("description", "") or "")[:2000]
 
+    _finalize_images(result)
     return result
 
 
@@ -477,6 +489,7 @@ async def _fetch_yahoo_flea(url: str) -> dict:
     except Exception as e:
         result["error"] = f"パース失敗: {e}"
 
+    _finalize_images(result)
     return result
 
 
@@ -560,6 +573,7 @@ async def _fetch_hardoff(url: str) -> dict:
     except Exception as e:
         result["error"] = f"パース失敗: {e}"
 
+    _finalize_images(result)
     return result
 
 
@@ -628,6 +642,7 @@ async def _fetch_surugaya(url: str) -> dict:
     except Exception as e:
         result["error"] = f"パース失敗: {e}"
 
+    _finalize_images(result)
     return result
 
 
@@ -732,6 +747,7 @@ async def _fetch_rakuma(url: str) -> dict:
     except Exception as e:
         result["error"] = f"Playwright失敗: {e}"
 
+    _finalize_images(result)
     return result
 
 
