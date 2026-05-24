@@ -1,6 +1,7 @@
+import json
 import logging
 import time
-from datetime import date
+from datetime import date, timezone, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -70,11 +71,39 @@ def _get_skill_breakdown(user_id, db: Session) -> dict:
     return {skill: float(avg) for skill, avg in rows}
 
 
+_JST = timezone(timedelta(hours=9))
+
+_REST_DAY_PLAN = {
+    "pre2": {
+        "message": "ホーホー！今日はお休みの日だよ！ゆっくり休んで、次の勉強日に全力でがんばろうね！",
+        "tasks": [],
+        "rest_day": True,
+    },
+    "2": {
+        "message": "ホーホー！今日はお休みの日だよ！しっかり休息をとることも合格への大事な一歩だよ！",
+        "tasks": [],
+        "rest_day": True,
+    },
+}
+
+
+def _get_study_days(user: User) -> list[int]:
+    try:
+        return json.loads(user.study_days or "[0,1,2,3,4,5,6]")
+    except (json.JSONDecodeError, TypeError):
+        return list(range(7))
+
+
 @router.get("/today")
 def get_today_plan(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    today_jst = date.today()  # VPS TZ=Asia/Tokyo なのでホストTZがJST
+    study_days = _get_study_days(user)
+    if today_jst.weekday() not in study_days:
+        return _REST_DAY_PLAN.get(user.grade, _REST_DAY_PLAN["pre2"])
+
     days_remaining: int | None = None
     if user.exam_date:
-        delta = user.exam_date - date.today()
+        delta = user.exam_date - today_jst
         days_remaining = max(0, delta.days)
 
     skill_breakdown = _get_skill_breakdown(user.id, db)

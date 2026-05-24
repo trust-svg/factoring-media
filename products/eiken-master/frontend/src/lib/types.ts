@@ -10,6 +10,7 @@ export interface User {
   reminder_time: string
   reminder_days: number[]
   reminder_schedule: Record<string, string> | null
+  study_days: number[]
 }
 
 export interface TokenResponse {
@@ -41,6 +42,7 @@ export interface UpdateUserRequest {
   reminder_time?: string
   reminder_days?: number[]
   reminder_schedule?: Record<string, string> | null
+  study_days?: number[]
 }
 
 export interface Question {
@@ -198,4 +200,5 @@ export interface DailyTask {
 export interface DailyPlan {
   message: string
   tasks: DailyTask[]
+  rest_day?: boolean
 }

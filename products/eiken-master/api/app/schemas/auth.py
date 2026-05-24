@@ -32,6 +32,10 @@ class UpdateUserRequest(BaseModel):
     daily_goal_minutes: Optional[int] = Field(None, ge=5, le=120)
     reminder_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     reminder_days: Optional[List[int]] = None
+    # reminder_schedule supersedes reminder_time + reminder_days
+    # format: {"0": "20:00", "2": "21:00", ...}  key=weekday(0=Mon), value=HH:MM
+    reminder_schedule: Optional[dict] = None
+    study_days: Optional[List[int]] = None  # weekday indices (0=Mon … 6=Sun)
 
 
 class UserOut(BaseModel):
@@ -42,3 +46,5 @@ class UserOut(BaseModel):
     daily_goal_minutes: int
     reminder_time: str = "20:00"
     reminder_days: List[int] = Field(default_factory=lambda: list(range(7)))
+    reminder_schedule: Optional[dict] = None
+    study_days: List[int] = Field(default_factory=lambda: list(range(7)))

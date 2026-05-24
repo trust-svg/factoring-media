@@ -53,6 +53,16 @@ def _user_out(user: User) -> UserOut:
         reminder_days = json.loads(user.reminder_days or "[0,1,2,3,4,5,6]")
     except (json.JSONDecodeError, TypeError):
         reminder_days = list(range(7))
+    try:
+        reminder_schedule = (
+            json.loads(user.reminder_schedule) if user.reminder_schedule else None
+        )
+    except (json.JSONDecodeError, TypeError):
+        reminder_schedule = None
+    try:
+        study_days = json.loads(user.study_days or "[0,1,2,3,4,5,6]")
+    except (json.JSONDecodeError, TypeError):
+        study_days = list(range(7))
     return UserOut(
         id=str(user.id),
         username=user.username,
@@ -61,6 +71,8 @@ def _user_out(user: User) -> UserOut:
         daily_goal_minutes=user.daily_goal_minutes,
         reminder_time=user.reminder_time or "20:00",
         reminder_days=reminder_days,
+        reminder_schedule=reminder_schedule,
+        study_days=study_days,
     )
 
 
@@ -85,6 +97,10 @@ def update_me(
         user.reminder_time = body.reminder_time
     if body.reminder_days is not None:
         user.reminder_days = json.dumps(body.reminder_days)
+    if body.reminder_schedule is not None:
+        user.reminder_schedule = json.dumps(body.reminder_schedule)
+    if body.study_days is not None:
+        user.study_days = json.dumps(body.study_days)
     db.commit()
     db.refresh(user)
     return _user_out(user)

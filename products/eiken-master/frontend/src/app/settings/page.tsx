@@ -40,7 +40,8 @@ export default function SettingsPage() {
   const { user, setUser, logout } = useAuth()
   const [grade, setGrade] = useState<'pre2' | '2'>(user?.grade ?? 'pre2')
   const [examDate, setExamDate] = useState(user?.exam_date ?? '')
-  const [dailyGoal, setDailyGoal] = useState(user?.daily_goal_minutes ?? 30)
+  const [dailyGoal, setDailyGoal] = useState(user?.daily_goal_minutes ?? 75)
+  const [studyDays, setStudyDays] = useState<number[]>(user?.study_days ?? [0, 1, 2, 3, 4, 5, 6])
   // reminder_schedule: key=weekday index string, value=HH:MM time
   const [schedule, setSchedule] = useState<Record<string, string>>(() => initSchedule(user))
   const [saving, setSaving] = useState(false)
@@ -138,6 +139,7 @@ export default function SettingsPage() {
         grade,
         exam_date: examDate || null,
         daily_goal_minutes: dailyGoal,
+        study_days: studyDays,
         reminder_schedule: schedule,
       })
       setUser(updated)
@@ -211,6 +213,37 @@ export default function SettingsPage() {
               <span>10分</span>
               <span>120分</span>
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-400 block mb-2">勉強する曜日</label>
+            <div className="flex gap-2">
+              {DAY_LABELS.map((label, i) => {
+                const active = studyDays.includes(i)
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() =>
+                      setStudyDays((prev) =>
+                        active ? prev.filter((d) => d !== i) : [...prev, i].sort()
+                      )
+                    }
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-colors ${
+                      active
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-gray-400 border-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            {studyDays.length === 0 && (
+              <p className="text-xs text-amber-500 mt-1">曜日が選択されていません。</p>
+            )}
+            <p className="text-xs text-gray-400 mt-1.5">週{studyDays.length}日・合計{studyDays.length * dailyGoal}分/週</p>
           </div>
         </div>
 
