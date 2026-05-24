@@ -54,6 +54,10 @@ class ContactForm(BaseModel):
     message: str
 
 
+class ManualPost(BaseModel):
+    text: str
+
+
 # ------------------------------------------------------------------
 # スケジュール登録
 # ------------------------------------------------------------------
@@ -171,6 +175,25 @@ async def contact(form: ContactForm):
             json={"chat_id": TELEGRAM_CHAT_ID, "text": text},
         )
     return {"status": "ok"}
+
+
+@app.post("/api/manual-post")
+async def manual_post(payload: ManualPost):
+    """手動投稿 — 指定テキストを即時投稿"""
+    from config import THREADS_ACCESS_TOKEN, THREADS_USER_ID
+    from threads_api import ThreadsClient
+
+    if not payload.text.strip():
+        return JSONResponse({"error": "text is empty"}, status_code=400)
+
+    client = ThreadsClient(access_token=THREADS_ACCESS_TOKEN, user_id=THREADS_USER_ID)
+    try:
+        post_id = await client.create_text_post(payload.text)
+        logger.info("手動投稿成功: %s", post_id)
+        return {"status": "posted", "post_id": post_id}
+    except Exception as e:
+        logger.error("手動投稿失敗: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/go")
