@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+export const dynamic = 'force-dynamic'
+
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   apiCreateFlashcard,
@@ -58,7 +60,7 @@ interface WordPopup {
   added: boolean
 }
 
-export default function ReadingPage() {
+function ReadingPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const questionCount = Math.max(3, Math.min(15, Number(searchParams.get('count')) || 5))
@@ -566,5 +568,13 @@ export default function ReadingPage() {
         <button onClick={handleGoHome} className="text-gray-400 underline text-base">ホームに戻る</button>
       </div>
     </main>
+  )
+}
+
+export default function ReadingPage() {
+  return (
+    <Suspense>
+      <ReadingPageInner />
+    </Suspense>
   )
 }
