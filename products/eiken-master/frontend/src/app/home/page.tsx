@@ -37,30 +37,33 @@ function RingProgress({ pct, size = 140 }: { pct: number; size?: number }) {
         <span className="font-black text-white leading-none" style={{ fontSize: size * 0.22 }}>
           {pct}<span style={{ fontSize: size * 0.12 }}>%</span>
         </span>
-        <span className="text-white/60 font-bold" style={{ fontSize: size * 0.085 }}>合格確率</span>
+        <span className="text-white/60 font-bold" style={{ fontSize: size * 0.085 }}>一次合格率</span>
       </div>
     </div>
   )
 }
 
 /* ── Skill breakdown mini bars ───────────────── */
-const SKILL_META: Record<string, { label: string; color: string }> = {
+const SKILL_META: Record<string, { label: string; color: string; secondary?: boolean }> = {
   reading:   { label: '読', color: '#818CF8' },
   listening: { label: '聞', color: '#34D399' },
   writing:   { label: '書', color: '#FBBF24' },
-  speaking:  { label: '話', color: '#F472B6' },
+  speaking:  { label: '話', color: '#F472B6', secondary: true },
 }
 
 function SkillBars({ breakdown }: { breakdown: ProgressData['skill_breakdown'] }) {
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-      {(Object.entries(SKILL_META) as [keyof typeof SKILL_META, { label: string; color: string }][]).map(([key, meta]) => {
+      {(Object.entries(SKILL_META) as [keyof typeof SKILL_META, { label: string; color: string; secondary?: boolean }][]).map(([key, meta]) => {
         const val = breakdown[key as keyof typeof breakdown]
         const pct = val != null ? Math.round(val * 100) : 0
         return (
           <div key={key}>
             <div className="flex justify-between items-center mb-1">
-              <span className="text-white/60 text-[11px] font-bold">{meta.label}</span>
+              <span className="text-white/60 text-[11px] font-bold">
+                {meta.label}
+                {meta.secondary && <span className="text-white/30 text-[9px] ml-0.5">二次</span>}
+              </span>
               <span className="text-white text-[11px] font-black">{val != null ? `${pct}%` : '—'}</span>
             </div>
             <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
@@ -315,8 +318,8 @@ function skillCount(skill: string, minutes: number): number {
 
 // 実測ベースの所要時間（ユーザー別係数）
 const REAL_MINUTES_COEFF: Record<string, Record<string, number | 'fixed'>> = {
-  Konomi: { readingPerQ: 1.3, listeningPerQ: 0.9, writing: 8,  speaking: 2  },
-  Kurumi: { readingPerQ: 2.0, listeningPerQ: 0.6, writing: 12, speaking: 2  },
+  Konomi: { readingPerQ: 0.5, listeningPerQ: 1.1, writing: 6,  speaking: 2  },
+  Kurumi: { readingPerQ: 0.5, listeningPerQ: 0.6, writing: 16, speaking: 1  },
   // デフォルト（未測定ユーザー）
   _default: { readingPerQ: 2.0, listeningPerQ: 1.5, writing: 12, speaking: 7 },
 }
