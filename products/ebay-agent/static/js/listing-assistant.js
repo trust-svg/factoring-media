@@ -1034,7 +1034,10 @@ async function loadSoldItems(force = false) {
 function _extractKeyword(title) {
   const tokens = title.split(/[\s/,()[\]]+/).filter(t => t.length > 0);
   const cleaned = tokens.map(t => t.replace(/^[-.]|[-.]$/g, ''));
-  const candidates = cleaned.filter(t => t.length >= 3 && /[A-Za-z]/.test(t) && /\d/.test(t));
+  const candidates = cleaned.filter(t =>
+    t.length >= 3 && /[A-Za-z]/.test(t) &&
+    (/\d/.test(t) || /^[A-Z]{2,}-[A-Z]{1,}$/.test(t))
+  );
   if (!candidates.length) return title.split(' ').slice(0, 3).join(' ');
   const letterFirst = candidates.filter(c => /^[A-Za-z]/.test(c));
   const pool = letterFirst.length ? letterFirst : candidates;
@@ -1248,6 +1251,7 @@ async function _searchSourcingCandidates(itemId) {
       body: JSON.stringify({
         title: item.title || '',
         purchase_price_jpy: item.purchase_price_jpy || 0,
+        ebay_price_usd: parseFloat(item.ebay_price_usd) || 0,
         limit: 5,
       }),
     });

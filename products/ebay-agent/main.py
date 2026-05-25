@@ -4885,7 +4885,9 @@ def _extract_model_number(title: str) -> str:
     candidates = [
         t
         for t in cleaned
-        if len(t) >= 3 and _re.search(r"[A-Za-z]", t) and _re.search(r"\d", t)
+        if len(t) >= 3
+        and _re.search(r"[A-Za-z]", t)
+        and (_re.search(r"\d", t) or _re.match(r"^[A-Z]{2,}-[A-Z]{1,}$", t))
     ]
     if not candidates:
         return ""
@@ -5334,6 +5336,10 @@ async def listing_assistant_search_candidates(request: Request):
     except (ValueError, TypeError):
         purchase_price_jpy = 0
     try:
+        ebay_price_usd = float(body.get("ebay_price_usd", 0) or 0)
+    except (ValueError, TypeError):
+        ebay_price_usd = 0.0
+    try:
         limit = int(body.get("limit", 5))
     except (ValueError, TypeError):
         limit = 5
@@ -5346,10 +5352,15 @@ async def listing_assistant_search_candidates(request: Request):
         max_price_jpy_override = body.get("max_price_jpy")
         if max_price_jpy_override is not None:
             max_price_jpy = int(max_price_jpy_override)
-        else:
+        elif purchase_price_jpy > 0:
             max_price_jpy = max(int(purchase_price_jpy * 3), 5000)
+        elif ebay_price_usd > 0:
+            # eBay売値の50%を仕入れ上限の目安（為替155円固定）
+            max_price_jpy = max(int(ebay_price_usd * 155 * 0.5), 5000)
+        else:
+            max_price_jpy = 50000
     except (ValueError, TypeError):
-        max_price_jpy = max(int(purchase_price_jpy * 3), 5000)
+        max_price_jpy = 50000
 
     keyword = _extract_model_number(title)
     if not keyword:
