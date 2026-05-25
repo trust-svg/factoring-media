@@ -402,8 +402,16 @@ async def _fetch_mercari(url: str) -> dict:
 
     thumbnails = item.get("thumbnails", [])
     if thumbnails:
-        result["image_url"] = thumbnails[0]
-        result["image_urls"] = [t for t in thumbnails if t]
+        # Mercari API の thumbnails は 240px サムネ。
+        # `static.mercdn.net/thumb/...` → `static.mercdn.net/...` でフル解像度版になる。
+        def _full_res(url: str) -> str:
+            if not url:
+                return url
+            return url.replace("static.mercdn.net/thumb/", "static.mercdn.net/")
+
+        full = [_full_res(t) for t in thumbnails if t]
+        result["image_url"] = full[0] if full else ""
+        result["image_urls"] = full
 
     result["description"] = (item.get("description", "") or "")[:2000]
 

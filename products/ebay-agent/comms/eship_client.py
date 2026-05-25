@@ -116,8 +116,31 @@ async def create_eship_item(
                 if not value:
                     return
                 el = await page.query_selector(f'select[name="{name}"]')
-                if el:
-                    await el.select_option(value=str(value))
+                if not el:
+                    return
+                v = str(value)
+                # 1) まず force=True で visibility check をバイパスして select_option を試す
+                #    eShip は Select2 等で native <select> を非表示にしているため、
+                #    通常の actionability check では timeout する。
+                try:
+                    await el.select_option(value=v, force=True, timeout=5000)
+                    return
+                except Exception as e:
+                    logger.warning(f"_select({name}={v}) force fail: {e}; JS fallback")
+                # 2) フォールバック: JS で value を直接設定し change を dispatch
+                try:
+                    await page.evaluate(
+                        """([name, value]) => {
+                            const sel = document.querySelector(`select[name="${name}"]`);
+                            if (!sel) return false;
+                            sel.value = value;
+                            sel.dispatchEvent(new Event('change', { bubbles: true }));
+                            return sel.value === value;
+                        }""",
+                        [name, v],
+                    )
+                except Exception as e:
+                    logger.warning(f"_select({name}={v}) JS fallback failed: {e}")
 
             await _fill("inventory[name]", title[:100])
             await _fill("inventory[supplier_url]", supplier_url)
