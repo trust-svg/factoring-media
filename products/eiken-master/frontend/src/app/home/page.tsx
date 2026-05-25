@@ -313,6 +313,17 @@ function skillCount(skill: string, minutes: number): number {
   return 5
 }
 
+// 実測ベースの所要時間（AI見積もりは2倍程度過大）
+function realMinutes(skill: string, minutes: number): number {
+  if (skill === 'writing') return 12
+  if (skill === 'speaking') return 7
+  if (skill === 'flashcards') return Math.round(minutes / 2)
+  const count = skillCount(skill, minutes)
+  if (skill === 'reading') return count * 2
+  if (skill === 'listening') return Math.round(count * 1.5)
+  return Math.round(minutes / 2)
+}
+
 function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTasks, advice, praise, weeklySessions }: {
   plan: DailyPlan
   onRefresh: () => void
@@ -323,7 +334,7 @@ function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTask
   praise?: string | null
   weeklySessions?: number
 }) {
-  const total = plan.tasks.reduce((s, t) => s + t.minutes, 0)
+  const total = plan.tasks.reduce((s, t) => s + realMinutes(t.skill, t.minutes), 0)
   const allDone = plan.tasks.length > 0 && completedTasks.size >= plan.tasks.length
 
   return (
@@ -419,7 +430,7 @@ function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTask
                 {task.description}
               </p>
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className={`text-xs font-bold ${done ? 'text-gray-300' : 'text-gray-400'}`}>{task.minutes}分</span>
+                <span className={`text-xs font-bold ${done ? 'text-gray-300' : 'text-gray-400'}`}>{realMinutes(task.skill, task.minutes)}分</span>
                 {hasRoute && !done && <span className="text-indigo-300 text-xs font-bold">→</span>}
                 {done && <span className="text-emerald-400 text-xs font-bold">完了</span>}
               </div>
