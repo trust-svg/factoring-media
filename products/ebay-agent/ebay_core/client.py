@@ -1982,9 +1982,18 @@ def create_inventory_item(
         if vals:
             normalized_aspects[str(k).strip()] = vals
 
-    # eBay Sell Inventory API description 上限 4000 文字
+    # eBay Sell Inventory API description 上限 4000 "characters" だが、
+    # 実体は UTF-8 byte 換算で弾かれることがある（日本語混じり HTML で頻発）。
+    # 安全側に「char <= 4000 かつ byte <= 4000」両条件を満たすよう truncate する。
     raw_description = product.get("description", "") or ""
     description = raw_description[:4000]
+    while len(description.encode("utf-8")) > 4000 and description:
+        description = description[:-50]
+    if not description:
+        description = (product.get("title", "") or "Item")[:200]
+    logger.info(
+        f"Inventory item description: chars={len(description)} bytes={len(description.encode('utf-8'))}"
+    )
 
     body = {
         "availability": {
