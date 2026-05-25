@@ -5522,6 +5522,15 @@ async def listing_assistant_submit_ebay_publish(request: Request):
     if not image_urls:
         raise HTTPException(400, "画像URLが見つかりません")
 
+    # eBay カテゴリID は必須（数値の leaf category）
+    category_id = (category_id or "").strip()
+    if not category_id or not category_id.isdigit():
+        raise HTTPException(
+            400,
+            f"eBay カテゴリID が未入力または数値ではありません (category_id={category_id!r}). "
+            "Step 3 で leaf category（例: 112529）を入力してください。",
+        )
+
     import uuid
     from ebay_core.client import (
         create_inventory_item,

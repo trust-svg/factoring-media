@@ -2043,6 +2043,10 @@ def create_offer(
     headers = _auth_headers()
     url = f"{EBAY_API_BASE}/sell/inventory/v1/offer"
 
+    logger.info(
+        f"create_offer: sku={sku} category_id={category_id!r} marketplace={marketplace} price=${price_usd}"
+    )
+
     body = {
         "sku": sku,
         "marketplaceId": marketplace,
