@@ -1969,6 +1969,19 @@ def create_inventory_item(
     headers = _auth_headers()
     url = f"{EBAY_API_BASE}/sell/inventory/v1/inventory_item/{quote(sku, safe='')}"
 
+    raw_aspects = product.get("aspects", {}) or {}
+    normalized_aspects: dict[str, list[str]] = {}
+    for k, v in raw_aspects.items():
+        if not k:
+            continue
+        if isinstance(v, list):
+            vals = [str(x).strip() for x in v if str(x).strip()]
+        else:
+            vs = str(v).strip()
+            vals = [vs] if vs else []
+        if vals:
+            normalized_aspects[str(k).strip()] = vals
+
     body = {
         "availability": {
             "shipToLocationAvailability": {
@@ -1978,7 +1991,7 @@ def create_inventory_item(
         "product": {
             "title": product.get("title", ""),
             "description": product.get("description", ""),
-            "aspects": product.get("aspects", {}),
+            "aspects": normalized_aspects,
             "imageUrls": product.get("imageUrls", []),
         },
     }
