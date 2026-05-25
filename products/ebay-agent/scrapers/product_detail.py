@@ -400,18 +400,20 @@ async def _fetch_mercari(url: str) -> dict:
     elif isinstance(seller, str):
         result["seller_id"] = seller
 
-    thumbnails = item.get("thumbnails", [])
-    if thumbnails:
-        # Mercari API の thumbnails は 240px サムネ。
-        # `static.mercdn.net/thumb/...` → `static.mercdn.net/...` でフル解像度版になる。
-        def _full_res(url: str) -> str:
-            if not url:
-                return url
-            return url.replace("static.mercdn.net/thumb/", "static.mercdn.net/")
-
-        full = [_full_res(t) for t in thumbnails if t]
-        result["image_url"] = full[0] if full else ""
-        result["image_urls"] = full
+    # Mercari API のフル解像度画像は `photos` フィールドに全枚数入っている
+    # (`https://static.mercdn.net/item/detail/orig/photos/m{ID}_{N}.jpg`)。
+    # `thumbnails` は 240px サムネが 1 枚しか返らないので photos を優先する。
+    photos = item.get("photos", []) or []
+    photos = [p for p in photos if p]
+    if photos:
+        result["image_url"] = photos[0]
+        result["image_urls"] = photos
+    else:
+        thumbnails = item.get("thumbnails", []) or []
+        thumbnails = [t for t in thumbnails if t]
+        if thumbnails:
+            result["image_url"] = thumbnails[0]
+            result["image_urls"] = thumbnails
 
     result["description"] = (item.get("description", "") or "")[:2000]
 
