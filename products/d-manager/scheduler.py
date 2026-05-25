@@ -1116,6 +1116,65 @@ async def d_manager_heartbeat():
         logger.warning("d_manager_heartbeat exception: %s: %s", type(e).__name__, e)
 
 
+def _read_obsidian_context() -> str:
+    """朝ブリーフィング用に Obsidian から積み残しタスクとプロダクト状況を読む。"""
+    import yaml as _yaml
+
+    JST = timezone(timedelta(hours=9))
+    yesterday = datetime.now(JST).date() - timedelta(days=1)
+    obsidian_dir = Path.home() / "Obsidian"
+    output_lines: list[str] = []
+
+    # 1. 昨日のdaily note → Tomorrow Next の未完タスク
+    daily_path = obsidian_dir / "Daily" / f"{yesterday}.md"
+    if daily_path.exists():
+        try:
+            content = daily_path.read_text(encoding="utf-8")
+            match = re.search(r"## Tomorrow Next\n(.*?)(?=\n##|\Z)", content, re.DOTALL)
+            if match:
+                unchecked = [
+                    line.strip()
+                    for line in match.group(1).splitlines()
+                    if line.strip().startswith("- [ ]")
+                ]
+                if unchecked:
+                    output_lines.append("【積み残しタスク（昨日のTomorrow Next）】")
+                    output_lines.extend(unchecked)
+        except Exception as e:
+            logger.warning("_read_obsidian_context: daily note read failed: %s", e)
+
+    # 2. wiki/products/ → type:product かつ status:active のページ
+    products_dir = obsidian_dir / "wiki" / "products"
+    if products_dir.exists():
+        product_lines: list[str] = []
+        for md_file in sorted(products_dir.glob("*.md")):
+            try:
+                text = md_file.read_text(encoding="utf-8")
+                if not text.startswith("---"):
+                    continue
+                end = text.find("---", 3)
+                if end == -1:
+                    continue
+                fm = _yaml.safe_load(text[3:end])
+                if not isinstance(fm, dict):
+                    continue
+                if fm.get("type") != "product" or fm.get("status") != "active":
+                    continue
+                name = fm.get("title", md_file.stem)
+                na = fm.get("next_action") or "未設定"
+                issues = fm.get("issues") or "なし"
+                product_lines.append(f"  • {name}: next={na} / issues={issues}")
+            except Exception as e:
+                logger.warning(
+                    "_read_obsidian_context: %s parse failed: %s", md_file.name, e
+                )
+        if product_lines:
+            output_lines.append("\n【プロダクト状況（active）】")
+            output_lines.extend(product_lines)
+
+    return "\n".join(output_lines)
+
+
 def _read_nightly_qa_summary() -> str:
     """Tier 3-C: 朝ブリーフィングで使う夜間QAサマリを読む。当日分のみ。"""
     if not NIGHTLY_QA_PATH.exists():
@@ -1336,6 +1395,10 @@ async def morning_briefing():
     logger.info("Divination sent")
 
     # 5. AI briefing (Steve) — 拡張版: メール返信下書き + 商談リサーチ参照 + TODO自動抽出
+    obsidian_ctx = _read_obsidian_context()
+    obsidian_section = (
+        f"\n\n## Obsidianダッシュボード\n{obsidian_ctx}" if obsidian_ctx else ""
+    )
     teaching = _pick_daily_teaching()
     today_iso = date.today().isoformat()
     news_cache_path = (
@@ -1359,7 +1422,8 @@ async def morning_briefing():
         "6. **情報収集（任意）**: 以下のファイルが存在すれば内容を読み、注目トピックを1-2件紹介\n"
         f"   - {news_cache_path}\n"
         "7. **空き時間活用提案**\n\n"
-        f"## 今日の教え\n{teaching}\n\n"
+        f"## 今日の教え\n{teaching}"
+        f"{obsidian_section}\n\n"
         "## ルール\n"
         "- メール下書き作成・TODO追記の件数は明示的に報告すること\n"
         "- 各ファイルが存在しない場合は『○○なし』と1行で言及\n"
