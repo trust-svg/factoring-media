@@ -5187,7 +5187,16 @@ async def listing_assistant_generate(request: Request):
 
     titles = result.get("titles", [])
     best_title = titles[0]["title"] if titles else title
-    category_id = result.get("category_id", result.get("category_suggestion", ""))
+    raw_category = result.get("category_id", result.get("category_suggestion", ""))
+
+    # AI が "Collectibles > ... > Cels" のようなパス文字列を返す場合があるため
+    # 数値 leaf ID に解決する
+    from ebay_core.client import resolve_category_id
+
+    try:
+        category_id = resolve_category_id(raw_category) or raw_category
+    except Exception as _e:
+        category_id = raw_category
 
     import re as _re
 
@@ -5524,11 +5533,18 @@ async def listing_assistant_submit_ebay_publish(request: Request):
 
     # eBay カテゴリID は必須（数値の leaf category）
     category_id = (category_id or "").strip()
+    if category_id and not category_id.isdigit():
+        # パス文字列で来た場合は Taxonomy で leaf ID に解決
+        from ebay_core.client import resolve_category_id
+
+        resolved = resolve_category_id(category_id)
+        if resolved:
+            category_id = resolved
     if not category_id or not category_id.isdigit():
         raise HTTPException(
             400,
-            f"eBay カテゴリID が未入力または数値ではありません (category_id={category_id!r}). "
-            "Step 3 で leaf category（例: 112529）を入力してください。",
+            f"eBay カテゴリID が未入力または解決不能です (category_id={category_id!r}). "
+            "Step 3 で leaf category の数値ID（例: 112529）を入力してください。",
         )
 
     import uuid

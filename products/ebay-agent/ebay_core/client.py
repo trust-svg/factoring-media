@@ -1900,6 +1900,69 @@ def _xml_escape(text: str) -> str:
 # ── カテゴリ Item Specifics 取得 (Taxonomy API) ──────────
 
 
+def get_category_suggestions(query: str, marketplace: str = "EBAY_US") -> list[dict]:
+    """
+    Taxonomy API `get_category_suggestions` で文字列クエリから候補カテゴリ（leaf）を取得。
+
+    Returns: [{"id": "13658", "name": "Cels", "path": "Collectibles > ..."}]
+    """
+    if not query:
+        return []
+    tree_id = "0" if marketplace == "EBAY_US" else "0"
+    headers = _auth_headers()
+    headers["X-EBAY-C-MARKETPLACE-ID"] = marketplace
+    from urllib.parse import quote as _quote
+
+    url = (
+        f"{EBAY_API_BASE}/commerce/taxonomy/v1/category_tree/{tree_id}"
+        f"/get_category_suggestions?q={_quote(query)}"
+    )
+    resp = requests.get(url, headers=headers, timeout=15)
+    if resp.status_code != 200:
+        logger.warning(
+            f"Taxonomy get_category_suggestions: {resp.status_code} {resp.text[:200]}"
+        )
+        return []
+    data = resp.json()
+    out = []
+    for sug in data.get("categorySuggestions", []):
+        cat = sug.get("category", {})
+        ancestors = sug.get("categoryTreeNodeAncestors", []) or []
+        path_parts = [a.get("categoryName", "") for a in reversed(ancestors)]
+        path_parts.append(cat.get("categoryName", ""))
+        out.append(
+            {
+                "id": cat.get("categoryId", ""),
+                "name": cat.get("categoryName", ""),
+                "path": " > ".join(p for p in path_parts if p),
+            }
+        )
+    return out
+
+
+def resolve_category_id(value: str) -> str:
+    """value が数値ならそのまま返し、パス/文字列なら Taxonomy で leaf ID 解決を試みる。
+
+    解決できなかった場合は空文字を返す。
+    """
+    if not value:
+        return ""
+    v = str(value).strip()
+    if v.isdigit():
+        return v
+    # "Collectibles > Animation Art & Characters > Animation Art > Cels" など
+    last_segment = v.split(">")[-1].strip() if ">" in v else v
+    for query in (v, last_segment):
+        suggestions = get_category_suggestions(query)
+        if suggestions and suggestions[0].get("id", "").isdigit():
+            logger.info(
+                f"resolve_category_id: {value!r} → {suggestions[0]['id']} ({suggestions[0]['path']})"
+            )
+            return suggestions[0]["id"]
+    logger.warning(f"resolve_category_id: 解決失敗 {value!r}")
+    return ""
+
+
 def get_category_aspects(category_id: str) -> dict:
     """
     Taxonomy API でカテゴリの必須/推奨 Item Specifics を取得する。
