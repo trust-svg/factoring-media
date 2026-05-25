@@ -313,18 +313,26 @@ function skillCount(skill: string, minutes: number): number {
   return 5
 }
 
-// 実測ベースの所要時間（AI見積もりは2倍程度過大）
-function realMinutes(skill: string, minutes: number): number {
-  if (skill === 'writing') return 12
-  if (skill === 'speaking') return 7
-  if (skill === 'flashcards') return Math.round(minutes / 2)
+// 実測ベースの所要時間（ユーザー別係数）
+const REAL_MINUTES_COEFF: Record<string, Record<string, number | 'fixed'>> = {
+  Konomi: { readingPerQ: 1.3, listeningPerQ: 0.9, writing: 8,  speaking: 2  },
+  Kurumi: { readingPerQ: 2.0, listeningPerQ: 0.6, writing: 12, speaking: 2  },
+  // デフォルト（未測定ユーザー）
+  _default: { readingPerQ: 2.0, listeningPerQ: 1.5, writing: 12, speaking: 7 },
+}
+
+function realMinutes(skill: string, minutes: number, username?: string | null): number {
+  const c = REAL_MINUTES_COEFF[username ?? ''] ?? REAL_MINUTES_COEFF._default
+  if (skill === 'writing')    return c.writing as number
+  if (skill === 'speaking')   return c.speaking as number
+  if (skill === 'flashcards') return Math.max(3, Math.round(minutes / 2))
   const count = skillCount(skill, minutes)
-  if (skill === 'reading') return count * 2
-  if (skill === 'listening') return Math.round(count * 1.5)
+  if (skill === 'reading')   return Math.max(1, Math.round(count * (c.readingPerQ as number)))
+  if (skill === 'listening') return Math.max(1, Math.round(count * (c.listeningPerQ as number)))
   return Math.round(minutes / 2)
 }
 
-function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTasks, advice, praise, weeklySessions }: {
+function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTasks, advice, praise, weeklySessions, username }: {
   plan: DailyPlan
   onRefresh: () => void
   refreshing: boolean
@@ -333,8 +341,9 @@ function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTask
   advice?: string | null
   praise?: string | null
   weeklySessions?: number
+  username?: string | null
 }) {
-  const total = plan.tasks.reduce((s, t) => s + realMinutes(t.skill, t.minutes), 0)
+  const total = plan.tasks.reduce((s, t) => s + realMinutes(t.skill, t.minutes, username), 0)
   const allDone = plan.tasks.length > 0 && completedTasks.size >= plan.tasks.length
 
   return (
@@ -430,7 +439,7 @@ function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTask
                 {task.description}
               </p>
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className={`text-xs font-bold ${done ? 'text-gray-300' : 'text-gray-400'}`}>{realMinutes(task.skill, task.minutes)}分</span>
+                <span className={`text-xs font-bold ${done ? 'text-gray-300' : 'text-gray-400'}`}>{realMinutes(task.skill, task.minutes, username)}分</span>
                 {hasRoute && !done && <span className="text-indigo-300 text-xs font-bold">→</span>}
                 {done && <span className="text-emerald-400 text-xs font-bold">完了</span>}
               </div>
@@ -836,6 +845,7 @@ export default function HomePage() {
               advice={progress?.advice}
               praise={progress?.praise}
               weeklySessions={progress?.weekly_sessions}
+              username={user?.username}
               onRefresh={async () => {
                 setPlanRefreshing(true)
                 clearCachedPlan()
