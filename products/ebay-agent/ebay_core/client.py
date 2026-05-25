@@ -2164,6 +2164,102 @@ def publish_offer(offer_id: str) -> dict:
         return {"success": False, "error": error, "status_code": resp.status_code}
 
 
+# ── Promoted Listings (Sell Marketing API) ─────────────────
+
+
+def list_ad_campaigns(
+    marketplace: str = "EBAY_US",
+    status: str = "ACTIVE",
+) -> list[dict]:
+    """Sell Marketing API で広告キャンペーン一覧を取得する。
+
+    返値: [{"campaignId": str, "campaignName": str, "marketplaceId": str,
+            "campaignStatus": str, "fundingStrategy": {...}}, ...]
+    """
+    headers = _auth_headers()
+    params = {"marketplace_id": marketplace}
+    if status:
+        params["campaign_status"] = status
+    url = f"{EBAY_API_BASE}/sell/marketing/v1/ad_campaign"
+    resp = requests.get(url, headers=headers, params=params, timeout=15)
+    if resp.status_code != 200:
+        logger.warning(f"list_ad_campaigns 失敗: {resp.status_code} {resp.text[:300]}")
+        return []
+    return resp.json().get("campaigns", []) or []
+
+
+def find_general_campaign_id(marketplace: str = "EBAY_US") -> str:
+    """Promoted Listings Standard (General / COST_PER_SALE) の ACTIVE
+    キャンペーンID を 1 件返す。
+
+    優先順位:
+      1. 環境変数 EBAY_PROMOTED_GENERAL_CAMPAIGN_ID
+      2. ACTIVE かつ fundingStrategy.fundingModel == "COST_PER_SALE" の最初の1件
+    見つからなければ空文字。
+    """
+    forced = os.environ.get("EBAY_PROMOTED_GENERAL_CAMPAIGN_ID", "").strip()
+    if forced:
+        return forced
+
+    campaigns = list_ad_campaigns(marketplace=marketplace, status="ACTIVE")
+    for c in campaigns:
+        if c.get("marketplaceId") != marketplace:
+            continue
+        funding_model = (c.get("fundingStrategy") or {}).get("fundingModel", "")
+        if funding_model == "COST_PER_SALE":
+            return c.get("campaignId", "") or ""
+    return ""
+
+
+def create_promoted_listing_ad(
+    campaign_id: str,
+    listing_id: str,
+    bid_percentage: float = 2.0,
+) -> dict:
+    """Standard Promoted Listings キャンペーンに listing を 1 件追加する。
+
+    POST /sell/marketing/v1/ad_campaign/{campaign_id}/ad
+    body: {"bidPercentage": "2.0", "listingId": "..."}
+    """
+    if not campaign_id or not listing_id:
+        return {
+            "success": False,
+            "error": f"campaign_id/listing_id が空 (campaign={campaign_id!r}, listing={listing_id!r})",
+        }
+    headers = _auth_headers()
+    url = (
+        f"{EBAY_API_BASE}/sell/marketing/v1/ad_campaign/"
+        f"{quote(campaign_id, safe='')}/ad"
+    )
+    body = {
+        "bidPercentage": f"{bid_percentage:.1f}",
+        "listingId": str(listing_id),
+    }
+    resp = requests.post(url, headers=headers, json=body, timeout=15)
+    if resp.status_code in (200, 201, 204):
+        ad_id = ""
+        try:
+            data = resp.json()
+            ad_id = data.get("adId", "") or ""
+        except Exception:
+            pass
+        logger.info(
+            f"Promoted Listings ad 追加成功: campaign={campaign_id} "
+            f"listing={listing_id} bid={bid_percentage}% ad_id={ad_id}"
+        )
+        return {
+            "success": True,
+            "campaign_id": campaign_id,
+            "listing_id": listing_id,
+            "ad_id": ad_id,
+            "bid_percentage": bid_percentage,
+        }
+    else:
+        error = resp.text[:500]
+        logger.warning(f"Promoted Listings ad 追加失敗: {resp.status_code} {error}")
+        return {"success": False, "error": error, "status_code": resp.status_code}
+
+
 def get_fulfillment_policies() -> list[dict]:
     """Account API でフルフィルメントポリシー一覧を取得"""
     headers = _auth_headers()

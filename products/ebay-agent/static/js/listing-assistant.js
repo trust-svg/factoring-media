@@ -732,6 +732,7 @@ async function submitListing() {
 
   // 1. eBay出品（画像white-bg化 → EPS upload → publish → ItemID取得）
   setProgressState('ebay', 'loading', '画像処理 & 出品中...');
+  setProgressState('promoted', 'loading', 'eBay出品完了後に処理します...');
   try {
     const r1 = await apiPost('/api/listing-assistant/submit/ebay-publish', payload);
     if (r1.ok) {
@@ -743,13 +744,31 @@ async function submitListing() {
         ? ('出品完了 (ItemID: ' + ebayItemId + (failedCount ? ', 画像失敗 ' + failedCount + '件' : '') + ')')
         : '出品完了';
       setProgressState('ebay', 'success', subMsg, ebayListingUrl);
+
+      // Promoted Listings General 2% は publish レスポンスに含まれる
+      const pl = d1.promoted_listings || {};
+      if (pl.status === 'ok') {
+        const adId = pl.ad_id ? ' / ad_id=' + pl.ad_id : '';
+        setProgressState('promoted', 'success', 'General 2% 付与済み' + adId, 'https://www.ebay.com/sh/mkt/ads');
+      } else if (pl.status === 'no_campaign') {
+        setProgressState('promoted', 'error',
+          pl.warning || 'ACTIVE な General キャンペーンが見つかりません（Seller Hub で作成してください）');
+      } else if (pl.status === 'failed' || pl.status === 'error') {
+        setProgressState('promoted', 'error', pl.warning || 'Promoted Listings 付与失敗');
+      } else if (pl.status === 'skipped') {
+        setProgressState('promoted', 'error', 'スキップ: ItemID が取得できませんでした');
+      } else {
+        setProgressState('promoted', 'error', '不明な状態: ' + JSON.stringify(pl));
+      }
     } else {
       const e1 = await safeJson(r1);
       setProgressState('ebay', 'error', '出品失敗: ' + (e1.detail || r1.statusText));
+      setProgressState('promoted', 'error', 'eBay出品が失敗したためスキップ');
       allSuccess = false;
     }
   } catch (e) {
     setProgressState('ebay', 'error', 'エラー: ' + e.message);
+    setProgressState('promoted', 'error', 'eBay出品が失敗したためスキップ');
     allSuccess = false;
   }
 
@@ -859,15 +878,16 @@ function resetWizard() {
   if (detectedDiv) detectedDiv.style.display = 'none';
 
   // Reset progress
-  ['ebay', 'eship'].forEach(key => {
+  ['ebay', 'promoted', 'eship'].forEach(key => {
     const item = document.getElementById('prog-' + key);
     if (item) item.classList.remove('success', 'error');
     const icon = document.getElementById('prog-' + key + '-icon');
     if (icon) icon.textContent = '⏳';
     const sub = document.getElementById('prog-' + key + '-sub');
     const defaults = {
-      ebay:  '画像を白背景化してeBayに実出品します',
-      eship: 'eBay ItemIDを含めてeShipに在庫登録します',
+      ebay:     '画像を白背景化してeBayに実出品します',
+      promoted: '出品後に General キャンペーンへ自動付与します',
+      eship:    'eBay ItemIDを含めてeShipに在庫登録します',
     };
     if (sub) sub.textContent = defaults[key] || '';
     const link = document.getElementById('prog-' + key + '-link');

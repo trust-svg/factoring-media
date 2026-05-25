@@ -20,6 +20,15 @@ logger = logging.getLogger(__name__)
 _DESC_TEMPLATES_DIR = Path(__file__).parent / "desc_templates"
 
 
+DEFAULT_CONDITION_DESCRIPTION = (
+    "This item has been tested and confirmed to be in basic working order. "
+    "It is a used item, but overall it is in relatively good condition for its age. "
+    "There may be minor signs of use such as small scratches, scuffs, or slight wear "
+    "consistent with normal use. Please check the photos carefully, as they are part "
+    "of the description. If you have any questions, feel free to contact me."
+)
+
+
 def load_desc_template(name: str) -> Optional[str]:
     """Load a description template by name, e.g. '001' → desc_templates/001.html.
     Returns None if the file does not exist."""
@@ -29,9 +38,18 @@ def load_desc_template(name: str) -> Optional[str]:
     return None
 
 
-def apply_desc_template(template_html: str, description: str) -> str:
-    """Replace {description} placeholder in template with the AI description."""
-    return template_html.replace("{description}", description)
+def apply_desc_template(template_html: str, description: str, title: str = "") -> str:
+    """Replace placeholders in the description template.
+
+    - ``{description}`` / ``[[description]]`` → AI 生成 description
+    - ``[[title]]`` / ``{title}`` → 出品タイトル（指定があれば）
+    """
+    out = template_html.replace("{description}", description)
+    out = out.replace("[[description]]", description)
+    if title:
+        out = out.replace("[[title]]", title)
+        out = out.replace("{title}", title)
+    return out
 
 
 async def generate_listing(

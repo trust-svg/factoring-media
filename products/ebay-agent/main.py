@@ -5218,7 +5218,7 @@ async def listing_assistant_generate(request: Request):
     desc_template_name = body.get("desc_template", "001")
     tmpl_html = load_desc_template(desc_template_name)
     if tmpl_html:
-        description = apply_desc_template(tmpl_html, description)
+        description = apply_desc_template(tmpl_html, description, title=best_title)
 
     return JSONResponse(
         {
@@ -5554,9 +5554,18 @@ async def listing_assistant_submit_ebay_publish(request: Request):
         publish_offer,
         upload_image_bytes,
     )
+    from listing.generator import DEFAULT_CONDITION_DESCRIPTION
     from listing.image_utils import whitebg_many
 
     sku = stock_number or f"LA-{uuid.uuid4().hex[:8].upper()}"
+
+    # フロントから description が再送される時点でテンプレ未置換だった場合に備えた safety net
+    if ebay_title and description:
+        description = description.replace("[[title]]", ebay_title)
+
+    condition_description = (
+        body.get("condition_description") or DEFAULT_CONDITION_DESCRIPTION
+    )
 
     # 1) White-bg every gallery image in parallel
     wb_results = await whitebg_many(image_urls)
@@ -5593,6 +5602,7 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             "imageUrls": eps_urls,
         },
         condition=condition,
+        condition_description=condition_description,
     )
     if not inv_result.get("success"):
         raise HTTPException(
@@ -5625,6 +5635,55 @@ async def listing_assistant_submit_ebay_publish(request: Request):
 
     listing_id = pub_result.get("listing_id", "")
 
+    # 6) Promoted Listings General 2% に自動付与（失敗しても出品成功扱い）
+    promoted_listings: dict = {"enabled": True, "status": "skipped"}
+    if listing_id:
+        try:
+            from ebay_core.client import (
+                create_promoted_listing_ad,
+                find_general_campaign_id,
+            )
+
+            campaign_id = await asyncio.to_thread(find_general_campaign_id, "EBAY_US")
+            if not campaign_id:
+                promoted_listings = {
+                    "enabled": True,
+                    "status": "no_campaign",
+                    "warning": (
+                        "eBay 側に ACTIVE な General (COST_PER_SALE) "
+                        "Promoted Listings キャンペーンが見つかりません。"
+                        "Seller Hub で General キャンペーンを 1 つ作成してください。"
+                    ),
+                }
+            else:
+                pl_result = await asyncio.to_thread(
+                    create_promoted_listing_ad, campaign_id, listing_id, 2.0
+                )
+                if pl_result.get("success"):
+                    promoted_listings = {
+                        "enabled": True,
+                        "status": "ok",
+                        "campaign_id": campaign_id,
+                        "ad_id": pl_result.get("ad_id", ""),
+                        "bid_percentage": 2.0,
+                    }
+                else:
+                    promoted_listings = {
+                        "enabled": True,
+                        "status": "failed",
+                        "campaign_id": campaign_id,
+                        "warning": (
+                            f"Promoted Listings 追加失敗: {pl_result.get('error', '')}"
+                        ),
+                    }
+        except Exception as e:
+            logger.exception("Promoted Listings 自動付与でエラー")
+            promoted_listings = {
+                "enabled": True,
+                "status": "error",
+                "warning": f"Promoted Listings 例外: {e}",
+            }
+
     return JSONResponse(
         {
             "ok": True,
@@ -5636,6 +5695,7 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             ),
             "images_processed": len(eps_urls),
             "images_failed": images_failed,
+            "promoted_listings": promoted_listings,
         }
     )
 
