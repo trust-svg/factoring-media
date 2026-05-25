@@ -107,12 +107,18 @@ async def search_handler(request: web.Request):
     tasks = [_run_one(s, keyword, max_price_jpy, limit, junk_ok) for s in SCRAPERS]
     results = await asyncio.gather(*tasks)
 
-    # キーワード単語でタイトル関連性フィルタ（メーカー名・型番を含まない商品を弾く）
-    kw_tokens = [w.lower() for w in keyword.replace("-", " ").split() if len(w) >= 2]
+    # ブランド名 AND 型番の両方がタイトルに含まれるものだけ通す
+    # "TASCAM DA-3000" → tokens: ["tascam", "da-3000"]（ハイフン保持）
+    kw_tokens = [w.lower() for w in keyword.split() if len(w) >= 2]
 
     def _is_relevant(item: dict) -> bool:
         title = item.get("title", "").lower()
-        return any(tok in title for tok in kw_tokens)
+        title_flat = title.replace("-", "").replace(" ", "")
+        for tok in kw_tokens:
+            tok_flat = tok.replace("-", "")
+            if tok not in title and tok_flat not in title_flat:
+                return False
+        return True
 
     by_platform: dict = {}
     errors: dict = {}
