@@ -309,29 +309,31 @@ const SKILL_ROUTE: Record<string, string> = {
   flashcards: '/flashcards',
 }
 
-function skillCount(skill: string, minutes: number): number {
+// 実測ベースの所要時間（ユーザー別係数）
+const REAL_MINUTES_COEFF: Record<string, Record<string, number>> = {
+  Konomi:   { readingPerQ: 0.5, listeningPerQ: 1.1, writing: 6,  speaking: 2  },
+  Kurumi:   { readingPerQ: 0.5, listeningPerQ: 0.6, writing: 16, speaking: 1  },
+  _default: { readingPerQ: 2.0, listeningPerQ: 1.5, writing: 12, speaking: 7  },
+}
+
+// AI計画分数 → 実際の問題数（実測ペースで割る）
+function skillCount(skill: string, minutes: number, username?: string | null): number {
   if (skill === 'writing' || skill === 'speaking') return 1
-  if (skill === 'reading') return Math.max(3, Math.min(15, Math.floor(minutes / 3)))
-  if (skill === 'listening') return Math.max(3, Math.min(15, Math.floor(minutes / 2.5)))
+  const c = REAL_MINUTES_COEFF[username ?? ''] ?? REAL_MINUTES_COEFF._default
+  if (skill === 'reading')   return Math.max(3, Math.min(20, Math.round(minutes / c.readingPerQ)))
+  if (skill === 'listening') return Math.max(3, Math.min(20, Math.round(minutes / c.listeningPerQ)))
   return 5
 }
 
-// 実測ベースの所要時間（ユーザー別係数）
-const REAL_MINUTES_COEFF: Record<string, Record<string, number | 'fixed'>> = {
-  Konomi: { readingPerQ: 0.5, listeningPerQ: 1.1, writing: 6,  speaking: 2  },
-  Kurumi: { readingPerQ: 0.5, listeningPerQ: 0.6, writing: 16, speaking: 1  },
-  // デフォルト（未測定ユーザー）
-  _default: { readingPerQ: 2.0, listeningPerQ: 1.5, writing: 12, speaking: 7 },
-}
-
+// 問題数 × 実測係数 → 画面表示の予測時間
 function realMinutes(skill: string, minutes: number, username?: string | null): number {
   const c = REAL_MINUTES_COEFF[username ?? ''] ?? REAL_MINUTES_COEFF._default
-  if (skill === 'writing')    return c.writing as number
-  if (skill === 'speaking')   return c.speaking as number
+  if (skill === 'writing')    return c.writing
+  if (skill === 'speaking')   return c.speaking
   if (skill === 'flashcards') return Math.max(3, Math.round(minutes / 2))
-  const count = skillCount(skill, minutes)
-  if (skill === 'reading')   return Math.max(1, Math.round(count * (c.readingPerQ as number)))
-  if (skill === 'listening') return Math.max(1, Math.round(count * (c.listeningPerQ as number)))
+  const count = skillCount(skill, minutes, username)
+  if (skill === 'reading')   return Math.max(1, Math.round(count * c.readingPerQ))
+  if (skill === 'listening') return Math.max(1, Math.round(count * c.listeningPerQ))
   return Math.round(minutes / 2)
 }
 
@@ -597,9 +599,9 @@ export default function HomePage() {
     const route = SKILL_ROUTE[task.skill]
     if (!route) return
     if (task.skill === 'flashcards') { router.push(route); return }
-    const count = skillCount(task.skill, task.minutes)
+    const count = skillCount(task.skill, task.minutes, user?.username)
     router.push(`${route}?count=${count}`)
-  }, [router])
+  }, [router, user?.username])
 
   useEffect(() => {
     if (!loading && user && !user.exam_date && !hasRedirected.current) {
