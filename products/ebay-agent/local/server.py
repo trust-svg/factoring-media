@@ -40,15 +40,21 @@ SCRAPERS = [
 ]
 
 
+SCRAPER_TIMEOUT = int(os.getenv("SCRAPER_TIMEOUT", "80"))
+
+
 async def _run_one(
     scraper, keyword: str, max_price_jpy: int, limit: int, junk_ok: bool
 ):
     try:
-        results = await scraper.search(
-            keyword=keyword,
-            max_price_jpy=max_price_jpy,
-            junk_ok=junk_ok,
-            limit=limit,
+        results = await asyncio.wait_for(
+            scraper.search(
+                keyword=keyword,
+                max_price_jpy=max_price_jpy,
+                junk_ok=junk_ok,
+                limit=limit,
+            ),
+            timeout=SCRAPER_TIMEOUT,
         )
         return scraper.platform_name, [
             {
@@ -64,6 +70,11 @@ async def _run_one(
             }
             for r in results
         ]
+    except asyncio.TimeoutError:
+        logger.warning(
+            f"{scraper.platform_name} timed out after {SCRAPER_TIMEOUT}s — skipping"
+        )
+        return scraper.platform_name, {"error": f"timeout after {SCRAPER_TIMEOUT}s"}
     except Exception as e:
         logger.exception(f"{scraper.platform_name} search failed: {e}")
         return scraper.platform_name, {"error": str(e)}

@@ -1236,11 +1236,11 @@ async function _searchSourcingCandidates(itemId) {
   if (!resultEl) return;
 
   if (btn) { btn.disabled = true; btn.textContent = '検索中...'; }
-  resultEl.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 メルカリ・ヤフオク・Yahoo!フリマを検索中... (最大3分かかる場合があります)</div>';
+  resultEl.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">🔍 メルカリ・ヤフオク・Yahoo!フリマを検索中... (最大2分かかる場合があります)</div>';
 
   try {
     const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), 210_000);
+    const tid = setTimeout(() => controller.abort(), 130_000);
     const resp = await fetch('/api/listing-assistant/search-candidates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
