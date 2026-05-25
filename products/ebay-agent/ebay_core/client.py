@@ -1982,6 +1982,10 @@ def create_inventory_item(
         if vals:
             normalized_aspects[str(k).strip()] = vals
 
+    # eBay Sell Inventory API description 上限 4000 文字
+    raw_description = product.get("description", "") or ""
+    description = raw_description[:4000]
+
     body = {
         "availability": {
             "shipToLocationAvailability": {
@@ -1990,7 +1994,7 @@ def create_inventory_item(
         },
         "product": {
             "title": product.get("title", ""),
-            "description": product.get("description", ""),
+            "description": description,
             "aspects": normalized_aspects,
             "imageUrls": product.get("imageUrls", []),
         },
