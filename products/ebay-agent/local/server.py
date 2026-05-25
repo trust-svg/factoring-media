@@ -107,6 +107,13 @@ async def search_handler(request: web.Request):
     tasks = [_run_one(s, keyword, max_price_jpy, limit, junk_ok) for s in SCRAPERS]
     results = await asyncio.gather(*tasks)
 
+    # キーワード単語でタイトル関連性フィルタ（メーカー名・型番を含まない商品を弾く）
+    kw_tokens = [w.lower() for w in keyword.replace("-", " ").split() if len(w) >= 2]
+
+    def _is_relevant(item: dict) -> bool:
+        title = item.get("title", "").lower()
+        return any(tok in title for tok in kw_tokens)
+
     by_platform: dict = {}
     errors: dict = {}
     for name, res in results:
@@ -114,7 +121,12 @@ async def search_handler(request: web.Request):
             errors[name] = res["error"]
             by_platform[name] = []
         else:
-            by_platform[name] = res
+            filtered = [it for it in res if _is_relevant(it)]
+            if len(res) != len(filtered):
+                logger.info(
+                    f"[{name}] relevance filter: {len(res)}件 → {len(filtered)}件"
+                )
+            by_platform[name] = filtered
 
     all_items = []
     for items in by_platform.values():
