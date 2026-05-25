@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   apiEndSession,
   apiExplainJa,
@@ -68,6 +68,8 @@ async function playTTS(text: string, onEnd?: () => void): Promise<void> {
 
 export default function ListeningPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const questionCount = Math.max(3, Math.min(15, Number(searchParams.get('count')) || 5))
   const [questions, setQuestions] = useState<Question[]>([])
   const [index, setIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
@@ -92,7 +94,7 @@ export default function ListeningPage() {
   const audioCacheRef = useRef<Map<string, string>>(new Map())
 
   useEffect(() => {
-    Promise.all([apiStartSession('listening'), apiGetQuestions('listening', 5)])
+    Promise.all([apiStartSession('listening'), apiGetQuestions('listening', questionCount)])
       .then(async ([session, qs]) => {
         setSessionId(session.id)
         sessionIdRef.current = session.id
@@ -261,7 +263,7 @@ export default function ListeningPage() {
     latestRef.current = { correctCount: 0, attempted: 0 }
     wrongOnce.current = new Set()
     try {
-      const [session, qs] = await Promise.all([apiStartSession('listening'), apiGetQuestions('listening', 5)])
+      const [session, qs] = await Promise.all([apiStartSession('listening'), apiGetQuestions('listening', questionCount)])
       setSessionId(session.id)
       sessionIdRef.current = session.id
       if (qs.length > 0) {

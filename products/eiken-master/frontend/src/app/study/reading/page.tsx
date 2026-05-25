@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   apiCreateFlashcard,
   apiEndSession,
@@ -60,6 +60,8 @@ interface WordPopup {
 
 export default function ReadingPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const questionCount = Math.max(3, Math.min(15, Number(searchParams.get('count')) || 5))
   const [questions, setQuestions] = useState<Question[]>([])
   const [index, setIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
@@ -82,7 +84,7 @@ export default function ReadingPage() {
   const wrongOnce = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    Promise.all([apiStartSession('reading'), apiGetQuestions('reading', 5)])
+    Promise.all([apiStartSession('reading'), apiGetQuestions('reading', questionCount)])
       .then(async ([session, qs]) => {
         setSessionId(session.id)
         sessionIdRef.current = session.id
@@ -213,7 +215,7 @@ export default function ReadingPage() {
     latestRef.current = { correctCount: 0, attempted: 0 }
     wrongOnce.current = new Set()
     try {
-      const [session, qs] = await Promise.all([apiStartSession('reading'), apiGetQuestions('reading', 5)])
+      const [session, qs] = await Promise.all([apiStartSession('reading'), apiGetQuestions('reading', questionCount)])
       setSessionId(session.id)
       sessionIdRef.current = session.id
       if (qs.length > 0) {

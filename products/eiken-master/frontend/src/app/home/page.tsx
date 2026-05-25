@@ -306,11 +306,18 @@ const SKILL_ROUTE: Record<string, string> = {
   flashcards: '/flashcards',
 }
 
+function skillCount(skill: string, minutes: number): number {
+  if (skill === 'writing' || skill === 'speaking') return 1
+  if (skill === 'reading') return Math.max(3, Math.min(15, Math.floor(minutes / 3)))
+  if (skill === 'listening') return Math.max(3, Math.min(15, Math.floor(minutes / 2.5)))
+  return 5
+}
+
 function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTasks, advice, praise, weeklySessions }: {
   plan: DailyPlan
   onRefresh: () => void
   refreshing: boolean
-  onTaskClick: (skill: string) => void
+  onTaskClick: (task: DailyTask) => void
   completedTasks: Set<number>
   advice?: string | null
   praise?: string | null
@@ -396,7 +403,7 @@ function DailyPlanCard({ plan, onRefresh, refreshing, onTaskClick, completedTask
           return (
             <button
               key={i}
-              onClick={() => onTaskClick(task.skill)}
+              onClick={() => onTaskClick(task)}
               disabled={!hasRoute}
               className={`w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all active:scale-[0.98] disabled:cursor-default ${
                 done ? 'bg-emerald-50/80 border border-emerald-200/60' : 'bg-white/70 hover:bg-white'
@@ -563,9 +570,12 @@ export default function HomePage() {
     setCompletedTasks(loadCompletedTasks())
   }, [])
 
-  const handleTaskClick = useCallback((skill: string) => {
-    const route = SKILL_ROUTE[skill]
-    if (route) router.push(route)
+  const handleTaskClick = useCallback((task: DailyTask) => {
+    const route = SKILL_ROUTE[task.skill]
+    if (!route) return
+    if (task.skill === 'flashcards') { router.push(route); return }
+    const count = skillCount(task.skill, task.minutes)
+    router.push(`${route}?count=${count}`)
   }, [router])
 
   useEffect(() => {
@@ -879,11 +889,11 @@ export default function HomePage() {
               badge={dueCount ?? undefined}
             />
 
-            {/* Mock + vocabulary row */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Mock + vocabulary + tips row */}
+            <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => router.push('/mock-exam')}
-                className="card-premium rounded-3xl p-5 text-left animate-slide-up delay-500 min-h-[130px] flex flex-col"
+                className="card-premium rounded-3xl p-4 text-left animate-slide-up delay-500 min-h-[120px] flex flex-col"
                 style={{
                   background: 'linear-gradient(135deg, #111827, #1F2937, #374151)',
                   boxShadow: '0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)',
@@ -891,14 +901,14 @@ export default function HomePage() {
               >
                 <div className="text-3xl" style={{ animation: 'float-slow 6s ease-in-out infinite', animationDelay: '1s' }}>📝</div>
                 <div className="mt-auto">
-                  <p className="font-black text-white text-sm">模擬試験</p>
-                  <p className="text-gray-500 text-[10px] font-bold mt-0.5">4技能 · 本番形式</p>
+                  <p className="font-black text-white text-xs leading-tight">模擬試験</p>
+                  <p className="text-gray-500 text-[9px] font-bold mt-0.5">本番形式</p>
                 </div>
               </button>
 
               <button
                 onClick={() => router.push('/vocabulary')}
-                className="card-premium rounded-3xl p-5 text-left animate-slide-up delay-600 min-h-[130px] flex flex-col"
+                className="card-premium rounded-3xl p-4 text-left animate-slide-up delay-600 min-h-[120px] flex flex-col"
                 style={{
                   background: 'linear-gradient(135deg, #4C1D95, #6D28D9, #7C3AED)',
                   boxShadow: '0 4px 20px rgba(109,40,217,0.4), inset 0 1px 0 rgba(255,255,255,0.15)',
@@ -906,8 +916,23 @@ export default function HomePage() {
               >
                 <div className="text-3xl" style={{ animation: 'float-slow 7s ease-in-out infinite', animationDelay: '1.6s' }}>🔗</div>
                 <div className="mt-auto">
-                  <p className="font-black text-white text-sm">語彙ネット</p>
-                  <p className="text-purple-300 text-[10px] font-bold mt-0.5">語根クラスター</p>
+                  <p className="font-black text-white text-xs leading-tight">語彙ネット</p>
+                  <p className="text-purple-300 text-[9px] font-bold mt-0.5">語根クラスター</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/tips')}
+                className="card-premium rounded-3xl p-4 text-left animate-slide-up delay-700 min-h-[120px] flex flex-col"
+                style={{
+                  background: 'linear-gradient(135deg, #1E3A5F, #2D6A9F, #1E7FA0)',
+                  boxShadow: '0 4px 20px rgba(30,127,160,0.4), inset 0 1px 0 rgba(255,255,255,0.15)',
+                }}
+              >
+                <div className="text-3xl" style={{ animation: 'float-slow 5.5s ease-in-out infinite', animationDelay: '0.8s' }}>🦉</div>
+                <div className="mt-auto">
+                  <p className="font-black text-white text-xs leading-tight">合格テクニック</p>
+                  <p className="text-blue-300 text-[9px] font-bold mt-0.5">フクロウ博士</p>
                 </div>
               </button>
             </div>
