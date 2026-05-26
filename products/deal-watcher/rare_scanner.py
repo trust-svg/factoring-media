@@ -243,8 +243,9 @@ async def check_ebay_demand(title: str, hint_query: str) -> dict:
     try:
         search_fn = _import_ebay_search()
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None, lambda: search_fn(query=ebay_query, limit=20)
+        result = await asyncio.wait_for(
+            loop.run_in_executor(None, lambda: search_fn(query=ebay_query, limit=20)),
+            timeout=30,
         )
         items = result.get("items", []) if result else []
         prices = [
@@ -319,13 +320,16 @@ YES または NO で回答し、理由を15字以内で続けてください。
     try:
         client = anthropic.Anthropic()
         loop = asyncio.get_event_loop()
-        msg = await loop.run_in_executor(
-            None,
-            lambda: client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=60,
-                messages=[{"role": "user", "content": prompt}],
+        msg = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                lambda: client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=60,
+                    messages=[{"role": "user", "content": prompt}],
+                ),
             ),
+            timeout=30,
         )
         raw = msg.content[0].text.strip()
         approved = raw.upper().startswith("YES")
@@ -339,8 +343,8 @@ YES または NO で回答し、理由を15字以内で続けてください。
 # ── 30-min scanner ─────────────────────────────────────────
 
 
-async def scan_rare_items():
-    """Scan Yahoo Auctions + Mercari for one-of-a-kind items across all genres."""
+async def _scan_rare_items_inner():
+    """Inner scan logic. Called with a 20-min timeout by scan_rare_items()."""
     from scrapers.yahoo_auction import YahooAuctionScraper
     from scrapers.mercari import MercariScraper
 
@@ -483,6 +487,16 @@ async def scan_rare_items():
         await asyncio.sleep(1.5)
 
     logger.info(f"[rare_scan] complete: {found_count} new items")
+
+
+async def scan_rare_items():
+    """Entry point for APScheduler. Wraps inner scan with a 20-min hard timeout."""
+    try:
+        await asyncio.wait_for(_scan_rare_items_inner(), timeout=20 * 60)
+    except asyncio.TimeoutError:
+        logger.warning(
+            "[rare_scan] timed out after 20 min — aborting to unblock scheduler"
+        )
 
 
 async def _send_rare_notification(

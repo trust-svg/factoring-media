@@ -2154,7 +2154,9 @@ async def create_ebay_listing_from_rare_candidate(cid: str) -> dict:
         return {"status": "error", "message": "候補が見つかりません"}
 
     c = dict(row)
-    product_name = c["title"]
+    # Use English eBay query as product_name so research_agent finds real comps
+    product_name = c.get("ebay_query") or c["title"]
+    japanese_title = c["title"]
     purchase_price_jpy = c.get("price_jpy") or 0
     source_url = c["url"]
     source_platform = c.get("platform", "")
@@ -2172,6 +2174,15 @@ async def create_ebay_listing_from_rare_candidate(cid: str) -> dict:
             image_urls_list = detail.image_urls
             if detail.condition:
                 condition = detail.condition
+
+        # Prepend Japanese title + genre as context for listing_agent description
+        genre_label = c.get("genre", "")
+        jp_context = f"Original Japanese listing: {japanese_title}"
+        if genre_label:
+            jp_context += f"\nGenre/Category: {genre_label}"
+        description_jp = (
+            f"{jp_context}\n\n{description_jp}" if description_jp else jp_context
+        )
 
         # Step 1: Agent team (research + quality + pricing + listing)
         from agents import run_agent_team
@@ -2270,13 +2281,15 @@ async def create_ebay_listing_from_rare_candidate(cid: str) -> dict:
 
         dims = listing_data.get("dimensions_cm", {})
         listing_id = ""
-        for attempt in range(5):
+        listing_condition_id = 3000
+        _condition_fallbacks = [4000, 1000]
+        for attempt in range(6):
             result = add_fixed_price_item(
                 title=title,
                 description_html=description,
                 category_id=category_id or "38071",
                 price_usd=ebay_price,
-                condition_id=3000,
+                condition_id=listing_condition_id,
                 condition_description=CONDITION_DESCRIPTION,
                 image_urls=image_urls,
                 item_specifics=aspects,
@@ -2314,8 +2327,20 @@ async def create_ebay_listing_from_rare_candidate(cid: str) -> dict:
                     if f.strip() in aspects:
                         aspects[f.strip()] = [v[:65] for v in aspects[f.strip()]]
                 continue
-            if "category" in error_text.lower() and (
-                "invalid" in error_text.lower() or "not valid" in error_text.lower()
+            if "condition" in error_text.lower() and (
+                "does not exist" in error_text.lower()
+                or "not a valid condition" in error_text.lower()
+            ):
+                if _condition_fallbacks:
+                    listing_condition_id = _condition_fallbacks.pop(0)
+                    logger.info(f"Auto-fix: condition_id → {listing_condition_id}")
+                    continue
+            if (
+                "category" in error_text.lower()
+                and (
+                    "invalid" in error_text.lower() or "not valid" in error_text.lower()
+                )
+                and "condition" not in error_text.lower()
             ):
                 new_cat = suggest_category(title)
                 if new_cat and new_cat != category_id:
