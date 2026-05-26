@@ -370,7 +370,9 @@
     {
       "date": "2026-05-26",
       "slug": "factoring-hasan",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n1b96df0db29e",
+      "published_at": "2026-05-26"
     },
     {
       "date": "2026-05-27",
