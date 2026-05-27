@@ -5557,7 +5557,6 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             "Step 3 で leaf category の数値ID（例: 112529）を入力してください。",
         )
 
-    import uuid
     from ebay_core.client import (
         create_inventory_item,
         create_offer,
@@ -5567,7 +5566,9 @@ async def listing_assistant_submit_ebay_publish(request: Request):
     from listing.generator import DEFAULT_CONDITION_DESCRIPTION
     from listing.image_utils import whitebg_many
 
-    sku = stock_number or f"LA-{uuid.uuid4().hex[:8].upper()}"
+    # SKU 既定: roki + JST YYYYMMDDHHMM (Roki さん命名規約)
+    JST = timezone(timedelta(hours=9))
+    sku = stock_number or f"roki{datetime.now(JST).strftime('%Y%m%d%H%M')}"
 
     # フロントから description が再送される時点でテンプレ未置換だった場合に備えた safety net
     if ebay_title and description:
@@ -5619,13 +5620,31 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             500, inv_result.get("error", "Inventory item creation failed")
         )
 
+    # 仕入元がヤフオクの場合のみ M(YO) Speed Pak Expedited policy を使う
+    # (env var で上書き可。未設定なら create_offer() のデフォルト M Speed Pak Expedited)
+    source_platform = (product.get("platform") or "").strip()
+    source_url_for_detect = body.get("source_url") or product.get("product_url") or ""
+    if not source_platform and source_url_for_detect:
+        from scrapers.product_detail import _detect_platform
+
+        source_platform = _detect_platform(source_url_for_detect)
+    fulfillment_policy_id = ""
+    if source_platform == "ヤフオク":
+        fulfillment_policy_id = os.environ.get(
+            "YAHOO_FULFILLMENT_POLICY_ID", "250756481010"
+        )
+        logger.info(
+            f"仕入元=ヤフオク → fulfillment_policy_id={fulfillment_policy_id} "
+            "(M(YO) Speed Pak Expedited)"
+        )
+
     # 4) Create offer (draft)
     offer_result = create_offer(
         sku=sku,
         category_id=category_id,
         price_usd=price_usd,
         condition=condition,
-        fulfillment_policy_id="",
+        fulfillment_policy_id=fulfillment_policy_id,
         return_policy_id="",
         payment_policy_id="",
         listing_description=description,
