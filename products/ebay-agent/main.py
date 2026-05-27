@@ -5525,6 +5525,16 @@ async def listing_assistant_submit_ebay_publish(request: Request):
     price_usd = float(body.get("price_usd", 0))
     stock_number = body.get("stock_number", "")
 
+    # eBay title hard limit = 80 chars. AI が稀に超過するためサーバ側で語境界で安全網
+    if ebay_title and len(ebay_title) > 80:
+        original_len = len(ebay_title)
+        trimmed = ebay_title[:80].rstrip()
+        last_space = trimmed.rfind(" ")
+        if 60 <= last_space < 80:
+            trimmed = trimmed[:last_space].rstrip()
+        ebay_title = trimmed.rstrip(",.-:;")
+        logger.warning(f"ebay_title truncated: {original_len}→{len(ebay_title)} chars")
+
     image_urls = product.get("image_urls") or []
     if not image_urls and product.get("image_url"):
         image_urls = [product["image_url"]]
