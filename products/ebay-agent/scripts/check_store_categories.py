@@ -85,7 +85,12 @@ def _poll_command(offset: int) -> Optional[str]:
         for upd in result.get("result", []):
             offset = upd["update_id"] + 1
             text = upd.get("message", {}).get("text", "").strip()
-            if text:
+            lower = text.lower()
+            if (
+                lower in ("fix", "skip")
+                or lower.startswith("fix ")
+                or lower.startswith("new ")
+            ):
                 return text
     return None
 

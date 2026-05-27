@@ -2,13 +2,11 @@
 
 check_store_categories.py から import して使う。
 また CLI として直接実行することもできる:
-  python fix_store_categories.py fix-all path/to/state.json --bot-token TOKEN --chat-id ID
   python fix_store_categories.py new-section "Vintage Audio" item1,item2 --bot-token TOKEN --chat-id ID
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sys
@@ -118,11 +116,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="cmd")
 
-    p_fix = subparsers.add_parser("fix-all")
-    p_fix.add_argument("state_json")
-    p_fix.add_argument("--bot-token", required=True)
-    p_fix.add_argument("--chat-id", required=True)
-
     p_new = subparsers.add_parser("new-section")
     p_new.add_argument("section_name")
     p_new.add_argument("item_ids")
@@ -132,11 +125,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.cmd == "fix-all":
-        with open(args.state_json) as f:
-            state = json.load(f)
-        fix_all(state["mismatches"], args.bot_token, args.chat_id)
-    elif args.cmd == "new-section":
+    if args.cmd == "new-section":
         ids = [i.strip() for i in args.item_ids.split(",") if i.strip()]
         create_and_assign(
             args.section_name, ids, args.parent_id, args.bot_token, args.chat_id

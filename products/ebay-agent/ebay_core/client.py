@@ -2709,6 +2709,10 @@ def get_listings_store_info() -> list[StoreSectionListing]:
         root = ET.fromstring(resp.text)
         ack = root.findtext("e:Ack", namespaces=ns_map)
         if ack not in ("Success", "Warning"):
+            errs = root.findall(".//e:ShortMessage", namespaces=ns_map)
+            logger.error(
+                f"get_listings_store_info ack={ack}: {errs[0].text if errs else 'unknown error'}"
+            )
             break
 
         for item in root.findall(
@@ -2839,6 +2843,11 @@ def create_store_section(name: str, parent_id: Optional[str] = None) -> dict:
         new_id = root.findtext(
             ".//e:CustomCategory/e:CategoryID", "", namespaces=ns_map
         )
+        if not new_id:
+            return {
+                "success": False,
+                "error": "SetStoreCategories succeeded but no CategoryID returned",
+            }
         logger.info(f"create_store_section: '{name}' 作成完了 ID={new_id}")
         return {"success": True, "section_id": new_id}
 
