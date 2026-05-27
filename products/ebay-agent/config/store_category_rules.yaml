@@ -1,0 +1,50 @@
+# eBay ストアセクション↔キーワードのマッピング。
+# id: GetStore API で取得した実際の StoreCategoryID に書き換えること。
+# keywords: 小文字・スペース区切りで列挙。AND ではなく OR 判定。
+
+sections:
+  - id: "FILL_IN_FROM_GETSTORE"
+    name: "Watches"
+    keywords:
+      - watch
+      - seiko
+      - casio
+      - citizen
+      - orient
+      - g-shock
+      - timepiece
+      - wristwatch
+    subcategories:
+      - id: "FILL_IN_FROM_GETSTORE"
+        name: "Luxury Watches"
+        keywords:
+          - rolex
+          - omega
+          - patek
+          - cartier
+          - iwc
+          - grand seiko
+
+  - id: "FILL_IN_FROM_GETSTORE"
+    name: "Cameras"
+    keywords:
+      - camera
+      - nikon
+      - canon
+      - fuji
+      - fujifilm
+      - lens
+      - slr
+      - dslr
+      - mirrorless
+
+  - id: "FILL_IN_FROM_GETSTORE"
+    name: "Electronics"
+    keywords:
+      - amplifier
+      - turntable
+      - receiver
+      - headphone
+      - speaker
+      - audio
+      - vintage
