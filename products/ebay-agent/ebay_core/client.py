@@ -2584,3 +2584,269 @@ def _update_offer_price(sku: str, new_price: float, headers: dict) -> bool:
         timeout=15,
     )
     return resp.status_code in (200, 204)
+
+
+# ── ストアカテゴリー管理 ────────────────────────────────────
+
+
+@dataclass
+class StoreSection:
+    """eBay ストアセクション"""
+
+    section_id: str
+    name: str
+    parent_id: str = ""  # "" = トップレベル
+
+
+def get_store_sections() -> list[StoreSection]:
+    """Trading API (GetStore) で自社ストアのセクション一覧を取得する。"""
+    token = get_access_token()
+    ns = "urn:ebay:apis:eBLBaseComponents"
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetStoreRequest xmlns="{ns}">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <CategoryStructureOnly>true</CategoryStructureOnly>
+</GetStoreRequest>"""
+
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        data=xml_body.encode("utf-8"),
+        headers={
+            "X-EBAY-API-SITEID": "0",
+            "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-CALL-NAME": "GetStore",
+            "Content-Type": "text/xml;charset=utf-8",
+        },
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        logger.error(f"GetStore HTTP {resp.status_code}")
+        return []
+
+    ns_map = {"e": ns}
+    root = ET.fromstring(resp.text)
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack not in ("Success", "Warning"):
+        errs = root.findall(".//e:ShortMessage", namespaces=ns_map)
+        logger.error(f"GetStore: {errs[0].text if errs else 'unknown error'}")
+        return []
+
+    sections: list[StoreSection] = []
+
+    def _parse_categories(nodes, parent_id: str = "") -> None:
+        for cat in nodes:
+            cid = cat.findtext("e:CategoryID", "", namespaces=ns_map)
+            name = cat.findtext("e:Name", "", namespaces=ns_map)
+            if cid:
+                sections.append(
+                    StoreSection(section_id=cid, name=name, parent_id=parent_id)
+                )
+                children = cat.findall("e:ChildCategory", namespaces=ns_map)
+                if children:
+                    _parse_categories(children, parent_id=cid)
+
+    top_cats = root.findall(
+        ".//e:Store/e:CustomCategories/e:CustomCategory", namespaces=ns_map
+    )
+    _parse_categories(top_cats)
+    logger.info(f"GetStore: {len(sections)} セクション取得")
+    return sections
+
+
+@dataclass
+class StoreSectionListing:
+    """出品ID・タイトル・現在のストアセクションID のセット"""
+
+    item_id: str
+    title: str
+    store_section_id: str  # "" = 未割り当て
+
+
+def get_listings_store_info() -> list[StoreSectionListing]:
+    """Trading API (GetMyeBaySelling) でアクティブ出品のストアセクション情報を取得する。"""
+    token = get_access_token()
+    url = f"{EBAY_API_BASE}/ws/api.dll"
+    ns = "urn:ebay:apis:eBLBaseComponents"
+    ns_map = {"e": ns}
+    results: list[StoreSectionListing] = []
+    page = 1
+
+    while True:
+        xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="{ns}">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <ActiveList>
+        <Sort>TimeLeft</Sort>
+        <IncludeWatchCount>false</IncludeWatchCount>
+        <Pagination>
+            <EntriesPerPage>200</EntriesPerPage>
+            <PageNumber>{page}</PageNumber>
+        </Pagination>
+    </ActiveList>
+    <DetailLevel>ReturnAll</DetailLevel>
+</GetMyeBaySellingRequest>"""
+
+        resp = requests.post(
+            url,
+            data=xml_body.encode("utf-8"),
+            headers={
+                "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+                "X-EBAY-API-SITEID": "0",
+                "X-EBAY-API-IAF-TOKEN": token,
+                "Content-Type": "text/xml;charset=utf-8",
+            },
+            timeout=60,
+        )
+        if resp.status_code != 200:
+            logger.error(f"get_listings_store_info HTTP {resp.status_code}")
+            break
+
+        root = ET.fromstring(resp.text)
+        ack = root.findtext("e:Ack", namespaces=ns_map)
+        if ack not in ("Success", "Warning"):
+            break
+
+        for item in root.findall(
+            ".//e:ActiveList/e:ItemArray/e:Item", namespaces=ns_map
+        ):
+            item_id = item.findtext("e:ItemID", "", namespaces=ns_map)
+            title = item.findtext("e:Title", "", namespaces=ns_map)
+            store_cat_id = item.findtext(
+                "e:StoreFront/e:StoreCategoryID", "", namespaces=ns_map
+            )
+            if item_id:
+                results.append(
+                    StoreSectionListing(
+                        item_id=item_id,
+                        title=title,
+                        store_section_id=store_cat_id,
+                    )
+                )
+
+        total_pages = int(
+            root.findtext(
+                ".//e:ActiveList/e:PaginationResult/e:TotalNumberOfPages",
+                "1",
+                namespaces=ns_map,
+            )
+        )
+        if page >= total_pages:
+            break
+        page += 1
+
+    logger.info(f"get_listings_store_info: {len(results)} 件取得")
+    return results
+
+
+def revise_store_category(item_id: str, store_category_id: str) -> dict:
+    """Trading API (ReviseFixedPriceItem) で出品のストアセクションを変更する。"""
+    token = get_access_token()
+    ns = "urn:ebay:apis:eBLBaseComponents"
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="{ns}">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <Item>
+        <ItemID>{item_id}</ItemID>
+        <StoreFront>
+            <StoreCategoryID>{store_category_id}</StoreCategoryID>
+        </StoreFront>
+    </Item>
+</ReviseFixedPriceItemRequest>"""
+
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        data=xml_body.encode("utf-8"),
+        headers={
+            "X-EBAY-API-SITEID": "0",
+            "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+            "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+            "Content-Type": "text/xml;charset=utf-8",
+        },
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        return {"success": False, "error": f"HTTP {resp.status_code}"}
+
+    ns_map = {"e": ns}
+    root = ET.fromstring(resp.text)
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack in ("Success", "Warning"):
+        logger.info(
+            f"revise_store_category: ItemID={item_id} → section={store_category_id} ✓"
+        )
+        return {"success": True}
+
+    errs = root.findall("e:Errors", namespaces=ns_map)
+    msgs = [
+        er.findtext("e:LongMessage", "", namespaces=ns_map)
+        or er.findtext("e:ShortMessage", "", namespaces=ns_map)
+        for er in errs
+        if er.findtext("e:SeverityCode", "", namespaces=ns_map) == "Error"
+    ]
+    return {"success": False, "error": "; ".join(msgs) or "ReviseFixedPriceItem failed"}
+
+
+def create_store_section(name: str, parent_id: Optional[str] = None) -> dict:
+    """Trading API (SetStoreCategories) で新しいストアセクション（またはサブカテゴリー）を作成する。
+
+    Returns:
+        {"success": True, "section_id": "..."} or {"success": False, "error": "..."}
+    """
+    token = get_access_token()
+    ns = "urn:ebay:apis:eBLBaseComponents"
+    parent_xml = (
+        f"<ParentCategoryID>{parent_id}</ParentCategoryID>" if parent_id else ""
+    )
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<SetStoreCategoriesRequest xmlns="{ns}">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <Action>Add</Action>
+    <StoreCategories>
+        <CustomCategory>
+            <Name>{_xml_escape(name)}</Name>
+            {parent_xml}
+        </CustomCategory>
+    </StoreCategories>
+</SetStoreCategoriesRequest>"""
+
+    resp = requests.post(
+        f"{EBAY_API_BASE}/ws/api.dll",
+        data=xml_body.encode("utf-8"),
+        headers={
+            "X-EBAY-API-SITEID": "0",
+            "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-CALL-NAME": "SetStoreCategories",
+            "Content-Type": "text/xml;charset=utf-8",
+        },
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        return {"success": False, "error": f"HTTP {resp.status_code}"}
+
+    ns_map = {"e": ns}
+    root = ET.fromstring(resp.text)
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    if ack in ("Success", "Warning"):
+        new_id = root.findtext(
+            ".//e:CustomCategory/e:CategoryID", "", namespaces=ns_map
+        )
+        logger.info(f"create_store_section: '{name}' 作成完了 ID={new_id}")
+        return {"success": True, "section_id": new_id}
+
+    errs = root.findall("e:Errors", namespaces=ns_map)
+    msgs = [
+        er.findtext("e:LongMessage", "", namespaces=ns_map)
+        or er.findtext("e:ShortMessage", "", namespaces=ns_map)
+        for er in errs
+        if er.findtext("e:SeverityCode", "", namespaces=ns_map) == "Error"
+    ]
+    return {"success": False, "error": "; ".join(msgs) or "SetStoreCategories failed"}
