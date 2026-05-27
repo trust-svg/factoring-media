@@ -1,50 +1,590 @@
 # eBay ストアセクション↔キーワードのマッピング。
-# id: GetStore API で取得した実際の StoreCategoryID に書き換えること。
-# keywords: 小文字・スペース区切りで列挙。AND ではなく OR 判定。
+# keywords: 小文字。substring OR マッチ（kw in title.lower()）。サブカテゴリーが先評価。
+# GetStore 2026-05-27 時点のセクション構成を反映。
 
 sections:
-  - id: "FILL_IN_FROM_GETSTORE"
-    name: "Watches"
+  - id: "44507751016"
+    name: "Samurai Armor & Antiques"
     keywords:
-      - watch
-      - seiko
-      - casio
-      - citizen
-      - orient
-      - g-shock
-      - timepiece
-      - wristwatch
+      - samurai
+      - nihonto
+      - woodblock
+      - ukiyo-e
+      - netsuke
+      - inro
+      - cloisonne
+      - lacquerware
+      - imari
+      - arita
+      - satsuma
     subcategories:
-      - id: "FILL_IN_FROM_GETSTORE"
-        name: "Luxury Watches"
+      - id: "44508401016"
+        name: "Samurai Armor"
         keywords:
+          - samurai armor
+          - yoroi
+          - do-maru
+          - gusoku
+          - tameshi
+          - lamellar
+      - id: "44508402016"
+        name: "Menpo / Masks & Kabuto"
+        keywords:
+          - menpo
+          - mempo
+          - kabuto
+          - face guard
+          - samurai helmet
+          - samurai mask
+      - id: "44508403016"
+        name: "Tsuba & Sword Fittings"
+        keywords:
+          - tsuba
+          - fuchi
+          - kashira
+          - kozuka
+          - kogai
+          - menuki
+          - habaki
+          - koshirae
+          - sword guard
+          - sword fitting
+          - kodogu
+      - id: "44508404016"
+        name: "Other Antiques"
+        keywords:
+          - kanzashi
+          - japanese bronze
+          - japanese porcelain
+          - antique japanese
+          - meiji era
+          - edo era
+          - taisho era
+      - id: "44509638016"
+        name: "Traditional Instruments"
+        keywords:
+          - antique shamisen
+          - antique koto
+          - antique biwa
+
+  - id: "44508337016"
+    name: "Audio Equipment"
+    keywords:
+      - hi-fi
+      - hifi
+      - stereo
+      - audio equipment
+    subcategories:
+      - id: "44848028016"
+        name: "Digital Audio Players"
+        keywords:
+          - walkman
+          - mp3 player
+          - dap
+          - digital audio player
+          - portable player
+          - atrac
+      - id: "44675522016"
+        name: "Tape Decks"
+        keywords:
+          - tape deck
+          - cassette deck
+          - cassette recorder
+          - reel-to-reel
+          - open reel
+          - nakamichi
+      - id: "44605249016"
+        name: "Vintage Audio / Boomboxes"
+        keywords:
+          - boombox
+          - radio cassette
+          - ghetto blaster
+          - boom box
+      - id: "44608634016"
+        name: "Tuners"
+        keywords:
+          - fm tuner
+          - am tuner
+          - fm/am tuner
+          - radio tuner
+      - id: "44508405016"
+        name: "Amplifiers"
+        keywords:
+          - amplifier
+          - integrated amplifier
+          - power amplifier
+          - preamplifier
+          - preamp
+          - marantz pm
+          - sansui au
+          - luxman l-
+          - accuphase e-
+          - denon pma
+      - id: "44508406016"
+        name: "Turntables"
+        keywords:
+          - turntable
+          - record player
+          - direct drive
+          - belt drive
+          - tonearm
+          - technics sl-
+      - id: "44508407016"
+        name: "CD/MD/DAT Players"
+        keywords:
+          - cd player
+          - compact disc player
+          - minidisc player
+          - md player
+          - dat player
+          - portable cd
+      - id: "44508408016"
+        name: "Speakers"
+        keywords:
+          - loudspeaker
+          - bookshelf speaker
+          - floor standing speaker
+          - monitor speaker
+          - speaker system
+          - speaker pair
+      - id: "44508409016"
+        name: "Accessories"
+        keywords:
+          - phono stage
+          - audio cable
+          - interconnect
+          - speaker cable
+          - audio accessories
+      - id: "44509655016"
+        name: "Car Audio"
+        keywords:
+          - car audio
+          - car stereo
+          - car speaker
+          - car amplifier
+          - head unit
+          - in-dash
+      - id: "44509764016"
+        name: "Cartridges"
+        keywords:
+          - phono cartridge
+          - mm cartridge
+          - mc cartridge
+          - moving coil
+          - cartridge stylus
+          - at-vm
+          - at-oc
+          - ortofon mc
+          - ortofon 2m
+          - nagaoka mp
+
+  - id: "44508339016"
+    name: "Figures & Toys"
+    keywords:
+      - collectible toy
+      - hobby model
+    subcategories:
+      - id: "44508410016"
+        name: "Anime Figures"
+        keywords:
+          - anime figure
+          - nendoroid
+          - figma
+          - scale figure
+          - pvc figure
+          - garage kit
+          - good smile
+          - kotobukiya
+          - revoltech
+          - bandai figure
+      - id: "44508411016"
+        name: "Collectible Toys"
+        keywords:
+          - diecast
+          - die-cast
+          - vintage toy
+          - chogokin
+          - transformers
+          - tomica
+          - matchbox car
+          - hot wheels
+          - retro toy
+      - id: "44508412016"
+        name: "Plush & Dolls"
+        keywords:
+          - plush
+          - stuffed animal
+          - stuffed toy
+          - plushie
+          - teddy bear
+      - id: "44508413016"
+        name: "Model Kits"
+        keywords:
+          - model kit
+          - plastic model
+          - gunpla
+          - tamiya kit
+          - hasegawa kit
+          - fujimi kit
+          - aoshima kit
+          - bandai kit
+      - id: "44509648016"
+        name: "Game Accessories"
+        keywords:
+          - famicom
+          - super famicom
+          - gamepad
+          - game cartridge
+          - family computer
+          - retro game
+
+  - id: "44508340016"
+    name: "Luxury & Lifestyle"
+    keywords:
+      - luxury
+      - designer brand
+    subcategories:
+      - id: "44508414016"
+        name: "Watches & Clocks"
+        keywords:
+          - watch
+          - wristwatch
+          - timepiece
+          - chronograph
+          - automatic watch
+          - pocket watch
+          - wall clock
+          - mantel clock
+          - seiko
+          - citizen
+          - casio
+          - g-shock
+          - orient
+          - grand seiko
           - rolex
           - omega
-          - patek
-          - cartier
+          - tag heuer
+          - longines
+          - breitling
+          - hamilton
+          - tissot
+          - bulova
           - iwc
-          - grand seiko
+      - id: "44508415016"
+        name: "Fountain Pens & Stationery"
+        keywords:
+          - fountain pen
+          - ballpoint pen
+          - rollerball pen
+          - stationery
+          - parker pen
+          - pelikan pen
+          - montblanc pen
+          - sailor pen
+          - pilot pen
+          - platinum pen
+          - waterman pen
+          - cross pen
+      - id: "44508416016"
+        name: "Other Luxury Items"
+        keywords:
+          - leather bag
+          - leather wallet
+          - designer bag
+          - designer sunglasses
+          - luxury accessory
 
-  - id: "FILL_IN_FROM_GETSTORE"
-    name: "Cameras"
+  - id: "44508341016"
+    name: "Cameras & Lenses"
     keywords:
       - camera
-      - nikon
-      - canon
-      - fuji
-      - fujifilm
-      - lens
-      - slr
-      - dslr
-      - mirrorless
+      - photography
+    subcategories:
+      - id: "44508417016"
+        name: "SLR Cameras"
+        keywords:
+          - slr camera
+          - dslr camera
+          - 35mm slr
+          - film slr
+          - single lens reflex
+      - id: "44508418016"
+        name: "Medium Format Cameras"
+        keywords:
+          - medium format
+          - 6x6
+          - 6x7
+          - 6x9
+          - hasselblad
+          - mamiya rb
+          - mamiya rz
+          - pentax 67
+          - pentax 6x7
+          - bronica
+          - fuji gw
+      - id: "44508419016"
+        name: "Twin-Lens Reflex Cameras"
+        keywords:
+          - twin-lens
+          - twin lens
+          - tlr camera
+          - rolleiflex
+          - rolleicord
+          - yashica-mat
+          - lubitel
+      - id: "44508420016"
+        name: "Lenses"
+        keywords:
+          - nikkor
+          - super takumar
+          - summicron
+          - summilux
+          - planar lens
+          - distagon
+          - ultron
+          - nokton
+          - elmar
+          - hexanon
+          - rokkor
+          - zuiko lens
+          - leica lens
+      - id: "44508421016"
+        name: "Accessories"
+        keywords:
+          - camera filter
+          - uv filter
+          - polarizing filter
+          - camera flash
+          - lens hood
+          - camera bag
+          - camera strap
+          - extension tube
+          - bellows
+      - id: "44509827016"
+        name: "Binoculars & Scopes"
+        keywords:
+          - binoculars
+          - monocular
+          - spotting scope
+          - bird watching scope
 
-  - id: "FILL_IN_FROM_GETSTORE"
-    name: "Electronics"
+  - id: "44509639016"
+    name: "Musical Instruments"
     keywords:
-      - amplifier
-      - turntable
-      - receiver
-      - headphone
-      - speaker
-      - audio
-      - vintage
+      - instrument
+      - music gear
+    subcategories:
+      - id: "44870858016"
+        name: "Wind & Woodwind"
+        keywords:
+          - flute
+          - clarinet
+          - saxophone
+          - oboe
+          - bassoon
+          - woodwind
+      - id: "44871448016"
+        name: "Pianos, Keyboards & Organs"
+        keywords:
+          - piano
+          - keyboard instrument
+          - organ
+          - digital piano
+          - electric piano
+          - midi keyboard
+          - hammond
+      - id: "44862570016"
+        name: "Brass"
+        keywords:
+          - trumpet
+          - trombone
+          - tuba
+          - french horn
+          - flugelhorn
+          - cornet
+          - euphonium
+      - id: "44670713016"
+        name: "DJ Equipment"
+        keywords:
+          - cdj
+          - djm
+          - dj controller
+          - dj mixer
+          - xdj
+          - dj equipment
+      - id: "44578237016"
+        name: "Guitars & Basses"
+        keywords:
+          - guitar
+          - bass guitar
+          - acoustic guitar
+          - electric guitar
+          - stratocaster
+          - telecaster
+          - les paul
+          - fender guitar
+          - gibson guitar
+      - id: "44509640016"
+        name: "Traditional Instruments"
+        keywords:
+          - shamisen
+          - koto
+          - shakuhachi
+          - biwa
+          - sanshin
+          - tsugaru
+          - taiko drum
+      - id: "44509641016"
+        name: "Electronic Instruments"
+        keywords:
+          - drum machine
+          - sequencer
+          - eurorack
+          - effect pedal
+          - synthesizer module
+          - roland tr
+          - roland mc
+          - korg ms
+          - moog
+          - arturia
+      - id: "44509642016"
+        name: "Other Instruments"
+        keywords:
+          - violin
+          - cello
+          - viola
+          - banjo
+          - mandolin
+          - ukulele
+          - djembe
+          - cajon
+          - marimba
+          - xylophone
+      - id: "44509643016"
+        name: "Guitar & Bass Accessories"
+        keywords:
+          - guitar strap
+          - guitar cable
+          - guitar picks
+          - guitar strings
+          - guitar capo
+          - guitar case
+          - guitar stand
+      - id: "44509647016"
+        name: "Pro Audio Equipment"
+        keywords:
+          - microphone
+          - condenser mic
+          - studio monitor
+          - audio interface
+          - pa speaker
+          - mixing console
+
+  - id: "44509650016"
+    name: "Home & Kitchen"
+    keywords:
+      - kitchen
+      - cookware
+      - kitchenware
+      - household
+    subcategories:
+      - id: "44509651016"
+        name: "Cookware"
+        keywords:
+          - cooking pot
+          - frying pan
+          - wok
+          - dutch oven
+          - cast iron skillet
+          - nabe
+          - rice cooker
+          - pressure cooker
+          - staub
+          - le creuset
+      - id: "44509652016"
+        name: "Knives & Cutlery"
+        keywords:
+          - kitchen knife
+          - chef knife
+          - santoku
+          - nakiri
+          - yanagiba
+          - petty knife
+          - deba
+          - sujihiki
+          - bread knife
+          - masamoto
+          - global knife
+          - shun knife
+          - yoshihiro
+          - kasumi knife
+      - id: "44509653016"
+        name: "Other Kitchen Items"
+        keywords:
+          - bento box
+          - lunch box
+          - cutting board
+          - kitchen utensil
+          - chopsticks set
+          - bowl set
+          - plate set
+
+  - id: "44509768016"
+    name: "Fishing & Outdoor"
+    keywords:
+      - fishing
+      - fishing rod
+      - fishing reel
+      - tackle
+    subcategories:
+      - id: "44509769016"
+        name: "Lures"
+        keywords:
+          - fishing lure
+          - lure set
+          - spinner lure
+          - crankbait
+          - spinnerbait
+          - soft bait
+          - metal jig
+          - fly lure
+          - popper lure
+
+  - id: "44509779016"
+    name: "Music"
+    keywords:
+      - vinyl record
+      - vinyl lp
+      - lp record
+      - 7 inch vinyl
+      - 12 inch vinyl
+      - 45rpm
+      - 33rpm
+      - gatefold record
+    subcategories:
+      - id: "44509780016"
+        name: "Vinyl Records"
+        keywords:
+          - vinyl
+          - record album
+          - lp album
+          - audiophile record
+
+  - id: "44509781016"
+    name: "Movies & TV"
+    keywords:
+      - dvd movie
+      - movie collection
+    subcategories:
+      - id: "44509782016"
+        name: "Blu-ray / 4K UHD"
+        keywords:
+          - blu-ray
+          - bluray
+          - 4k uhd
+          - 4k blu-ray
+          - ultra hd
+
+  - id: "1"
+    name: "Other"
+    keywords: []
