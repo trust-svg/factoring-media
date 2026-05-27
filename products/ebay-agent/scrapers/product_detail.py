@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -28,6 +29,11 @@ from bs4 import BeautifulSoup
 from scrapers import HEADERS, parse_price
 
 logger = logging.getLogger(__name__)
+
+# Mac 経由で fetch するプロキシ URL（VPS から Yahoo Auction が EEA ブロックされる対策）
+# 設定時: POST {YAHOO_FETCH_PROXY_URL} {"url": ...} → {"status", "html", "final_url"}
+# 未設定時: 従来通り直接 requests.get で取得
+YAHOO_FETCH_PROXY_URL = os.environ.get("YAHOO_FETCH_PROXY_URL", "").strip()
 
 # ── コンディションマッピング ──────────────────────────────────────────────────
 
@@ -118,23 +124,67 @@ def _normalize_yahooauction_url(url: str) -> str:
     return url
 
 
+async def _fetch_yahoo_html_via_proxy(
+    norm_url: str,
+) -> tuple[Optional[str], Optional[str]]:
+    """Mac 経由で Yahoo Auction の HTML を取得。(html, error) を返す。
+
+    VPS の Contabo Asia IP は Yahoo に EEA 扱いで 403/欧州規制ページを返されるため、
+    Mac で動く local/server.py の /fetch_yahoo_html に proxy する。
+    """
+    try:
+        resp = await asyncio.to_thread(
+            requests.post,
+            YAHOO_FETCH_PROXY_URL,
+            json={"url": norm_url, "timeout": 15},
+            timeout=25,
+        )
+    except Exception as e:
+        return None, f"proxy リクエスト失敗: {e}"
+
+    if resp.status_code != 200:
+        return None, f"proxy エラー: HTTP {resp.status_code} {resp.text[:200]}"
+
+    try:
+        data = resp.json()
+    except Exception as e:
+        return None, f"proxy レスポンスパース失敗: {e}"
+
+    upstream_status = data.get("status")
+    html = data.get("html") or ""
+    if upstream_status and int(upstream_status) >= 400:
+        return None, f"Yahoo HTTP {upstream_status}"
+    if not html:
+        return None, "proxy returned empty HTML"
+    return html, None
+
+
 async def _fetch_yahooauction(url: str) -> dict:
     """ヤフオク単品スクレイパー (requests + BeautifulSoup)。"""
     platform = "ヤフオク"
     norm_url = _normalize_yahooauction_url(url)
     result = _empty_result(norm_url, platform)
 
-    try:
-        resp = await asyncio.to_thread(
-            requests.get, norm_url, headers=HEADERS, timeout=15
-        )
-        resp.raise_for_status()
-    except Exception as e:
-        result["error"] = f"リクエスト失敗: {e}"
-        return result
+    html_text: Optional[str] = None
+    if YAHOO_FETCH_PROXY_URL:
+        logger.info(f"[ヤフオク] proxy 経由で取得: {YAHOO_FETCH_PROXY_URL}")
+        html_text, err = await _fetch_yahoo_html_via_proxy(norm_url)
+        if err:
+            logger.warning(f"[ヤフオク] proxy 失敗、直接 fetch にフォールバック: {err}")
+
+    if html_text is None:
+        try:
+            resp = await asyncio.to_thread(
+                requests.get, norm_url, headers=HEADERS, timeout=15
+            )
+            resp.raise_for_status()
+            html_text = resp.text
+        except Exception as e:
+            result["error"] = f"リクエスト失敗: {e}"
+            return result
 
     try:
-        soup = BeautifulSoup(resp.text, "html.parser")
+        soup = BeautifulSoup(html_text, "html.parser")
 
         # タイトル
         h1 = soup.find("h1", class_="ProductTitle__text")

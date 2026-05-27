@@ -1,10 +1,17 @@
 """ebay-agent ローカル検索サーバ — port 5759
 
-VPS の listing-assistant 再仕入れ候補から呼ばれる。
+VPS の listing-assistant 再仕入れ候補 / 単品URL取り込みから呼ばれる。
 ebay-inventory-tool/scrapers を流用してメルカリ・ヤフオク・Yahoo!フリマを並列検索。
 
 VPS の IP は各フリマからブロックされているため、ローカルMacで実行する必要がある。
+特にヤフオクは Contabo Asia の IP を EEA とご認識して 403/欧州規制ページを返す。
+
 deal-watcher の autossh tunnel (port 5759) 経由で VPS から呼び出される。
+
+提供エンドポイント:
+    POST /search              — キーワード検索（複数プラットフォーム横断）
+    POST /fetch_yahoo_html    — ヤフオク単品URLの生HTML取得（VPS側で BS4 パース）
+    GET  /health              — ヘルスチェック
 
 起動:
     /Users/Mac_air/Claude-Workspace/products/ebay-inventory-tool/.venv/bin/python \\
@@ -16,9 +23,11 @@ launchd plist: com.trustlink.ebay-agent-local.plist
 import asyncio
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 
+import requests
 from aiohttp import web
 
 EIT_DIR = Path("/Users/Mac_air/Claude-Workspace/products/ebay-inventory-tool")
@@ -40,7 +49,7 @@ SCRAPERS = [
 ]
 
 
-SCRAPER_TIMEOUT = int(os.getenv("SCRAPER_TIMEOUT", "80"))
+SCRAPER_TIMEOUT = int(os.getenv("SCRAPER_TIMEOUT", "35"))
 
 
 async def _run_one(
@@ -104,17 +113,33 @@ async def search_handler(request: web.Request):
         f"search: keyword='{keyword}' max_price=¥{max_price_jpy:,} limit={limit} junk_ok={junk_ok}"
     )
 
-    tasks = [_run_one(s, keyword, max_price_jpy, limit, junk_ok) for s in SCRAPERS]
-    results = await asyncio.gather(*tasks)
+    # Playwright scrapers (メルカリ・Yahoo!フリマ) を並列起動するとlaunchd環境で
+    # Chromiumリソース競合 → 30s内部タイムアウト発火。逐次実行で安定化。
+    results = []
+    for s in SCRAPERS:
+        results.append(await _run_one(s, keyword, max_price_jpy, limit, junk_ok))
 
-    # ブランド名 AND 型番の両方がタイトルに含まれるものだけ通す
-    # "TASCAM DA-3000" → tokens: ["tascam", "da-3000"]（ハイフン保持）
+    # 型番トークン（数字またはハイフンを含む）のみタイトル一致を必須とする。
+    # ブランド名は日本語表記（パイオニア等）が多いため除外。
+    # "Pioneer CDJ-900" → filter_tokens: ["cdj-900"]
+    # "TASCAM DA-3000"  → filter_tokens: ["da-3000"]
+    # "Pioneer XDJ-RX"  → filter_tokens: ["xdj-rx"]  (ハイフンあり)
+    # "Pioneer A-717"   → filter_tokens: ["a-717"]
     kw_tokens = [w.lower() for w in keyword.split() if len(w) >= 2]
+
+    def _has_model_chars(tok: str) -> bool:
+        return any(c.isdigit() or c == "-" for c in tok)
+
+    model_tokens = [t for t in kw_tokens if _has_model_chars(t)]
+    filter_tokens = model_tokens if model_tokens else kw_tokens
+    logger.info(
+        f"relevance filter tokens: {filter_tokens} (from kw_tokens: {kw_tokens})"
+    )
 
     def _is_relevant(item: dict) -> bool:
         title = item.get("title", "").lower()
         title_flat = title.replace("-", "").replace(" ", "")
-        for tok in kw_tokens:
+        for tok in filter_tokens:
             tok_flat = tok.replace("-", "")
             if tok not in title and tok_flat not in title_flat:
                 return False
@@ -127,7 +152,12 @@ async def search_handler(request: web.Request):
             errors[name] = res["error"]
             by_platform[name] = []
         else:
-            filtered = [it for it in res if _is_relevant(it)]
+            filtered = []
+            for it in res:
+                if _is_relevant(it):
+                    filtered.append(it)
+                else:
+                    logger.info(f"[{name}] filtered out: {it.get('title', '')!r}")
             if len(res) != len(filtered):
                 logger.info(
                     f"[{name}] relevance filter: {len(res)}件 → {len(filtered)}件"
@@ -150,11 +180,80 @@ async def search_handler(request: web.Request):
     )
 
 
+_YAHOO_AUCTION_URL_RE = re.compile(
+    r"^https?://(page\.auctions|auctions)\.yahoo\.co\.jp/", re.I
+)
+
+_YAHOO_FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/130.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Referer": "https://auctions.yahoo.co.jp/",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+
+async def fetch_yahoo_html_handler(request: web.Request):
+    """ヤフオク単品URLを Mac IP 経由で取得し、生HTMLを返す。
+
+    VPS の Contabo IP は Yahoo に EEA 扱いで弾かれるため、Mac 経由で fetch して
+    HTML だけ返し、パースは VPS 側の scrapers/product_detail.py に任せる。
+
+    Request JSON: {"url": "https://page.auctions.yahoo.co.jp/jp/auction/xxx"}
+    Response JSON: {"status": 200, "html": "...", "final_url": "...", "headers": {...}}
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid JSON"}, status=400)
+
+    url = (body.get("url") or "").strip()
+    if not url:
+        return web.json_response({"error": "url is required"}, status=400)
+    if not _YAHOO_AUCTION_URL_RE.match(url):
+        return web.json_response(
+            {"error": "only Yahoo Auction URLs are allowed"}, status=400
+        )
+
+    timeout = int(body.get("timeout", 15))
+    logger.info(f"fetch_yahoo_html: {url}")
+
+    try:
+        resp = await asyncio.to_thread(
+            requests.get,
+            url,
+            headers=_YAHOO_FETCH_HEADERS,
+            timeout=timeout,
+            allow_redirects=True,
+        )
+    except Exception as e:
+        logger.warning(f"fetch_yahoo_html: 取得失敗 {url} — {e}")
+        return web.json_response({"error": f"fetch failed: {e}"}, status=502)
+
+    return web.json_response(
+        {
+            "status": resp.status_code,
+            "html": resp.text,
+            "final_url": resp.url,
+            "encoding": resp.encoding,
+        }
+    )
+
+
 async def health_handler(request: web.Request):
     return web.json_response(
         {
             "ok": True,
             "platforms": [s.platform_name for s in SCRAPERS],
+            "endpoints": ["/search", "/fetch_yahoo_html", "/health"],
         }
     )
 
@@ -162,6 +261,7 @@ async def health_handler(request: web.Request):
 def create_app() -> web.Application:
     app = web.Application(client_max_size=2 * 1024 * 1024)
     app.router.add_post("/search", search_handler)
+    app.router.add_post("/fetch_yahoo_html", fetch_yahoo_html_handler)
     app.router.add_get("/health", health_handler)
     return app
 
