@@ -78,10 +78,15 @@ def _poll_command(offset: int) -> Optional[str]:
     """
     deadline = time.time() + POLL_TIMEOUT_SEC
     while time.time() < deadline:
-        result = _tg_post(
-            "getUpdates",
-            {"offset": offset, "timeout": POLL_INTERVAL_SEC, "limit": 10},
-        )
+        try:
+            result = _tg_post(
+                "getUpdates",
+                {"offset": offset, "timeout": POLL_INTERVAL_SEC, "limit": 10},
+            )
+        except Exception as e:
+            logger.warning(f"getUpdates 一時エラー、リトライ: {e}")
+            time.sleep(5)
+            continue
         for upd in result.get("result", []):
             offset = upd["update_id"] + 1
             text = upd.get("message", {}).get("text", "").strip()
