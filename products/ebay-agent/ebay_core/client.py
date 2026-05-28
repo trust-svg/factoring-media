@@ -1986,7 +1986,12 @@ def get_category_aspects(category_id: str) -> dict:
     for aspect in data.get("aspects", []):
         name = aspect.get("localizedAspectName", "")
         constraint = aspect.get("aspectConstraint", {})
-        mode = constraint.get("aspectUsage", "RECOMMENDED")
+        # 真の必須判定は aspectRequired (boolean)。aspectUsage は "RECOMMENDED" でも
+        # 実際は publish_offer が弾くケースがある（例: cat 183455 Game）。
+        # aspectRequired を優先し、後方互換で aspectUsage=="REQUIRED" も拾う。
+        is_required = bool(constraint.get("aspectRequired", False)) or (
+            constraint.get("aspectUsage") == "REQUIRED"
+        )
         values = [
             v.get("localizedValue", "") for v in aspect.get("aspectValues", [])[:20]
         ]
@@ -1996,7 +2001,7 @@ def get_category_aspects(category_id: str) -> dict:
             "data_type": constraint.get("aspectDataType", "STRING"),
         }
 
-        if mode == "REQUIRED":
+        if is_required:
             required.append(entry)
         else:
             recommended.append(entry)
