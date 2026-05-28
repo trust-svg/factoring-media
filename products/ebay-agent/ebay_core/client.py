@@ -2032,18 +2032,40 @@ def create_inventory_item(
     headers = _auth_headers()
     url = f"{EBAY_API_BASE}/sell/inventory/v1/inventory_item/{quote(sku, safe='')}"
 
+    # eBay item_specifics は 1値あたり最大65文字。カンマ区切りで列挙された
+    # 長い値は配列に分解する (例: "Sailor Moon, Sailor Mercury, ..." →
+    # ["Sailor Moon", "Sailor Mercury", ...])。
+    def _normalize_aspect_values(raw_vals: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in raw_vals:
+            s = str(raw).strip()
+            if not s:
+                continue
+            # 65字以下ならそのまま、超過時はカンマ分解を試みる
+            pieces = [s] if len(s) <= 65 else [p.strip() for p in s.split(",")]
+            for p in pieces:
+                if not p:
+                    continue
+                # 分解後もなお長すぎる場合は仕方なく truncate
+                p65 = p[:65]
+                if p65 not in seen:
+                    seen.add(p65)
+                    out.append(p65)
+        return out[:30]  # eBay は 1 aspect あたり最大 ~30 値
+
     raw_aspects = product.get("aspects", {}) or {}
     normalized_aspects: dict[str, list[str]] = {}
     for k, v in raw_aspects.items():
         if not k:
             continue
         if isinstance(v, list):
-            vals = [str(x).strip() for x in v if str(x).strip()]
+            raw_vals = v
         else:
-            vs = str(v).strip()
-            vals = [vs] if vs else []
+            raw_vals = [v]
+        vals = _normalize_aspect_values(raw_vals)
         if vals:
-            normalized_aspects[str(k).strip()] = vals
+            normalized_aspects[str(k).strip()[:40]] = vals
 
     # eBay Sell Inventory API description 上限 4000 "characters" だが、
     # 実体は UTF-8 byte 換算で弾かれることがある（日本語混じり HTML で頻発）。
