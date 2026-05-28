@@ -19,18 +19,23 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -euo pipefail
             cd /opt/apps/claude-workspace
-            git remote set-url origin https://github.com/trust-svg/factoring-media.git
+            # VPS origin must stay trust-svg/Claude-Workspace.git.
+            # (A prior version repointed it to factoring-media and reset --hard,
+            #  which would roll the VPS back to a stale master — never again.)
+            git remote -v | grep -q 'Claude-Workspace' \
+              || { echo "ERROR: origin is not Claude-Workspace.git — aborting"; exit 1; }
             git fetch origin master
-            git reset --hard origin/master
+            # ff-only: never reset --hard, so VPS-local untracked files
+            # (docker-compose.yml / .env / data/) are preserved and a diverged
+            # history fails loudly instead of silently rolling back.
+            git merge --ff-only origin/master
             echo "=== git log ==="
             git log --oneline -3
-            echo "=== new HTML check ==="
-            grep -c "top-row\|ac blue" products/ebay-agent/templates/pages/overview.html || echo "NOT FOUND"
             cd products/ebay-agent
-            docker compose down
-            docker compose build --no-cache
-            docker compose up -d
+            # Code is baked into the image (not volume-mounted) → --build required.
+            docker compose up -d --build --force-recreate --no-deps ebay-agent
             echo "=== container status ==="
             docker compose ps
             echo "Deploy done: ${{ github.event.inputs.message }}"
