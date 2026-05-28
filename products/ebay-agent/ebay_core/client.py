@@ -2169,12 +2169,15 @@ def publish_offer(offer_id: str) -> dict:
 
 def list_ad_campaigns(
     marketplace: str = "EBAY_US",
-    status: str = "ACTIVE",
+    status: str = "RUNNING",
 ) -> list[dict]:
     """Sell Marketing API で広告キャンペーン一覧を取得する。
 
     返値: [{"campaignId": str, "campaignName": str, "marketplaceId": str,
             "campaignStatus": str, "fundingStrategy": {...}}, ...]
+
+    注意: eBay の campaignStatus 列挙は RUNNING / PAUSED / ENDED / DRAFT /
+    SCHEDULED / ENDED_PENDING。"ACTIVE" は無効値で API 400 になる。
     """
     headers = _auth_headers()
     params = {"marketplace_id": marketplace}
@@ -2189,19 +2192,19 @@ def list_ad_campaigns(
 
 
 def find_general_campaign_id(marketplace: str = "EBAY_US") -> str:
-    """Promoted Listings Standard (General / COST_PER_SALE) の ACTIVE
+    """Promoted Listings Standard (General / COST_PER_SALE) の RUNNING
     キャンペーンID を 1 件返す。
 
     優先順位:
       1. 環境変数 EBAY_PROMOTED_GENERAL_CAMPAIGN_ID
-      2. ACTIVE かつ fundingStrategy.fundingModel == "COST_PER_SALE" の最初の1件
+      2. RUNNING かつ fundingStrategy.fundingModel == "COST_PER_SALE" の最初の1件
     見つからなければ空文字。
     """
     forced = os.environ.get("EBAY_PROMOTED_GENERAL_CAMPAIGN_ID", "").strip()
     if forced:
         return forced
 
-    campaigns = list_ad_campaigns(marketplace=marketplace, status="ACTIVE")
+    campaigns = list_ad_campaigns(marketplace=marketplace, status="RUNNING")
     for c in campaigns:
         if c.get("marketplaceId") != marketplace:
             continue
