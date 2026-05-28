@@ -778,7 +778,7 @@ async function submitListing() {
     try {
       const r2 = await apiPost('/api/listing-assistant/submit/eship', { ...payload, ebay_item_id: ebayItemId });
       if (r2.ok) {
-        setProgressState('eship', 'success', '登録完了 (ItemID紐付け済み)', 'https://eship-tool.com/orders');
+        setProgressState('eship', 'success', '登録完了 (ItemID紐付け済み)', 'https://eship-tool.com/inventories');
       } else {
         const e2 = await safeJson(r2);
         setProgressState('eship', 'error', '登録失敗: ' + (e2.detail || r2.statusText));
