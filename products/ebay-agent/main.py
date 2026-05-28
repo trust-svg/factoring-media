@@ -5677,6 +5677,14 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             "Step 3 で手動追加するか、生成し直してください。",
         )
 
+    # publish_offer は condition がカテゴリ非対応だと errorId 25021 で失敗する。
+    # 例: 書籍カテゴリは USED_EXCELLENT(3000) 不可 → USED_VERY_GOOD(4000) に補正。
+    from ebay_core.client import coerce_condition_for_category
+
+    condition = await asyncio.to_thread(
+        coerce_condition_for_category, condition, category_id
+    )
+
     from ebay_core.client import (
         create_inventory_item,
         create_offer,

@@ -2016,6 +2016,107 @@ def get_category_aspects(category_id: str) -> dict:
     }
 
 
+# eBay Inventory API condition enum ↔ conditionId の対応（カテゴリ非依存で安定）
+CONDITION_ENUM_TO_ID = {
+    "NEW": "1000",
+    "LIKE_NEW": "2750",
+    "NEW_OTHER": "1500",
+    "NEW_WITH_DEFECTS": "1750",
+    "CERTIFIED_REFURBISHED": "2000",
+    "EXCELLENT_REFURBISHED": "2010",
+    "VERY_GOOD_REFURBISHED": "2020",
+    "GOOD_REFURBISHED": "2030",
+    "SELLER_REFURBISHED": "2500",
+    "USED_EXCELLENT": "3000",
+    "USED_VERY_GOOD": "4000",
+    "USED_GOOD": "5000",
+    "USED_ACCEPTABLE": "6000",
+    "FOR_PARTS_OR_NOT_WORKING": "7000",
+}
+ID_TO_CONDITION_ENUM = {v: k for k, v in CONDITION_ENUM_TO_ID.items()}
+
+# 要求 condition_id がカテゴリで無効な場合の代替候補（品質が近い順）。
+# 例: 書籍カテゴリは generic な Used(3000) を許容せず、Very Good(4000) 等の
+# メディア系条件のみ。USED_EXCELLENT(3000) → USED_VERY_GOOD(4000) に補正する。
+CONDITION_FALLBACKS = {
+    "1000": ["1000", "1500", "2750"],
+    "1500": ["1500", "1000", "2750"],
+    "1750": ["1750", "1500", "2750"],
+    "2000": ["2000", "2500", "2750"],
+    "2500": ["2500", "2000", "2750"],
+    "2750": ["2750", "4000", "3000", "5000"],
+    "3000": ["3000", "4000", "2750", "5000", "6000"],
+    "4000": ["4000", "2750", "5000", "3000", "6000"],
+    "5000": ["5000", "6000", "4000", "3000"],
+    "6000": ["6000", "5000", "4000", "3000"],
+    "7000": ["7000", "6000"],
+}
+
+
+def get_item_condition_ids(category_id: str) -> list[str]:
+    """カテゴリで許容される conditionId のリストを返す。
+
+    取得失敗時は空リスト（=制約不明としてそのまま通す扱い）。
+    """
+    headers = _auth_headers()
+    url = (
+        f"{EBAY_API_BASE}/sell/metadata/v1/marketplace/EBAY_US"
+        f"/get_item_condition_policies?filter=categoryIds:{{{category_id}}}"
+    )
+    try:
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            logger.warning(
+                f"condition policies API: {resp.status_code} {resp.text[:200]}"
+            )
+            return []
+        data = resp.json()
+        ids: list[str] = []
+        for p in data.get("itemConditionPolicies", []):
+            for c in p.get("itemConditions", []):
+                cid = str(c.get("conditionId", "")).strip()
+                if cid:
+                    ids.append(cid)
+        return ids
+    except Exception as e:
+        logger.warning(f"condition policies 取得失敗: {e}")
+        return []
+
+
+def coerce_condition_for_category(condition: str, category_id: str) -> str:
+    """要求 condition enum がカテゴリで無効なら、最も近い許容 condition に変換する。
+
+    errorId 25021 (condition invalid for category) の予防。
+    取得失敗・未知 enum・既に許容済みのいずれかなら元の値を返す。
+    """
+    if not condition or not category_id:
+        return condition
+    req_id = CONDITION_ENUM_TO_ID.get(condition)
+    if not req_id:
+        return condition
+    allowed = get_item_condition_ids(category_id)
+    if not allowed:
+        return condition
+    if req_id in allowed:
+        return condition
+    for cand_id in CONDITION_FALLBACKS.get(req_id, [req_id]):
+        if cand_id in allowed:
+            new_enum = ID_TO_CONDITION_ENUM.get(cand_id)
+            if new_enum:
+                logger.info(
+                    f"condition coerced: {condition}({req_id}) → "
+                    f"{new_enum}({cand_id}) for cat {category_id} (allowed={allowed})"
+                )
+                return new_enum
+    fallback_id = allowed[0]
+    new_enum = ID_TO_CONDITION_ENUM.get(fallback_id, condition)
+    logger.warning(
+        f"condition coerce 候補全滅 → 許容先頭 {new_enum}({fallback_id}) "
+        f"for cat {category_id} (allowed={allowed})"
+    )
+    return new_enum
+
+
 # ── 新規出品 (Inventory API) ─────────────────────────────
 
 
