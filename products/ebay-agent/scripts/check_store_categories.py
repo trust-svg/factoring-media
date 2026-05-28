@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 RULES_PATH = Path(__file__).parent.parent / "config" / "store_category_rules.yaml"
 JST = timezone(timedelta(hours=9))
-POLL_TIMEOUT_SEC = 300
+POLL_TIMEOUT_SEC = 1800  # 30分
 POLL_INTERVAL_SEC = 8
 
 
