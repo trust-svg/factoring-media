@@ -5512,6 +5512,114 @@ async def listing_assistant_submit_eship(request: Request):
         raise HTTPException(500, str(e))
 
 
+async def _autofill_required_aspects(
+    item_specifics: dict,
+    category_id: str,
+    title: str,
+) -> tuple[dict, list[str]]:
+    """カテゴリ必須 aspects と AI 生成 item_specifics を突き合わせ、不足を Haiku で補完する。
+
+    eBay は category ごとに REQUIRED aspect が決まっているが、出品生成 AI は
+    そのリストを知らないまま specs を作るため、publish_offer が errorId 25002
+    で弾かれるケースが頻発する。本関数は publish 直前にギャップを埋める安全網。
+
+    Returns: (補完後 item_specifics, 補完できなかった必須 aspect 名のリスト)
+    """
+    import asyncio
+    import json
+    import anthropic
+
+    from ebay_core.client import get_category_aspects
+
+    try:
+        cat_aspects = await asyncio.to_thread(get_category_aspects, category_id)
+    except Exception as e:
+        logger.warning(f"[autofill] get_category_aspects 失敗 → スキップ: {e}")
+        return item_specifics, []
+
+    required = cat_aspects.get("required", []) or []
+    if not required:
+        return item_specifics, []
+
+    present_lower = {str(k).strip().lower() for k in (item_specifics or {}).keys()}
+    missing = [a for a in required if a.get("name", "").lower() not in present_lower]
+    if not missing:
+        return item_specifics, []
+
+    missing_names = [a["name"] for a in missing]
+    logger.info(f"[autofill] 必須aspect不足: {missing_names} (cat={category_id})")
+
+    # Haiku に補完候補を作らせる。allowed values があれば優先採用、なければ自由入力
+    lines = []
+    for a in missing:
+        vals = a.get("values", [])[:15]
+        dt = a.get("data_type", "STRING")
+        if vals:
+            lines.append(f"- {a['name']} (type={dt}, allowed: {vals})")
+        else:
+            lines.append(f"- {a['name']} (type={dt}, free text)")
+    prompt = (
+        "You are filling required eBay item aspects from the listing title.\n"
+        f"Title: {title}\n"
+        f"Existing aspects: {item_specifics}\n"
+        "Required aspects to fill (use allowed values when available, else infer "
+        "from title):\n" + "\n".join(lines) + "\n\n"
+        'Return JSON only: {"AspectName": "value"} — for STRING_ARRAY use '
+        '["v1", "v2"]. Skip any aspect you cannot confidently infer.'
+    )
+
+    def _call() -> str:
+        client = anthropic.Anthropic()
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=400,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return msg.content[0].text.strip()
+
+    try:
+        raw = await asyncio.wait_for(asyncio.to_thread(_call), timeout=15.0)
+    except Exception as e:
+        logger.warning(f"[autofill] Haiku 呼び出し失敗 → 補完スキップ: {e}")
+        return item_specifics, missing_names
+
+    # ```json ... ``` を剥がして JSON parse
+    s = raw.strip()
+    if s.startswith("```"):
+        s = s.split("\n", 1)[1] if "\n" in s else s
+        if s.endswith("```"):
+            s = s.rsplit("```", 1)[0]
+        s = s.strip()
+        if s.startswith("json"):
+            s = s[4:].strip()
+    try:
+        filled = json.loads(s)
+    except Exception as e:
+        logger.warning(f"[autofill] Haiku 応答 JSON parse 失敗: {e} raw={raw!r}")
+        return item_specifics, missing_names
+
+    if not isinstance(filled, dict):
+        return item_specifics, missing_names
+
+    merged = dict(item_specifics or {})
+    for k, v in filled.items():
+        if not k or not v:
+            continue
+        merged[str(k).strip()] = v
+
+    # 補完後の再チェック
+    merged_lower = {str(k).strip().lower() for k in merged.keys()}
+    still_missing = [
+        a["name"] for a in missing if a["name"].lower() not in merged_lower
+    ]
+    filled_names = [n for n in missing_names if n not in still_missing]
+    if filled_names:
+        logger.info(f"[autofill] 補完成功: {filled_names}")
+    if still_missing:
+        logger.warning(f"[autofill] 補完不能: {still_missing}")
+    return merged, still_missing
+
+
 @app.post("/api/listing-assistant/submit/ebay-publish")
 async def listing_assistant_submit_ebay_publish(request: Request):
     """eBay実出品: ギャラリー画像を全枚 white-bg → EPS upload → 公開 → ItemID 返却。"""
@@ -5555,6 +5663,18 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             400,
             f"eBay カテゴリID が未入力または解決不能です (category_id={category_id!r}). "
             "Step 3 で leaf category の数値ID（例: 112529）を入力してください。",
+        )
+
+    # publish_offer は category 必須 aspects が欠けると errorId 25002 で失敗する。
+    # AI 生成 item_specifics をカテゴリ要件と突き合わせ、不足分を Haiku で補完。
+    item_specifics, still_missing = await _autofill_required_aspects(
+        item_specifics, category_id, ebay_title
+    )
+    if still_missing:
+        raise HTTPException(
+            400,
+            f"必須 item_specifics が AI 補完でも埋まりませんでした: {still_missing}. "
+            "Step 3 で手動追加するか、生成し直してください。",
         )
 
     from ebay_core.client import (
