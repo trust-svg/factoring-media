@@ -134,7 +134,7 @@ Respond ONLY with valid JSON in this exact format:
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=1024,
+        max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )
     text = message.content[0].text.strip()
@@ -216,10 +216,11 @@ def main() -> None:
                 }
             )
 
-    # 5. 未分類 → Haiku に投げる
+    # 5. 未分類 → Haiku に投げる（先頭 50 件のみ; それ以上は次回以降で対応）
+    HAIKU_BATCH_SIZE = 50
     haiku_results: list[dict] = []
     if unclassified:
-        titles = [u["title"] for u in unclassified]
+        titles = [u["title"] for u in unclassified[:HAIKU_BATCH_SIZE]]
         haiku_results = _haiku_suggest(titles, section_names)
 
     # 6. Telegram レポート組み立て
@@ -250,7 +251,12 @@ def main() -> None:
                 lines.append(f"    - {t[:45]}")
 
     if unclassified and not haiku_results:
-        lines.append(f"\n❓ 未分類（手動確認）: {len(unclassified)}件")
+        extra = (
+            f"（先頭 {HAIKU_BATCH_SIZE} 件を Haiku に渡しましたが提案なし）"
+            if len(unclassified) > HAIKU_BATCH_SIZE
+            else ""
+        )
+        lines.append(f"\n❓ 未分類（手動確認）: {len(unclassified)}件{extra}")
         for u in unclassified[:5]:
             lines.append(f"  - {u['title'][:50]}")
 

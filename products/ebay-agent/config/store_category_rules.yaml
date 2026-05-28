@@ -73,7 +73,7 @@ sections:
       - hi-fi
       - hifi
       - stereo
-      - audio equipment
+      - audio
     subcategories:
       - id: "44848028016"
         name: "Digital Audio Players"
@@ -141,6 +141,7 @@ sections:
       - id: "44508408016"
         name: "Speakers"
         keywords:
+          - speaker
           - loudspeaker
           - bookshelf speaker
           - floor standing speaker
@@ -231,9 +232,10 @@ sections:
       - id: "44509648016"
         name: "Game Accessories"
         keywords:
+          - controller
+          - gamepad
           - famicom
           - super famicom
-          - gamepad
           - game cartridge
           - family computer
           - retro game
@@ -437,6 +439,10 @@ sections:
       - id: "44509641016"
         name: "Electronic Instruments"
         keywords:
+          - synthesizer
+          - synth
+          - sound module
+          - tone generator
           - drum machine
           - sequencer
           - eurorack
@@ -479,6 +485,12 @@ sections:
           - audio interface
           - pa speaker
           - mixing console
+          - mixer
+          - field recorder
+          - portable recorder
+          - audio recorder
+          - rack unit
+          - rack mount
 
   - id: "44509650016"
     name: "Home & Kitchen"
