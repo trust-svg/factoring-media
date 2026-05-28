@@ -2120,6 +2120,31 @@ def coerce_condition_for_category(condition: str, category_id: str) -> str:
 # ── 新規出品 (Inventory API) ─────────────────────────────
 
 
+def _normalize_aspect_values(raw_vals: list) -> list[str]:
+    """item_specifics の1値を eBay 制約に正規化する。
+
+    - 1値あたり最大65字（超過時はカンマ区切りで分解、なお長ければ truncate）
+    - 重複排除
+    - 1 aspect あたり最大 ~30 値
+    Inventory API / Trading API 双方の出品経路で共用する。
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_vals:
+        s = str(raw).strip()
+        if not s:
+            continue
+        pieces = [s] if len(s) <= 65 else [p.strip() for p in s.split(",")]
+        for p in pieces:
+            if not p:
+                continue
+            p65 = p[:65]
+            if p65 not in seen:
+                seen.add(p65)
+                out.append(p65)
+    return out[:30]
+
+
 def create_inventory_item(
     sku: str,
     product: dict,
@@ -2140,26 +2165,7 @@ def create_inventory_item(
 
     # eBay item_specifics は 1値あたり最大65文字。カンマ区切りで列挙された
     # 長い値は配列に分解する (例: "Sailor Moon, Sailor Mercury, ..." →
-    # ["Sailor Moon", "Sailor Mercury", ...])。
-    def _normalize_aspect_values(raw_vals: list[str]) -> list[str]:
-        out: list[str] = []
-        seen: set[str] = set()
-        for raw in raw_vals:
-            s = str(raw).strip()
-            if not s:
-                continue
-            # 65字以下ならそのまま、超過時はカンマ分解を試みる
-            pieces = [s] if len(s) <= 65 else [p.strip() for p in s.split(",")]
-            for p in pieces:
-                if not p:
-                    continue
-                # 分解後もなお長すぎる場合は仕方なく truncate
-                p65 = p[:65]
-                if p65 not in seen:
-                    seen.add(p65)
-                    out.append(p65)
-        return out[:30]  # eBay は 1 aspect あたり最大 ~30 値
-
+    # ["Sailor Moon", "Sailor Mercury", ...])。_normalize_aspect_values で共通化。
     raw_aspects = product.get("aspects", {}) or {}
     normalized_aspects: dict[str, list[str]] = {}
     for k, v in raw_aspects.items():
@@ -2290,6 +2296,159 @@ def publish_offer(offer_id: str) -> dict:
         error = resp.text[:500]
         logger.error(f"Offer 公開失敗: {resp.status_code} {error}")
         return {"success": False, "error": error, "status_code": resp.status_code}
+
+
+# ── 新規出品 (Trading API / AddFixedPriceItem) ─────────────
+
+
+def create_listing_trading(
+    sku: str,
+    title: str,
+    description: str,
+    category_id: str,
+    price_usd: float,
+    image_urls: list,
+    aspects: dict,
+    condition: str = "",
+    condition_description: str = "",
+    quantity: int = 1,
+    fulfillment_policy_id: str = "",
+    payment_policy_id: str = "",
+    return_policy_id: str = "",
+    country: str = "JP",
+    location: str = "Japan",
+) -> dict:
+    """Trading API (AddFixedPriceItem) で GTC 固定価格出品を作成し ItemID を返す。
+
+    Sell Inventory API ではなく Trading API で出品することで、eShip(Trading API ベース)が
+    数量/価格を ReviseFixedPriceItem で改訂できるようになり、errorId 21919474
+    (Inventory-based listing management is not currently supported) を回避する。
+
+    Args:
+        condition: eBay condition enum（USED_EXCELLENT 等）。conditionId に変換して送る。
+                   呼び出し側で coerce_condition_for_category 済みの値を渡すこと。
+        aspects:   {name: value | [values]} の item_specifics。
+        image_urls: EPS URL 等の画像URLリスト（最大24枚）。
+    Returns: {"success": bool, "listing_id": str, "error": str|None}
+    """
+    token = get_access_token()
+
+    condition_id = CONDITION_ENUM_TO_ID.get(condition, "") if condition else ""
+
+    # ItemSpecifics（共通正規化: <=65字/値, <=30値, カンマ列挙分解）
+    nvls: list[str] = []
+    for k, v in (aspects or {}).items():
+        if not k:
+            continue
+        vals = _normalize_aspect_values(v if isinstance(v, list) else [v])
+        if not vals:
+            continue
+        name = _xml_escape(str(k).strip()[:40])
+        value_tags = "".join(f"<Value>{_xml_escape(val)}</Value>" for val in vals)
+        nvls.append(f"<NameValueList><Name>{name}</Name>{value_tags}</NameValueList>")
+    specifics_xml = f"<ItemSpecifics>{''.join(nvls)}</ItemSpecifics>" if nvls else ""
+
+    # PictureDetails（eBay は最大24枚）
+    pics = [u for u in (image_urls or []) if u][:24]
+    pic_tags = "".join(f"<PictureURL>{_xml_escape(u)}</PictureURL>" for u in pics)
+    pictures_xml = f"<PictureDetails>{pic_tags}</PictureDetails>" if pic_tags else ""
+
+    # Business policies（Inventory API offer と同じ既定ID）
+    ship_id = fulfillment_policy_id or "247965782010"
+    pay_id = payment_policy_id or "247965600010"
+    ret_id = return_policy_id or "247965615010"
+    seller_profiles_xml = (
+        "<SellerProfiles>"
+        f"<SellerShippingProfile><ShippingProfileID>{ship_id}</ShippingProfileID>"
+        "</SellerShippingProfile>"
+        f"<SellerPaymentProfile><PaymentProfileID>{pay_id}</PaymentProfileID>"
+        "</SellerPaymentProfile>"
+        f"<SellerReturnProfile><ReturnProfileID>{ret_id}</ReturnProfileID>"
+        "</SellerReturnProfile>"
+        "</SellerProfiles>"
+    )
+
+    condition_xml = f"<ConditionID>{condition_id}</ConditionID>" if condition_id else ""
+    # ConditionDescription は中古系のみ許容（NEW=1000 だと eBay エラー）
+    cond_desc_xml = ""
+    if condition_description and condition_id and condition_id != "1000":
+        cond_desc_xml = (
+            f"<ConditionDescription>"
+            f"{_xml_escape(condition_description[:1000])}</ConditionDescription>"
+        )
+
+    safe_title = _xml_escape((title or "")[:80])
+    desc = description or title or "Item"
+
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+    <RequesterCredentials>
+        <eBayAuthToken>{token}</eBayAuthToken>
+    </RequesterCredentials>
+    <Item>
+        <SKU>{_xml_escape(sku)}</SKU>
+        <Title>{safe_title}</Title>
+        <Description><![CDATA[{desc}]]></Description>
+        <PrimaryCategory><CategoryID>{category_id}</CategoryID></PrimaryCategory>
+        <StartPrice currencyID="USD">{price_usd:.2f}</StartPrice>
+        <Quantity>{int(quantity)}</Quantity>
+        <ListingDuration>GTC</ListingDuration>
+        <Country>{country}</Country>
+        <Location>{_xml_escape(location)}</Location>
+        <Currency>USD</Currency>
+        {condition_xml}
+        {cond_desc_xml}
+        {specifics_xml}
+        {pictures_xml}
+        {seller_profiles_xml}
+    </Item>
+</AddFixedPriceItemRequest>"""
+
+    headers = {
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1349",
+        "X-EBAY-API-CALL-NAME": "AddFixedPriceItem",
+        "Content-Type": "text/xml",
+    }
+    try:
+        resp = requests.post(
+            f"{EBAY_API_BASE}/ws/api.dll",
+            headers=headers,
+            data=xml_body.encode("utf-8"),
+            timeout=60,
+        )
+    except requests.RequestException as e:
+        return {"success": False, "error": f"AddFixedPriceItem request failed: {e}"}
+    if resp.status_code != 200:
+        return {
+            "success": False,
+            "error": f"AddFixedPriceItem HTTP {resp.status_code}: {resp.text[:300]}",
+        }
+
+    ns_map = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    try:
+        root = ET.fromstring(resp.text)
+    except ET.ParseError as e:
+        return {"success": False, "error": f"AddFixedPriceItem XML parse error: {e}"}
+
+    ack = root.findtext("e:Ack", "", namespaces=ns_map)
+    item_id = root.findtext("e:ItemID", "", namespaces=ns_map)
+    if ack in ("Success", "Warning") and item_id:
+        logger.info(f"AddFixedPriceItem 成功: SKU={sku} → ItemID={item_id} (ack={ack})")
+        return {"success": True, "listing_id": item_id}
+
+    msgs: list[str] = []
+    for er in root.findall("e:Errors", namespaces=ns_map):
+        sev = er.findtext("e:SeverityCode", "", namespaces=ns_map)
+        msg = er.findtext("e:LongMessage", "", namespaces=ns_map) or er.findtext(
+            "e:ShortMessage", "", namespaces=ns_map
+        )
+        eid = er.findtext("e:ErrorCode", "", namespaces=ns_map)
+        if sev == "Error":
+            msgs.append(f"[{eid}] {msg}")
+    error = "; ".join(msgs) or f"AddFixedPriceItem failed (ack={ack})"
+    logger.error(f"AddFixedPriceItem 失敗: SKU={sku} {error}")
+    return {"success": False, "error": error}
 
 
 # ── Promoted Listings (Sell Marketing API) ─────────────────

@@ -5686,9 +5686,7 @@ async def listing_assistant_submit_ebay_publish(request: Request):
     )
 
     from ebay_core.client import (
-        create_inventory_item,
-        create_offer,
-        publish_offer,
+        create_listing_trading,
         upload_image_bytes,
     )
     from listing.generator import DEFAULT_CONDITION_DESCRIPTION
@@ -5731,25 +5729,8 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             f"画像処理に全て失敗しました: {images_failed[:3]}",
         )
 
-    # 3) Create inventory item with EPS URLs
-    inv_result = create_inventory_item(
-        sku=sku,
-        product={
-            "title": ebay_title,
-            "description": description,
-            "aspects": item_specifics,
-            "imageUrls": eps_urls,
-        },
-        condition=condition,
-        condition_description=condition_description,
-    )
-    if not inv_result.get("success"):
-        raise HTTPException(
-            500, inv_result.get("error", "Inventory item creation failed")
-        )
-
     # 仕入元がヤフオクの場合のみ M(YO) Speed Pak Expedited policy を使う
-    # (env var で上書き可。未設定なら create_offer() のデフォルト M Speed Pak Expedited)
+    # (env var で上書き可。未設定なら create_listing_trading() の既定 M Speed Pak Expedited)
     source_platform = (product.get("platform") or "").strip()
     source_url_for_detect = body.get("source_url") or product.get("product_url") or ""
     if not source_platform and source_url_for_detect:
@@ -5766,28 +5747,27 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             "(M(YO) Speed Pak Expedited)"
         )
 
-    # 4) Create offer (draft)
-    offer_result = create_offer(
+    # 3) Trading API (AddFixedPriceItem) で出品 → ItemID 取得
+    # Sell Inventory API ではなく Trading API で出品することで、eShip (Trading API ベース)
+    # が数量/価格を改訂できる (errorId 21919474 回避)。
+    pub_result = await asyncio.to_thread(
+        create_listing_trading,
         sku=sku,
+        title=ebay_title,
+        description=description,
         category_id=category_id,
         price_usd=price_usd,
+        image_urls=eps_urls,
+        aspects=item_specifics,
         condition=condition,
+        condition_description=condition_description,
+        quantity=1,
         fulfillment_policy_id=fulfillment_policy_id,
-        return_policy_id="",
-        payment_policy_id="",
-        listing_description=description,
     )
-    if not offer_result.get("success"):
-        raise HTTPException(500, offer_result.get("error", "Offer creation failed"))
-
-    offer_id = offer_result.get("offer_id", "")
-
-    # 5) Publish offer to get the real ItemID (listing_id)
-    pub_result = await asyncio.to_thread(publish_offer, offer_id)
     if not pub_result.get("success"):
         raise HTTPException(
             500,
-            f"Offer 公開失敗 (offer_id={offer_id}): {pub_result.get('error', '')}",
+            f"出品失敗 (sku={sku}): {pub_result.get('error', '')}",
         )
 
     listing_id = pub_result.get("listing_id", "")
@@ -5845,7 +5825,6 @@ async def listing_assistant_submit_ebay_publish(request: Request):
         {
             "ok": True,
             "item_id": listing_id,
-            "offer_id": offer_id,
             "sku": sku,
             "ebay_listing_url": (
                 f"https://www.ebay.com/itm/{listing_id}" if listing_id else ""

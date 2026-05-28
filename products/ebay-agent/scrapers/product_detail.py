@@ -113,6 +113,82 @@ def _finalize_images(result: dict) -> None:
         result["image_url"] = result["image_urls"][0]
 
 
+def _extract_images_multi(
+    soup: BeautifulSoup,
+    html_text: str = "",
+    url_pattern: Optional[str] = None,
+) -> list[str]:
+    """商品ギャラリー画像URLを複数抽出する（重複排除・順序保持）。
+
+    多くの仕入先スクレイパーは og:image の1枚しか取得しておらず、eBay 出品が
+    1枚画像になっていた。本関数は以下を順に収集して複数画像を返す:
+      1. JSON-LD (schema.org Product) の image（str / list / {url}）
+      2. og:image / og:image:url / og:image:secure_url meta（複数可）
+      3. twitter:image meta
+      4. url_pattern（プラットフォーム固有の画像URL正規表現）を raw HTML に適用
+
+    1枚も取れなければ空リスト。呼び出し側は _finalize_images で og:image 単枚に
+    フォールバックするため、本関数は「画像を増やすだけで減らさない」安全な追加層。
+    """
+    images: list[str] = []
+    seen: set[str] = set()
+
+    def _add(u: str) -> None:
+        u = (u or "").strip()
+        if u.startswith("//"):
+            u = "https:" + u
+        if u.startswith("http") and u not in seen:
+            seen.add(u)
+            images.append(u)
+
+    # 1) JSON-LD Product.image
+    for ld in soup.find_all("script", type="application/ld+json"):
+        if not ld.string:
+            continue
+        try:
+            data = json.loads(ld.string)
+        except Exception:
+            continue
+        nodes = data if isinstance(data, list) else [data]
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            img = node.get("image")
+            if isinstance(img, str):
+                _add(img)
+            elif isinstance(img, list):
+                for it in img:
+                    if isinstance(it, str):
+                        _add(it)
+                    elif isinstance(it, dict):
+                        _add(it.get("url", ""))
+            elif isinstance(img, dict):
+                _add(img.get("url", ""))
+
+    # 2) og:image 系 meta（サイトによっては複数枚を列挙する）
+    for prop in ("og:image", "og:image:url", "og:image:secure_url"):
+        for m in soup.find_all("meta", property=prop):
+            _add(m.get("content", ""))
+
+    # 3) twitter:image
+    for m in soup.find_all("meta", attrs={"name": "twitter:image"}):
+        _add(m.get("content", ""))
+
+    # 4) プラットフォーム固有の画像URLパターン（ギャラリーが JS 埋め込みの場合）
+    if url_pattern and html_text:
+        for u in re.findall(url_pattern, html_text):
+            _add(u)
+
+    return images
+
+
+# ヤフオクの商品画像CDN（gallery は JSON 埋め込みで og:image だけでは1枚しか取れない）
+_YAHOO_AUCTION_IMG_PATTERN = (
+    r"https://auctions\.c\.yimg\.jp/images\.auctions\.yahoo\.co\.jp/image/"
+    r"[^\"'\\\s)]+?\.(?:jpg|jpeg|png)"
+)
+
+
 # ── ヤフオク ──────────────────────────────────────────────────────────────────
 
 
@@ -195,10 +271,13 @@ async def _fetch_yahooauction(url: str) -> dict:
             if og_title:
                 result["title"] = og_title.get("content", "").strip()
 
-        # 画像
-        og_image = soup.find("meta", property="og:image")
-        if og_image:
-            result["image_url"] = og_image.get("content", "").strip()
+        # 画像（ギャラリー複数枚）
+        imgs = _extract_images_multi(
+            soup, html_text=html_text, url_pattern=_YAHOO_AUCTION_IMG_PATTERN
+        )
+        if imgs:
+            result["image_url"] = imgs[0]
+            result["image_urls"] = imgs
 
         # 価格 — 現在価格 / 即決価格
         price_raw = ""
@@ -498,10 +577,11 @@ async def _fetch_yahoo_flea(url: str) -> dict:
             if h1:
                 result["title"] = h1.get_text(strip=True)
 
-        # 画像
-        og_image = soup.find("meta", property="og:image")
-        if og_image:
-            result["image_url"] = og_image.get("content", "").strip()
+        # 画像（ギャラリー複数枚）
+        imgs = _extract_images_multi(soup, html_text=resp.text)
+        if imgs:
+            result["image_url"] = imgs[0]
+            result["image_urls"] = imgs
 
         # 価格
         price_el = soup.find(class_=re.compile(r"price|Price"))
@@ -580,10 +660,11 @@ async def _fetch_hardoff(url: str) -> dict:
             if og_title:
                 result["title"] = og_title.get("content", "").strip()
 
-        # 画像
-        og_image = soup.find("meta", property="og:image")
-        if og_image:
-            result["image_url"] = og_image.get("content", "").strip()
+        # 画像（ギャラリー複数枚）
+        imgs = _extract_images_multi(soup, html_text=resp.text)
+        if imgs:
+            result["image_url"] = imgs[0]
+            result["image_urls"] = imgs
 
         # 価格 — ハードオフは "¥XX,XXX（税込）" 形式が多い
         price_el = (
@@ -664,10 +745,11 @@ async def _fetch_surugaya(url: str) -> dict:
             if h1:
                 result["title"] = h1.get_text(strip=True)
 
-        # 画像
-        og_image = soup.find("meta", property="og:image")
-        if og_image:
-            result["image_url"] = og_image.get("content", "").strip()
+        # 画像（ギャラリー複数枚）
+        imgs = _extract_images_multi(soup, html_text=resp.text)
+        if imgs:
+            result["image_url"] = imgs[0]
+            result["image_urls"] = imgs
 
         # 価格
         price_el = soup.find(class_=re.compile(r"price|Price")) or soup.find(
@@ -794,6 +876,18 @@ async def _fetch_rakuma(url: str) -> dict:
                 result["image_url"] = data.get("image_url", "")
                 result["seller_id"] = data.get("seller_id", "")
                 result["description"] = data.get("description", "")
+
+                # 画像（ギャラリー複数枚）— レンダリング済み HTML から抽出
+                try:
+                    rendered_html = await page.content()
+                    imgs = _extract_images_multi(
+                        BeautifulSoup(rendered_html, "html.parser")
+                    )
+                    if imgs:
+                        result["image_url"] = imgs[0]
+                        result["image_urls"] = imgs
+                except Exception as e:
+                    logger.warning(f"[ラクマ] ギャラリー画像抽出失敗: {e}")
 
                 price_raw = data.get("price_raw", "0")
                 result["price_jpy"] = int(price_raw) if price_raw.isdigit() else 0
