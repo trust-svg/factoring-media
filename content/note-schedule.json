@@ -391,7 +391,9 @@
     {
       "date": "2026-05-29",
       "slug": "factoring-blacklist",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/ne0ae04f8f9f1",
+      "published_at": "2026-05-29"
     },
     {
       "date": "2026-05-30",
