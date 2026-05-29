@@ -235,6 +235,98 @@ async def _fetch_yahoo_html_via_proxy(
     return html, None
 
 
+def _extract_yahooauction_next_data(soup: BeautifulSoup) -> Optional[dict]:
+    """Yahoo!オークションの __NEXT_DATA__ (Next.js) から正規データを抽出する。
+
+    2026-05 に Yahoo がページを Next.js 化し、現在価格 / 状態 / 説明文の旧DOM
+    (dt/dd の「現在価格」「即決価格」, data-auction-price, div.ProductDescription)
+    が消滅した。価格などはすべて埋め込みJSON
+    props.pageProps.initialState.item.detail.item に移行している。
+    取得できない（旧ページ・構造変更）場合は None を返し、呼び出し側のDOM
+    フォールバックに委ねる。
+    """
+    node = soup.find("script", id="__NEXT_DATA__")
+    if not node or not node.string:
+        return None
+    try:
+        nd = json.loads(node.string)
+    except (ValueError, TypeError):
+        return None
+
+    item = None
+    for path in (
+        ("props", "pageProps", "initialState", "item", "detail", "item"),
+        ("props", "initialState", "item", "detail", "item"),
+    ):
+        cur = nd
+        for key in path:
+            if isinstance(cur, dict) and key in cur:
+                cur = cur[key]
+            else:
+                cur = None
+                break
+        if isinstance(cur, dict):
+            item = cur
+            break
+    if not item:
+        return None
+
+    out: dict = {}
+
+    title = item.get("title")
+    if isinstance(title, str) and title.strip():
+        out["title"] = title.strip()
+
+    # 価格: 即決(bidOrBuyPrice) > 現在価格(price) > 開始価格(initPrice)。
+    # 無在庫ドロップシップは「即決で買える価格」が仕入コスト。即決が無い純
+    # オークションは現在価格をフロアとして採用する。
+    for key in ("bidOrBuyPrice", "price", "initPrice"):
+        v = item.get(key)
+        if v in (None, "", 0, "0"):
+            continue
+        try:
+            pv = int(float(v))
+        except (ValueError, TypeError):
+            continue
+        if pv > 0:
+            out["price_jpy"] = pv
+            break
+
+    cond = item.get("conditionName")
+    if isinstance(cond, str) and cond.strip():
+        out["condition"] = _normalize_condition(cond.strip())
+
+    desc = item.get("description")
+    if isinstance(desc, list) and desc:
+        text = "\n".join(str(d) for d in desc if d).strip()
+        if text:
+            out["description"] = text[:2000]
+    elif isinstance(desc, str) and desc.strip():
+        out["description"] = desc.strip()[:2000]
+
+    img = item.get("img")
+    if isinstance(img, list):
+        urls: list[str] = []
+        for e in img:
+            u = (
+                e.get("image")
+                if isinstance(e, dict)
+                else (e if isinstance(e, str) else None)
+            )
+            if u and u not in urls:
+                urls.append(u)
+        if urls:
+            out["image_urls"] = urls
+
+    seller = item.get("seller")
+    if isinstance(seller, dict):
+        sid = seller.get("displayName") or seller.get("aucUserId")
+        if sid:
+            out["seller_id"] = str(sid)
+
+    return out
+
+
 async def _fetch_yahooauction(url: str) -> dict:
     """ヤフオク単品スクレイパー (requests + BeautifulSoup)。"""
     platform = "ヤフオク"
@@ -326,6 +418,17 @@ async def _fetch_yahooauction(url: str) -> dict:
         desc_div = soup.find("div", class_=re.compile(r"ProductDescription", re.I))
         if desc_div:
             result["description"] = desc_div.get_text(separator="\n", strip=True)[:2000]
+
+        # __NEXT_DATA__ (Next.js) が取れれば正規データで上書きする。
+        # 2026-05 の Next.js 化で上の旧DOM抽出は価格/状態/説明が取れない。
+        nd_data = _extract_yahooauction_next_data(soup)
+        if nd_data:
+            for k in ("title", "price_jpy", "condition", "description", "seller_id"):
+                if nd_data.get(k):
+                    result[k] = nd_data[k]
+            if nd_data.get("image_urls"):
+                result["image_urls"] = nd_data["image_urls"]
+                result["image_url"] = nd_data["image_urls"][0]
 
     except Exception as e:
         result["error"] = f"パース失敗: {e}"
