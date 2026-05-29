@@ -6,15 +6,18 @@ UI/Telegram からのワンクリック承認で呼ばれる。
   1. DropshipCandidate を pending 状態でロード
   2. listing/generator.generate_listing で AI タイトル/説明/Item Specifics 生成
   3. eShip create_eship_item で在庫登録（仕入元URL紐付け）
-  4. eBay create_inventory_item + create_offer でドラフト作成
+  4. listings テーブルに下書きを保存（listing_id="" = 未公開）。下書き段階では eBay を呼ばない。
   5. DropshipCandidate.status = listed, listed_sku, listed_at を更新
 
-publish_offer (eBay公開) は本パイプラインでは実行しない。
-ドラフト確認後、別途 /api/dropship/candidates/{id}/publish で公開する。
+eBay 公開は publish_immediately=True のときのみ create_listing_trading
+(Trading API / AddFixedPriceItem) で実行する。Sell Inventory API ではなく
+Trading API を使うことで eShip(Trading API ベース)が改訂でき、errorId 21919474 を回避する。
+ドラフト確認後、別途 /api/dropship/publish/{id}?publish=1 で公開する。
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -23,14 +26,11 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from comms.eship_client import create_eship_item
+from database import crud
 from database.models import DropshipCandidate, HotExpensiveItem
 from ebay_core.client import (
-    create_inventory_item,
-    create_offer,
-    get_fulfillment_policies,
-    get_payment_policies,
-    get_return_policies,
-    publish_offer,
+    coerce_condition_for_category,
+    create_listing_trading,
 )
 from listing.generator import generate_listing
 
@@ -124,63 +124,74 @@ async def publish_dropship_candidate(
     eship_ok = eship_result.get("status") == "ok"
     eship_inv_id = eship_result.get("inventory_id", "")
 
-    # 3) eBay Inventory + Offer (ドラフト)
-    ebay_ok = False
-    offer_id = ""
+    # 3) eBay 下書きを listings テーブルに保存（下書き段階では eBay を呼ばない）
+    image_urls = [image_url] if image_url else []
+    # condition がカテゴリ非対応だと公開時に errorId 25021 → 事前に補正
+    ebay_condition = await asyncio.to_thread(
+        coerce_condition_for_category, ebay_condition, str(category_id)
+    )
+
+    draft_ok = False
     listing_id = ""
     ebay_error = ""
-
     try:
-        inv_result = create_inventory_item(
+        crud.upsert_listing(
+            db,
             sku=sku,
-            product={
-                "title": title,
-                "description": description,
-                "aspects": aspects,
-                "imageUrls": [image_url] if image_url else [],
-            },
-            condition=ebay_condition,
+            listing_id="",
+            title=title,
+            description=description,
+            price_usd=price_usd,
             quantity=1,
+            category_id=str(category_id),
+            condition=ebay_condition,
+            image_urls_json=json.dumps(image_urls),
+            item_specifics_json=json.dumps(aspects),
+            currency="USD",
+            source_type="dropship_jp",
         )
-        if not inv_result.get("success"):
-            ebay_error = inv_result.get("error", "inventory失敗")
-        else:
-            ff = get_fulfillment_policies()
-            rp = get_return_policies()
-            pp = get_payment_policies()
-            offer_result = create_offer(
+        draft_ok = True
+    except Exception as e:
+        logger.exception("listings 下書き保存失敗 cand=%d", candidate_id)
+        ebay_error = f"下書き保存失敗: {e}"
+
+    # 3b) publish_immediately=True なら Trading API で即公開して ItemID を取得
+    published = False
+    if draft_ok and publish_immediately:
+        try:
+            pub = await asyncio.to_thread(
+                create_listing_trading,
                 sku=sku,
+                title=title,
+                description=description,
                 category_id=str(category_id),
                 price_usd=price_usd,
+                image_urls=image_urls,
+                aspects=aspects,
                 condition=ebay_condition,
-                fulfillment_policy_id=ff[0]["id"] if ff else "",
-                return_policy_id=rp[0]["id"] if rp else "",
-                payment_policy_id=pp[0]["id"] if pp else "",
-                listing_description=description,
+                condition_description=cand.jp_condition or "",
+                quantity=1,
             )
-            if offer_result.get("success"):
-                offer_id = offer_result.get("offer_id", "")
-                ebay_ok = True
-                if publish_immediately and offer_id:
-                    pub = publish_offer(offer_id)
-                    if pub.get("success"):
-                        listing_id = pub.get("listing_id", "")
-                    else:
-                        ebay_error = f"publish失敗: {pub.get('error', 'unknown')}"
+            if pub.get("success"):
+                listing_id = pub.get("listing_id", "")
+                published = True
+                crud.upsert_listing(db, sku=sku, listing_id=listing_id)
             else:
-                ebay_error = offer_result.get("error", "offer失敗")
-    except Exception as e:
-        logger.exception("eBay create 失敗 cand=%d", candidate_id)
-        ebay_error = str(e)
+                ebay_error = f"公開失敗: {pub.get('error', 'unknown')}"
+        except Exception as e:
+            logger.exception("create_listing_trading 失敗 cand=%d", candidate_id)
+            ebay_error = f"公開失敗: {e}"
 
-    # 4) DB 更新
+    # 4) DropshipCandidate 更新
+    #    下書き保存できた時点で listed_sku を確定。公開要求時は公開成否で status を決める。
+    ebay_ok = published if publish_immediately else draft_ok
     cand.listed_sku = sku
     cand.approved_at = datetime.utcnow()
     if ebay_ok:
         cand.listed_at = datetime.utcnow()
         cand.status = "listed"
     else:
-        cand.status = "approved"  # eShip だけ通った場合のリトライ余地を残す
+        cand.status = "approved"  # eShip/下書きだけ通った場合のリトライ余地を残す
     db.commit()
 
     return {
@@ -196,7 +207,8 @@ async def publish_dropship_candidate(
         },
         "ebay": {
             "ok": ebay_ok,
-            "offer_id": offer_id,
+            "draft_saved": draft_ok,
+            "published": published,
             "listing_id": listing_id,
             "error": ebay_error,
         },

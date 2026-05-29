@@ -3,6 +3,7 @@
 各既存ツールの機能をClaude APIのtool定義として登録し、
 AIエージェントが自律的に呼び出せるようにする。
 """
+
 from __future__ import annotations
 
 AGENT_TOOLS: list[dict] = [
@@ -683,7 +684,7 @@ AGENT_TOOLS: list[dict] = [
     # ── 新規出品（下書き） ──
     {
         "name": "create_draft_listing",
-        "description": "1件の新規eBay出品を下書き状態で作成する。AIがタイトル・説明文・Item Specificsを生成し、eBayに下書き登録。",
+        "description": "1件の新規eBay出品を下書き状態で作成する。AIがタイトル・説明文・Item Specificsを生成し、ローカルDBに下書き保存（eBayにはまだ送らない）。公開はpublish_draft_listingsが行う。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -759,14 +760,14 @@ AGENT_TOOLS: list[dict] = [
     # ── 下書き公開 ──
     {
         "name": "publish_draft_listings",
-        "description": "[破壊的操作] 下書き状態のeBay出品を一括公開する。確認後「公開して」で使用。",
+        "description": "[破壊的操作] 下書き状態のeBay出品をTrading APIで一括公開する。確認後「公開して」で使用。",
         "input_schema": {
             "type": "object",
             "properties": {
-                "offer_ids": {
+                "skus": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "公開するOffer IDリスト（省略時は全未公開を対象）",
+                    "description": "公開するSKUリスト（省略時は全未公開の下書きを対象）",
                     "default": [],
                 },
             },
@@ -884,4 +885,10 @@ AGENT_TOOLS: list[dict] = [
 ]
 
 # 破壊的ツール（人間確認必須）
-DESTRUCTIVE_TOOLS = {"update_listing", "apply_price_change", "publish_instagram_post", "publish_draft_listings", "remove_from_shopify"}
+DESTRUCTIVE_TOOLS = {
+    "update_listing",
+    "apply_price_change",
+    "publish_instagram_post",
+    "publish_draft_listings",
+    "remove_from_shopify",
+}

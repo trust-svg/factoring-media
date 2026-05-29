@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -21,12 +22,8 @@ from ebay_core.client import (
     search_ebay,
     update_listing as ebay_update_listing,
     get_category_aspects,
-    create_inventory_item,
-    create_offer,
-    publish_offer,
-    get_fulfillment_policies,
-    get_return_policies,
-    get_payment_policies,
+    coerce_condition_for_category,
+    create_listing_trading,
 )
 from ebay_core.exchange_rate import get_usd_to_jpy, jpy_to_usd
 from listing.generator import generate_listing
@@ -1055,7 +1052,8 @@ async def _read_listing_sheet(params: dict) -> dict:
 async def _create_draft_listing(params: dict) -> dict:
     """
     1件の新規出品を下書き作成する。
-    InventoryItem作成 → Offer作成（未公開状態）
+    下書き段階では eBay を呼ばず listings テーブルに保存するのみ（listing_id="" = 未公開）。
+    公開は publish_draft_listings が Trading API (AddFixedPriceItem) で実行する。
     """
     import uuid
 
@@ -1098,50 +1096,12 @@ async def _create_draft_listing(params: dict) -> dict:
         titles = listing_data.get("titles", [])
         title = titles[0] if titles else product_name
 
-    # 2) Inventory Item 作成
-    inv_result = create_inventory_item(
-        sku=sku,
-        product={
-            "title": title,
-            "description": description,
-            "aspects": aspects,
-            "imageUrls": image_urls,
-        },
-        condition=condition,
-        quantity=1,
+    # 2) condition をカテゴリに合わせて補正（公開時の errorId 25021 予防）
+    condition = await asyncio.to_thread(
+        coerce_condition_for_category, condition, str(category_id)
     )
-    if not inv_result.get("success"):
-        return {
-            "success": False,
-            "sku": sku,
-            "error": inv_result.get("error", "Inventory作成失敗"),
-        }
 
-    # 3) Offer 作成（ビジネスポリシーを自動取得）
-    fulfillment_policies = get_fulfillment_policies()
-    return_policies = get_return_policies()
-    payment_policies = get_payment_policies()
-
-    offer_result = create_offer(
-        sku=sku,
-        category_id=category_id,
-        price_usd=price_usd,
-        condition=condition,
-        fulfillment_policy_id=fulfillment_policies[0]["id"]
-        if fulfillment_policies
-        else "",
-        return_policy_id=return_policies[0]["id"] if return_policies else "",
-        payment_policy_id=payment_policies[0]["id"] if payment_policies else "",
-        listing_description=description,
-    )
-    if not offer_result.get("success"):
-        return {
-            "success": False,
-            "sku": sku,
-            "error": offer_result.get("error", "Offer作成失敗"),
-        }
-
-    # 4) DB に記録
+    # 3) DB に下書き保存（eBay は呼ばない）
     db = get_db()
     try:
         crud.upsert_listing(
@@ -1151,12 +1111,11 @@ async def _create_draft_listing(params: dict) -> dict:
             title=title,
             price_usd=price_usd,
             quantity=1,
-            category_id=category_id,
+            category_id=str(category_id),
             condition=condition,
             image_urls_json=json.dumps(image_urls),
             item_specifics_json=json.dumps(aspects),
             description=description,
-            offer_id=offer_result.get("offer_id", ""),
             currency="USD",
         )
     finally:
@@ -1167,7 +1126,6 @@ async def _create_draft_listing(params: dict) -> dict:
         "sku": sku,
         "title": title,
         "price_usd": price_usd,
-        "offer_id": offer_result.get("offer_id", ""),
         "status": "draft",
         "message": f"下書き作成完了: {title[:50]}... (${price_usd})",
     }
@@ -1216,7 +1174,6 @@ async def _batch_create_drafts(params: dict) -> dict:
                     "product_name": row.product_name,
                     "price_usd": row.price_usd,
                     "sku": result.get("sku", ""),
-                    "offer_id": result.get("offer_id", ""),
                     "success": result.get("success", False),
                     "error": result.get("error"),
                 }
@@ -1244,63 +1201,82 @@ async def _batch_create_drafts(params: dict) -> dict:
         "results": results,
         "message": f"全{success_count}件の下書き登録が完了しました。"
         + (f"（{error_count}件エラー）" if error_count else ""),
-        "next_step": "eBay Seller Hub（スケジュール済みリスト）で内容をご確認ください。確認後「公開して」と指示いただければ順次出品を開始します。",
+        "next_step": "下書きはまだ eBay に送られていません（ローカル保存のみ）。内容を確認後「公開して」と指示いただければ Trading API で順次出品を開始します。",
     }
 
 
 async def _publish_draft_listings(params: dict) -> dict:
     """
-    下書き状態の Offer を一括公開する。
-    offer_ids を指定するか、DBから未公開のものを自動取得。
+    下書き状態（listing_id="" の listings 行）を Trading API で一括公開する。
+    skus を指定するか、DBから未公開のものを自動取得。
+    Sell Inventory API ではなく create_listing_trading (AddFixedPriceItem) を使い、
+    eShip が改訂できる出品にする（errorId 21919474 回避）。
     """
-    offer_ids = params.get("offer_ids", [])
+    from database.models import Listing
 
-    if not offer_ids:
-        # DBから未公開（listing_id が空）の offer を取得
-        db = get_db()
-        try:
-            from database.models import Listing
+    skus = params.get("skus") or params.get("offer_ids", [])  # offer_ids は後方互換
 
+    db = get_db()
+    try:
+        if skus:
             drafts = (
                 db.query(Listing)
-                .filter(
-                    Listing.offer_id != "",
-                    Listing.listing_id == "",
-                )
+                .filter(Listing.sku.in_(skus), Listing.listing_id == "")
                 .all()
             )
-            offer_ids = [d.offer_id for d in drafts if d.offer_id]
-        finally:
-            db.close()
+        else:
+            # 未公開（listing_id が空）の下書きを自動取得
+            drafts = db.query(Listing).filter(Listing.listing_id == "").all()
+        # セッションを跨いでも使えるよう値を抽出
+        draft_rows = [
+            {
+                "sku": d.sku,
+                "title": d.title,
+                "description": d.description or "",
+                "category_id": d.category_id,
+                "price_usd": d.price_usd,
+                "condition": d.condition,
+                "image_urls": json.loads(d.image_urls_json or "[]"),
+                "aspects": json.loads(d.item_specifics_json or "{}"),
+            }
+            for d in drafts
+        ]
+    finally:
+        db.close()
 
-    if not offer_ids:
+    if not draft_rows:
         return {"error": "公開する下書きが見つかりません"}
 
     results = []
     success_count = 0
 
-    for offer_id in offer_ids:
-        pub_result = publish_offer(offer_id)
+    for row in draft_rows:
+        pub_result = await asyncio.to_thread(
+            create_listing_trading,
+            sku=row["sku"],
+            title=row["title"],
+            description=row["description"],
+            category_id=str(row["category_id"]),
+            price_usd=row["price_usd"],
+            image_urls=row["image_urls"],
+            aspects=row["aspects"],
+            condition=row["condition"],
+            quantity=1,
+        )
         success = pub_result.get("success", False)
         listing_id = pub_result.get("listing_id", "")
 
-        if success:
+        if success and listing_id:
             success_count += 1
-            # DB 更新
             db = get_db()
             try:
-                from database.models import Listing
-
-                listing = db.query(Listing).filter(Listing.offer_id == offer_id).first()
-                if listing:
-                    listing.listing_id = listing_id
-                    db.commit()
+                crud.upsert_listing(db, sku=row["sku"], listing_id=listing_id)
             finally:
                 db.close()
 
         results.append(
             {
-                "offer_id": offer_id,
+                "sku": row["sku"],
                 "listing_id": listing_id,
                 "success": success,
                 "error": pub_result.get("error") if not success else None,
