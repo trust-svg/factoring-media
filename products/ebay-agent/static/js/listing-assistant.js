@@ -729,6 +729,8 @@ async function submitListing() {
   let allSuccess = true;
   let ebayItemId = '';
   let ebayListingUrl = '';
+  let ebaySku = '';
+  let ebayCategoryId = '';
 
   // 1. eBay出品（画像white-bg化 → EPS upload → publish → ItemID取得）
   setProgressState('ebay', 'loading', '画像処理 & 出品中...');
@@ -738,6 +740,8 @@ async function submitListing() {
     if (r1.ok) {
       const d1 = await r1.json();
       ebayItemId = d1.item_id || '';
+      ebaySku = d1.sku || '';
+      ebayCategoryId = d1.category_id || '';
       ebayListingUrl = d1.ebay_listing_url || (ebayItemId ? 'https://www.ebay.com/itm/' + ebayItemId : 'https://www.ebay.com/sh/lst/active');
       const failedCount = (d1.images_failed || []).length;
       const subMsg = ebayItemId
@@ -776,7 +780,7 @@ async function submitListing() {
   if (allSuccess) {
     setProgressState('eship', 'loading', '登録中...');
     try {
-      const r2 = await apiPost('/api/listing-assistant/submit/eship', { ...payload, ebay_item_id: ebayItemId });
+      const r2 = await apiPost('/api/listing-assistant/submit/eship', { ...payload, ebay_item_id: ebayItemId, stock_number: ebaySku, category_id: ebayCategoryId || payload.category_id });
       if (r2.ok) {
         setProgressState('eship', 'success', '登録完了 (ItemID紐付け済み)', 'https://eship-tool.com/inventories');
       } else {

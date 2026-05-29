@@ -5487,6 +5487,7 @@ async def listing_assistant_submit_eship(request: Request):
     domestic_shipping_jpy = int(calc.get("domestic_shipping_jpy", 0))
     stock_number = body.get("stock_number", "")
     ebay_item_id = body.get("ebay_item_id", "")
+    category_id = body.get("category_id", "")
 
     from comms.eship_client import create_eship_item
 
@@ -5500,6 +5501,7 @@ async def listing_assistant_submit_eship(request: Request):
             sku=stock_number,
             ebay_item_id=ebay_item_id,
             image_url=image_url,
+            category_id=str(category_id),
         )
         if result.get("status") == "ok":
             return JSONResponse(
@@ -5826,6 +5828,7 @@ async def listing_assistant_submit_ebay_publish(request: Request):
             "ok": True,
             "item_id": listing_id,
             "sku": sku,
+            "category_id": category_id,
             "ebay_listing_url": (
                 f"https://www.ebay.com/itm/{listing_id}" if listing_id else ""
             ),
