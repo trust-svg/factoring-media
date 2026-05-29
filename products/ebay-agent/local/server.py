@@ -21,12 +21,14 @@ launchd plist: com.trustlink.ebay-agent-local.plist
 """
 
 import asyncio
+import ipaddress
 import logging
 import os
 import re
+import socket
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 from aiohttp import web
@@ -251,13 +253,52 @@ async def fetch_yahoo_html_handler(request: web.Request):
 
 # 画像取得を許可するホスト（SSRF対策）。Yahoo 画像CDN のみ。
 _IMAGE_HOST_SUFFIXES = (".yimg.jp", ".yahoo.co.jp")
+_MAX_IMAGE_REDIRECTS = 4
 
 
-def _image_host_allowed(netloc: str) -> bool:
-    host = netloc.lower().split(":", 1)[0]
+def _host_allowed(hostname: str | None) -> bool:
+    if not hostname:
+        return False
+    host = hostname.lower().rstrip(".")
     return any(
         host == suf.lstrip(".") or host.endswith(suf) for suf in _IMAGE_HOST_SUFFIXES
     )
+
+
+def _host_is_public(hostname: str) -> bool:
+    """名前解決して、内部アドレス(loopback/RFC1918/link-local等)を全て拒否する。"""
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            return False
+    return True
+
+
+def _validate_image_target(url: str):
+    """URL の scheme/host/解決先IP を検証。OK なら None、NG なら (msg, status)。"""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return ("only http(s) URLs allowed", 400)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if not _host_allowed(host):
+        return (f"host not allowed: {host or parsed.netloc}", 403)
+    if not _host_is_public(host):
+        return (f"host resolves to non-public address: {host}", 403)
+    return None
 
 
 async def fetch_image_handler(request: web.Request):
@@ -265,6 +306,9 @@ async def fetch_image_handler(request: web.Request):
 
     VPS の Contabo IP は Yahoo 画像CDN(yimg.jp)に 403 されるため、HTML と同様に
     Mac 経由で取得する。出品時の白背景化(whitebg)から呼ばれる。
+
+    SSRF対策: ホストは hostname ベースで Yahoo CDN のみ許可、解決先が内部IPなら拒否、
+    リダイレクトは自動追従せず1ホップごとに同じ検証を再適用する。
 
     Request JSON: {"url": "...", "referer": "...", "timeout": 30}
     Response: 成功時は画像バイト（Content-Type 透過）、失敗時は JSON エラー。
@@ -278,14 +322,6 @@ async def fetch_image_handler(request: web.Request):
     if not url:
         return web.json_response({"error": "url is required"}, status=400)
 
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        return web.json_response({"error": "only http(s) URLs allowed"}, status=400)
-    if not _image_host_allowed(parsed.netloc):
-        return web.json_response(
-            {"error": f"host not allowed: {parsed.netloc}"}, status=403
-        )
-
     timeout = int(body.get("timeout", 30))
     referer = (body.get("referer") or "https://auctions.yahoo.co.jp/").strip()
     headers = {
@@ -295,26 +331,43 @@ async def fetch_image_handler(request: web.Request):
         "Referer": referer,
     }
 
-    try:
-        resp = await asyncio.to_thread(
-            requests.get,
-            url,
-            headers=headers,
-            timeout=timeout,
-            allow_redirects=True,
-        )
-    except Exception as e:
-        logger.warning(f"fetch_image: 取得失敗 {url} — {e}")
-        return web.json_response({"error": f"fetch failed: {e}"}, status=502)
+    current = url
+    for _ in range(_MAX_IMAGE_REDIRECTS):
+        bad = _validate_image_target(current)
+        if bad:
+            msg, status = bad
+            return web.json_response({"error": msg}, status=status)
+        try:
+            resp = await asyncio.to_thread(
+                requests.get,
+                current,
+                headers=headers,
+                timeout=timeout,
+                allow_redirects=False,
+            )
+        except Exception as e:
+            logger.warning(f"fetch_image: 取得失敗 {current} — {e}")
+            return web.json_response({"error": f"fetch failed: {e}"}, status=502)
 
-    if resp.status_code != 200:
-        logger.warning(f"fetch_image: upstream HTTP {resp.status_code} {url}")
-        return web.json_response(
-            {"error": f"upstream HTTP {resp.status_code}"}, status=502
-        )
+        if resp.status_code in (301, 302, 303, 307, 308):
+            loc = resp.headers.get("Location")
+            if not loc:
+                return web.json_response(
+                    {"error": "redirect without Location"}, status=502
+                )
+            current = urljoin(current, loc)
+            continue
 
-    content_type = resp.headers.get("Content-Type", "application/octet-stream")
-    return web.Response(body=resp.content, content_type=content_type.split(";")[0])
+        if resp.status_code != 200:
+            logger.warning(f"fetch_image: upstream HTTP {resp.status_code} {current}")
+            return web.json_response(
+                {"error": f"upstream HTTP {resp.status_code}"}, status=502
+            )
+
+        content_type = resp.headers.get("Content-Type", "application/octet-stream")
+        return web.Response(body=resp.content, content_type=content_type.split(";")[0])
+
+    return web.json_response({"error": "too many redirects"}, status=502)
 
 
 async def health_handler(request: web.Request):
