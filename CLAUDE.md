@@ -50,6 +50,18 @@ They are NOT related unless explicitly stated.
 - Never mix client data into `products/` general directories
 - Never create files outside the specified target directory without asking
 
+## AIツールごとの役割と権限
+
+このワークスペースでは、d-managerを司令塔として扱う。
+
+- Claude Code / Larry は、既存プロダクトのメイン実装担当とする。
+- Codex は、原則として `products/codex-labs/` 内での開発・運用を担当する（本番利用を含む）。
+- Codex が既存プロダクトを編集する場合は、明示的な指示がある場合のみとする。
+- Gemini は、原則として読み取り・分析・仕様整理専用とし、ファイル編集は行わない。
+- Hermes は、外部情報収集・X/Grok検索・調査補助として扱う。
+- mainブランチへの直接編集・直接pushは禁止する。
+- `.env`、APIキー、認証情報、トークン類は読まない・編集しない・出力しない。
+
 ## SSoT Map（横断台帳の参照先）
 
 「広告アカウントID」「サブスク契約」「自動実行ジョブ」などの **横断情報** は、ここから探す。
@@ -121,3 +133,12 @@ They are NOT related unless explicitly stated.
 - 保存先: `/Users/Mac_air/Obsidian/Daily/YYYY-MM-DD.md`
 - git log + 未コミット変更から自動生成
 - テンプレート: Tasks / Dev Log / Tomorrow Next / Reflection
+
+## 共通スキル領域・棚卸し（Claude Code & Codex 共有）
+
+L2共通スキルは `_shared-ai/skills/`（単一実体・git追跡）。symlinkで Claude(`~/.claude/skills/<name>`)・Codex(`~/.codex/skills/<name>` 公式パス + `.agents/skills/<name>` 補助) からネイティブ起動。再生成は `bash _shared-ai/setup-symlinks.sh`。`~/.codex/skills` への書き込みは `~/.claude/settings.json` の sandbox `allowWrite` で許可済み（`/Users/Mac_air/.codex/skills` ピンポイント。`~/.codex` 全体は不可）。
+- 配置基準: 1ツール→`~/.claude/skills/`(L1) / 両ツール→`_shared-ai/skills/`(L2) / 1プロジェクト→`.claude/skills/`(L3)
+- 役割分担: 設計判断→Claude / 実装検証→Codex / 引き継ぎ→`codex-handoff` スキル
+- 棚卸し: MCP=月1 or `/context` 5%超→`mcp-audit` / スキル未使用=隔週(手動) / cache=四半期(手動)
+- 新スキル作成後は `skill-quality-checker` で8項目チェック。高コストな事実確認は `factcheck-ai-cross`
+- 詳細: `_shared-ai/README.md`
