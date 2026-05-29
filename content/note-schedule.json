@@ -384,7 +384,9 @@
     {
       "date": "2026-05-28",
       "slug": "factoring-zeimusho",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n273e99098dec",
+      "published_at": "2026-05-29"
     },
     {
       "date": "2026-05-29",
