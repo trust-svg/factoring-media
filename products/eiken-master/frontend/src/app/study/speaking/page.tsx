@@ -210,6 +210,17 @@ export default function SpeakingPage() {
       setPhase('result')
     } catch (err) {
       if (!mountedRef.current) return
+      // 採点失敗でもセッションは記録する
+      if (!endedRef.current && sessionId) {
+        endedRef.current = true
+        const duration = Math.round((Date.now() - startRef.current) / 1000)
+        apiEndSession(sessionId, {
+          duration_seconds: duration,
+          questions_attempted: 0,
+          correct_count: 0,
+          pomodoro_completed: false,
+        }).catch(() => {})
+      }
       setError(err instanceof Error ? err.message : '採点に失敗しました')
       setPhase('prep')
     }

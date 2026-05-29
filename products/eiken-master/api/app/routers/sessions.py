@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.db import SessionLocal, get_db
 from app.deps import current_user
+from app.models.flashcard import FlashcardReview
 from app.models.session import StudySession, QuestionAttempt
 from app.models.user import User
 from app.schemas.session import SessionStart, SessionEnd, AttemptCreate, SessionOut
@@ -83,6 +84,7 @@ def notify_complete(
     db: DbSession = Depends(get_db),
 ):
     """Called by frontend when all daily tasks are done. Sends one Telegram daily summary."""
+    import json
     from datetime import date, datetime, timedelta, timezone
 
     JST = timezone(timedelta(hours=9))
@@ -92,7 +94,11 @@ def notify_complete(
         hour=0, minute=0, second=0, microsecond=0, tzinfo=None
     )
 
-    # Streak
+    # Streak (study_days 対応)
+    try:
+        study_days: list[int] = json.loads(user.study_days or "[0,1,2,3,4,5,6]")
+    except (ValueError, TypeError):
+        study_days = list(range(7))
     session_dates: set[date] = set()
     for (s,) in (
         db.query(StudySession.started_at).filter(StudySession.user_id == user.id).all()
@@ -101,11 +107,15 @@ def notify_complete(
             session_dates.add(s.date() if isinstance(s, datetime) else s)
     streak = 0
     check = today
-    while check in session_dates:
-        streak += 1
+    for _ in range(365):
+        if check.weekday() in study_days:
+            if check in session_dates:
+                streak += 1
+            else:
+                break
         check -= timedelta(days=1)
 
-    # Today's sessions
+    # Today's sessions (0問除外)
     today_sessions = (
         db.query(StudySession)
         .filter(
@@ -127,11 +137,22 @@ def notify_complete(
         for s in today_sessions
     ]
 
+    # Today's flashcard reviews
+    flashcard_count = (
+        db.query(FlashcardReview)
+        .filter(
+            FlashcardReview.user_id == user.id,
+            FlashcardReview.reviewed_at >= today_start,
+        )
+        .count()
+    )
+
     background_tasks.add_task(
         telegram.send_daily_summary,
         username=user.username,
         streak=streak,
         sessions=sessions_data,
+        flashcard_count=flashcard_count,
     )
     return {"ok": True}
 

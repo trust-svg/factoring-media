@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import current_user
-from app.models.flashcard import Flashcard
+from app.models.flashcard import Flashcard, FlashcardReview
 from app.models.user import User
 from app.schemas.flashcard import (
     ExampleResponse,
@@ -61,6 +61,7 @@ def review_flashcard(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     update_sm2(card, body.quality)
+    db.add(FlashcardReview(user_id=user.id, flashcard_id=card_id, quality=body.quality))
     db.commit()
     db.refresh(card)
     return card

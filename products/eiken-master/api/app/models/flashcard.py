@@ -9,6 +9,22 @@ from app.db import Base
 JST = timezone(timedelta(hours=9))
 
 
+class FlashcardReview(Base):
+    __tablename__ = "flashcard_reviews"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False, index=True
+    )
+    flashcard_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("flashcards.id"), nullable=False
+    )
+    quality: Mapped[int] = mapped_column(Integer, nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(JST))
+
+
 class Flashcard(Base):
     __tablename__ = "flashcards"
 

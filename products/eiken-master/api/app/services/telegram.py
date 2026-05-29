@@ -66,6 +66,7 @@ def send_daily_summary(
     username: str,
     streak: int,
     sessions: list[dict],
+    flashcard_count: int = 0,
 ) -> None:
     if not _TOKEN or not _CHAT_ID:
         return
@@ -95,6 +96,9 @@ def send_daily_summary(
             f"{emoji} {skill}\n"
             f"⏱ {duration_str}  📝 {s['attempted']}問 / 正答率 {accuracy}"
         )
+
+    if flashcard_count > 0:
+        lines.append(f"🃏 単語カード\n📝 {flashcard_count}枚復習")
 
     text = "\n\n".join(lines)
 
