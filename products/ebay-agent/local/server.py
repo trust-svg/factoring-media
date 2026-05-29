@@ -26,6 +26,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 from aiohttp import web
@@ -248,12 +249,80 @@ async def fetch_yahoo_html_handler(request: web.Request):
     )
 
 
+# 画像取得を許可するホスト（SSRF対策）。Yahoo 画像CDN のみ。
+_IMAGE_HOST_SUFFIXES = (".yimg.jp", ".yahoo.co.jp")
+
+
+def _image_host_allowed(netloc: str) -> bool:
+    host = netloc.lower().split(":", 1)[0]
+    return any(
+        host == suf.lstrip(".") or host.endswith(suf) for suf in _IMAGE_HOST_SUFFIXES
+    )
+
+
+async def fetch_image_handler(request: web.Request):
+    """画像URLを Mac IP 経由で取得し、生バイトを返す。
+
+    VPS の Contabo IP は Yahoo 画像CDN(yimg.jp)に 403 されるため、HTML と同様に
+    Mac 経由で取得する。出品時の白背景化(whitebg)から呼ばれる。
+
+    Request JSON: {"url": "...", "referer": "...", "timeout": 30}
+    Response: 成功時は画像バイト（Content-Type 透過）、失敗時は JSON エラー。
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid JSON"}, status=400)
+
+    url = (body.get("url") or "").strip()
+    if not url:
+        return web.json_response({"error": "url is required"}, status=400)
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return web.json_response({"error": "only http(s) URLs allowed"}, status=400)
+    if not _image_host_allowed(parsed.netloc):
+        return web.json_response(
+            {"error": f"host not allowed: {parsed.netloc}"}, status=403
+        )
+
+    timeout = int(body.get("timeout", 30))
+    referer = (body.get("referer") or "https://auctions.yahoo.co.jp/").strip()
+    headers = {
+        "User-Agent": _YAHOO_FETCH_HEADERS["User-Agent"],
+        "Accept": "image/avif,image/webp,image/png,image/*,*/*;q=0.8",
+        "Accept-Language": _YAHOO_FETCH_HEADERS["Accept-Language"],
+        "Referer": referer,
+    }
+
+    try:
+        resp = await asyncio.to_thread(
+            requests.get,
+            url,
+            headers=headers,
+            timeout=timeout,
+            allow_redirects=True,
+        )
+    except Exception as e:
+        logger.warning(f"fetch_image: 取得失敗 {url} — {e}")
+        return web.json_response({"error": f"fetch failed: {e}"}, status=502)
+
+    if resp.status_code != 200:
+        logger.warning(f"fetch_image: upstream HTTP {resp.status_code} {url}")
+        return web.json_response(
+            {"error": f"upstream HTTP {resp.status_code}"}, status=502
+        )
+
+    content_type = resp.headers.get("Content-Type", "application/octet-stream")
+    return web.Response(body=resp.content, content_type=content_type.split(";")[0])
+
+
 async def health_handler(request: web.Request):
     return web.json_response(
         {
             "ok": True,
             "platforms": [s.platform_name for s in SCRAPERS],
-            "endpoints": ["/search", "/fetch_yahoo_html", "/health"],
+            "endpoints": ["/search", "/fetch_yahoo_html", "/fetch_image", "/health"],
         }
     )
 
@@ -262,6 +331,7 @@ def create_app() -> web.Application:
     app = web.Application(client_max_size=2 * 1024 * 1024)
     app.router.add_post("/search", search_handler)
     app.router.add_post("/fetch_yahoo_html", fetch_yahoo_html_handler)
+    app.router.add_post("/fetch_image", fetch_image_handler)
     app.router.add_get("/health", health_handler)
     return app
 
