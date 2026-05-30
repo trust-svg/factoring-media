@@ -398,7 +398,9 @@
     {
       "date": "2026-05-30",
       "slug": "factoring-saimu-chouka",
-      "status": "scheduled"
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n9989ee59a18a",
+      "published_at": "2026-05-30"
     },
     {
       "date": "2026-05-31",
