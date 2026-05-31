@@ -438,15 +438,31 @@ function showDemandContent(data) {
 
 function prefillCostFields() {
   const priceJpy = state.product.price_jpy;
+  const priceInput = document.getElementById('costPrice');
+  const taxInput = document.getElementById('costTax');
+  if (priceInput) priceInput._touched = false;
+  if (taxInput) taxInput._touched = false;
   if (priceJpy != null) {
-    const priceInput = document.getElementById('costPrice');
     if (priceInput) priceInput.value = priceJpy;
-
-    const taxInput = document.getElementById('costTax');
-    if (taxInput && !taxInput._touched) {
-      taxInput.value = Math.round(priceJpy * 0.10);
-    }
+    if (taxInput) taxInput.value = Math.round(priceJpy * 0.10);
   }
+}
+
+function onCostPriceChange() {
+  const priceInput = document.getElementById('costPrice');
+  if (priceInput) priceInput._touched = true;
+  const taxInput = document.getElementById('costTax');
+  if (taxInput && !taxInput._touched) {
+    const p = Number(priceInput?.value) || 0;
+    taxInput.value = Math.round(p * 0.10);
+  }
+  debouncedCalc();
+}
+
+function onCostTaxChange() {
+  const taxInput = document.getElementById('costTax');
+  if (taxInput) taxInput._touched = true;
+  debouncedCalc();
 }
 
 function onMarginSlide(val) {
@@ -828,6 +844,15 @@ function buildSubmitPayload() {
     // Pricing
     price_usd:      state.priceUsd,
     calc:           state.calc,
+
+    // Cost overrides — フォームで編集された値（仕入価格・税・送料）。
+    // 既定はスクレイプ値だが、ユーザー編集後はこの cost を優先する。
+    cost: {
+      price_jpy:                  Number(document.getElementById('costPrice')?.value) || 0,
+      tax_jpy:                    Number(document.getElementById('costTax')?.value) || 0,
+      domestic_shipping_jpy:      Number(document.getElementById('costDomShipping')?.value) || 0,
+      international_shipping_usd: Number(document.getElementById('costIntlShipping')?.value) || 0,
+    },
 
     // Demand
     demand:         state.demand,

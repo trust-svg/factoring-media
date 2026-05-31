@@ -1205,17 +1205,17 @@
         <label class="la-field-label">仕入価格（税込）</label>
         <div style="position:relative">
           <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:600;color:var(--text-muted)">¥</span>
-          <input type="number" class="la-field-input" id="costPrice" readonly
-                 style="padding-left:28px;background:var(--gray-50);color:var(--text-secondary)" />
+          <input type="number" class="la-field-input" id="costPrice" oninput="onCostPriceChange()"
+                 style="padding-left:28px" />
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">仕入元ページから自動入力</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">仕入元ページから自動入力（編集可）</div>
       </div>
 
       <div class="form-group">
         <label class="la-field-label">消費税</label>
         <div style="position:relative">
           <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:600;color:var(--text-muted)">¥</span>
-          <input type="number" class="la-field-input" id="costTax" oninput="debouncedCalc()"
+          <input type="number" class="la-field-input" id="costTax" oninput="onCostTaxChange()"
                  style="padding-left:28px" />
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:3px">仕入価格の10%（編集可）</div>

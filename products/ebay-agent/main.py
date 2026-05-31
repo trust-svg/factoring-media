@@ -5437,14 +5437,28 @@ async def listing_assistant_submit_ledger(request: Request):
     source_url = body.get("source_url", "")
     price_usd = float(body.get("price_usd", 0))
     calc = body.get("calc", {})
+    cost = body.get("cost", {}) or {}
 
-    price_jpy = int(product.get("price_jpy", 0))
-    tax_jpy = round(price_jpy * 0.10)
+    # フォーム編集値があれば優先、なければスクレイプ値にフォールバック
+    price_jpy = int(
+        cost.get("price_jpy")
+        if cost.get("price_jpy") not in (None, "")
+        else product.get("price_jpy", 0) or 0
+    )
+    tax_jpy = int(
+        cost.get("tax_jpy")
+        if cost.get("tax_jpy") not in (None, "")
+        else round(price_jpy * 0.10)
+    )
     platform = product.get("platform", "")
     title = product.get("title", "")
     seller_id = product.get("seller_id", "")
     image_url = product.get("image_url", "")
-    domestic_shipping_jpy = int(calc.get("domestic_shipping_jpy", 0))
+    domestic_shipping_jpy = int(
+        cost.get("domestic_shipping_jpy")
+        if cost.get("domestic_shipping_jpy") not in (None, "")
+        else calc.get("domestic_shipping_jpy", 0) or 0
+    )
 
     db = get_db()
     try:
@@ -5479,12 +5493,26 @@ async def listing_assistant_submit_eship(request: Request):
     ebay_title = body.get("ebay_title", product.get("title", ""))
     price_usd = float(body.get("price_usd", 0))
     calc = body.get("calc", {})
+    cost = body.get("cost", {}) or {}
 
-    price_jpy = int(product.get("price_jpy", 0))
-    tax_jpy = round(price_jpy * 0.10)
+    # フォーム編集値があれば優先、なければスクレイプ値にフォールバック
+    price_jpy = int(
+        cost.get("price_jpy")
+        if cost.get("price_jpy") not in (None, "")
+        else product.get("price_jpy", 0) or 0
+    )
+    tax_jpy = int(
+        cost.get("tax_jpy")
+        if cost.get("tax_jpy") not in (None, "")
+        else round(price_jpy * 0.10)
+    )
     platform = product.get("platform", "")
     image_url = product.get("image_url", "")
-    domestic_shipping_jpy = int(calc.get("domestic_shipping_jpy", 0))
+    domestic_shipping_jpy = int(
+        cost.get("domestic_shipping_jpy")
+        if cost.get("domestic_shipping_jpy") not in (None, "")
+        else calc.get("domestic_shipping_jpy", 0) or 0
+    )
     stock_number = body.get("stock_number", "")
     ebay_item_id = body.get("ebay_item_id", "")
     category_id = body.get("category_id", "")
