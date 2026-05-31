@@ -2298,6 +2298,74 @@ def publish_offer(offer_id: str) -> dict:
         return {"success": False, "error": error, "status_code": resp.status_code}
 
 
+def withdraw_inventory_offer(offer_id: str) -> dict:
+    """Inventory API の offer を取り下げる（active listing を終了する）。"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/inventory/v1/offer/{offer_id}/withdraw"
+    resp = requests.post(url, headers=headers, timeout=30)
+    if resp.status_code in (200, 204):
+        logger.info(f"Offer 取り下げ成功: {offer_id} HTTP {resp.status_code}")
+        return {"success": True, "offer_id": offer_id, "status_code": resp.status_code}
+    error = resp.text[:500]
+    logger.error(f"Offer 取り下げ失敗: {resp.status_code} {error}")
+    return {"success": False, "error": error, "status_code": resp.status_code}
+
+
+def delete_inventory_offer(offer_id: str) -> dict:
+    """Inventory API の offer を削除する（withdraw 後に SKU を解放するため）。"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/inventory/v1/offer/{offer_id}"
+    resp = requests.delete(url, headers=headers, timeout=30)
+    if resp.status_code in (200, 204, 404):
+        logger.info(f"Offer 削除: {offer_id} HTTP {resp.status_code}")
+        return {"success": True, "offer_id": offer_id, "status_code": resp.status_code}
+    error = resp.text[:500]
+    logger.error(f"Offer 削除失敗: {resp.status_code} {error}")
+    return {"success": False, "error": error, "status_code": resp.status_code}
+
+
+def delete_inventory_item(sku: str) -> dict:
+    """Inventory API の inventory_item を削除する。SKU を完全に解放し
+    Trading API AddFixedPriceItem で同じ SKU を再利用可能にする。"""
+    headers = _auth_headers()
+    url = f"{EBAY_API_BASE}/sell/inventory/v1/inventory_item/{sku}"
+    resp = requests.delete(url, headers=headers, timeout=30)
+    if resp.status_code in (200, 204, 404):
+        logger.info(f"InventoryItem 削除: {sku} HTTP {resp.status_code}")
+        return {"success": True, "sku": sku, "status_code": resp.status_code}
+    error = resp.text[:500]
+    logger.error(f"InventoryItem 削除失敗: {resp.status_code} {error}")
+    return {"success": False, "error": error, "status_code": resp.status_code}
+
+
+def end_inventory_listing(sku: str, offer_id: str) -> dict:
+    """Inventory API 出品を完全に終了し SKU を解放する（3 ステップ統合）。
+
+    eShip など Trading API ベースのツールが errorId 21919474 を返す Inventory-API
+    管理出品を、Trading API で再出品できる状態に戻すための前処理。
+
+    1. POST /offer/{offer_id}/withdraw    → listing を終了
+    2. DELETE /offer/{offer_id}           → offer を削除
+    3. DELETE /inventory_item/{sku}       → inventory item を削除（SKU 解放）
+
+    Returns: {"success": bool, "steps": {"withdraw": dict, "delete_offer": dict,
+             "delete_item": dict}}
+    """
+    steps = {
+        "withdraw": withdraw_inventory_offer(offer_id),
+        "delete_offer": delete_inventory_offer(offer_id),
+        "delete_item": delete_inventory_item(sku),
+    }
+    ok = all(s.get("success") for s in steps.values())
+    if ok:
+        logger.info(f"Inventory 出品終了完了: SKU={sku} OfferID={offer_id}")
+    else:
+        logger.warning(
+            f"Inventory 出品終了で一部失敗: SKU={sku} OfferID={offer_id} steps={steps}"
+        )
+    return {"success": ok, "steps": steps}
+
+
 # ── 新規出品 (Trading API / AddFixedPriceItem) ─────────────
 
 
