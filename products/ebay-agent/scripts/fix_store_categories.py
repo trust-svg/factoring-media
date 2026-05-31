@@ -34,24 +34,29 @@ def fix_all(
     mismatches: list[dict],
     bot_token: str,
     chat_id: str,
+    max_fixes: Optional[int] = None,
 ) -> None:
-    """mismatches の全件を修正する。
+    """mismatches の全件（または max_fixes 件）を修正する。
 
     mismatch dict keys: item_id, title, current_id, expected_id, expected_name
     """
+    targets = mismatches[:max_fixes] if max_fixes else mismatches
+    skipped = len(mismatches) - len(targets)
     ok, fail = 0, 0
-    for m in mismatches:
+    for m in targets:
         result = revise_store_category(m["item_id"], m["expected_id"])
         if result["success"]:
             ok += 1
         else:
             fail += 1
             logger.error(f"修正失敗: {m['item_id']} — {result.get('error')}")
-        time.sleep(1)
+        time.sleep(2)
 
     lines = [f"✅ 修正完了: {ok}件"]
     if fail:
         lines.append(f"❌ 失敗: {fail}件（ログを確認してください）")
+    if skipped:
+        lines.append(f"⏭️ 上限により未処理: {skipped}件（次回実行で継続）")
     _send_telegram(bot_token, chat_id, "\n".join(lines))
 
 

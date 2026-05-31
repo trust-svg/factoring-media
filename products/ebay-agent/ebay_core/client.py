@@ -3005,13 +3005,21 @@ def get_listings_store_info() -> list[StoreSectionListing]:
             )
             break
 
+        skipped_intl = 0
         for item in root.findall(
             ".//e:ActiveList/e:ItemArray/e:Item", namespaces=ns_map
         ):
             item_id = item.findtext("e:ItemID", "", namespaces=ns_map)
             title = item.findtext("e:Title", "", namespaces=ns_map)
+            view_url = item.findtext(
+                "e:ListingDetails/e:ViewItemURL", "", namespaces=ns_map
+            )
+            # eBaymag 経由の UK/DE/CA/IT/FR 出品を除外（US ebay.com のみ対象）
+            if view_url and "//www.ebay.com/" not in view_url:
+                skipped_intl += 1
+                continue
             store_cat_id = item.findtext(
-                "e:StoreFront/e:StoreCategoryID", "", namespaces=ns_map
+                "e:Storefront/e:StoreCategoryID", "", namespaces=ns_map
             )
             if item_id:
                 results.append(
@@ -3029,11 +3037,15 @@ def get_listings_store_info() -> list[StoreSectionListing]:
                 namespaces=ns_map,
             )
         )
+        if skipped_intl:
+            logger.info(
+                f"  page {page}: 海外サイト出品 {skipped_intl} 件除外 (UK/DE/CA/IT/FR)"
+            )
         if page >= total_pages:
             break
         page += 1
 
-    logger.info(f"get_listings_store_info: {len(results)} 件取得")
+    logger.info(f"get_listings_store_info: {len(results)} 件取得（US ebay.com のみ）")
     return results
 
 
@@ -3048,9 +3060,9 @@ def revise_store_category(item_id: str, store_category_id: str) -> dict:
     </RequesterCredentials>
     <Item>
         <ItemID>{item_id}</ItemID>
-        <StoreFront>
+        <Storefront>
             <StoreCategoryID>{store_category_id}</StoreCategoryID>
-        </StoreFront>
+        </Storefront>
     </Item>
 </ReviseFixedPriceItemRequest>"""
 

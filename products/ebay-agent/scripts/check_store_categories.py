@@ -286,12 +286,24 @@ def main() -> None:
         logger.info("問題なし。終了。")
         return
 
-    # 7. Telegram 送信 → ポーリング
+    # 7. Telegram 送信 → ポーリング（--autofix で即実行）
+    autofix = "--autofix" in sys.argv
+    max_fixes: Optional[int] = None
+    for arg in sys.argv:
+        if arg.startswith("--max-fixes="):
+            max_fixes = int(arg.split("=", 1)[1])
+        elif arg == "--max-fixes" and sys.argv.index(arg) + 1 < len(sys.argv):
+            max_fixes = int(sys.argv[sys.argv.index(arg) + 1])
+
     offset = _get_updates_offset()
     _send(report_text)
 
-    logger.info(f"Telegram ポーリング開始（最大 {POLL_TIMEOUT_SEC}秒）...")
-    command = _poll_command(offset)
+    if autofix:
+        logger.info("--autofix モード: ポーリングをスキップして即修正実行")
+        command = "fix"
+    else:
+        logger.info(f"Telegram ポーリング開始（最大 {POLL_TIMEOUT_SEC}秒）...")
+        command = _poll_command(offset)
 
     if command is None:
         logger.info("タイムアウト — 今回はスキップ。")
@@ -301,7 +313,7 @@ def main() -> None:
     logger.info(f"受信コマンド: {command!r}")
 
     if command_lower == "fix":
-        fix_all(mismatches, BOT_TOKEN, CHAT_ID)
+        fix_all(mismatches, BOT_TOKEN, CHAT_ID, max_fixes=max_fixes)
 
     elif command_lower.startswith("fix "):
         try:
