@@ -1,6 +1,8 @@
 # eBay ストアセクション↔キーワードのマッピング。
 # keywords: 小文字。substring OR マッチ（kw in title.lower()）。サブカテゴリーが先評価。
 # GetStore 2026-05-27 時点のセクション構成を反映。
+# 2026-06-01 更新: Musical Instruments を Audio Equipment より前に移動（DJ Equipment > Turntables 優先）、
+#   Game Accessories の controller を限定化、Watches casio を限定化、Car Audio を Amplifiers より前に移動
 
 sections:
   - id: "44507751016"
@@ -67,6 +69,157 @@ sections:
           - antique koto
           - antique biwa
 
+  # Musical Instruments を Audio Equipment より前に配置:
+  # DJ Equipment (cdj/djm/xdj/ddj) が Turntables より先に評価される
+  - id: "44509639016"
+    name: "Musical Instruments"
+    keywords:
+      - instrument
+      - music gear
+    subcategories:
+      - id: "44870858016"
+        name: "Wind & Woodwind"
+        keywords:
+          - flute
+          - clarinet
+          - saxophone
+          - oboe
+          - bassoon
+          - woodwind
+      - id: "44871448016"
+        name: "Pianos, Keyboards & Organs"
+        keywords:
+          - piano
+          - keyboard instrument
+          - organ
+          - digital piano
+          - electric piano
+          - midi keyboard
+          - hammond
+          - privia
+          - casio px
+          - casio ct
+          - casio privia
+          - roland fp
+          - roland rd
+          - yamaha p-
+          - yamaha clavinova
+      - id: "44862570016"
+        name: "Brass"
+        keywords:
+          - trumpet
+          - trombone
+          - tuba
+          - french horn
+          - flugelhorn
+          - cornet
+          - euphonium
+      - id: "44670713016"
+        name: "DJ Equipment"
+        keywords:
+          - cdj
+          - djm
+          - ddj
+          - rmx
+          - dj controller
+          - dj mixer
+          - xdj
+          - dj equipment
+          - rekordbox
+          - serato
+          - traktor
+      - id: "44578237016"
+        name: "Guitars & Basses"
+        keywords:
+          - guitar
+          - bass guitar
+          - acoustic guitar
+          - electric guitar
+          - stratocaster
+          - telecaster
+          - les paul
+          - fender guitar
+          - gibson guitar
+      - id: "44509640016"
+        name: "Traditional Instruments"
+        keywords:
+          - shamisen
+          - koto
+          - shakuhachi
+          - biwa
+          - sanshin
+          - tsugaru
+          - taiko drum
+      - id: "44509641016"
+        name: "Electronic Instruments"
+        keywords:
+          - synthesizer
+          - synth
+          - sound module
+          - tone generator
+          - drum machine
+          - sequencer
+          - eurorack
+          - effect pedal
+          - synthesizer module
+          - roland tr
+          - roland mc
+          - roland tb
+          - roland juno
+          - roland jx
+          - korg ms
+          - korg volca
+          - korg minilogue
+          - moog
+          - arturia
+          - akai mpk
+          - akai mpc
+      - id: "44509642016"
+        name: "Other Instruments"
+        keywords:
+          - violin
+          - cello
+          - viola
+          - banjo
+          - mandolin
+          - ukulele
+          - djembe
+          - cajon
+          - marimba
+          - xylophone
+      - id: "44509643016"
+        name: "Guitar & Bass Accessories"
+        keywords:
+          - guitar strap
+          - guitar cable
+          - guitar picks
+          - guitar strings
+          - guitar capo
+          - guitar case
+          - guitar stand
+      - id: "44509647016"
+        name: "Pro Audio Equipment"
+        keywords:
+          - microphone
+          - condenser mic
+          - studio monitor
+          - audio interface
+          - pa speaker
+          - mixing console
+          - field recorder
+          - portable recorder
+          - audio recorder
+          - rack unit
+          - rack mount
+          - zoom h
+          - zoom r
+          - tascam dr
+          - roland cube
+          - roland blues cube
+          - akai ewi
+          - wind controller
+          - midi controller
+
   - id: "44508337016"
     name: "Audio Equipment"
     keywords:
@@ -84,6 +237,7 @@ sections:
           - digital audio player
           - portable player
           - atrac
+          - discman
       - id: "44675522016"
         name: "Tape Decks"
         keywords:
@@ -107,6 +261,20 @@ sections:
           - am tuner
           - fm/am tuner
           - radio tuner
+      # Car Audio を Amplifiers より前に: "car amplifier" が bare "amplifier" より優先される
+      - id: "44509655016"
+        name: "Car Audio"
+        keywords:
+          - car audio
+          - car stereo
+          - car speaker
+          - car amplifier
+          - head unit
+          - in-dash
+          - helix dsp
+          - alpine pdx
+          - jl audio
+          - rockford fosgate
       - id: "44508405016"
         name: "Amplifiers"
         keywords:
@@ -156,15 +324,6 @@ sections:
           - interconnect
           - speaker cable
           - audio accessories
-      - id: "44509655016"
-        name: "Car Audio"
-        keywords:
-          - car audio
-          - car stereo
-          - car speaker
-          - car amplifier
-          - head unit
-          - in-dash
       - id: "44509764016"
         name: "Cartridges"
         keywords:
@@ -232,8 +391,14 @@ sections:
       - id: "44509648016"
         name: "Game Accessories"
         keywords:
-          - controller
+          - game controller
           - gamepad
+          - joy-con
+          - joycon
+          - ps5 controller
+          - ps4 controller
+          - xbox controller
+          - pro controller
           - mousepad
           - mouse pad
           - gaming mouse
@@ -244,6 +409,9 @@ sections:
           - game cartridge
           - family computer
           - retro game
+          - nintendo switch game
+          - pokemon game
+          - video game
 
   - id: "44508340016"
     name: "Luxury & Lifestyle"
@@ -264,7 +432,13 @@ sections:
           - mantel clock
           - seiko
           - citizen
-          - casio
+          - casio watch
+          - casio g-shock
+          - casio f-91
+          - casio wave ceptor
+          - casio oceanus
+          - casio edifice
+          - casio databank
           - g-shock
           - orient
           - grand seiko
@@ -374,128 +548,6 @@ sections:
           - monocular
           - spotting scope
           - bird watching scope
-
-  - id: "44509639016"
-    name: "Musical Instruments"
-    keywords:
-      - instrument
-      - music gear
-    subcategories:
-      - id: "44870858016"
-        name: "Wind & Woodwind"
-        keywords:
-          - flute
-          - clarinet
-          - saxophone
-          - oboe
-          - bassoon
-          - woodwind
-      - id: "44871448016"
-        name: "Pianos, Keyboards & Organs"
-        keywords:
-          - piano
-          - keyboard instrument
-          - organ
-          - digital piano
-          - electric piano
-          - midi keyboard
-          - hammond
-      - id: "44862570016"
-        name: "Brass"
-        keywords:
-          - trumpet
-          - trombone
-          - tuba
-          - french horn
-          - flugelhorn
-          - cornet
-          - euphonium
-      - id: "44670713016"
-        name: "DJ Equipment"
-        keywords:
-          - cdj
-          - djm
-          - dj controller
-          - dj mixer
-          - xdj
-          - dj equipment
-      - id: "44578237016"
-        name: "Guitars & Basses"
-        keywords:
-          - guitar
-          - bass guitar
-          - acoustic guitar
-          - electric guitar
-          - stratocaster
-          - telecaster
-          - les paul
-          - fender guitar
-          - gibson guitar
-      - id: "44509640016"
-        name: "Traditional Instruments"
-        keywords:
-          - shamisen
-          - koto
-          - shakuhachi
-          - biwa
-          - sanshin
-          - tsugaru
-          - taiko drum
-      - id: "44509641016"
-        name: "Electronic Instruments"
-        keywords:
-          - synthesizer
-          - synth
-          - sound module
-          - tone generator
-          - drum machine
-          - sequencer
-          - eurorack
-          - effect pedal
-          - synthesizer module
-          - roland tr
-          - roland mc
-          - korg ms
-          - moog
-          - arturia
-      - id: "44509642016"
-        name: "Other Instruments"
-        keywords:
-          - violin
-          - cello
-          - viola
-          - banjo
-          - mandolin
-          - ukulele
-          - djembe
-          - cajon
-          - marimba
-          - xylophone
-      - id: "44509643016"
-        name: "Guitar & Bass Accessories"
-        keywords:
-          - guitar strap
-          - guitar cable
-          - guitar picks
-          - guitar strings
-          - guitar capo
-          - guitar case
-          - guitar stand
-      - id: "44509647016"
-        name: "Pro Audio Equipment"
-        keywords:
-          - microphone
-          - condenser mic
-          - studio monitor
-          - audio interface
-          - pa speaker
-          - mixing console
-          - mixer
-          - field recorder
-          - portable recorder
-          - audio recorder
-          - rack unit
-          - rack mount
 
   - id: "44509650016"
     name: "Home & Kitchen"
