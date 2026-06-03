@@ -422,6 +422,13 @@
       "status": "published",
       "note_url": "https://note.com/faccel/n/n41161a34a86c",
       "published_at": "2026-06-01"
+    },
+    {
+      "date": "2026-06-03",
+      "slug": "beat-trading-review",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/n1352a6dbe601",
+      "published_at": "2026-06-03"
     }
   ]
 }
