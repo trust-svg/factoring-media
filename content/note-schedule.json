@@ -429,6 +429,13 @@
       "status": "published",
       "note_url": "https://note.com/faccel/n/n1352a6dbe601",
       "published_at": "2026-06-03"
+    },
+    {
+      "date": "2026-06-04",
+      "slug": "freenance-review",
+      "status": "published",
+      "note_url": "https://note.com/faccel/n/nebb41de0a102",
+      "published_at": "2026-06-04"
     }
   ]
 }
