@@ -1,9 +1,16 @@
 name: Auto Generate Article
 
 on:
-  schedule:
-    - cron: '7 0 * * 1,3,5'  # Mon/Wed/Fri 9:07 JST (UTC+9)
-  workflow_dispatch:           # 手動実行も可能
+  # 自動スケジュールは廃止（2026-06-09）。
+  # 理由:
+  #   1) note-auto の replenish が同じ content/articles に「レビュー済み」記事を
+  #      生成・反映する一次経路になった（reflect_to_site.py で PR 化）。
+  #   2) 本 generator は無レビューで main へ自動 push する設計で YMYL リスクがある。
+  #   3) ネタ切れ時に find_next_target() が None を返し、空 diff →
+  #      "No new articles to commit." でサイレント無処理のまま停止する事故があった
+  #      （2026-05-13〜約4週間）。
+  # 残置目的: KNOWLEDGE_PRIORITY のネタ在庫を使った手動バックアップ生成のみ。
+  workflow_dispatch:           # 手動実行のみ
 
 permissions:
   contents: write

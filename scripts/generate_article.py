@@ -15,23 +15,69 @@ import anthropic
 # seed.ts上のcompanySlugと対応するレビュー記事スラグのマッピング
 # 優先度順（上から執筆）
 REVIEW_PRIORITY = [
-    ("beat-trading",    "beat-trading-review"),
-    ("factoru",         "factoru-review"),
-    ("jfc-support",     "jfc-support-review"),
-    ("olta",            "olta-review"),
-    ("paytoday",        "paytoday-review"),
-    ("labol",           "labol-review"),
-    ("top-management",  "top-management-review"),
-    ("ennavi",          "ennavi-review"),
+    ("beat-trading", "beat-trading-review"),
+    ("factoru", "factoru-review"),
+    ("jfc-support", "jfc-support-review"),
+    ("olta", "olta-review"),
+    ("paytoday", "paytoday-review"),
+    ("labol", "labol-review"),
+    ("top-management", "top-management-review"),
+    ("ennavi", "ennavi-review"),
 ]
 
 # レビュー以外の知識系記事（優先度順）
 KNOWLEDGE_PRIORITY = [
-    ("factoring-cannot-repay",      "ファクタリングで返済できない場合はどうなる？リスクと対処法を解説"),
-    ("factoring-double-assignment", "売掛債権の二重譲渡とは？ファクタリングでのリスクと防止策"),
-    ("factoring-scam-detection",    "ファクタリング詐欺・悪質業者の見分け方と被害を防ぐチェックリスト"),
-    ("salary-factoring-illegal",    "給与ファクタリングはなぜ違法？仕組みと合法サービスとの違い"),
-    ("factoring-rejected-reason",   "ファクタリング審査に落ちる理由と通過率を上げる対策"),
+    (
+        "factoring-cannot-repay",
+        "ファクタリングで返済できない場合はどうなる？リスクと対処法を解説",
+    ),
+    (
+        "factoring-double-assignment",
+        "売掛債権の二重譲渡とは？ファクタリングでのリスクと防止策",
+    ),
+    (
+        "factoring-scam-detection",
+        "ファクタリング詐欺・悪質業者の見分け方と被害を防ぐチェックリスト",
+    ),
+    (
+        "salary-factoring-illegal",
+        "給与ファクタリングはなぜ違法？仕組みと合法サービスとの違い",
+    ),
+    ("factoring-rejected-reason", "ファクタリング審査に落ちる理由と通過率を上げる対策"),
+    # 2026-06 追加: 上記の旧ネタが全て記事化され generator が無処理になっていたため補充
+    (
+        "factoring-merit-demerit",
+        "ファクタリングのメリット・デメリットを総まとめ｜利用前に知るべき判断材料",
+    ),
+    ("factoring-flow", "ファクタリングの利用の流れ｜申込から入金までの手順を解説"),
+    (
+        "factoring-contract-check",
+        "ファクタリング契約書のチェックポイント｜不利な条項を見抜く方法",
+    ),
+    (
+        "factoring-cashflow-improve",
+        "資金繰り改善にファクタリングを使うべきケースと注意点",
+    ),
+    (
+        "factoring-client-bankruptcy",
+        "売掛先が倒産したらファクタリングはどうなる？償還請求の有無で違う対応",
+    ),
+    ("factoring-startup", "創業まもない会社でもファクタリングは使える？審査のポイント"),
+    ("factoring-large-amount", "高額・大口の売掛債権をファクタリングする際の注意点"),
+    ("factoring-tax-payment", "納税資金をファクタリングで確保する方法とリスク"),
+    (
+        "factoring-credit-impact",
+        "ファクタリング利用は信用情報に載る？借入との違いを解説",
+    ),
+    (
+        "factoring-receivable-types",
+        "ファクタリングできる売掛債権の種類と対象外になるケース",
+    ),
+    (
+        "factoring-future-receivable",
+        "将来債権ファクタリングとは？仕組みとメリット・注意点",
+    ),
+    ("factoring-payment-cycle", "入金サイトが長い事業者のためのファクタリング活用法"),
 ]
 
 ARTICLES_DIR = Path("content/articles")
@@ -139,9 +185,10 @@ def generate_review(company_slug: str, article_slug: str, note_context: str) -> 
     message = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=4096,
-        messages=[{
-            "role": "user",
-            "content": f"""ファクタリング情報メディア「ファクセル（faccel.jp）」向けに、業者レビュー記事を1本執筆してください。
+        messages=[
+            {
+                "role": "user",
+                "content": f"""ファクタリング情報メディア「ファクセル（faccel.jp）」向けに、業者レビュー記事を1本執筆してください。
 
 ## 対象
 - companySlug（seed.ts内のキー）: {company_slug}
@@ -172,8 +219,9 @@ def generate_review(company_slug: str, article_slug: str, note_context: str) -> 
 - 末尾に必ず `[ファクセル](https://faccel.jp)` リンクを含める
 
 frontmatter（---〜---）から本文末尾まで、完全なMarkdown記事を出力してください。
-コードブロック（```）で囲まないでください。"""
-        }]
+コードブロック（```）で囲まないでください。""",
+            }
+        ],
     )
     return message.content[0].text.strip()
 
@@ -187,9 +235,10 @@ def generate_knowledge(article_slug: str, note_context: str) -> str:
     message = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=4096,
-        messages=[{
-            "role": "user",
-            "content": f"""ファクタリング情報メディア「ファクセル（faccel.jp）」向けに、知識系SEO記事を1本執筆してください。
+        messages=[
+            {
+                "role": "user",
+                "content": f"""ファクタリング情報メディア「ファクセル（faccel.jp）」向けに、知識系SEO記事を1本執筆してください。
 
 ## テーマ
 {theme}
@@ -214,8 +263,9 @@ def generate_knowledge(article_slug: str, note_context: str) -> str:
 - 末尾に必ず `[ファクセル](https://faccel.jp)` リンクを含める
 
 frontmatter（---〜---）から本文末尾まで、完全なMarkdown記事を出力してください。
-コードブロック（```）で囲まないでください。"""
-        }]
+コードブロック（```）で囲まないでください。""",
+            }
+        ],
     )
     return message.content[0].text.strip()
 
