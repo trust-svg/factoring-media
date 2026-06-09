@@ -18,6 +18,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: GITHUB_SHA
+          command_timeout: 30m
           script: |
             set -euo pipefail
             git config --global --add safe.directory /root/factoring-media
