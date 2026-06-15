@@ -1,19 +1,27 @@
 type ArticleLayoutProps = {
   title: string;
   date?: string;
+  last_updated?: string;
   author?: string;
   children: React.ReactNode;
 };
 
-export function ArticleLayout({ title, date, author, children }: ArticleLayoutProps) {
+export function ArticleLayout({ title, date, last_updated, author, children }: ArticleLayoutProps) {
+  const displayDate = last_updated || date;
   return (
     <article className="max-w-3xl mx-auto px-4 py-8">
       <header className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-navy leading-tight mb-4">
           {title}
         </h1>
-        <div className="flex items-center gap-4 text-sm text-gray-500">
-          {date && <time>{date}</time>}
+        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+          {date && !last_updated && <time dateTime={date}>公開: {date}</time>}
+          {last_updated && (
+            <>
+              {date && <time dateTime={date}>公開: {date}</time>}
+              <time dateTime={last_updated} className="text-green font-medium">最終更新: {last_updated}</time>
+            </>
+          )}
           {author && <span>著者: {author}</span>}
         </div>
       </header>

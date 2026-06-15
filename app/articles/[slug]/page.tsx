@@ -31,6 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       locale: "ja_JP",
       type: "article",
       publishedTime: article.date,
+      modifiedTime: article.last_updated || article.date,
       authors: [article.author],
       images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: article.title }],
     },
@@ -63,6 +64,7 @@ export default async function ArticlePage({ params }: Props) {
     title: article.title,
     description: article.description,
     date: article.date,
+    modified: article.last_updated || article.date,
     author: article.author,
     keywords: article.keywords,
     image: `${SITE_URL}${DEFAULT_OG_IMAGE}`,
@@ -86,7 +88,7 @@ export default async function ArticlePage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <ArticleLayout title={article.title} date={article.date} author={article.author}>
+      <ArticleLayout title={article.title} date={article.date} last_updated={article.last_updated} author={article.author}>
         <div dangerouslySetInnerHTML={{ __html: article.contentHtml }} />
       </ArticleLayout>
     </>

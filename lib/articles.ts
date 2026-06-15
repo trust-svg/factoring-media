@@ -11,6 +11,7 @@ export type ArticleMeta = {
   title: string;
   description: string;
   date: string;
+  last_updated?: string;
   category: string;
   author: string;
   keywords?: string[];
@@ -35,6 +36,7 @@ export function getAllArticles(): ArticleMeta[] {
         title: data.title || "",
         description: data.description || "",
         date: data.date || "",
+        last_updated: data.last_updated || undefined,
         category: data.category || "",
         author: data.author || "",
         keywords: data.keywords || [],
@@ -61,6 +63,7 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
     title: data.title || "",
     description: data.description || "",
     date: data.date || "",
+    last_updated: data.last_updated || undefined,
     category: data.category || "",
     author: data.author || "",
     keywords: data.keywords || [],
