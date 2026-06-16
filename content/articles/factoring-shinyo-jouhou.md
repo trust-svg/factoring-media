@@ -2,6 +2,7 @@
 title: "ファクタリングは信用情報に影響する？CICやJICCへの登録を解説"
 description: "ファクタリングは信用情報に登録されない場合がほとんど。CICやJICCへの影響がない理由と、稀に信用情報が傷つく例外ケースを3つ紹介。融資審査で落ちるリスクを事前に防げます。"
 date: "2026-05-27"
+last_updated: "2026-06-16"
 slug: "factoring-shinyo-jouhou"
 category: "ネガティブワード"
 author: "ファクセル編集部"

@@ -2,6 +2,7 @@
 title: "QuQuMo（ククモ）の手数料は高い？1%〜の実態と注意点"
 description: "QuQuMoの手数料は本当に高いのか？1〜14.8%の料金体系を他社と徹底比較し、最適な利用シーンや手数料を抑えるコツまで。あなたの資金調達コストを最小化する方法が見つかります。"
 date: "2026-05-16"
+last_updated: "2026-06-16"
 slug: "ququmo-tesuuryou-takai"
 category: "業者名×ネガティブワード"
 author: "ファクセル編集部"
