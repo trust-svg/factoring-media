@@ -34,3 +34,7 @@ next-env.d.ts
 # separate services / operation assets (managed outside this repo)
 /x-auto/
 /x-assets/
+
+# 棚卸し 2026-06-17: 生成物/ジャンク（Stop hook基線クリーン化）
+__pycache__/
+*.pyc
