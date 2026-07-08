@@ -16,11 +16,13 @@ EBAY_TOKEN_FILE = BASE_DIR / "tokens" / "ebay_token.json"
 EBAY_API_BASE = "https://api.ebay.com"
 EBAY_AUTH_BASE = "https://auth.ebay.com"
 
+# ユーザー同意トークン用のスコープ。Browse API は含めない
+# （Browse は client_credentials のアプリトークンで base api_scope を使うため。
+#  buy.browse をここに入れると新規アカウントの同意で invalid_scope になる）
 EBAY_OAUTH_SCOPES = " ".join(
     [
         "https://api.ebay.com/oauth/api_scope/sell.inventory",
         "https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
-        "https://api.ebay.com/oauth/api_scope/buy.browse",
         "https://api.ebay.com/oauth/api_scope/sell.account.readonly",
     ]
 )
