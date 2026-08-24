@@ -14,7 +14,8 @@
     "p0:probe": "npm run p0:probe -w @yar/worker --",
     "yahoo:cookies": "npm run yahoo:cookies -w @yar/worker --",
     "build": "npm run db:generate && npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   },
   "engines": {
     "node": ">=22"

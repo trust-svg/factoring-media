@@ -10,13 +10,15 @@
     "./labels": "./src/labels.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/*.test.ts"
   },
   "dependencies": {
     "cheerio": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "tsx": "^4.21.0"
   }
 }

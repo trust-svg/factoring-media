@@ -50,7 +50,7 @@ model BidReservation {
   originalEndAt    DateTime
 
   maxBidAmount       Int
-  snipeSecondsBefore Int       @default(30) // 5〜300
+  snipeSecondsBefore Int       @default(30) // 5〜600
   currentPrice       Int?
   priceCheckedAt     DateTime?
 

@@ -1,6 +1,6 @@
 import { prisma } from "@yar/db";
 import {
-  MONITOR_LEAD_SECONDS,
+  monitorLeadSeconds,
   REFRESH_INTERVAL_FAR_MS,
   REFRESH_INTERVAL_NEAR_MS,
 } from "@yar/shared";
@@ -31,7 +31,7 @@ export async function scanOnce(): Promise<void> {
   const now = Date.now();
   const reservations = await prisma.bidReservation.findMany({
     where: { status: { in: ["SCHEDULED", "MONITORING"] } },
-    select: { id: true, endAt: true, status: true },
+    select: { id: true, endAt: true, status: true, snipeSecondsBefore: true },
   });
 
   for (const r of reservations) {
@@ -49,13 +49,16 @@ interface ScannedReservation {
   id: string;
   endAt: Date;
   status: string;
+  snipeSecondsBefore: number;
 }
 
 async function enqueueFor(r: ScannedReservation, now: number): Promise<void> {
   const endMs = r.endAt.getTime();
-  const monitorAt = endMs - MONITOR_LEAD_SECONDS * 1000;
+  // 起動時刻は予約ごとに違う。固定値にすると snipeSecondsBefore が大きい予約で
+  // 「起きた時点で入札予定時刻を過ぎている」状態になり、黙って早く入札する。
+  const monitorAt = endMs - monitorLeadSeconds(r.snipeSecondsBefore) * 1000;
 
-  // monitor: 終了90秒前に起動。過去時刻なら即時実行
+  // monitor: 入札予定時刻のウォームアップ分だけ手前で起動。過去時刻なら即時実行
   await monitorQueue.add(
     "monitor",
     { reservationId: r.id },

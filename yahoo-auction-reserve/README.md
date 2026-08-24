@@ -6,8 +6,11 @@
 
 > [!WARNING]
 > **現在は MVP スケルトンであり、実際の入札は成功しない前提で扱うこと。**
-> `apps/worker/src/bidder/selectors.ts` のセレクタは全て未検証のプレースホルダで、
-> 実ページに対する P0 検証(設計 §13)が完了するまで入札フローは動作保証がない。
+> `apps/worker/src/bidder/selectors.ts` の P0 検証(設計 §13)は**途中まで**しか終わっていない。
+> 2026-08-24 の実測で `loginLink` / `bidButton` は確定したが、入札フォーム以降
+> (`priceInput` / `bidConfirmButton` / `bidSubmitButton`)と結果判定の3つは
+> **未検証のプレースホルダのまま**で、入札フローは動作保証がない。
+> どれが確定済みかは `selectors.ts` 冒頭の表が正。
 > P0 検証は人手で実施する。CI や自動テストからヤフオクへ実アクセスしないこと。
 
 ## 構成
@@ -80,11 +83,17 @@ npm run dev:web           # http://localhost:3000
 npm run dev:worker
 ```
 
-型チェックは全ワークスペース一括:
+型チェックとテストは全ワークスペース一括:
 
 ```bash
 npm run typecheck
+npm test
 ```
+
+テストは DB も Redis もヤフオクも要らない純粋関数だけを対象にしている
+(現状は `packages/shared` のスナイプ実行タイミング計算)。**このテストは
+「壊したら落ちる」ことを確認済み**で、`monitorLeadSeconds` を旧実装の固定値
+90 に戻すと 5 件中 3 件が落ちる。落ちないテストを足さないこと。
 
 ## 一式を Docker で起動
 
@@ -109,7 +118,7 @@ docker compose logs -f worker
 
 ### ヤフオク Cookie の取得について
 
-ログイン維持に使う Cookie (`T` / `Y` / `SSL` / `SSLK`) は **httpOnly** のため、
+ログイン維持に使う Cookie (`T` / `Y` / `SSL`) は **httpOnly** のため、
 ブックマークレットや `document.cookie` では取得できない。付属のヘルパーを使う:
 
 ```bash

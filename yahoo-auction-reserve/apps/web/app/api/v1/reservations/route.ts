@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@yar/db";
 import {
-  EDIT_DEADLINE_SECONDS,
+  editDeadlineSeconds,
   SNIPE_SECONDS_DEFAULT,
   SNIPE_SECONDS_MAX,
   SNIPE_SECONDS_MIN,
@@ -72,8 +72,19 @@ export async function POST(req: NextRequest) {
     if (!info.endAt) {
       return jsonError(502, "終了日時を取得できませんでした。時間をおいて再度お試しください");
     }
-    if (info.endAt.getTime() - Date.now() < EDIT_DEADLINE_SECONDS * 1000) {
-      return jsonError(400, "終了直前のため予約できません(終了60秒前まで)");
+    // 締切は実行タイミングによって変わる。「終了600秒前に入札」は残り3分の
+    // 商品では原理的に成立しないので、黙って直前入札にせずここで断る。
+    const remainingSec = Math.floor((info.endAt.getTime() - Date.now()) / 1000);
+    const deadline = editDeadlineSeconds(snipeSecondsBefore);
+    if (remainingSec < deadline) {
+      // 準備に要する固定分を引いた、いま指定できる最大の実行タイミング
+      const usable = remainingSec - (deadline - snipeSecondsBefore);
+      return jsonError(
+        400,
+        usable >= SNIPE_SECONDS_MIN
+          ? `終了まで残り${remainingSec}秒です。実行タイミングを${usable}秒前以下にすれば予約できます`
+          : `終了が近すぎるため予約できません(終了まで残り${remainingSec}秒)`,
+      );
     }
     if (info.currentPrice !== undefined && maxBidAmount <= info.currentPrice) {
       return jsonError(400, `上限額は現在価格(${info.currentPrice}円)より高くしてください`);

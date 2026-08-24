@@ -4,6 +4,7 @@ import { prisma, type BidReservation } from "@yar/db";
 import {
   EXTENSION_LOOP_MAX_COUNT,
   EXTENSION_LOOP_MAX_MS,
+  SNIPE_LATE_TOLERANCE_SECONDS,
   fetchAuctionInfo,
 } from "@yar/shared";
 import type { ReservationJobData } from "../queues";
@@ -12,7 +13,8 @@ import { launchBrowser, createYahooContext, markSessionExpired } from "../bidder
 import { placeBid, checkResult } from "../bidder/placeBid";
 import { measureYahooTimeOffset, offsetIsStale, sleepUntil, sleep, yahooNow } from "../time";
 
-// スナイプ実行本体(設計 §7)。終了90秒前に起動される。
+// スナイプ実行本体(設計 §7)。入札予定時刻のウォームアップ分だけ手前
+// (= T-(snipeSecondsBefore + MONITOR_WARMUP_SECONDS))で起動される。
 // 1. ブラウザ+セッションのウォームアップ(失効ならこの時点で緊急通知)
 // 2. T-(snipeSecondsBefore) まで待機して上限額で入札
 // 3. 自動延長を検知したら上限額の範囲内で再スナイプループ
@@ -95,6 +97,17 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
     const snipeAt = new Date(endAt.getTime() - reservation.snipeSecondsBefore * 1000);
     await sleepUntil(snipeAt);
 
+    // sleepUntil は過去時刻なら即座に返る。つまり「起動が遅れた」ケースは
+    // 待たずに通過してしまい、設定より遅い入札が無言で成立する。
+    // スケジューラ側は snipeSecondsBefore からリードを算出しているので本来
+    // ここは 0 に近いはずで、大きくズレたら worker 停止や Redis 詰まりを疑う。
+    const lateBySec = Math.round((yahooNow().getTime() - snipeAt.getTime()) / 1000);
+    const lateNote =
+      lateBySec > SNIPE_LATE_TOLERANCE_SECONDS
+        ? `予定より${lateBySec}秒遅れて実行(monitor の起動遅れ)`
+        : null;
+    if (lateNote) console.warn(`[monitor] ${reservation.id} ${lateNote}`);
+
     // 入札実行
     await prisma.bidReservation.update({
       where: { id: reservation.id },
@@ -109,7 +122,9 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
         executedAt: yahooNow(),
         bidAmount: reservation.maxBidAmount,
         outcome: result.outcome === "SUCCESS" ? "SUCCESS" : result.outcome,
-        detail: "detail" in result ? result.detail : null,
+        detail: [lateNote, "detail" in result ? result.detail : null]
+          .filter(Boolean)
+          .join(" / ") || null,
       },
     });
 

@@ -15,8 +15,17 @@ import type { YahooCookie } from "./types";
 // =============================================================
 
 // Yahoo! JAPAN のログイン状態に必要とされる代表的な Cookie 名。
-// ※ 実際に必要な組み合わせは P0 検証(設計 §13)で確定させること。
-export const YAHOO_AUTH_COOKIE_NAMES = ["T", "Y", "SSL", "SSLK"] as const;
+//
+// 2026-08-24 の P0 実測(ログイン済みブラウザからの全件取り出し)で観測できたのは
+//   永続: A, B, T, SSL, Y, XA, XB, bacl, _n   (失効 2027 年)
+//   セッション: irepIsLogin, irepNoBidExp, irepNoWonExp, irepLastBidTime, irepLastWonTime
+// で、**`SSLK` は存在しなかった**。当初この配列に入れていたため、正常にログインして
+// 取得しても毎回「Cookie が足りません」の警告が出ていた。常時出る警告は
+// 「読まなくていい警告」になり、本物の欠落を隠すので消す。
+//
+// ※ この3つが揃っていれば必ずログインできる、と確認できたわけではない
+//   (逆に「無ければ確実に駄目」の側だけを見る用途で使う)。
+export const YAHOO_AUTH_COOKIE_NAMES = ["T", "Y", "SSL"] as const;
 
 export interface NormalizedCookies {
   cookies: YahooCookie[];

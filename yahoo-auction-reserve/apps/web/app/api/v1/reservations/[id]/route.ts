@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@yar/db";
 import {
-  EDIT_DEADLINE_SECONDS,
+  editDeadlineSeconds,
   SNIPE_SECONDS_MAX,
   SNIPE_SECONDS_MIN,
 } from "@yar/shared";
@@ -40,10 +40,6 @@ export async function PATCH(
     if (reservation.status !== "SCHEDULED") {
       return jsonError(409, "実行が始まっているため変更できません");
     }
-    if (reservation.endAt.getTime() - Date.now() < EDIT_DEADLINE_SECONDS * 1000) {
-      return jsonError(409, "終了直前のため変更できません");
-    }
-
     const body = await req.json();
     const data: { maxBidAmount?: number; snipeSecondsBefore?: number } = {};
     if (body.maxBidAmount !== undefined) {
@@ -60,6 +56,19 @@ export async function PATCH(
       }
       data.snipeSecondsBefore = v;
     }
+
+    // 締切判定は「変更前・変更後の遅いほう」で行う。変更前の値で monitor が
+    // 既にキューへ入っている可能性があり、起動後の予約を書き換えても
+    // ジョブ側は起動時に読んだ内容のまま走るため反映されない。
+    const effectiveSnipe = Math.max(
+      reservation.snipeSecondsBefore,
+      data.snipeSecondsBefore ?? 0,
+    );
+    const remainingSec = Math.floor((reservation.endAt.getTime() - Date.now()) / 1000);
+    if (remainingSec < editDeadlineSeconds(effectiveSnipe)) {
+      return jsonError(409, `終了直前のため変更できません(終了まで残り${remainingSec}秒)`);
+    }
+
     const updated = await prisma.bidReservation.update({
       where: { id: reservation.id },
       data,
