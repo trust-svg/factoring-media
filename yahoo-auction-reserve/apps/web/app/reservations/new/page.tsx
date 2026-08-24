@@ -11,15 +11,23 @@ import NewReservationForm from "./NewReservationForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewReservationPage() {
+export default async function NewReservationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ url?: string }>;
+}) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const sessions = await prisma.yahooSession.findMany({
-    where: { userId: user.id, status: "ACTIVE" },
-    select: { id: true, label: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const [sessions, notify, params] = await Promise.all([
+    prisma.yahooSession.findMany({
+      where: { userId: user.id, status: "ACTIVE" },
+      select: { id: true, label: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.notificationSetting.findUnique({ where: { userId: user.id } }),
+    searchParams,
+  ]);
 
   if (sessions.length === 0) {
     return (
@@ -37,6 +45,8 @@ export default async function NewReservationPage() {
   return (
     <NewReservationForm
       sessions={sessions}
+      initialUrl={typeof params.url === "string" ? params.url : ""}
+      telegramLinked={Boolean(notify?.telegramChatId)}
       snipeDefaults={{
         default: SNIPE_SECONDS_DEFAULT,
         min: SNIPE_SECONDS_MIN,

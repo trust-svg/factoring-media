@@ -1,0 +1,222 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  formatJstDayLabel,
+  formatJstTime,
+  formatRemaining,
+  formatYen,
+  isNearCap,
+  isSameJstDay,
+  jstDayKey,
+  urgencyOf,
+} from "@yar/shared/format";
+import { RESERVATION_STATUS_LABEL, type ReservationStatusKey } from "@yar/shared/labels";
+
+export interface ReservationItem {
+  id: string;
+  title: string;
+  imageUrl: string | null;
+  endAtMs: number;
+  status: ReservationStatusKey;
+  currentPrice: number | null;
+  maxBidAmount: number;
+  absoluteMaxAmount: number | null;
+  autoRaiseMode: "OFF" | "AUTO" | "APPROVAL";
+  snipeSecondsBefore: number;
+  hasAutoExtension: boolean;
+  failureReason: string | null;
+  resultPrice: number | null;
+}
+
+export type Segment = "active" | "today" | "done";
+
+const DONE: ReservationStatusKey[] = ["WON", "LOST", "FAILED", "CANCELLED", "EXPIRED"];
+const SEGMENTS: { key: Segment; label: string }[] = [
+  { key: "active", label: "すべて" },
+  { key: "today", label: "今日" },
+  { key: "done", label: "結果" },
+];
+
+export default function ReservationList({
+  items,
+  initialNowMs,
+}: {
+  items: ReservationItem[];
+  initialNowMs: number;
+}) {
+  // サーバの描画時刻をそのまま初期値にする。ここで Date.now() を使うと
+  // サーバとクライアントで別の秒になり、毎回ハイドレーション不一致が出る。
+  const [nowMs, setNowMs] = useState(initialNowMs);
+  const [segment, setSegment] = useState<Segment>("active");
+
+  useEffect(() => {
+    setNowMs(Date.now());
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const now = new Date(nowMs);
+  const { groups, doneItems, todayCount } = useMemo(() => {
+    const active = items.filter((r) => !DONE.includes(r.status));
+    const done = items
+      .filter((r) => DONE.includes(r.status))
+      .sort((a, b) => b.endAtMs - a.endAtMs);
+
+    const byDay = new Map<string, ReservationItem[]>();
+    for (const r of [...active].sort((a, b) => a.endAtMs - b.endAtMs)) {
+      const key = jstDayKey(new Date(r.endAtMs));
+      const bucket = byDay.get(key);
+      if (bucket) bucket.push(r);
+      else byDay.set(key, [r]);
+    }
+    const todayKey = jstDayKey(now);
+    return {
+      groups: [...byDay.entries()].map(([key, rows]) => ({ key, rows, isToday: key === todayKey })),
+      doneItems: done,
+      todayCount: byDay.get(todayKey)?.length ?? 0,
+    };
+    // 秒ごとの再計算は要らない。日付が変わったときだけ組み直せばよい
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, jstDayKey(now)]);
+
+  const visibleGroups = segment === "today" ? groups.filter((g) => g.isToday) : groups;
+
+  return (
+    <>
+      <div className="seg" role="tablist" aria-label="表示の絞り込み">
+        {SEGMENTS.map((s) => (
+          <a
+            key={s.key}
+            role="tab"
+            href={`#${s.key}`}
+            aria-current={segment === s.key}
+            onClick={(e) => {
+              e.preventDefault();
+              setSegment(s.key);
+            }}
+          >
+            {s.label}
+            {s.key === "today" && todayCount > 0 ? ` ${todayCount}` : ""}
+          </a>
+        ))}
+      </div>
+
+      {segment === "done" ? (
+        doneItems.length === 0 ? (
+          <p className="empty">終わった予約はまだありません。</p>
+        ) : (
+          <div className="rows">
+            {doneItems.map((r) => (
+              <Row key={r.id} r={r} now={now} />
+            ))}
+          </div>
+        )
+      ) : visibleGroups.length === 0 ? (
+        <p className="empty">
+          {segment === "today"
+            ? "今日終了する予約はありません。"
+            : "予約がありません。"}{" "}
+          <Link href="/reservations/new">商品URLから予約する</Link>
+        </p>
+      ) : (
+        visibleGroups.map((g) => (
+          <section className={`daygroup${g.isToday ? " today" : ""}`} key={g.key}>
+            <header className="daygroup-head">
+              <span className="label">
+                {g.isToday ? "今日" : formatJstDayLabel(new Date(g.rows[0].endAtMs))}
+              </span>
+              <span className="count">{g.rows.length}件</span>
+              <span className="sum">
+                上限計 {formatYen(g.rows.reduce((a, r) => a + r.maxBidAmount, 0))}
+              </span>
+            </header>
+            <div className="rows">
+              {g.rows.map((r) => (
+                <Row key={r.id} r={r} now={now} />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+    </>
+  );
+}
+
+function Row({ r, now }: { r: ReservationItem; now: Date }) {
+  const endAt = new Date(r.endAtMs);
+  const waiting = r.status === "SCHEDULED" || r.status === "MONITORING";
+  const urgency = waiting ? urgencyOf(endAt, now) : "NORMAL";
+  const near = isNearCap(r.currentPrice, r.maxBidAmount);
+
+  const cls = ["snipe-row"];
+  if (urgency === "TODAY") cls.push("today");
+  if (urgency === "URGENT") cls.push("urgent");
+
+  return (
+    <Link href={`/reservations/${r.id}`} className={cls.join(" ")}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="row-thumb" src={r.imageUrl ?? undefined} alt="" />
+      <h3 className="row-title">{r.title}</h3>
+      <div className="row-meta">
+        <span className="m-price">{r.currentPrice != null ? formatYen(r.currentPrice) : "—"}</span>
+        <span className="m-arrow" aria-hidden="true">
+          ›
+        </span>
+        <span
+          className={`m-cap${near ? " near" : ""}`}
+          title={
+            r.autoRaiseMode !== "OFF" && r.absoluteMaxAmount != null
+              ? `絶対上限 ${formatYen(r.absoluteMaxAmount)} まで増額`
+              : undefined
+          }
+        >
+          {formatYen(r.maxBidAmount)}
+          {r.autoRaiseMode !== "OFF" ? "↑" : ""}
+        </span>
+        <span className="m-ext">{r.hasAutoExtension ? "延長" : "延長なし"}</span>
+        <span className="m-timing">{r.snipeSecondsBefore}秒前</span>
+      </div>
+      <Clock r={r} endAt={endAt} now={now} waiting={waiting} />
+      <span className="row-end">
+        {isSameJstDay(endAt, now)
+          ? formatJstTime(endAt)
+          : `${formatJstDayLabel(endAt)} ${formatJstTime(endAt, false)}`}
+      </span>
+      <span className="row-note">{r.failureReason ?? ""}</span>
+    </Link>
+  );
+}
+
+/**
+ * 残り時間の位置。入札中や決着後は同じ場所が状態表示に変わる。
+ * 別の場所に出すと、状態が変わるたびに行の中身が横にずれて読み直しになる。
+ */
+function Clock({
+  r,
+  endAt,
+  now,
+  waiting,
+}: {
+  r: ReservationItem;
+  endAt: Date;
+  now: Date;
+  waiting: boolean;
+}) {
+  if (r.status === "BIDDING" || r.status === "MONITORING") {
+    return <span className="row-clock state live">{RESERVATION_STATUS_LABEL[r.status]}</span>;
+  }
+  if (!waiting) {
+    const tone = r.status === "WON" ? "won" : r.status === "FAILED" ? "bad" : "lost";
+    return (
+      <span className={`row-clock state ${tone}`}>
+        {RESERVATION_STATUS_LABEL[r.status]}
+        {r.status === "WON" && r.resultPrice != null ? ` ${formatYen(r.resultPrice)}` : ""}
+      </span>
+    );
+  }
+  const left = endAt.getTime() - now.getTime();
+  if (left <= 0) return <span className="row-clock state live">終了処理中</span>;
+  return <span className="row-clock">{formatRemaining(left)}</span>;
+}

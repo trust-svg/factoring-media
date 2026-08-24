@@ -1,6 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { decideRaise, type AutoRaiseConfig } from "./autoRaise";
+import {
+  decideRaise,
+  validateAutoRaiseInput,
+  AUTO_RAISE_MAX_COUNT_LIMIT,
+  type AutoRaiseConfig,
+} from "./autoRaise";
 
 const base: AutoRaiseConfig = {
   mode: "AUTO",
@@ -172,5 +177,69 @@ describe("decideRaise(minimumRequired あり)", () => {
     assert.equal(nan.raise && nan.nextAmount, 5_100);
     const nul = decideRaise(5_000, cfg, null);
     assert.equal(nul.raise && nul.nextAmount, 5_100);
+  });
+});
+
+describe("validateAutoRaiseInput", () => {
+  it("OFF は関連項目を全て null に落とす(古い絶対上限を残さない)", () => {
+    const r = validateAutoRaiseInput(
+      { autoRaiseMode: "OFF", absoluteMaxAmount: 99_999, autoRaiseStep: 500, autoRaiseMaxCount: 3 },
+      5_000,
+    );
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.ok && r.value, {
+      autoRaiseMode: "OFF",
+      autoRaiseStep: null,
+      autoRaiseMaxCount: null,
+      absoluteMaxAmount: null,
+    });
+  });
+
+  it("AUTO で項目が欠けていたら既定値で補わずエラーにする", () => {
+    for (const missing of ["absoluteMaxAmount", "autoRaiseStep", "autoRaiseMaxCount"]) {
+      const input: Record<string, unknown> = {
+        autoRaiseMode: "AUTO",
+        absoluteMaxAmount: 9_000,
+        autoRaiseStep: 500,
+        autoRaiseMaxCount: 3,
+      };
+      delete input[missing];
+      const r = validateAutoRaiseInput(input, 5_000);
+      assert.equal(r.ok, false, `${missing} が無いのに通った`);
+    }
+  });
+
+  it("絶対上限が上限額以下なら拒否する(同額も含む)", () => {
+    for (const abs of [4_999, 5_000]) {
+      const r = validateAutoRaiseInput(
+        { autoRaiseMode: "AUTO", absoluteMaxAmount: abs, autoRaiseStep: 500, autoRaiseMaxCount: 3 },
+        5_000,
+      );
+      assert.equal(r.ok, false, `絶対上限 ${abs} が通った`);
+    }
+  });
+
+  it("増額幅の下限・回数の上限を守らせる", () => {
+    const base = { autoRaiseMode: "AUTO", absoluteMaxAmount: 9_000, autoRaiseMaxCount: 3 };
+    assert.equal(validateAutoRaiseInput({ ...base, autoRaiseStep: 9 }, 5_000).ok, false);
+    assert.equal(validateAutoRaiseInput({ ...base, autoRaiseStep: 10 }, 5_000).ok, true);
+    const b2 = { autoRaiseMode: "AUTO", absoluteMaxAmount: 9_000, autoRaiseStep: 500 };
+    assert.equal(validateAutoRaiseInput({ ...b2, autoRaiseMaxCount: 0 }, 5_000).ok, false);
+    assert.equal(
+      validateAutoRaiseInput({ ...b2, autoRaiseMaxCount: AUTO_RAISE_MAX_COUNT_LIMIT + 1 }, 5_000).ok,
+      false,
+    );
+  });
+
+  it("小数・非数値は整数として受け付けない", () => {
+    const r = validateAutoRaiseInput(
+      { autoRaiseMode: "AUTO", absoluteMaxAmount: 9_000.5, autoRaiseStep: 500, autoRaiseMaxCount: 3 },
+      5_000,
+    );
+    assert.equal(r.ok, false);
+  });
+
+  it("未知のモードは拒否する", () => {
+    assert.equal(validateAutoRaiseInput({ autoRaiseMode: "ALWAYS" }, 5_000).ok, false);
   });
 });

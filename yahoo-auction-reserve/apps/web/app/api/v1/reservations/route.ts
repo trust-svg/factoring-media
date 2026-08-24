@@ -8,6 +8,7 @@ import {
   extractAuctionId,
   fetchAuctionInfo,
   normalizeAuctionUrl,
+  validateAutoRaiseInput,
 } from "@yar/shared";
 import { requireUser } from "@/lib/auth";
 import { handle, jsonError } from "@/lib/api";
@@ -48,6 +49,22 @@ export async function POST(req: NextRequest) {
         400,
         `実行タイミングは${SNIPE_SECONDS_MIN}〜${SNIPE_SECONDS_MAX}秒前の範囲で指定してください`,
       );
+    }
+
+    const raise = validateAutoRaiseInput(body, maxBidAmount);
+    if (!raise.ok) return jsonError(400, raise.error);
+    // 承認制は Telegram の宛先が無いと「承認依頼を送れない = 一度も増額しない」に
+    // なる。設定として保存はできてしまうので、ここで断らないと無言で効かない。
+    if (raise.value.autoRaiseMode === "APPROVAL") {
+      const notify = await prisma.notificationSetting.findUnique({
+        where: { userId: user.id },
+      });
+      if (!notify?.telegramChatId) {
+        return jsonError(
+          400,
+          "承認制の自動増額には Telegram の連携が必要です。設定 > 通知 で chat ID を登録してください",
+        );
+      }
     }
 
     const session = await prisma.yahooSession.findUnique({
@@ -112,6 +129,7 @@ export async function POST(req: NextRequest) {
         snipeSecondsBefore,
         currentPrice: info.currentPrice,
         priceCheckedAt: new Date(),
+        ...raise.value,
       },
     });
     return NextResponse.json(reservation, { status: 201 });

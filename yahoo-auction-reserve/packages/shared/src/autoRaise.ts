@@ -88,3 +88,100 @@ export function decideRaise(
 
   return { raise: true, nextAmount, needsApproval: cfg.mode === "APPROVAL" };
 }
+
+// ---- 入力バリデーション ---------------------------------------------------
+
+/** 1回の増額幅の下限。ヤフオクの最小入札単位より小さい増額は意味を持たない。 */
+export const AUTO_RAISE_STEP_MIN = 10;
+/** 増額回数の上限。青天井にすると絶対上限まで一気に到達する。 */
+export const AUTO_RAISE_MAX_COUNT_LIMIT = 20;
+
+export type AutoRaiseMode = "OFF" | "AUTO" | "APPROVAL";
+
+export interface AutoRaiseFields {
+  autoRaiseMode: AutoRaiseMode;
+  autoRaiseStep: number | null;
+  autoRaiseMaxCount: number | null;
+  absoluteMaxAmount: number | null;
+}
+
+export type AutoRaiseValidation =
+  | { ok: true; value: AutoRaiseFields }
+  | { ok: false; error: string };
+
+function asInt(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isInteger(n) ? n : null;
+}
+
+/**
+ * 予約の自動増額設定を検証して、DB へ入れる形に正規化する。
+ *
+ * ⚠️ **足りない項目を既定値で補わない**。ここで step や絶対上限を勝手に決めると、
+ * 入れ忘れた予算が黙って設定され、上限額を超えた入札が「設定どおり」として通る。
+ * 欠けていたらエラーにして、増額しない側でもなく **登録させない**。
+ *
+ * OFF のときは関連項目を全て null に落とす。残したままにすると、OFF に戻した
+ * つもりの予約に古い絶対上限が残り、あとで AUTO に切り替えた瞬間に
+ * 意図しない金額で増額が走る。
+ */
+export function validateAutoRaiseInput(
+  input: {
+    autoRaiseMode?: unknown;
+    autoRaiseStep?: unknown;
+    autoRaiseMaxCount?: unknown;
+    absoluteMaxAmount?: unknown;
+  },
+  maxBidAmount: number,
+): AutoRaiseValidation {
+  const rawMode = input.autoRaiseMode ?? "OFF";
+  if (rawMode !== "OFF" && rawMode !== "AUTO" && rawMode !== "APPROVAL") {
+    return { ok: false, error: "自動増額の設定値が不正です" };
+  }
+  const mode: AutoRaiseMode = rawMode;
+
+  if (mode === "OFF") {
+    return {
+      ok: true,
+      value: {
+        autoRaiseMode: "OFF",
+        autoRaiseStep: null,
+        autoRaiseMaxCount: null,
+        absoluteMaxAmount: null,
+      },
+    };
+  }
+
+  const absoluteMaxAmount = asInt(input.absoluteMaxAmount);
+  const autoRaiseStep = asInt(input.autoRaiseStep);
+  const autoRaiseMaxCount = asInt(input.autoRaiseMaxCount);
+
+  if (absoluteMaxAmount == null || absoluteMaxAmount <= maxBidAmount) {
+    return {
+      ok: false,
+      error: `絶対上限は上限額(${maxBidAmount}円)より高い整数で指定してください`,
+    };
+  }
+  if (autoRaiseStep == null || autoRaiseStep < AUTO_RAISE_STEP_MIN) {
+    return {
+      ok: false,
+      error: `1回あたりの増額幅は${AUTO_RAISE_STEP_MIN}円以上で指定してください`,
+    };
+  }
+  if (
+    autoRaiseMaxCount == null ||
+    autoRaiseMaxCount < 1 ||
+    autoRaiseMaxCount > AUTO_RAISE_MAX_COUNT_LIMIT
+  ) {
+    return {
+      ok: false,
+      error: `増額の回数上限は1〜${AUTO_RAISE_MAX_COUNT_LIMIT}回で指定してください`,
+    };
+  }
+
+  return {
+    ok: true,
+    value: { autoRaiseMode: mode, autoRaiseStep, autoRaiseMaxCount, absoluteMaxAmount },
+  };
+}

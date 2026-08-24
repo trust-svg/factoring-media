@@ -7,5 +7,6 @@ export * from "./format";
 export * from "./autoRaise";
 export * from "./bidUnit";
 
-// labels は node:crypto を含まないので、クライアントコンポーネントからも使えるよう
-// バレルではなく "@yar/shared/labels" のサブパスで公開している(package.json の exports)。
+// labels / format は node:crypto を含まないので、クライアントコンポーネントからも
+// 使えるよう "@yar/shared/labels" "@yar/shared/format" のサブパスでも公開している
+// (package.json の exports)。バレル経由だと crypto.ts が引きずられてビルドが落ちる。

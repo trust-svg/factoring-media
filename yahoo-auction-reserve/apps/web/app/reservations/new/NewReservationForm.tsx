@@ -20,20 +20,30 @@ type Step = "url" | "input" | "confirm";
 export default function NewReservationForm({
   sessions,
   snipeDefaults,
+  initialUrl = "",
+  telegramLinked,
 }: {
   sessions: { id: string; label: string }[];
   snipeDefaults: { default: number; min: number; max: number };
+  /** ウォッチリストから「予約する」で来たときの初期URL */
+  initialUrl?: string;
+  /** Telegram の chat ID が登録済みか。未登録だと承認制は成立しない */
+  telegramLinked: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("url");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(initialUrl);
   const [preview, setPreview] = useState<AuctionPreview | null>(null);
   const [maxBidAmount, setMaxBidAmount] = useState("");
   const [snipeSeconds, setSnipeSeconds] = useState(String(snipeDefaults.default));
   const [yahooSessionId, setYahooSessionId] = useState(sessions[0]?.id ?? "");
+  const [autoRaiseMode, setAutoRaiseMode] = useState<"OFF" | "AUTO" | "APPROVAL">("OFF");
+  const [absoluteMaxAmount, setAbsoluteMaxAmount] = useState("");
+  const [autoRaiseStep, setAutoRaiseStep] = useState("500");
+  const [autoRaiseMaxCount, setAutoRaiseMaxCount] = useState("3");
 
   const endAt = preview?.endAt ? new Date(preview.endAt) : null;
   const executeAt =
@@ -90,6 +100,22 @@ export default function NewReservationForm({
       );
       return;
     }
+    if (autoRaiseMode !== "OFF") {
+      const abs = Number(absoluteMaxAmount);
+      if (!Number.isInteger(abs) || abs <= amount) {
+        setError(`絶対上限は上限額(${amount.toLocaleString()}円)より高い整数で入力してください`);
+        return;
+      }
+      if (!Number.isInteger(Number(autoRaiseStep)) || Number(autoRaiseStep) < 10) {
+        setError("1回あたりの増額幅は10円以上で入力してください");
+        return;
+      }
+      const cnt = Number(autoRaiseMaxCount);
+      if (!Number.isInteger(cnt) || cnt < 1 || cnt > 20) {
+        setError("増額の回数上限は1〜20回で入力してください");
+        return;
+      }
+    }
     setStep("confirm");
   }
 
@@ -104,6 +130,10 @@ export default function NewReservationForm({
         maxBidAmount: Number(maxBidAmount),
         snipeSecondsBefore: Number(snipeSeconds),
         yahooSessionId,
+        autoRaiseMode,
+        absoluteMaxAmount: autoRaiseMode === "OFF" ? null : Number(absoluteMaxAmount),
+        autoRaiseStep: autoRaiseMode === "OFF" ? null : Number(autoRaiseStep),
+        autoRaiseMaxCount: autoRaiseMode === "OFF" ? null : Number(autoRaiseMaxCount),
       }),
     });
     const body = await res.json();
@@ -211,6 +241,76 @@ export default function NewReservationForm({
               </p>
             </div>
             <div>
+              <label htmlFor="autoRaiseMode">高値更新されたときの自動増額</label>
+              <select
+                id="autoRaiseMode"
+                value={autoRaiseMode}
+                onChange={(e) =>
+                  setAutoRaiseMode(e.target.value as "OFF" | "AUTO" | "APPROVAL")
+                }
+              >
+                <option value="OFF">増額しない(上限額で打ち止め)</option>
+                <option value="AUTO">自動で増額する</option>
+                <option value="APPROVAL" disabled={!telegramLinked}>
+                  Telegram で承認してから増額する
+                  {telegramLinked ? "" : "(要 Telegram 連携)"}
+                </option>
+              </select>
+              <p className="muted">
+                上限額を超えられたときに、絶対上限までの範囲で入札しなおします。
+                承認制は終了間際ではなく<strong>価格更新を見た時点</strong>で聞くので、
+                終了直前に上回られた場合は増額されません。
+              </p>
+            </div>
+
+            {autoRaiseMode !== "OFF" && (
+              <>
+                <div>
+                  <label htmlFor="absoluteMaxAmount">
+                    絶対上限(円) — ここを超える入札は絶対にしません
+                  </label>
+                  <input
+                    id="absoluteMaxAmount"
+                    type="number"
+                    inputMode="numeric"
+                    value={absoluteMaxAmount}
+                    onChange={(e) => setAbsoluteMaxAmount(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="field-row">
+                  <div>
+                    <label htmlFor="autoRaiseStep">1回の増額幅(円)</label>
+                    <input
+                      id="autoRaiseStep"
+                      type="number"
+                      inputMode="numeric"
+                      value={autoRaiseStep}
+                      onChange={(e) => setAutoRaiseStep(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="autoRaiseMaxCount">増額の回数上限</label>
+                    <input
+                      id="autoRaiseMaxCount"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={20}
+                      value={autoRaiseMaxCount}
+                      onChange={(e) => setAutoRaiseMaxCount(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <p className="muted">
+                  増額しても現在価格を上回れない額になる場合は、回数を消費せずに見送ります。
+                </p>
+              </>
+            )}
+
+            <div>
               <label htmlFor="yahooSessionId">実行に使うヤフオク連携</label>
               <select
                 id="yahooSessionId"
@@ -245,6 +345,14 @@ export default function NewReservationForm({
                 <th style={{ textAlign: "left", paddingRight: 16 }}>上限入札額</th>
                 <td>
                   <strong>{Number(maxBidAmount).toLocaleString()}円</strong>
+                </td>
+              </tr>
+              <tr>
+                <th style={{ textAlign: "left", paddingRight: 16 }}>自動増額</th>
+                <td>
+                  {autoRaiseMode === "OFF"
+                    ? "しない"
+                    : `${autoRaiseMode === "AUTO" ? "自動" : "Telegram 承認制"} / 絶対上限 ${Number(absoluteMaxAmount).toLocaleString()}円 / ${autoRaiseStep}円ずつ 最大${autoRaiseMaxCount}回`}
                 </td>
               </tr>
               <tr>
