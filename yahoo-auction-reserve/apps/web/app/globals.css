@@ -28,7 +28,7 @@ a { color: var(--primary); text-decoration: none; }
   justify-content: space-between;
   align-items: center;
 }
-.header nav { display: flex; gap: 16px; }
+.header nav { display: flex; gap: 16px; align-items: center; }
 
 .card {
   background: var(--card);
@@ -82,3 +82,12 @@ button:disabled { opacity: 0.5; cursor: default; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .row .grow { flex: 1; }
 .thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; }
+
+/* ヘッダのログアウトのように、見た目はリンクだが POST が必要なもの */
+button.linklike {
+  background: none;
+  color: var(--primary);
+  padding: 0;
+  font-size: 1rem;
+  text-decoration: underline;
+}

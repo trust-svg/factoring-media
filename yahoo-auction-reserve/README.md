@@ -105,6 +105,11 @@ Cookies から書き出した JSON を `/settings/yahoo` に貼り付ける。
 
 - 入札フローのセレクタは P0 未検証(上記の警告を参照)
 - 連携 Cookie の有効性チェックが未実装(登録時は形式のみ検証。設計 §13 の P0 でログイン判定方法を確定してから実装)
-- ヘッダにログアウト導線が無い(`POST /api/v1/auth/logout` は実装済み)
 - 同一ヤフオクセッションの入札直列化(設計 §7.4)はフェーズ2
 - スタイルは素の CSS。Tailwind CSS 4 への移行は P1(設計 §5)
+- `npm audit` に high 3件が残る(いずれも `next` 15.x が依存する postcss / sharp)。
+  解消には `next@16` へのメジャーアップグレードが必要なため MVP では見送っている。
+  現状の到達性: postcss はビルド時のみで、処理対象は自前の CSS だけ。sharp は
+  `next/image` の最適化経路でのみ使われるが、本アプリの画像は素の `<img>` で表示しており、
+  `next.config.ts` に `images.remotePatterns` を設定していないため外部 URL の最適化は
+  既定で拒否される。Next のバージョン上げは MVP とは別タスクで扱うこと。

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { getSessionUser } from "@/lib/auth";
+import LogoutButton from "./LogoutButton";
 
 export const metadata: Metadata = {
   title: "ヤフオク入札予約",
@@ -28,6 +29,7 @@ export default async function RootLayout({
                 <Link href="/reservations/new">新規予約</Link>
                 <Link href="/settings/yahoo">ヤフオク連携</Link>
                 <span className="muted">{user.email}</span>
+                <LogoutButton />
               </>
             ) : (
               <>
