@@ -43,6 +43,11 @@ model YahooSession {
   reservations    BidReservation[]
   watchlist       WatchlistItem[]
 
+  // 生存確認(verifySession)を最後に **試みた** 時刻。成否は問わない。
+  // 成功時刻(lastVerifiedAt)で順番を決めると、失敗し続ける1件が毎回
+  // 先頭に来て他のセッションが永久に確認されない。
+  lastVerifyAttemptAt DateTime?
+
   // ウォッチリスト同期がこのセッションで最後に成功した時刻。
   // ウォッチリストはログイン必須なので、この同期自体が死活監視を兼ねる
   // (開いてログイン画面に飛ばされたら EXPIRED にする)。

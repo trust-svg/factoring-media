@@ -127,11 +127,22 @@ async function sendSummary(userId: string, now: Date): Promise<void> {
       : "通知の送信失敗: 0件",
   ];
 
+  // 生存確認が「判定できない」を返し続けると lastVerifiedAt が進まない。
+  // 失効判定は出ないので通知は静かなまま = ここが唯一の異常サインになる。
+  const staleVerifyMs = 24 * 60 * 60 * 1000;
   for (const s of sessions) {
     const sync = s.lastWatchlistSyncAt
       ? `${formatJstTime(s.lastWatchlistSyncAt)} に同期`
       : "未同期";
-    lines.push(`連携「${s.label}」: ${s.status} / ウォッチリスト ${sync}`);
+    const verified = s.lastVerifiedAt
+      ? `${formatJstTime(s.lastVerifiedAt)} に確認`
+      : "未確認";
+    const stale =
+      s.status === "ACTIVE" &&
+      (!s.lastVerifiedAt || now.getTime() - s.lastVerifiedAt.getTime() > staleVerifyMs);
+    lines.push(
+      `${stale ? "⚠️ " : ""}連携「${s.label}」: ${s.status} / ログイン確認 ${verified} / ウォッチリスト ${sync}`,
+    );
   }
   if (sessions.length === 0) lines.push("⚠️ ヤフオク連携が1件も登録されていません");
 

@@ -160,6 +160,7 @@ worker 再起動から自己修復する(BullMQ の遅延ジョブに載せて�
 | `sweepApprovals` | 30秒 | 期限切れの承認依頼を TIMEOUT にする(押されないボタンで増額が永久に詰まるのを防ぐ) |
 | `runEnrichSweep` | 30秒 | 未取得の予約に落札相場を後追いで入れる(1回5件。失敗しても `marketCheckedAt` は進める) |
 | `runWatchlistSweep` | 60分 | ヤフオクのウォッチリストを取り込む(一方向・Yahoo → アプリ) |
+| `runVerifySessionSweep` | 15分 | 連携 Cookie の生存確認。実際に開くのは前回試行から6時間経った連携だけ(1回3件) |
 
 これとは別に、増額承認ボタンの受け口として `startApprovalPoller()` が
 `getUpdates` の長時間ポーリングを1本張る。
@@ -238,7 +239,17 @@ npm run p0:probe -- '<URL>' --headless        # bot検知の比較用(§13-4)
 npm run p0:probe -- '<URL>' --anonymous       # 未ログインの対照(下記)
 npm run p0:probe -- '<URL>' --watch 20        # 終了間際に張り付いて自動延長を観測(§13-3)
 npm run p0:probe -- '<URL>' --session '<連携ラベル or id>'
+
+# ウォッチリストの URL 候補とセレクタを確定させる(商品URL不要)
+npm run p0:probe -- --watchlist
+npm run p0:probe -- --watchlist --anonymous    # ログイン壁(watchlistLoginWall)の陽性対照
 ```
+
+`--watchlist` は `WATCHLIST_URL_CANDIDATES` を順に開き、候補セレクタの当たりに加えて
+**本番と同じ `scrapeWatchlistPage()` の返り値**(`OK` / `SESSION_EXPIRED` / `UNPARSEABLE`)を
+レポートに書く。プローブ用の別ロジックで判定すると、本番コードだけ外れたままでも
+「当たった」と読めてしまうため。商品リンクが実在するのに `UNPARSEABLE` なら
+`watchlistItemLink` が外れている、と切り分けられる。
 
 出力は `tmp/p0/<auctionId>-<timestamp>.md` と同名の `.png`(git 管理外)。中身は
 
@@ -269,11 +280,40 @@ npm run p0:probe -- '<URL>' --stage2 --amount 1200
 
 Stage 2 はステップごとの所要時間も出す。これが §13-2(実行秒数のデフォルト値)の根拠になる。
 
+## 連携 Cookie の生存確認
+
+登録時にできるのは Cookie 名が揃っているかの構造チェックだけで、**ログインが
+切れていても登録は通る**。何もしないと、切れていると分かるのは入札の瞬間になる。
+
+`runVerifySessionSweep` は前回の試行から6時間経った ACTIVE な連携を1回3件まで開き、
+`judgeSession()`(`apps/worker/src/sessionVerdict.ts`)で判定する。
+
+| 判定 | 根拠 | すること |
+|---|---|---|
+| `EXPIRED` | ログイン画面へのリダイレクト、または `loginLink` が**存在する** | 失効にして `SESSION_EXPIRED` を通知 |
+| `ACTIVE` | `loginLink` が無く `loggedInIndicator` が出ている | `lastVerifiedAt` を進める |
+| `UNKNOWN` | どちらも検出できない / 取得に失敗 | **何もしない**(失効にもしない) |
+
+⚠️ **`loggedInIndicator` の不在を失効の根拠にしない。** ログイン中の1回でしか
+確認できていない指標なので、ヘッダの実装が変わっただけで「全セッションが失効」に化ける。
+失効は予約が全部止まる操作なので、陽性の証拠があるときだけ出す。
+
+⚠️ その代わり `UNKNOWN` が続くとこの確認は「静かに何もしない」のと同じになる。
+`lastVerifiedAt` を進めないことでそれを検出可能にしてあり、24時間更新されないと
+日次サマリの連携行に ⚠️ が付く。ここが唯一の異常サインなので消さないこと。
+
+確認先の URL は 予約中の商品ページ → ウォッチリストの商品 → ヤフオクトップ の順で選ぶ。
+ログイン有無の差を実測できているのは商品ページの `loginLink` だけのため。
+
 ## 既知の制約(MVP 時点)
 
 - 入札フローのセレクタは P0 未検証(上記の警告を参照)。埋める手順は「P0 検証プローブ」を参照
 - 送料・出品者評価・落札相場のパーサも P0 未検証(上記「判断材料」を参照)
-- 連携 Cookie の有効性チェックが未実装(登録時は形式のみ検証。設計 §13 の P0 でログイン判定方法を確定してから実装)
+- 連携 Cookie の有効性チェックは **定期確認のみ**(登録時は形式チェックだけ)。
+  worker が6時間ごとに実ページを開いて判定し、失効なら `SESSION_EXPIRED` を通知する
+  (`apps/worker/src/jobs/verifySession.ts`)。登録直後に即チェックはしない(P1)
+- ウォッチリストのセレクタ(`watchlistLoginWall` / `watchlistItemLink`)は P0 未検証。
+  `npm run p0:probe -- --watchlist` で確定させるまで、同期は `UNPARSEABLE` を返しうる
 - 同一ヤフオクセッションの入札直列化(設計 §7.4)はフェーズ2
 - スタイルは素の CSS。Tailwind CSS 4 への移行は P1(設計 §5)
 - `npm audit` に high 3件が残る(いずれも `next` 15.x が依存する postcss / sharp)。

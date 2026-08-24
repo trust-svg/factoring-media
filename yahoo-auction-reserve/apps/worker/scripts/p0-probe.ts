@@ -18,6 +18,8 @@
  *   npm run p0:probe -- <商品URL> --anonymous         # 未ログインの対照(loginLink を取る)
  *   npm run p0:probe -- <商品URL> --watch 20          # 自動延長のDOM挙動(§13-3)
  *   npm run p0:probe -- <商品URL> --stage2 --amount 1200
+ *   npm run p0:probe -- --watchlist                   # ウォッチリストのURL/セレクタ確定(商品URL不要)
+ *   npm run p0:probe -- --watchlist --anonymous       # ログイン壁(watchlistLoginWall)の陽性対照
  *
  * 出力: tmp/p0/<auctionId>-<timestamp>.md と同名の .png (git管理外)
  */
@@ -29,9 +31,18 @@ import { createInterface } from "node:readline/promises";
 import type { BrowserContext, Locator, Page } from "playwright";
 import { chromium } from "playwright";
 import { prisma } from "@yar/db";
-import { decryptSecret, extractAuctionId, parseAuctionPage } from "@yar/shared";
+import {
+  YAHOO_AUCTION_URL_PATTERN,
+  decryptSecret,
+  extractAuctionId,
+  parseAuctionPage,
+} from "@yar/shared";
 import type { YahooCookie } from "@yar/shared";
 import { selectors } from "../src/bidder/selectors";
+import {
+  WATCHLIST_URL_CANDIDATES,
+  scrapeWatchlistPage,
+} from "../src/jobs/watchlist";
 
 // ---------------------------------------------------------------
 // 候補セレクタ
@@ -88,6 +99,22 @@ const CANDIDATES: Record<string, string[]> = {
     "text=最高額入札者",
   ],
   outbidIndicator: [selectors.outbidIndicator, "text=高値更新"],
+  watchlistLoginWall: [
+    selectors.watchlistLoginWall,
+    "form[action*='login.yahoo.co.jp']",
+    "input[name='login']",
+    "text=ログインしてください",
+  ],
+  watchlistItemLink: [
+    selectors.watchlistItemLink,
+    "a[href*='/jp/auction/']",
+    "li a[href*='auction']",
+  ],
+  watchlistNextPage: [
+    selectors.watchlistNextPage,
+    "a:has-text('次へ')",
+    "a[rel='next']",
+  ],
 };
 
 // 商品ページで確認したいスロット(Stage 1 で見る)
@@ -101,6 +128,14 @@ const STAGE1_SLOTS = [
 ];
 // 入札フォーム〜確認画面で確認したいスロット(Stage 2 で見る)
 const STAGE2_SLOTS = ["priceInput", "bidConfirmButton", "bidSubmitButton"];
+// ウォッチリストページで確認したいスロット(--watchlist)
+const WATCHLIST_SLOTS = [
+  "watchlistLoginWall",
+  "watchlistItemLink",
+  "watchlistNextPage",
+  "loginLink",
+  "loggedInIndicator",
+];
 
 interface Args {
   url: string;
@@ -110,16 +145,25 @@ interface Args {
   watchMinutes?: number;
   stage2: boolean;
   amount?: number;
+  /** ウォッチリストの URL・セレクタを確定させるモード(商品URL不要) */
+  watchlist: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
   const positional: string[] = [];
-  const args: Args = { url: "", headless: false, anonymous: false, stage2: false };
+  const args: Args = {
+    url: "",
+    headless: false,
+    anonymous: false,
+    stage2: false,
+    watchlist: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--headless") args.headless = true;
     else if (a === "--anonymous") args.anonymous = true;
     else if (a === "--stage2") args.stage2 = true;
+    else if (a === "--watchlist") args.watchlist = true;
     else if (a === "--session") args.sessionRef = argv[++i];
     else if (a === "--watch") args.watchMinutes = Number(argv[++i]);
     else if (a === "--amount") args.amount = Number(argv[++i]);
@@ -127,7 +171,13 @@ function parseArgs(argv: string[]): Args {
     else positional.push(a);
   }
   args.url = positional[0] ?? "";
-  if (!args.url) throw new Error("商品URLを渡すこと: npm run p0:probe -- <URL>");
+  // ウォッチリストは URL 候補自体が検証対象なので、商品URLは要らない
+  if (!args.url && !args.watchlist) {
+    throw new Error("商品URLを渡すこと: npm run p0:probe -- <URL>");
+  }
+  if (args.watchlist && args.stage2) {
+    throw new Error("--watchlist と --stage2 は併用できない(入札フォームには進まない)");
+  }
   if (args.stage2 && !(args.amount && args.amount > 0)) {
     throw new Error("--stage2 には --amount <入札額> が必須");
   }
@@ -352,6 +402,98 @@ async function discovery(page: Page): Promise<void> {
   say("");
 }
 
+/**
+ * ウォッチリストの URL 候補とセレクタを確定させる(--watchlist)。
+ *
+ * 目的は3つ:
+ *   1. WATCHLIST_URL_CANDIDATES のどれが生きているか
+ *   2. watchlistLoginWall / watchlistItemLink / watchlistNextPage の当たり
+ *   3. 本番と同じ `scrapeWatchlistPage` が何を返すか
+ *
+ * 3 を必ず通すのは、プローブ用の別ロジックで「当たった」と判断すると、
+ * 本番コードだけが外れたままでも気づけないため。
+ * `--anonymous` で回すとログイン壁の陽性対照が取れる。
+ */
+async function probeWatchlist(
+  page: Page,
+  reportPath: string,
+  anonymous: boolean,
+): Promise<void> {
+  for (const [idx, url] of WATCHLIST_URL_CANDIDATES.entries()) {
+    say(`## 候補URL ${idx + 1}: ${url}`);
+    say("");
+
+    const t0 = Date.now();
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+    } catch (err) {
+      say(`- ⚠️ 遷移に失敗: ${err instanceof Error ? err.message : String(err)}`);
+      say("");
+      continue;
+    }
+    say(`- 到達URL: ${page.url()}`);
+    say(`- ページタイトル: ${await page.title()}`);
+    say(`- 所要: ${Date.now() - t0}ms`);
+    if (/login\.yahoo\.co\.jp/.test(page.url())) {
+      say(
+        anonymous
+          ? "- ✅ 未ログインでログイン画面へ飛んだ(= ログイン必須の陽性対照)"
+          : "- ⚠️ **ログイン画面へリダイレクトされた = Cookie が失効している**",
+      );
+    }
+    say("");
+
+    await reportSlots(page, WATCHLIST_SLOTS);
+
+    // セレクタに依存しない実数。watchlistItemLink が外れていても
+    // 「このページに商品リンクが何件あるか」はこれで分かる。
+    const rawHrefs = await page
+      .locator("a[href]")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""));
+    const pageUrl = page.url();
+    const ids = new Set<string>();
+    for (const h of rawHrefs) {
+      if (!h) continue;
+      let abs = "";
+      try {
+        abs = new URL(h, pageUrl).toString();
+      } catch {
+        continue;
+      }
+      const m = YAHOO_AUCTION_URL_PATTERN.exec(abs);
+      if (m?.[1]) ids.add(m[1]);
+    }
+    say(`- ページ内の商品ID付きリンク(重複除く): **${ids.size}件**`);
+    say(`  - 例: ${[...ids].slice(0, 5).join(", ") || "(0件)"}`);
+    say("");
+
+    // 本番コードをそのまま通す。ここの kind がプローブの結論。
+    const result = await scrapeWatchlistPage(page);
+    say(
+      `- \`scrapeWatchlistPage\` の判定: **${result.kind}** / ${result.itemCount}件` +
+        (result.detail ? ` (${result.detail})` : ""),
+    );
+    if (result.kind === "UNPARSEABLE" && ids.size > 0) {
+      say(
+        "  - ⚠️ 商品リンクは存在するのに本番コードは0件。**watchlistItemLink が外れている**",
+      );
+    }
+    say("");
+
+    await discovery(page);
+
+    const shot = reportPath.replace(/\.md$/, `-wl${idx + 1}.png`);
+    await page.screenshot({ path: shot, fullPage: false }).catch(() => {});
+  }
+
+  say("### 次にやること");
+  say("");
+  say("- `scrapeWatchlistPage` が OK を返した候補URLを WATCHLIST_URL_CANDIDATES の先頭にする");
+  say("- 当たったセレクタを selectors.ts に書き、状態表を ✅ に更新する");
+  say("- `--anonymous` の回で watchlistLoginWall が当たっていることを確認する(陰陽の対照)");
+  say("");
+}
+
 // 認証済み DOM に対してパーサが機能するかを見る(未認証 fetch とは差が出うる)
 async function reportParser(page: Page, url: string, anonymous: boolean): Promise<void> {
   const info = parseAuctionPage(await page.content(), url);
@@ -494,25 +636,43 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const auctionId = extractAuctionId(args.url) ?? "unknown";
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const slug = args.watchlist ? "watchlist" : auctionId;
   const reportPath = resolve(
     process.cwd(),
-    `../../tmp/p0/${auctionId}${args.anonymous ? "-anon" : ""}-${stamp}.md`,
+    `../../tmp/p0/${slug}${args.anonymous ? "-anon" : ""}-${stamp}.md`,
   );
   mkdirSync(dirname(reportPath), { recursive: true });
 
-  say(`# P0 プローブ結果 — ${auctionId}`);
+  say(`# P0 プローブ結果 — ${slug}`);
   say("");
   say(`- 実行(JST): ${fmt(new Date())}`);
-  say(`- URL: ${args.url}`);
+  say(`- URL: ${args.url || "(ウォッチリストモード: 候補URLを順に試す)"}`);
   say(`- headless: ${args.headless}`);
   say(`- 認証: ${args.anonymous ? "**未ログイン(Cookie なし)**" : "連携 Cookie あり"}`);
-  say(`- stage: ${args.stage2 ? "2 (入札フォーム〜確認画面)" : "1 (読むだけ)"}`);
+  say(
+    `- stage: ${
+      args.watchlist
+        ? "watchlist (ウォッチリストのURL・セレクタ確定)"
+        : args.stage2
+          ? "2 (入札フォーム〜確認画面)"
+          : "1 (読むだけ)"
+    }`,
+  );
   say("");
 
   const { context, close } = args.anonymous
     ? await anonymousContext(args.headless)
     : await resolveContext(args.headless, args.sessionRef);
   const page = await context.newPage();
+
+  if (args.watchlist) {
+    await probeWatchlist(page, reportPath, args.anonymous);
+    writeFileSync(reportPath, out.join("\n"), "utf-8");
+    console.log(`\nレポート: ${reportPath}`);
+    await close();
+    await prisma.$disconnect();
+    return;
+  }
 
   const t0 = Date.now();
   await page.goto(args.url, { waitUntil: "domcontentloaded" });

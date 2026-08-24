@@ -60,9 +60,12 @@ export async function POST(req: NextRequest) {
       },
       select: { id: true, label: true, status: true, createdAt: true },
     });
-    // TODO(P1): 登録直後の有効性チェック(実リクエストでのログイン判定)は
-    // P0 検証でログイン判定方法を確定させてから worker 側に実装する。
-    // 現時点では「必要な Cookie 名が揃っているか」の構造チェックのみ(warnings)。
+    // ここで見ているのは「必要な Cookie 名が揃っているか」の構造だけ(warnings)。
+    // 実際にログインが生きているかは worker の定期確認
+    // (apps/worker/src/jobs/verifySession.ts)が 6 時間ごとに判定し、
+    // 切れていれば SESSION_EXPIRED を通知する。
+    // TODO(P1): 登録直後にその確認を1回キックして、待たずに結果を返せるようにする
+    // (今は最大で次の走査まで「登録できたのに実は切れている」状態が続く)。
     return NextResponse.json(
       { ...session, cookieCount: normalized.cookies.length, warnings: normalized.warnings },
       { status: 201 },

@@ -9,6 +9,7 @@ import { runReminderSweep } from "./jobs/reminder";
 import { runDailySummarySweep } from "./jobs/dailySummary";
 import { runWatchlistSweep } from "./jobs/watchlist";
 import { runEnrichSweep } from "./jobs/enrich";
+import { runVerifySessionSweep } from "./jobs/verifySession";
 import { sweepApprovals } from "./approvalPoller";
 
 // 予約の真実は DB(BidReservation)。Redis のジョブはここから常に再構築できる
@@ -27,6 +28,10 @@ const SCAN_INTERVAL_MS = 30_000;
 // ウォッチリスト同期の間隔。ブラウザを起動するので refresh より粗く回す。
 // これ自体がヤフオクのログイン維持確認を兼ねる(設計追補 2026-08-25)。
 const WATCHLIST_INTERVAL_MS = 60 * 60 * 1000;
+
+// 連携 Cookie の生存確認。走査自体は 15 分ごとに回すが、実際に開くのは
+// 前回の確認から 6 時間経った連携だけ(判定は jobs/verifySession.ts)。
+const VERIFY_SESSION_INTERVAL_MS = 15 * 60 * 1000;
 
 export interface SchedulerHandle {
   stop: () => void;
@@ -55,10 +60,17 @@ export function startScheduler(): SchedulerHandle {
   );
   run("watchlist", runWatchlistSweep);
 
+  const verifyTimer = setInterval(
+    () => run("verifySession", runVerifySessionSweep),
+    VERIFY_SESSION_INTERVAL_MS,
+  );
+  run("verifySession", runVerifySessionSweep);
+
   return {
     stop: () => {
       clearInterval(timer);
       clearInterval(watchlistTimer);
+      clearInterval(verifyTimer);
     },
   };
 }

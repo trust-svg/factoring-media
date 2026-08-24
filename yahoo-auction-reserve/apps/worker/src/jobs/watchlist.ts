@@ -20,7 +20,9 @@ import { notifyUser } from "../notify";
 
 // ⚠️ 未検証: ウォッチリストの URL。`npm run p0:probe -- --watchlist` で確定させること。
 // 候補を順に試し、ログイン壁でも商品リンクでもない場合は次を試す。
-const WATCHLIST_URL_CANDIDATES = [
+// プローブ(scripts/p0-probe.ts --watchlist)と同じ配列を使う。片方だけ
+// 直すと「プローブでは当たったのに本番は別の URL を叩いている」が起きる。
+export const WATCHLIST_URL_CANDIDATES = [
   "https://auctions.yahoo.co.jp/user/jp/show/watchlist",
   "https://auctions.yahoo.co.jp/watchlist",
 ];

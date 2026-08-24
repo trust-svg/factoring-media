@@ -8,6 +8,11 @@
 // |---|---|---|
 // | loginLink              | ✅ 検証済 | 2026-08-24 v1241268301。ログイン中0件 / 未ログイン2件 |
 // | loggedInIndicator      | 🟡 1回のみ | 同上。ログイン中に a.mhdPcUserName__link を確認 |
+//
+// ⚠️ loginLink は入札フローだけでなく **セッションの生存確認**
+// (jobs/verifySession.ts)でも使う。ここが外れると、失効を検知できないまま
+// 入札の瞬間まで気づけない。判定の非対称性は src/sessionVerdict.ts を読むこと。
+//
 // | bidButton              | ✅ 検証済 | 同上。<button> でテキストのみが手掛かり |
 // | priceInput             | ❌ 未検証 | Stage 2 (--stage2) が必要 |
 // | bidConfirmButton       | ❌ 未検証 | 同上 |
@@ -15,8 +20,9 @@
 // | wonIndicator           | ❌ 未検証 | 自分が入札した終了済み商品でないと出ない |
 // | highestBidderIndicator | ❌ 未検証 | 同上 |
 // | outbidIndicator        | ❌ 未検証 | 同上 |
-// | watchlistLoginWall     | ❌ 未検証 | `--watchlist` プローブが必要 |
-// | watchlistItemLink      | ❌ 未検証 | 同上 |
+// | watchlistLoginWall     | ❌ 未検証 | `npm run p0:probe -- --watchlist --anonymous` で陽性対照を取る |
+// | watchlistItemLink      | ❌ 未検証 | `npm run p0:probe -- --watchlist`(ログイン状態で) |
+// | watchlistNextPage      | ❌ 未検証 | 同上。2ページ目がある状態で確認すること |
 //
 // UI変更時はこのファイルだけ直せば済むよう、Playwright操作側には
 // セレクタを直書きしないこと。

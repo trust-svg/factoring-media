@@ -484,3 +484,41 @@ MVP 実装中に追加した機能と、その安全側の倒し方。**「取�
 | GET / PUT | `/judgement-settings` | 判断材料のしきい値 |
 | GET / POST | `/groups` | グループ一覧・作成 |
 | DELETE | `/watchlist/:id` | ウォッチリスト行を伏せる(`dismissedAt`) |
+
+### 14.6 連携 Cookie の生存確認(§8-3 の実装方針)
+
+登録時の検証は Cookie 名の構造チェックのみ。ログインが切れていても登録は通るので、
+**切れていることが分かるのが入札の瞬間になる**。これを避けるため worker 側に定期確認を置く。
+
+- 走査: `runVerifySessionSweep`(15分ごと)。実際に開くのは
+  `lastVerifyAttemptAt` が6時間より古い ACTIVE な連携だけ、1回3件まで
+- 順番は成功時刻(`lastVerifiedAt`)ではなく **試行時刻**(`lastVerifyAttemptAt`)で決める。
+  成功時刻で並べると、失敗し続ける1件が毎回先頭に来て他が永久に確認されない。
+  試行時刻はブラウザを開く前に立てる(例外で落ちても順番は回る)
+- 判定は純粋関数 `judgeSession()` に隔離する(ブラウザ操作の中に if を書くと分岐を固定できない)
+
+| 判定 | 根拠 | 処理 |
+|---|---|---|
+| `EXPIRED` | ログイン画面へのリダイレクト / `loginLink` の**存在** | 失効 + `SESSION_EXPIRED` 通知 |
+| `ACTIVE` | `loginLink` 無し かつ `loggedInIndicator` 有り | `lastVerifiedAt` を進める |
+| `UNKNOWN` | どちらも検出できない・取得失敗 | 何もしない |
+
+**判定の非対称性(重要)**: 失効にするとその連携の予約が全部止まる。誤って失効に倒すコストが
+大きいので、`loggedInIndicator` の **不在** は根拠にしない(ログイン中の1回でしか確認できておらず、
+ヘッダの実装変更で「全セッション失効」に化ける)。陽性の証拠があるときだけ `EXPIRED` を出す。
+
+その裏返しで、`UNKNOWN` が続くとこの確認は静かに何もしないのと同じになる。`UNKNOWN` では
+`lastVerifiedAt` を進めないことで検出可能にし、24時間更新が無い ACTIVE 連携には日次サマリの
+連携行に ⚠️ を付ける。これが唯一の異常サインなので消さないこと。
+
+確認先 URL は 予約中の商品ページ → ウォッチリストの商品 → ヤフオクトップ の順。
+ログイン有無の差を P0 で実測できているのは商品ページの `loginLink` だけのため。
+
+### 14.7 ウォッチリストの P0 検証(`--watchlist`)
+
+ウォッチリストの URL とセレクタは未検証。`npm run p0:probe -- --watchlist` は
+`WATCHLIST_URL_CANDIDATES`(worker 本体と同じ配列を import)を順に開き、候補セレクタの
+当たりに加えて **本番と同じ `scrapeWatchlistPage()` の返り値** をレポートに書く。
+
+プローブ用の別ロジックで「当たった」と判断すると、本番コードだけ外れたままでも気づけない。
+`--anonymous` を付けた回はログイン壁(`watchlistLoginWall`)の陽性対照になる。
