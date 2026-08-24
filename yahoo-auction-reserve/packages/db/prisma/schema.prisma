@@ -1,0 +1,115 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String           @id @default(cuid())
+  email         String           @unique
+  passwordHash  String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  yahooSessions YahooSession[]
+  reservations  BidReservation[]
+  notifications Notification[]
+}
+
+// ヤフオクのログイン済みセッション(Cookie一式を暗号化して保管)
+model YahooSession {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id])
+  label           String
+  encryptedCookie String // AES-256-GCM 暗号化済みCookie JSON
+  status          SessionStatus    @default(ACTIVE)
+  lastVerifiedAt  DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  reservations    BidReservation[]
+}
+
+model BidReservation {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  yahooSessionId String
+  yahooSession   YahooSession @relation(fields: [yahooSessionId], references: [id])
+
+  auctionId        String // ヤフオクのオークションID (例: x1234567890)
+  auctionUrl       String
+  title            String
+  imageUrl         String?
+  sellerName       String?
+  hasAutoExtension Boolean  @default(false)
+  endAt            DateTime // 終了予定日時(自動延長で更新される)
+  originalEndAt    DateTime
+
+  maxBidAmount       Int
+  snipeSecondsBefore Int       @default(30) // 5〜300
+  currentPrice       Int?
+  priceCheckedAt     DateTime?
+
+  status        ReservationStatus @default(SCHEDULED)
+  resultPrice   Int?
+  failureReason String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  attempts      BidAttempt[]
+
+  @@unique([userId, auctionId])
+  @@index([status, endAt])
+}
+
+// 入札実行の試行ログ(自動延長で複数回実行される)
+model BidAttempt {
+  id            String         @id @default(cuid())
+  reservationId String
+  reservation   BidReservation @relation(fields: [reservationId], references: [id])
+  scheduledFor  DateTime
+  executedAt    DateTime?
+  bidAmount     Int?
+  outcome       AttemptOutcome
+  detail        String?
+  createdAt     DateTime       @default(now())
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  type      String // WON / LOST / FAILED / SESSION_EXPIRED など
+  payload   Json
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+enum SessionStatus {
+  ACTIVE
+  EXPIRED
+  INVALID
+}
+
+enum ReservationStatus {
+  SCHEDULED
+  MONITORING
+  BIDDING
+  WON
+  LOST
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum AttemptOutcome {
+  SUCCESS
+  OUTBID
+  PRICE_OVER_LIMIT
+  SESSION_EXPIRED
+  PAGE_ERROR
+  TIMEOUT
+}

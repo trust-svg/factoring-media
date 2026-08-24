@@ -1,0 +1,65 @@
+import type { Page } from "playwright";
+import { selectors } from "./selectors";
+
+export type BidResult =
+  | { outcome: "SUCCESS" }
+  | { outcome: "SESSION_EXPIRED" }
+  | { outcome: "PAGE_ERROR"; detail: string }
+  | { outcome: "TIMEOUT"; detail: string };
+
+// 商品ページを開いた状態の page に対して、上限額で入札を確定させる。
+// ここは P0 検証で実フローに合わせて必ず調整すること(設計 §13)。
+export async function placeBid(
+  page: Page,
+  auctionUrl: string,
+  amount: number,
+  timeoutMs = 15_000,
+): Promise<BidResult> {
+  try {
+    if (page.url() !== auctionUrl) {
+      await page.goto(auctionUrl, { waitUntil: "domcontentloaded" });
+    }
+
+    // ログイン確認: ログインリンクが見えている=未ログイン
+    if (await page.locator(selectors.loginLink).first().isVisible().catch(() => false)) {
+      return { outcome: "SESSION_EXPIRED" };
+    }
+
+    await page.locator(selectors.bidButton).first().click({ timeout: timeoutMs });
+    await page.locator(selectors.priceInput).first().fill(String(amount), {
+      timeout: timeoutMs,
+    });
+    await page.locator(selectors.bidConfirmButton).first().click({ timeout: timeoutMs });
+    // 確認画面 → 確定
+    await page.locator(selectors.bidSubmitButton).first().click({ timeout: timeoutMs });
+
+    // 確定後の遷移完了を待つ
+    await page.waitForLoadState("domcontentloaded", { timeout: timeoutMs });
+    return { outcome: "SUCCESS" };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    if (/Timeout/i.test(detail)) {
+      return { outcome: "TIMEOUT", detail };
+    }
+    return { outcome: "PAGE_ERROR", detail };
+  }
+}
+
+// 終了後の商品ページから勝敗を判定する
+export async function checkResult(
+  page: Page,
+  auctionUrl: string,
+): Promise<"WON" | "LOST" | "UNKNOWN"> {
+  try {
+    await page.goto(auctionUrl, { waitUntil: "domcontentloaded" });
+    if (await page.locator(selectors.wonIndicator).first().isVisible().catch(() => false)) {
+      return "WON";
+    }
+    if (await page.locator(selectors.outbidIndicator).first().isVisible().catch(() => false)) {
+      return "LOST";
+    }
+    return "UNKNOWN";
+  } catch {
+    return "UNKNOWN";
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "yahoo-auction-reserve",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "db:generate": "npm run generate -w @yar/db",
+    "db:push": "npm run push -w @yar/db",
+    "dev:web": "npm run dev -w @yar/web",
+    "dev:worker": "npm run dev -w @yar/worker",
+    "build": "npm run db:generate && npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
