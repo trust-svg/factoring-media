@@ -8,6 +8,7 @@ import { monitorQueue, refreshQueue } from "./queues";
 import { runReminderSweep } from "./jobs/reminder";
 import { runDailySummarySweep } from "./jobs/dailySummary";
 import { runWatchlistSweep } from "./jobs/watchlist";
+import { runEnrichSweep } from "./jobs/enrich";
 import { sweepApprovals } from "./approvalPoller";
 
 // 予約の真実は DB(BidReservation)。Redis のジョブはここから常に再構築できる
@@ -43,6 +44,7 @@ export function startScheduler(): SchedulerHandle {
     run("reminder", runReminderSweep);
     run("dailySummary", runDailySummarySweep);
     run("approvalSweep", sweepApprovals);
+    run("enrich", runEnrichSweep);
   };
   const timer = setInterval(tick, SCAN_INTERVAL_MS);
   tick();

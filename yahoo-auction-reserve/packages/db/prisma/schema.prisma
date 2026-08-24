@@ -9,17 +9,24 @@ datasource db {
 }
 
 model User {
-  id            String               @id @default(cuid())
-  email         String               @unique
-  passwordHash  String
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  yahooSessions YahooSession[]
-  reservations  BidReservation[]
-  notifications Notification[]
-  watchlist     WatchlistItem[]
-  groups        ReservationGroup[]
-  notifySetting NotificationSetting?
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  passwordHash         String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  yahooSessions        YahooSession[]
+  reservations         BidReservation[]
+  notifications        Notification[]
+  watchlist            WatchlistItem[]
+  groups               ReservationGroup[]
+  notifySetting        NotificationSetting?
+  // --- 判断材料のしきい値(設計追補 2026-08-25) ---
+  // null なら判定しない。既定で判定を入れないのは、しきい値を推測で決めると
+  // 「なぜか予約できない」が起きるため(明示的に設定したときだけ効かせる)。
+  sellerRatingFloor    Int? // 良い評価の割合(%)の下限
+  sellerRatingMinCount Int? // 評価総数の下限(100%でも母数2件は判断材料にならない)
+  // true なら下限割れの出品者は予約自体を断る。false なら警告のみ。
+  blockLowRatedSeller  Boolean              @default(false)
 }
 
 // ヤフオクのログイン済みセッション(Cookie一式を暗号化して保管)
@@ -75,10 +82,17 @@ model BidReservation {
   absoluteMaxAmount  Int?
 
   // --- 判断材料(取得できたときだけ入る。無いことと 0 は違う) ---
+  // shippingFee: 送料(円)。null=不明(条件により変動/記載なし)、0=送料無料。
+  //   null を 0 とみなして総額を出さないこと(「送料込みで安い」と誤読させる)。
   shippingFee       Int?
-  sellerRating      Int?
+  shippingNote      String? // 「落札者負担」など、金額を確定できなかったときの原文
+  sellerRating      Int? // 「良い」評価の割合(%) 0〜100
+  sellerRatingCount Int? // 評価の総数。割合だけでは新規出品者と区別できない
   marketMedianPrice Int?
-  marketSampleCount Int?
+  marketSampleCount Int? // 0 = 調べたが該当なし。null = まだ調べていない/取得失敗
+  // 相場を調べた時刻。null のままだと毎走査で調べ直して永久にリトライするので、
+  // 失敗した場合もここは進める(失敗は marketSampleCount=null で区別する)。
+  marketCheckedAt   DateTime?
 
   // --- グループ(どれか1つ落札したら残りをキャンセル) ---
   groupId String?

@@ -7,6 +7,7 @@ import {
   SNIPE_SECONDS_MIN,
   extractAuctionId,
   fetchAuctionInfo,
+  judgeSeller,
   normalizeAuctionUrl,
   validateAutoRaiseInput,
 } from "@yar/shared";
@@ -107,6 +108,39 @@ export async function POST(req: NextRequest) {
       return jsonError(400, `上限額は現在価格(${info.currentPrice}円)より高くしてください`);
     }
 
+    // 出品者の足切り。しきい値を設定していないユーザーには何も起きない。
+    // 「取得できなかった(unknown)」で断らないのは、パーサが壊れた日に
+    // 全予約が登録不能になるため(警告として画面に出す方に倒す)。
+    const seller = judgeSeller(
+      {
+        sellerRating: info.sellerRating ?? null,
+        sellerRatingCount: info.sellerRatingCount ?? null,
+      },
+      {
+        sellerRatingFloor: user.sellerRatingFloor,
+        sellerRatingMinCount: user.sellerRatingMinCount,
+      },
+    );
+    if (seller.level === "warn" && user.blockLowRatedSeller) {
+      return jsonError(
+        409,
+        `出品者の足切り条件に該当します(${seller.reasons.join(" / ")})。設定 > 判断材料 で変更できます`,
+      );
+    }
+
+    // グループは「どれか1つ落札したら残りを取りやめる」束。他人のグループに
+    // 紐付けられないよう所有者を確認する。
+    let groupId: string | null = null;
+    if (typeof body.groupId === "string" && body.groupId) {
+      const group = await prisma.reservationGroup.findUnique({
+        where: { id: body.groupId },
+      });
+      if (!group || group.userId !== user.id) {
+        return jsonError(400, "指定されたグループが見つかりません");
+      }
+      groupId = group.id;
+    }
+
     // 敗北済み等の過去予約が残っている場合は消してから作り直す(@@unique制約)
     if (duplicate) {
       await prisma.bidAttempt.deleteMany({ where: { reservationId: duplicate.id } });
@@ -129,6 +163,11 @@ export async function POST(req: NextRequest) {
         snipeSecondsBefore,
         currentPrice: info.currentPrice,
         priceCheckedAt: new Date(),
+        shippingFee: info.shippingFee ?? null,
+        shippingNote: info.shippingNote ?? null,
+        sellerRating: info.sellerRating ?? null,
+        sellerRatingCount: info.sellerRatingCount ?? null,
+        groupId,
         ...raise.value,
       },
     });

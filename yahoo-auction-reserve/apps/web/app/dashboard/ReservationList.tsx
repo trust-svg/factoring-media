@@ -12,6 +12,7 @@ import {
   jstDayKey,
   urgencyOf,
 } from "@yar/shared/format";
+import { judgeMarket, totalWithShipping } from "@yar/shared/judgement";
 import { RESERVATION_STATUS_LABEL, type ReservationStatusKey } from "@yar/shared/labels";
 
 export interface ReservationItem {
@@ -28,6 +29,11 @@ export interface ReservationItem {
   hasAutoExtension: boolean;
   failureReason: string | null;
   resultPrice: number | null;
+  groupName: string | null;
+  shippingFee: number | null;
+  sellerRating: number | null;
+  marketMedianPrice: number | null;
+  marketSampleCount: number | null;
 }
 
 export type Segment = "active" | "today" | "done";
@@ -184,9 +190,36 @@ function Row({ r, now }: { r: ReservationItem; now: Date }) {
           ? formatJstTime(endAt)
           : `${formatJstDayLabel(endAt)} ${formatJstTime(endAt, false)}`}
       </span>
-      <span className="row-note">{r.failureReason ?? ""}</span>
+      <RowNote r={r} />
     </Link>
   );
+}
+
+/**
+ * 3行目の補足。相場・送料込み総額・グループ・失敗理由をここに集約する。
+ *
+ * ⚠️ 送料が不明なときに商品代だけを「総額」として出さない。出すと
+ * 送料1,500円の商品が最安に見える。不明は不明と書く。
+ */
+function RowNote({ r }: { r: ReservationItem }) {
+  const parts: string[] = [];
+  if (r.groupName) parts.push(`[${r.groupName}]`);
+
+  const { total, shippingKnown } = totalWithShipping(r.currentPrice, r.shippingFee);
+  if (total != null) parts.push(`総額 ${formatYen(total)}`);
+  else if (!shippingKnown && r.currentPrice != null) parts.push("送料不明");
+
+  if (r.marketMedianPrice != null && r.marketSampleCount != null) {
+    parts.push(`相場 ${formatYen(r.marketMedianPrice)}(${r.marketSampleCount}件)`);
+  }
+  const market = judgeMarket(r.maxBidAmount, r.marketMedianPrice, r.marketSampleCount);
+  if (market.level === "warn") parts.push(`⚠ ${market.reasons[0]}`);
+  if (r.sellerRating != null && r.sellerRating < 95) {
+    parts.push(`⚠ 出品者評価 ${r.sellerRating}%`);
+  }
+  if (r.failureReason) parts.push(r.failureReason);
+
+  return <span className="row-note">{parts.join(" · ")}</span>;
 }
 
 /**

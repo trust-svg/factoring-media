@@ -79,6 +79,40 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
     info.isClosed = /このオークションは終了しています/.test(html);
   }
 
+  // --- 判断材料(送料・出品者評価) ---
+  // ⚠️ ここも未検証のプレースホルダ。取れなければ undefined のままにして、
+  //    「0円」「評価100%」のような都合の良い既定値を作らないこと。
+  //    既定値を入れると、パーサが壊れた日から全商品が足切りを素通りする。
+  if (embedded) {
+    const fee = pickNumber(embedded, ["shippingFee", "postage", "shipping"]);
+    if (fee !== undefined && fee >= 0) info.shippingFee = fee;
+    const rating = pickNumber(embedded, ["goodRating", "ratingScore", "sellerRating"]);
+    if (rating !== undefined && rating >= 0 && rating <= 100) info.sellerRating = rating;
+    const count = pickNumber(embedded, ["totalRating", "ratingCount", "sellerRatingCount"]);
+    if (count !== undefined && count >= 0) info.sellerRatingCount = count;
+  }
+  if (info.shippingFee === undefined) {
+    if (/送料無料|送料込/.test(html)) info.shippingFee = 0;
+    else {
+      const m = html.match(/送料[^0-9]{0,20}([\d,]+)\s*円/);
+      if (m) info.shippingFee = Number(m[1].replaceAll(",", ""));
+      else if (/落札者(?:の)?負担/.test(html)) {
+        info.shippingNote = "落札者負担(金額は商品ページを確認)";
+      }
+    }
+  }
+  if (info.sellerRating === undefined) {
+    const m = html.match(/([\d.]{1,5})\s*%[^0-9]{0,10}(?:good|良い|評価)/i);
+    if (m) {
+      const v = Number(m[1]);
+      if (Number.isFinite(v) && v >= 0 && v <= 100) info.sellerRating = Math.round(v);
+    }
+  }
+  if (info.sellerRatingCount === undefined) {
+    const m = html.match(/評価[^0-9]{0,10}([\d,]+)\s*件/);
+    if (m) info.sellerRatingCount = Number(m[1].replaceAll(",", ""));
+  }
+
   return info;
 }
 

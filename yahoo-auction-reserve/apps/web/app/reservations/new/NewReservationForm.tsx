@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { totalWithShipping, type Judgement } from "@yar/shared/judgement";
 
 interface AuctionPreview {
   auctionId: string;
@@ -13,17 +14,27 @@ interface AuctionPreview {
   endAt?: string;
   hasAutoExtension?: boolean;
   isClosed?: boolean;
+  shippingFee?: number;
+  shippingNote?: string;
+  sellerRating?: number;
+  sellerRatingCount?: number;
+  /** 設定したしきい値での足切り判定(preview API が付ける) */
+  sellerJudgement?: Judgement;
+  /** true ならこのまま登録しても API に断られる */
+  sellerBlocks?: boolean;
 }
 
 type Step = "url" | "input" | "confirm";
 
 export default function NewReservationForm({
   sessions,
+  groups,
   snipeDefaults,
   initialUrl = "",
   telegramLinked,
 }: {
   sessions: { id: string; label: string }[];
+  groups: { id: string; name: string }[];
   snipeDefaults: { default: number; min: number; max: number };
   /** ウォッチリストから「予約する」で来たときの初期URL */
   initialUrl?: string;
@@ -44,6 +55,9 @@ export default function NewReservationForm({
   const [absoluteMaxAmount, setAbsoluteMaxAmount] = useState("");
   const [autoRaiseStep, setAutoRaiseStep] = useState("500");
   const [autoRaiseMaxCount, setAutoRaiseMaxCount] = useState("3");
+  // "" = グループなし / "__new" = 新規作成 / それ以外は既存グループのID
+  const [groupChoice, setGroupChoice] = useState("");
+  const [newGroupName, setNewGroupName] = useState("");
 
   const endAt = preview?.endAt ? new Date(preview.endAt) : null;
   const executeAt =
@@ -116,12 +130,36 @@ export default function NewReservationForm({
         return;
       }
     }
+    if (groupChoice === "__new" && newGroupName.trim().length === 0) {
+      setError("新しいグループ名を入力してください");
+      return;
+    }
     setStep("confirm");
   }
 
   async function onSubmit() {
     setBusy(true);
     setError(null);
+
+    // 新規グループは予約より先に作る。ここで失敗したら予約自体を止める
+    // (グループ無しで登録すると「取りやめてくれるはず」の前提が黙って崩れる)。
+    let groupId: string | null = groupChoice && groupChoice !== "__new" ? groupChoice : null;
+    if (groupChoice === "__new") {
+      const gres = await fetch("/api/v1/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGroupName }),
+      });
+      const gbody = await gres.json();
+      if (!gres.ok) {
+        setBusy(false);
+        setError(gbody.error ?? "グループの作成に失敗しました");
+        setStep("input");
+        return;
+      }
+      groupId = gbody.id;
+    }
+
     const res = await fetch("/api/v1/reservations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -134,6 +172,7 @@ export default function NewReservationForm({
         absoluteMaxAmount: autoRaiseMode === "OFF" ? null : Number(absoluteMaxAmount),
         autoRaiseStep: autoRaiseMode === "OFF" ? null : Number(autoRaiseStep),
         autoRaiseMaxCount: autoRaiseMode === "OFF" ? null : Number(autoRaiseMaxCount),
+        groupId,
       }),
     });
     const body = await res.json();
@@ -204,6 +243,7 @@ export default function NewReservationForm({
               ) : (
                 <p className="muted">[自動延長なし]</p>
               )}
+              <FactsLine preview={preview} />
             </div>
           </div>
 
@@ -311,6 +351,36 @@ export default function NewReservationForm({
             )}
 
             <div>
+              <label htmlFor="groupChoice">グループ(任意)</label>
+              <select
+                id="groupChoice"
+                value={groupChoice}
+                onChange={(e) => setGroupChoice(e.target.value)}
+              >
+                <option value="">グループに入れない</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+                <option value="__new">+ 新しいグループを作る</option>
+              </select>
+              {groupChoice === "__new" && (
+                <input
+                  aria-label="新しいグループ名"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="例: ニコン F3 どれか1台"
+                  style={{ marginTop: 8 }}
+                />
+              )}
+              <p className="muted">
+                同じグループのどれか1つを落札したら、残りの予約は自動で取りやめます
+                (「同じ物を2台落札してしまう」を防ぐための束です)。
+              </p>
+            </div>
+
+            <div>
               <label htmlFor="yahooSessionId">実行に使うヤフオク連携</label>
               <select
                 id="yahooSessionId"
@@ -367,6 +437,14 @@ export default function NewReservationForm({
                 <td>{endAt ? endAt.toLocaleString("ja-JP") : "—"}</td>
               </tr>
               <tr>
+                <th style={{ textAlign: "left", paddingRight: 16 }}>グループ</th>
+                <td>
+                  {groupChoice === "__new"
+                    ? `${newGroupName}(新規作成)`
+                    : (groups.find((g) => g.id === groupChoice)?.name ?? "なし")}
+                </td>
+              </tr>
+              <tr>
                 <th style={{ textAlign: "left", paddingRight: 16 }}>使用する連携</th>
                 <td>{sessions.find((s) => s.id === yahooSessionId)?.label}</td>
               </tr>
@@ -382,6 +460,49 @@ export default function NewReservationForm({
             </button>
           </div>
         </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * 判断材料(送料込み総額・出品者評価)の1行表示。
+ *
+ * ⚠️ 取れなかった項目は「—」ではなく「取得できませんでした」と書く。
+ * 空欄にすると「送料無料」「評価に問題なし」と読まれる。
+ */
+function FactsLine({ preview }: { preview: AuctionPreview }) {
+  const { total } = totalWithShipping(
+    preview.currentPrice ?? null,
+    preview.shippingFee ?? null,
+  );
+  const judgement = preview.sellerJudgement;
+
+  return (
+    <>
+      <p className="muted">
+        送料{" "}
+        {preview.shippingFee === 0
+          ? "無料"
+          : preview.shippingFee !== undefined
+            ? `${preview.shippingFee.toLocaleString()}円`
+            : (preview.shippingNote ?? "取得できませんでした")}
+        {total != null && ` / 現時点の総額 ${total.toLocaleString()}円`}
+        {" / 出品者評価 "}
+        {preview.sellerRating !== undefined
+          ? `${preview.sellerRating}%${
+              preview.sellerRatingCount !== undefined
+                ? `(${preview.sellerRatingCount.toLocaleString()}件)`
+                : ""
+            }`
+          : "取得できませんでした"}
+      </p>
+      {judgement && judgement.level !== "ok" && judgement.reasons.length > 0 && (
+        <p className={judgement.level === "warn" ? "error" : "muted"}>
+          {judgement.level === "warn" ? "⚠ " : ""}
+          {judgement.reasons.join(" / ")}
+          {preview.sellerBlocks && "(足切り設定により、このままでは予約できません)"}
+        </p>
       )}
     </>
   );

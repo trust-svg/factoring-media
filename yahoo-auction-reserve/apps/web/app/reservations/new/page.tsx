@@ -19,10 +19,15 @@ export default async function NewReservationPage({
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [sessions, notify, params] = await Promise.all([
+  const [sessions, groups, notify, params] = await Promise.all([
     prisma.yahooSession.findMany({
       where: { userId: user.id, status: "ACTIVE" },
       select: { id: true, label: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.reservationGroup.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.notificationSetting.findUnique({ where: { userId: user.id } }),
@@ -45,6 +50,7 @@ export default async function NewReservationPage({
   return (
     <NewReservationForm
       sessions={sessions}
+      groups={groups}
       initialUrl={typeof params.url === "string" ? params.url : ""}
       telegramLinked={Boolean(notify?.telegramChatId)}
       snipeDefaults={{

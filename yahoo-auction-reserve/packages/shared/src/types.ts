@@ -21,6 +21,12 @@ export interface AuctionInfo {
   endAt?: Date;
   hasAutoExtension?: boolean;
   isClosed?: boolean;
+  // --- 判断材料。取れなかった項目は undefined のままにする ---
+  // shippingFee は 0 が「送料無料」なので、undefined と 0 を混同しないこと。
+  shippingFee?: number;
+  shippingNote?: string; // 金額を確定できなかったときの原文(「落札者負担」など)
+  sellerRating?: number; // 良い評価の割合(%)
+  sellerRatingCount?: number; // 評価総数
 }
 
 export type NotificationType =

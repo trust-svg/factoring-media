@@ -20,6 +20,21 @@ export async function runRefreshJob(job: Job<ReservationJobData>): Promise<void>
   if (info.currentPrice !== undefined) data.currentPrice = info.currentPrice;
   if (info.endAt) data.endAt = info.endAt;
 
+  // 判断材料は「まだ入っていないときだけ」埋める。毎回上書きすると、
+  // パーサが壊れた回の undefined で既に取れていた値を潰しかねない。
+  if (reservation.shippingFee === null && info.shippingFee !== undefined) {
+    data.shippingFee = info.shippingFee;
+  }
+  if (reservation.shippingNote === null && info.shippingNote !== undefined) {
+    data.shippingNote = info.shippingNote;
+  }
+  if (reservation.sellerRating === null && info.sellerRating !== undefined) {
+    data.sellerRating = info.sellerRating;
+  }
+  if (reservation.sellerRatingCount === null && info.sellerRatingCount !== undefined) {
+    data.sellerRatingCount = info.sellerRatingCount;
+  }
+
   if (info.isClosed) {
     await prisma.bidReservation.update({
       where: { id: reservation.id },

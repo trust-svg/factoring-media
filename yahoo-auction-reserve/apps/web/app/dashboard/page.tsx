@@ -13,6 +13,7 @@ export default async function DashboardPage() {
   const reservations = await prisma.bidReservation.findMany({
     where: { userId: user.id },
     orderBy: { endAt: "asc" },
+    include: { group: { select: { name: true } } },
   });
 
   // Date をそのままクライアントコンポーネントへ渡すと、シリアライズを経て
@@ -31,6 +32,11 @@ export default async function DashboardPage() {
     hasAutoExtension: r.hasAutoExtension,
     failureReason: r.failureReason,
     resultPrice: r.resultPrice,
+    groupName: r.group?.name ?? null,
+    shippingFee: r.shippingFee,
+    sellerRating: r.sellerRating,
+    marketMedianPrice: r.marketMedianPrice,
+    marketSampleCount: r.marketSampleCount,
   }));
 
   return (

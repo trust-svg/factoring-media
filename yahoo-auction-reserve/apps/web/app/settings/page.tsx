@@ -59,6 +59,26 @@ export default async function SettingsPage() {
       </div>
 
       <div className="card">
+        <h2>
+          <Link href="/settings/judgement">判断材料</Link>
+        </h2>
+        <p className="muted">
+          出品者の足切り{" "}
+          {user.sellerRatingFloor === null && user.sellerRatingMinCount === null
+            ? "未設定"
+            : [
+                user.sellerRatingFloor !== null ? `評価${user.sellerRatingFloor}%以上` : null,
+                user.sellerRatingMinCount !== null
+                  ? `評価${user.sellerRatingMinCount}件以上`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" / ")}{" "}
+          / 該当時は{user.blockLowRatedSeller ? "登録を断る" : "警告のみ"}
+        </p>
+      </div>
+
+      <div className="card">
         <h2>アカウント</h2>
         <p className="muted">{user.email}</p>
         <LogoutButton />
