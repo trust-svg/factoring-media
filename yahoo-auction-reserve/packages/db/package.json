@@ -6,8 +6,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "generate": "prisma generate",
-    "push": "prisma db push",
+    "generate": "node ../../scripts/with-root-env.mjs prisma generate",
+    "push": "node ../../scripts/with-root-env.mjs prisma db push",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

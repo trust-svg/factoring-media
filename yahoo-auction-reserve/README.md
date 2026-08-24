@@ -45,9 +45,18 @@ DB から再構築するため、Redis 消失や worker 再起動から自己修
 > 鍵を入れ替えたら `YahooSession` を作り直すこと。
 
 `.env` はモノレポのルートに1つだけ置く。docker compose は `env_file: .env` で読み、
-ローカル実行時は worker 側 (`apps/worker/src/env.ts`) と web 側 (`apps/web/next.config.ts`) が
-それぞれ起動時に読み込む。**既に定義済みの環境変数は上書きしない**ので、compose の
-`environment:` で渡す `DATABASE_URL` / `REDIS_URL` が常に優先される。
+ローカル実行時は以下がそれぞれ起動時に読み込む。**既に定義済みの環境変数は上書きしない**
+ので、compose の `environment:` で渡す `DATABASE_URL` / `REDIS_URL` が常に優先される。
+
+| 実行経路 | 読み込み口 |
+|---|---|
+| `npm run dev:worker` / `npm run p0:probe` | `apps/worker/src/env.ts`(最初の import) |
+| `npm run dev:web` / `build` / `start` | `apps/web/next.config.ts` |
+| `npm run db:push` / `db:generate` | `scripts/with-root-env.mjs`(Prisma CLI のラッパ) |
+
+> Prisma CLI は cwd(`packages/db`)から `.env` を探すため、ルートの `.env` には
+> 自力では届かない。`packages/db` の npm script を直に `prisma db push` へ戻すと、
+> **compose では動くのに `npm run db:push` だけ `Environment variable not found` で落ちる**。
 
 > compose は `DATABASE_URL` / `REDIS_URL` をサービス名(`postgres` / `redis`)で上書きするため、
 > `.env` 側にはローカル実行用の `localhost` を書いておけばよい。この2つが `.env` に無いと
