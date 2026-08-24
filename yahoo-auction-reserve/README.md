@@ -103,16 +103,28 @@ docker compose logs -f worker
 ## 使い方
 
 1. `/register` でアカウント作成 → `/login`
-2. `/settings/yahoo` でヤフオクのログイン Cookie を貼り付けて連携を登録
+2. `npm run yahoo:cookies` で Cookie を取得 → `/settings/yahoo` に貼り付けて連携を登録
 3. `/reservations/new` で商品URLを貼り付け → プレビュー → 上限額・実行タイミングを入力 → **確認ステップ**で確定
 4. `/dashboard` で予約一覧、`/reservations/<id>` で入札試行のタイムラインを確認
 
 ### ヤフオク Cookie の取得について
 
 ログイン維持に使う Cookie (`T` / `Y` / `SSL` / `SSLK`) は **httpOnly** のため、
-ブックマークレットや `document.cookie` では取得できない。ブラウザ拡張
-(Cookie-Editor 等)の JSON エクスポート、または DevTools の Application →
-Cookies から書き出した JSON を `/settings/yahoo` に貼り付ける。
+ブックマークレットや `document.cookie` では取得できない。付属のヘルパーを使う:
+
+```bash
+npm run yahoo:cookies
+```
+
+まっさらな Chromium が1つ開くので、そこで Yahoo! JAPAN にログインし
+(2段階認証もそのウィンドウで済ませる)、ターミナルへ戻って Enter を押す。
+`yahoo.co.jp` の Cookie だけがクリップボードへ入るので、`/settings/yahoo` の
+テキストエリアに貼り付けて登録する。**Cookie の値は画面にもファイルにも出さない**
+(取得できた名前・ドメイン・失効時刻の表だけ出る)。普段使いの Chrome の
+プロファイルには触らないので、Cookie 編集系のブラウザ拡張を入れる必要はない。
+
+クリップボードが使えない環境では `npm run yahoo:cookies -- --print` で
+標準出力に出せる(この場合は値が画面に出るので扱いに注意)。
 
 貼り付けられた JSON はサーバ側で正規化され(`*.yahoo.co.jp` 以外は破棄、
 `sameSite` / 有効期限を Playwright が受け付ける形へ変換)、認証用 Cookie が
