@@ -1,0 +1,5 @@
+# 親リポジトリの .gitignore はルート直下限定(/node_modules, /.next/)なので
+# このサブディレクトリ用に改めて指定する。
+node_modules/
+.next/
+out/

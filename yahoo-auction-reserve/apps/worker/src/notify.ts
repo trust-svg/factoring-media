@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { prisma } from "@yar/db";
+import { Prisma, prisma } from "@yar/db";
 import type { NotificationType } from "@yar/shared";
 
 const transporter = process.env.SMTP_HOST
@@ -26,7 +26,7 @@ export async function notifyUser(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const notification = await prisma.notification.create({
-    data: { userId, type, payload },
+    data: { userId, type, payload: payload as Prisma.InputJsonObject },
   });
 
   const user = await prisma.user.findUnique({ where: { id: userId } });

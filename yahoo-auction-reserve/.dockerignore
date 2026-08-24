@@ -1,0 +1,14 @@
+# ホスト側の node_modules は darwin 向けバイナリ(prisma engine / playwright)を含む。
+# イメージに入り込むと実行時にだけ「エンジンが違う」で落ちるため必ず除外する。
+node_modules
+**/node_modules
+
+# ビルド成果物・ローカル状態
+.next
+**/.next
+**/tsconfig.tsbuildinfo
+
+# 秘匿情報はイメージに焼かない(compose の env_file 経由で渡す)
+.env
+.env.*
+!.env.example

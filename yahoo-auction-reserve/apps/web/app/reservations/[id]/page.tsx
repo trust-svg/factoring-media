@@ -1,0 +1,183 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { prisma } from "@yar/db";
+import { getSessionUser } from "@/lib/auth";
+import ReservationActions from "./ReservationActions";
+
+export const dynamic = "force-dynamic";
+
+const STATUS_LABEL: Record<string, string> = {
+  SCHEDULED: "待機中",
+  MONITORING: "実行準備中",
+  BIDDING: "入札中",
+  WON: "落札",
+  LOST: "落札ならず",
+  FAILED: "失敗",
+  CANCELLED: "キャンセル",
+  EXPIRED: "スキップ",
+};
+
+const OUTCOME_LABEL: Record<string, string> = {
+  SUCCESS: "入札成功",
+  OUTBID: "高値更新された",
+  PRICE_OVER_LIMIT: "上限額オーバーのため見送り",
+  SESSION_EXPIRED: "ヤフオクのログインが切れていた",
+  PAGE_ERROR: "ページ操作に失敗",
+  TIMEOUT: "時間内に完了しなかった",
+};
+
+function fmt(d: Date | null): string {
+  return d ? new Date(d).toLocaleString("ja-JP") : "—";
+}
+
+export default async function ReservationDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+
+  const { id } = await params;
+  const reservation = await prisma.bidReservation.findUnique({
+    where: { id },
+    include: {
+      attempts: { orderBy: { createdAt: "asc" } },
+      yahooSession: { select: { label: true, status: true } },
+    },
+  });
+  // 他人の予約は存在自体を明かさない
+  if (!reservation || reservation.userId !== user.id) notFound();
+
+  const executeAt = new Date(
+    reservation.endAt.getTime() - reservation.snipeSecondsBefore * 1000,
+  );
+  const editable = reservation.status === "SCHEDULED";
+
+  return (
+    <>
+      <p className="muted">
+        <Link href="/dashboard">← 予約一覧へ</Link>
+      </p>
+
+      <div className="card">
+        <div className="row">
+          {reservation.imageUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img className="thumb" src={reservation.imageUrl} alt="" />
+          )}
+          <div className="grow">
+            <span className={`badge ${reservation.status}`}>
+              {STATUS_LABEL[reservation.status] ?? reservation.status}
+            </span>
+            {reservation.hasAutoExtension && (
+              <span className="muted"> [自動延長あり]</span>
+            )}
+            <h1 style={{ fontSize: "1.2rem", margin: "8px 0" }}>
+              {reservation.title}
+            </h1>
+            <p className="muted">
+              <a href={reservation.auctionUrl} target="_blank" rel="noreferrer">
+                ヤフオクで見る({reservation.auctionId})
+              </a>
+              {reservation.sellerName && ` / 出品者: ${reservation.sellerName}`}
+            </p>
+          </div>
+        </div>
+        {reservation.failureReason && (
+          <p className="error">失敗理由: {reservation.failureReason}</p>
+        )}
+      </div>
+
+      <div className="card">
+        <h2>予約内容</h2>
+        <table>
+          <tbody>
+            <tr>
+              <th style={{ textAlign: "left", paddingRight: 16 }}>上限入札額</th>
+              <td>{reservation.maxBidAmount.toLocaleString()}円</td>
+            </tr>
+            <tr>
+              <th style={{ textAlign: "left", paddingRight: 16 }}>入札実行時刻</th>
+              <td>
+                {fmt(executeAt)}(終了{reservation.snipeSecondsBefore}秒前)
+              </td>
+            </tr>
+            <tr>
+              <th style={{ textAlign: "left", paddingRight: 16 }}>終了予定</th>
+              <td>
+                {fmt(reservation.endAt)}
+                {reservation.endAt.getTime() !==
+                  reservation.originalEndAt.getTime() &&
+                  `(当初 ${fmt(reservation.originalEndAt)} から延長)`}
+              </td>
+            </tr>
+            <tr>
+              <th style={{ textAlign: "left", paddingRight: 16 }}>現在価格</th>
+              <td>
+                {reservation.currentPrice != null
+                  ? `${reservation.currentPrice.toLocaleString()}円`
+                  : "—"}
+                <span className="muted">
+                  {" "}
+                  (最終確認 {fmt(reservation.priceCheckedAt)})
+                </span>
+              </td>
+            </tr>
+            {reservation.resultPrice != null && (
+              <tr>
+                <th style={{ textAlign: "left", paddingRight: 16 }}>最終価格</th>
+                <td>{reservation.resultPrice.toLocaleString()}円</td>
+              </tr>
+            )}
+            <tr>
+              <th style={{ textAlign: "left", paddingRight: 16 }}>使用する連携</th>
+              <td>
+                {reservation.yahooSession.label}
+                {reservation.yahooSession.status !== "ACTIVE" && (
+                  <span className="error"> (失効中 — 再連携が必要です)</span>
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ReservationActions
+        id={reservation.id}
+        editable={editable}
+        maxBidAmount={reservation.maxBidAmount}
+        snipeSecondsBefore={reservation.snipeSecondsBefore}
+      />
+
+      <div className="card">
+        <h2>実行ログ</h2>
+        {reservation.attempts.length === 0 && (
+          <p className="muted">
+            まだ実行されていません。終了{reservation.snipeSecondsBefore}秒前に自動で入札します。
+          </p>
+        )}
+        <ol style={{ paddingLeft: 18 }}>
+          {reservation.attempts.map((a) => (
+            <li key={a.id} style={{ marginBottom: 12 }}>
+              <div>
+                <span
+                  className={`badge ${a.outcome === "SUCCESS" ? "WON" : "FAILED"}`}
+                >
+                  {OUTCOME_LABEL[a.outcome] ?? a.outcome}
+                </span>{" "}
+                {a.bidAmount != null && (
+                  <strong>{a.bidAmount.toLocaleString()}円</strong>
+                )}
+              </div>
+              <p className="muted" style={{ margin: 0 }}>
+                予定 {fmt(a.scheduledFor)} / 実行 {fmt(a.executedAt)}
+              </p>
+              {a.detail && <p className="error" style={{ margin: 0 }}>{a.detail}</p>}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </>
+  );
+}

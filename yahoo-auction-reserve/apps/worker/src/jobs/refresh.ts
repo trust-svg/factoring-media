@@ -1,5 +1,5 @@
 import type { Job } from "bullmq";
-import { prisma } from "@yar/db";
+import { Prisma, prisma } from "@yar/db";
 import { fetchAuctionInfo } from "@yar/shared";
 import type { ReservationJobData } from "../queues";
 import { notifyUser } from "../notify";
@@ -15,7 +15,7 @@ export async function runRefreshJob(job: Job<ReservationJobData>): Promise<void>
 
   const info = await fetchAuctionInfo(reservation.auctionUrl);
 
-  const data: Record<string, unknown> = { priceCheckedAt: new Date() };
+  const data: Prisma.BidReservationUpdateInput = { priceCheckedAt: new Date() };
   if (info.currentPrice !== undefined) data.currentPrice = info.currentPrice;
   if (info.endAt) data.endAt = info.endAt;
 
