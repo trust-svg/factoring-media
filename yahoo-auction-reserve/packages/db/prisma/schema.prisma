@@ -9,14 +9,17 @@ datasource db {
 }
 
 model User {
-  id            String           @id @default(cuid())
-  email         String           @unique
+  id            String               @id @default(cuid())
+  email         String               @unique
   passwordHash  String
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
   yahooSessions YahooSession[]
   reservations  BidReservation[]
   notifications Notification[]
+  watchlist     WatchlistItem[]
+  groups        ReservationGroup[]
+  notifySetting NotificationSetting?
 }
 
 // ヤフオクのログイン済みセッション(Cookie一式を暗号化して保管)
@@ -31,6 +34,12 @@ model YahooSession {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   reservations    BidReservation[]
+  watchlist       WatchlistItem[]
+
+  // ウォッチリスト同期がこのセッションで最後に成功した時刻。
+  // ウォッチリストはログイン必須なので、この同期自体が死活監視を兼ねる
+  // (開いてログイン画面に飛ばされたら EXPIRED にする)。
+  lastWatchlistSyncAt DateTime?
 }
 
 model BidReservation {
@@ -54,15 +63,38 @@ model BidReservation {
   currentPrice       Int?
   priceCheckedAt     DateTime?
 
-  status        ReservationStatus @default(SCHEDULED)
+  // --- 自動増額(2026-08-25 追加) ---
+  // maxBidAmount は「今回の入札で出す額」。高値更新されたときにこれを段階的に
+  // 引き上げるのが自動増額で、absoluteMaxAmount が絶対に超えない天井。
+  // OFF 以外では absoluteMaxAmount / autoRaiseStep / autoRaiseMaxCount が必須
+  // (API 側で検証する。DB 上は OFF の予約で null を許すため Optional)。
+  autoRaiseMode      AutoRaiseMode @default(OFF)
+  autoRaiseStep      Int?
+  autoRaiseMaxCount  Int?
+  autoRaiseUsedCount Int           @default(0)
+  absoluteMaxAmount  Int?
+
+  // --- 判断材料(取得できたときだけ入る。無いことと 0 は違う) ---
+  shippingFee       Int?
+  sellerRating      Int?
+  marketMedianPrice Int?
+  marketSampleCount Int?
+
+  // --- グループ(どれか1つ落札したら残りをキャンセル) ---
+  groupId String?
+  group   ReservationGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  status        ReservationStatus  @default(SCHEDULED)
   resultPrice   Int?
   failureReason String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   attempts      BidAttempt[]
+  approvals     TelegramApproval[]
 
   @@unique([userId, auctionId])
   @@index([status, endAt])
+  @@index([groupId])
 }
 
 // 入札実行の試行ログ(自動延長で複数回実行される)
@@ -88,10 +120,117 @@ model Notification {
   createdAt DateTime  @default(now())
 }
 
+// 通知設定(ユーザーごとに1つ)。Telegram の宛先と、何を送るかの選択。
+model NotificationSetting {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  // BotFather で作った Bot に対する宛先。未設定なら Telegram 送信は行わない
+  // (メールのみ)。Bot トークンは環境変数側に置き、DB には入れない。
+  telegramChatId String?
+
+  // 終了何分前にリマインドするか。複数指定でき、空配列なら送らない。
+  // 例: [60, 10] → 終了60分前と10分前
+  remindMinutesBefore Int[] @default([])
+
+  notifyResult Boolean @default(true) // 落札 / 落札ならず
+  notifyError  Boolean @default(true) // 失敗・セッション切れ・上限超過スキップ
+
+  // 毎日の稼働サマリ(死活監視兼用)を送る JST 時刻 "HH:MM"。null なら送らない。
+  dailySummaryAt String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ヤフオクのウォッチリストから取り込んだ商品。
+//
+// **ヤフオク側から消えてもこのレコードは消さない**。同期の一時的な失敗
+// (ページ構造変化・ログイン切れ・ページネーション取りこぼし)で
+// 「消えた」と誤認すると、予約候補が黙って一覧から落ちる。
+// 見えなくなったことは lastSeenAt が古いままになる形でしか表現しない。
+model WatchlistItem {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  yahooSessionId String
+  yahooSession   YahooSession @relation(fields: [yahooSessionId], references: [id])
+
+  auctionId        String
+  auctionUrl       String
+  title            String?
+  imageUrl         String?
+  currentPrice     Int?
+  endAt            DateTime?
+  hasAutoExtension Boolean?
+
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  // ユーザーが「これは予約しない」と伏せた時刻。伏せても再同期で復活はしない
+  dismissedAt DateTime?
+
+  @@unique([userId, auctionId])
+  @@index([userId, dismissedAt])
+}
+
+// 「どれか1つ落札できればいい」商品のまとまり。
+// 1件が落札された時点で、同じグループの他の予約をキャンセルする。
+model ReservationGroup {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  name   String
+
+  // 落札時に他をキャンセルするか。false なら単なるラベルとして機能する
+  cancelOthersOnWin Boolean @default(true)
+
+  reservations BidReservation[]
+  createdAt    DateTime         @default(now())
+
+  @@index([userId])
+}
+
+// 自動増額を Telegram で承認制にしたときの1回分の伺い。
+//
+// expiresAt は「入札に間に合う最終判断時刻」。ここを過ぎたら TIMEOUT にして
+// **増額せずに元の額で入札する**(承認が取れないことを増額の許可に読み替えない)。
+model TelegramApproval {
+  id            String         @id @default(cuid())
+  reservationId String
+  reservation   BidReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  currentAmount   Int
+  requestedAmount Int
+  // 送信した Telegram メッセージ。応答後に本文を差し替えるために持つ
+  chatId          String?
+  messageId       Int?
+
+  status      ApprovalStatus @default(PENDING)
+  respondedAt DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime       @default(now())
+
+  @@index([status, expiresAt])
+}
+
 enum SessionStatus {
   ACTIVE
   EXPIRED
   INVALID
+}
+
+enum AutoRaiseMode {
+  OFF // 増額しない(既定)
+  AUTO // absoluteMaxAmount まで自動で増額する
+  APPROVAL // 増額前に Telegram で承認を取る
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  TIMEOUT // 期限までに応答が無かった(= 増額しない)
 }
 
 enum ReservationStatus {
@@ -112,4 +251,7 @@ enum AttemptOutcome {
   SESSION_EXPIRED
   PAGE_ERROR
   TIMEOUT
+  AUTO_RAISED // 高値更新を受けて増額のうえ再入札した
+  RAISE_DECLINED // 増額の承認が下りなかった / 期限切れ / 回数上限
+  GROUP_CANCELLED // 同グループの他商品が落札されたので取りやめた
 }
