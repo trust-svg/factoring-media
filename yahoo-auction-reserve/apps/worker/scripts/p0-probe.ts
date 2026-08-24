@@ -15,6 +15,7 @@
  * 使い方:
  *   npm run p0:probe -- <商品URL>
  *   npm run p0:probe -- <商品URL> --headless          # bot検知の比較用(§13-4)
+ *   npm run p0:probe -- <商品URL> --anonymous         # 未ログインの対照(loginLink を取る)
  *   npm run p0:probe -- <商品URL> --watch 20          # 自動延長のDOM挙動(§13-3)
  *   npm run p0:probe -- <商品URL> --stage2 --amount 1200
  *
@@ -25,7 +26,7 @@ import "../src/env";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
-import type { BrowserContext, Page } from "playwright";
+import type { BrowserContext, Locator, Page } from "playwright";
 import { chromium } from "playwright";
 import { prisma } from "@yar/db";
 import { decryptSecret, extractAuctionId, parseAuctionPage } from "@yar/shared";
@@ -55,6 +56,10 @@ const CANDIDATES: Record<string, string[]> = {
   bidButton: [
     selectors.bidButton,
     "#bid",
+    // `/jp/show/bid` は入札履歴 `/jp/show/bid_hist` にも前方一致する。
+    // 除外なしの素の候補も残してあるのは、罠が当たっていることをレポート上で
+    // 見えるようにするため(下の「当たった候補の実体」で別要素だと分かる)。
+    "a[href*='/jp/show/bid']:not([href*='bid_hist'])",
     "a[href*='/jp/show/bid']",
     "form[name='bidform'] input[type='submit']",
     "text=入札する",
@@ -100,6 +105,7 @@ const STAGE2_SLOTS = ["priceInput", "bidConfirmButton", "bidSubmitButton"];
 interface Args {
   url: string;
   headless: boolean;
+  anonymous: boolean;
   sessionRef?: string;
   watchMinutes?: number;
   stage2: boolean;
@@ -108,10 +114,11 @@ interface Args {
 
 function parseArgs(argv: string[]): Args {
   const positional: string[] = [];
-  const args: Args = { url: "", headless: false, stage2: false };
+  const args: Args = { url: "", headless: false, anonymous: false, stage2: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--headless") args.headless = true;
+    else if (a === "--anonymous") args.anonymous = true;
     else if (a === "--stage2") args.stage2 = true;
     else if (a === "--session") args.sessionRef = argv[++i];
     else if (a === "--watch") args.watchMinutes = Number(argv[++i]);
@@ -123,6 +130,9 @@ function parseArgs(argv: string[]): Args {
   if (!args.url) throw new Error("商品URLを渡すこと: npm run p0:probe -- <URL>");
   if (args.stage2 && !(args.amount && args.amount > 0)) {
     throw new Error("--stage2 には --amount <入札額> が必須");
+  }
+  if (args.stage2 && args.anonymous) {
+    throw new Error("--anonymous は未ログインの対照用。--stage2 とは併用できない");
   }
   return args;
 }
@@ -137,26 +147,76 @@ function say(line = ""): void {
   out.push(line);
 }
 
+const trim = (s: string | null | undefined): string =>
+  (s ?? "").replace(/\s+/g, " ").trim().slice(0, 50);
+
+// 当たった候補が「どの要素」に当たったか。
+// count / visible / text だけだと、別物に当たっている候補どうしを区別できない。
+// 実測(2026-08-24)で `a[href*='/jp/show/bid']` が入札履歴リンクに当たり、
+// 「✅ が付いているのに押すと履歴ページへ飛ぶ」状態が起きた。tag/href まで
+// 出しておかないとレポートからは見抜けない。
+interface NodeDesc {
+  tag: string;
+  id: string;
+  cls: string;
+  name: string;
+  href: string;
+  value: string;
+  text: string;
+}
+
+async function describeNode(el: Locator): Promise<NodeDesc> {
+  const attr = async (a: string): Promise<string> =>
+    trim(await el.getAttribute(a).catch(() => ""));
+  const tag = trim(
+    await el.evaluate((n) => (n as { tagName?: string }).tagName ?? "").catch(() => ""),
+  ).toLowerCase();
+  const type = await attr("type");
+  // 入力欄の value は入札額が入りうるので出さない(ボタンの value はラベルなので出す)
+  const valueIsLabel = tag !== "input" || ["submit", "button", "image", "reset"].includes(type);
+  return {
+    tag,
+    id: await attr("id"),
+    cls: await attr("class"),
+    name: await attr("name"),
+    href: await attr("href"),
+    value: valueIsLabel ? await attr("value") : "(伏せる)",
+    text: trim(await el.innerText().catch(() => "")),
+  };
+}
+
+// 同じ要素を指しているかの判定キー。候補どうしの突き合わせに使う
+const nodeKey = (n: NodeDesc): string => [n.tag, n.id, n.href, n.text].join("|");
+
+interface SlotResult {
+  selector: string;
+  count: number;
+  visible: boolean;
+  text: string;
+  nodes: NodeDesc[];
+}
+
+// 1候補につきここまで実体を出す(類似要素が大量に当たる候補があるため)
+const NODES_PER_CANDIDATE = 3;
+
 // 候補セレクタの総当り。hit の一覧を返す
-async function probeSlot(
-  page: Page,
-  slot: string,
-): Promise<{ selector: string; count: number; visible: boolean; text: string }[]> {
-  const results = [];
+async function probeSlot(page: Page, slot: string): Promise<SlotResult[]> {
+  const results: SlotResult[] = [];
   for (const selector of CANDIDATES[slot] ?? []) {
     try {
       const loc = page.locator(selector);
       const count = await loc.count();
       if (count === 0) {
-        results.push({ selector, count: 0, visible: false, text: "" });
+        results.push({ selector, count: 0, visible: false, text: "", nodes: [] });
         continue;
       }
       const first = loc.first();
       const visible = await first.isVisible().catch(() => false);
-      const text = ((await first.innerText().catch(() => "")) || "")
-        .replace(/\s+/g, " ")
-        .slice(0, 60);
-      results.push({ selector, count, visible, text });
+      const nodes: NodeDesc[] = [];
+      for (let i = 0; i < Math.min(count, NODES_PER_CANDIDATE); i++) {
+        nodes.push(await describeNode(loc.nth(i)));
+      }
+      results.push({ selector, count, visible, text: nodes[0]?.text ?? "", nodes });
     } catch (err) {
       // セレクタ構文自体が通らない場合もここに来る
       results.push({
@@ -164,6 +224,7 @@ async function probeSlot(
         count: -1,
         visible: false,
         text: err instanceof Error ? err.message.slice(0, 60) : String(err),
+        nodes: [],
       });
     }
   }
@@ -173,8 +234,20 @@ async function probeSlot(
 async function reportSlots(page: Page, slots: string[]): Promise<void> {
   for (const slot of slots) {
     const results = await probeSlot(page, slot);
-    const hit = results.find((r) => r.count > 0 && r.visible);
-    say(`### ${slot} ${hit ? "✅ " + hit.selector : "❌ 全滅"}`);
+    const hits = results.filter((r) => r.count > 0 && r.visible);
+    // 当たった候補が別々の要素を指しているなら、先頭を採るのは単なる運試し。
+    // ここで見出しに ✅ を出さないのは、✅ が「そのまま selectors.ts に写してよい」
+    // という意味に読まれるため。
+    const distinct = new Set(
+      hits.map((h) => (h.nodes[0] ? nodeKey(h.nodes[0]) : `?${h.selector}`)),
+    );
+    const head =
+      hits.length === 0
+        ? "❌ 全滅"
+        : distinct.size === 1
+          ? "✅ " + hits[0].selector
+          : `⚠️ ${hits.length}件が当たったが指す要素が ${distinct.size} 種類ある`;
+    say(`### ${slot} ${head}`);
     say("");
     say("| 候補 | 件数 | 可視 | テキスト |");
     say("|---|---|---|---|");
@@ -183,6 +256,27 @@ async function reportSlots(page: Page, slots: string[]): Promise<void> {
       say(`| \`${r.selector}\` | ${n} | ${r.visible ? "○" : "-"} | ${r.text} |`);
     }
     say("");
+    if (hits.length > 0) {
+      say("**当たった候補の実体**");
+      say("");
+      say("| 候補 | # | tag | id | class | name | text/value | href |");
+      say("|---|---|---|---|---|---|---|---|");
+      for (const h of hits) {
+        h.nodes.forEach((n, i) => {
+          say(
+            `| \`${h.selector}\` | ${i + 1}/${h.count} | ${n.tag} | ${n.id} | ${n.cls} | ${n.name} | ${n.text || n.value} | ${n.href} |`,
+          );
+        });
+      }
+      say("");
+    }
+    if (distinct.size > 1) {
+      say(
+        "> ⚠️ 当たった候補が **別々の要素** を指している。どれか(あるいは全部)が罠。" +
+          "実体の tag / href を見て、本当に押したい要素を指す候補だけを selectors.ts に写すこと。",
+      );
+      say("");
+    }
   }
 }
 
@@ -192,9 +286,6 @@ async function reportSlots(page: Page, slots: string[]): Promise<void> {
 // page.evaluate を使えば1往復で済むが、それをやると worker の tsconfig に DOM の
 // 型を入れることになり、Node 側のコードでも document 等が書けてしまう。
 // プローブは実行回数が少ないので、往復が増えても locator API だけで組む。
-const trim = (s: string | null | undefined): string =>
-  (s ?? "").replace(/\s+/g, " ").trim().slice(0, 50);
-
 async function dumpElements(
   page: Page,
   selector: string,
@@ -205,7 +296,9 @@ async function dumpElements(
   const loc = page.locator(selector);
   const total = await loc.count();
   const rows: Record<string, string>[] = [];
-  for (let i = 0; i < Math.min(total, limit); i++) {
+  // limit は「拾えた件数」に掛ける。走査位置に掛けると、visibleOnly のときに
+  // 不可視要素が枠を食い潰し、目当ての要素まで届かないまま打ち切られる。
+  for (let i = 0; i < total && rows.length < limit; i++) {
     const el = loc.nth(i);
     if (visibleOnly && !(await el.isVisible().catch(() => false))) continue;
     const row: Record<string, string> = {};
@@ -223,11 +316,14 @@ async function discovery(page: Page): Promise<void> {
   say("### 実物ダンプ(候補が全滅したときはここから拾う)");
   say("");
 
+  // `a[href*='auction']` だと 類似商品・出品者の他の商品 のリンクが数十件並び、
+  // 入札エリアに届く前に件数上限を使い切る(2026-08-24 の実測でそうなった)。
+  // 商品詳細リンク(/jp/auction/<id>)は除き、操作系の /jp/show/ 配下だけ拾う。
   const clickable = await dumpElements(
     page,
-    "button, input[type=submit], input[type=button], a[href*='bid'], a[href*='auction']",
+    "button, input[type=submit], input[type=button], a[href*='bid'], a[href*='/jp/show/']",
     ["id", "class", "name", "href", "value"],
-    60,
+    100,
     true,
   );
   say("**可視のクリック要素**");
@@ -257,9 +353,9 @@ async function discovery(page: Page): Promise<void> {
 }
 
 // 認証済み DOM に対してパーサが機能するかを見る(未認証 fetch とは差が出うる)
-async function reportParser(page: Page, url: string): Promise<void> {
+async function reportParser(page: Page, url: string, anonymous: boolean): Promise<void> {
   const info = parseAuctionPage(await page.content(), url);
-  say("### パーサ結果(認証済み DOM)");
+  say(`### パーサ結果(${anonymous ? "未ログイン" : "認証済み"} DOM)`);
   say("");
   say("| 項目 | 値 |");
   say("|---|---|");
@@ -274,6 +370,35 @@ async function reportParser(page: Page, url: string): Promise<void> {
     say("> ⚠️ 終了時刻か現在価格が取れていない。ここが取れないと監視ジョブが機能しない。");
     say("");
   }
+}
+
+async function launchContext(headless: boolean): Promise<BrowserContext> {
+  const browser = await chromium.launch({
+    headless,
+    executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined,
+  });
+  return browser.newContext({
+    locale: "ja-JP",
+    timezoneId: JST,
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+  });
+}
+
+// --anonymous: Cookie を一切載せない対照実行。
+// ログイン中のページからは loginLink のセレクタが取れないうえ、
+// loggedInIndicator が本当にログイン状態を追っているか(ログアウト時に消えるか)を
+// 確かめる手段が無い。この2つはここでしか取れない。
+async function anonymousContext(
+  headless: boolean,
+): Promise<{ context: BrowserContext; close: () => Promise<void> }> {
+  say("### 未ログイン(--anonymous / Cookie なし)");
+  say("");
+  say("> 連携 Cookie は読み込んでいない。loginLink の確定と、loggedInIndicator の");
+  say("> 陰性対照(ログアウト状態では当たらないこと)を取るための実行。");
+  say("");
+  const context = await launchContext(headless);
+  return { context, close: () => context.browser()?.close() ?? Promise.resolve() };
 }
 
 async function resolveContext(
@@ -316,16 +441,7 @@ async function resolveContext(
   }
   say("");
 
-  const browser = await chromium.launch({
-    headless,
-    executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined,
-  });
-  const context = await browser.newContext({
-    locale: "ja-JP",
-    timezoneId: JST,
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-  });
+  const context = await launchContext(headless);
   await context.addCookies(
     cookies.map((c) => ({
       name: c.name,
@@ -338,7 +454,7 @@ async function resolveContext(
       sameSite: c.sameSite,
     })),
   );
-  return { context, close: () => browser.close() };
+  return { context, close: () => context.browser()?.close() ?? Promise.resolve() };
 }
 
 // §13-3: 終了間際に張り付いて、終了時刻・価格の変化を観測する
@@ -380,7 +496,7 @@ async function main(): Promise<void> {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const reportPath = resolve(
     process.cwd(),
-    `../../tmp/p0/${auctionId}-${stamp}.md`,
+    `../../tmp/p0/${auctionId}${args.anonymous ? "-anon" : ""}-${stamp}.md`,
   );
   mkdirSync(dirname(reportPath), { recursive: true });
 
@@ -389,10 +505,13 @@ async function main(): Promise<void> {
   say(`- 実行(JST): ${fmt(new Date())}`);
   say(`- URL: ${args.url}`);
   say(`- headless: ${args.headless}`);
+  say(`- 認証: ${args.anonymous ? "**未ログイン(Cookie なし)**" : "連携 Cookie あり"}`);
   say(`- stage: ${args.stage2 ? "2 (入札フォーム〜確認画面)" : "1 (読むだけ)"}`);
   say("");
 
-  const { context, close } = await resolveContext(args.headless, args.sessionRef);
+  const { context, close } = args.anonymous
+    ? await anonymousContext(args.headless)
+    : await resolveContext(args.headless, args.sessionRef);
   const page = await context.newPage();
 
   const t0 = Date.now();
@@ -408,7 +527,7 @@ async function main(): Promise<void> {
   say("");
 
   await reportSlots(page, STAGE1_SLOTS);
-  await reportParser(page, args.url);
+  await reportParser(page, args.url, args.anonymous);
   await discovery(page);
 
   const shot1 = reportPath.replace(/\.md$/, "-stage1.png");

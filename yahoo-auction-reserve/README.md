@@ -144,6 +144,7 @@ npx playwright install chromium
 npm run p0:probe -- 'https://page.auctions.yahoo.co.jp/jp/auction/xxxxx'
 
 npm run p0:probe -- '<URL>' --headless        # bot検知の比較用(§13-4)
+npm run p0:probe -- '<URL>' --anonymous       # 未ログインの対照(下記)
 npm run p0:probe -- '<URL>' --watch 20        # 終了間際に張り付いて自動延長を観測(§13-3)
 npm run p0:probe -- '<URL>' --session '<連携ラベル or id>'
 ```
@@ -152,8 +153,21 @@ npm run p0:probe -- '<URL>' --session '<連携ラベル or id>'
 
 - 使用した連携の **Cookie 名と失効時刻**(値は出さない)。§13-1 の実測はこれを日をおいて取る
 - 候補セレクタの総当り結果(どれが当たったか / 全滅か)
+- **当たった候補の実体** — 当たった要素の tag / id / class / href。ここまで見ないと
+  「当たってはいるが別の要素」を見抜けない(下記)
 - **実物ダンプ** — 可視のクリック要素・input・data-testid の一覧。候補が全滅したときはここから拾う
-- 認証済み DOM に対するパーサ結果(終了時刻・現在価格・自動延長)
+- パーサ結果(終了時刻・現在価格・自動延長)
+
+> [!IMPORTANT]
+> **見出しの ✅ を鵜呑みにして `selectors.ts` へ写さないこと。**
+> 2026-08-24 の実測で `a[href*='/jp/show/bid']` が入札履歴リンク(`/jp/show/bid_hist`)に
+> 前方一致で当たった。件数と可視だけを見ていると当たったように見えるが、押すと履歴ページへ飛ぶ。
+> 当たった候補が別々の要素を指しているときはレポート側が ⚠️ を出すので、
+> **実体の表で href / tag を突き合わせてから**写す。
+
+ログイン中のページからは `loginLink` が取れず、`loggedInIndicator` が本当にログイン状態を
+追っているのか(ログアウトすると消えるのか)も確かめられない。この2つは `--anonymous`
+(Cookie を一切載せない対照実行)で取る。`--stage2` とは併用できない。
 
 Stage 2 は入札フォーム〜確認画面まで進む。**確定ボタンはスクリプトからは絶対に押さない**
 (確認画面で止めてブラウザを開いたまま待つので、確定するかは人が画面上で判断する)。
