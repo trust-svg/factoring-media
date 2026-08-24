@@ -33,8 +33,8 @@ DB から再構築するため、Redis 消失や worker 再起動から自己修
 
 | 変数 | 用途 | 例・生成方法 |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL 接続先 | `postgresql://yar:yar@localhost:5432/yar`(compose 起動時は compose 側で上書き) |
-| `REDIS_URL` | Redis 接続先 | `redis://localhost:6379`(同上) |
+| `DATABASE_URL` | PostgreSQL 接続先 | `postgresql://yar:yar@localhost:5432/yar` |
+| `REDIS_URL` | Redis 接続先 | `redis://localhost:6379` |
 | `AUTH_SECRET` | ログインセッション JWT の署名鍵 | `node -e 'console.log(require("crypto").randomBytes(32).toString("base64"))'` |
 | `COOKIE_ENCRYPTION_KEY` | ヤフオク Cookie の AES-256-GCM 暗号鍵。**base64 で厳密に 32 バイト** | 同上 |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | 通知メール送信(任意) | 未設定ならメール送信はスキップされ、通知内容は worker のログに出る |
@@ -43,6 +43,15 @@ DB から再構築するため、Redis 消失や worker 再起動から自己修
 
 > `COOKIE_ENCRYPTION_KEY` を変更すると **保存済みの連携 Cookie は全て復号できなくなる**。
 > 鍵を入れ替えたら `YahooSession` を作り直すこと。
+
+`.env` はモノレポのルートに1つだけ置く。docker compose は `env_file: .env` で読み、
+ローカル実行時は worker 側 (`apps/worker/src/env.ts`) と web 側 (`apps/web/next.config.ts`) が
+それぞれ起動時に読み込む。**既に定義済みの環境変数は上書きしない**ので、compose の
+`environment:` で渡す `DATABASE_URL` / `REDIS_URL` が常に優先される。
+
+> compose は `DATABASE_URL` / `REDIS_URL` をサービス名(`postgres` / `redis`)で上書きするため、
+> `.env` 側にはローカル実行用の `localhost` を書いておけばよい。この2つが `.env` に無いと
+> **docker では動くのにローカルの `npm run db:push` / `dev:worker` だけ落ちる**。
 
 ## セットアップ(ローカル開発)
 
@@ -101,9 +110,42 @@ Cookies から書き出した JSON を `/settings/yahoo` に貼り付ける。
 欠けている場合は警告を返す。Cookie 本体は AES-256-GCM で暗号化して保存し、
 **API レスポンス・ログには一切出さない**(設計 §8)。
 
+## P0 検証プローブ
+
+`apps/worker/src/bidder/selectors.ts` のセレクタを実ページで埋めるための道具
+(設計 §13)。**実行するのは人間**。CI や worker からは呼ばない。
+
+```bash
+# 事前に一度だけ(ローカルの Chromium を取得。バージョンは playwright に一致させる)
+npx playwright install chromium
+
+# Stage 1: 商品ページを開いて読むだけ。クリック・入力は一切しない
+npm run p0:probe -- 'https://page.auctions.yahoo.co.jp/jp/auction/xxxxx'
+
+npm run p0:probe -- '<URL>' --headless        # bot検知の比較用(§13-4)
+npm run p0:probe -- '<URL>' --watch 20        # 終了間際に張り付いて自動延長を観測(§13-3)
+npm run p0:probe -- '<URL>' --session '<連携ラベル or id>'
+```
+
+出力は `tmp/p0/<auctionId>-<timestamp>.md` と同名の `.png`(git 管理外)。中身は
+
+- 使用した連携の **Cookie 名と失効時刻**(値は出さない)。§13-1 の実測はこれを日をおいて取る
+- 候補セレクタの総当り結果(どれが当たったか / 全滅か)
+- **実物ダンプ** — 可視のクリック要素・input・data-testid の一覧。候補が全滅したときはここから拾う
+- 認証済み DOM に対するパーサ結果(終了時刻・現在価格・自動延長)
+
+Stage 2 は入札フォーム〜確認画面まで進む。**確定ボタンはスクリプトからは絶対に押さない**
+(確認画面で止めてブラウザを開いたまま待つので、確定するかは人が画面上で判断する)。
+
+```bash
+npm run p0:probe -- '<URL>' --stage2 --amount 1200
+```
+
+Stage 2 はステップごとの所要時間も出す。これが §13-2(実行秒数のデフォルト値)の根拠になる。
+
 ## 既知の制約(MVP 時点)
 
-- 入札フローのセレクタは P0 未検証(上記の警告を参照)
+- 入札フローのセレクタは P0 未検証(上記の警告を参照)。埋める手順は「P0 検証プローブ」を参照
 - 連携 Cookie の有効性チェックが未実装(登録時は形式のみ検証。設計 §13 の P0 でログイン判定方法を確定してから実装)
 - 同一ヤフオクセッションの入札直列化(設計 §7.4)はフェーズ2
 - スタイルは素の CSS。Tailwind CSS 4 への移行は P1(設計 §5)

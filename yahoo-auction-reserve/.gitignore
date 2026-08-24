@@ -3,3 +3,6 @@
 node_modules/
 .next/
 out/
+
+# P0 プローブの出力(実ページのスクショ・DOMダンプが入るのでコミットしない)
+tmp/
