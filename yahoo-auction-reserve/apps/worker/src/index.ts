@@ -6,6 +6,8 @@ import { runRefreshJob } from "./jobs/refresh";
 import { runMonitorJob } from "./jobs/monitor";
 import { startScheduler } from "./scheduler";
 import { measureYahooTimeOffset } from "./time";
+import { startApprovalPoller } from "./approvalPoller";
+import { telegramEnabled } from "./telegram";
 
 async function main(): Promise<void> {
   await measureYahooTimeOffset();
@@ -31,10 +33,17 @@ async function main(): Promise<void> {
   }
 
   const scheduler = startScheduler();
-  console.log("[worker] started: refresh(x5) monitor(x4) scheduler(30s)");
+  // 増額承認ボタンの受け口。getUpdates は 1 Bot 1 消費者なので、
+  // worker を複数立てるとここが 409 になる(ログに警告が出る)。
+  const approvalPoller = startApprovalPoller();
+  console.log(
+    "[worker] started: refresh(x5) monitor(x4) scheduler(30s) watchlist(60m) " +
+      `telegram=${telegramEnabled() ? "on" : "off"}`,
+  );
 
   const shutdown = async () => {
-    clearInterval(scheduler);
+    scheduler.stop();
+    approvalPoller.stop();
     await Promise.allSettled([refreshWorker.close(), monitorWorker.close()]);
     await connection.quit();
     process.exit(0);

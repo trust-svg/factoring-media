@@ -15,6 +15,8 @@
 // | wonIndicator           | ❌ 未検証 | 自分が入札した終了済み商品でないと出ない |
 // | highestBidderIndicator | ❌ 未検証 | 同上 |
 // | outbidIndicator        | ❌ 未検証 | 同上 |
+// | watchlistLoginWall     | ❌ 未検証 | `--watchlist` プローブが必要 |
+// | watchlistItemLink      | ❌ 未検証 | 同上 |
 //
 // UI変更時はこのファイルだけ直せば済むよう、Playwright操作側には
 // セレクタを直書きしないこと。
@@ -60,4 +62,16 @@ export const selectors = {
   wonIndicator: "text=あなたが落札しました",
   highestBidderIndicator: "text=あなたが現在の最高額入札者です",
   outbidIndicator: "text=高値更新",
+
+  // --- ウォッチリスト(ログイン必須) ❌ 未検証 ---
+  //
+  // ウォッチリストは未ログインだと商品が1件も出ず、ログイン画面へ飛ばされる。
+  // つまり「0件」と「ログインが切れている」が **同じ見た目**になる。
+  // watchlistLoginWall を先に見て、空リストと取得失敗を必ず区別すること
+  // (区別しないと、セッション切れが「ウォッチリストが空になった」に化ける)。
+  watchlistLoginWall: 'form[action*="login.yahoo.co.jp"], input[name="login"]',
+  // 1商品ぶんのリンク。オークションIDを含む href を手掛かりにする
+  watchlistItemLink: 'a[href*="/jp/auction/"]',
+  // ページャの「次へ」。無ければ1ページで打ち切る
+  watchlistNextPage: 'role=link[name="次へ"][exact=true]',
 } as const;

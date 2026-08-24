@@ -111,13 +111,23 @@ model BidAttempt {
 }
 
 model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  type      String // WON / LOST / FAILED / SESSION_EXPIRED など
-  payload   Json
-  sentAt    DateTime?
-  createdAt DateTime  @default(now())
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  type    String // WON / LOST / FAILED / SESSION_EXPIRED など
+  payload Json
+
+  // 送信結果は経路ごとに持つ。1本の sentAt にまとめると「メールは出たが
+  // Telegram は失敗した」が "送信済み" に見え、片方の経路が死んでも
+  // 通知そのものは届き続けるので誰も気づけない。
+  mailSentAt     DateTime?
+  telegramSentAt DateTime?
+  // 最後に失敗した経路とその理由(Bot トークンなどの秘匿値は入れない)
+  deliveryError  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 // 通知設定(ユーザーごとに1つ)。Telegram の宛先と、何を送るかの選択。
@@ -138,7 +148,10 @@ model NotificationSetting {
   notifyError  Boolean @default(true) // 失敗・セッション切れ・上限超過スキップ
 
   // 毎日の稼働サマリ(死活監視兼用)を送る JST 時刻 "HH:MM"。null なら送らない。
-  dailySummaryAt String?
+  dailySummaryAt     String?
+  // 最後にサマリを送った JST の日付 "YYYY-MM-DD"。同じ日に二度送らないための鍵。
+  // 時刻ではなく日付を持つのは、worker が再起動しても判定が変わらないようにするため。
+  lastDailySummaryOn String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -254,4 +267,20 @@ enum AttemptOutcome {
   AUTO_RAISED // 高値更新を受けて増額のうえ再入札した
   RAISE_DECLINED // 増額の承認が下りなかった / 期限切れ / 回数上限
   GROUP_CANCELLED // 同グループの他商品が落札されたので取りやめた
+}
+
+// 送信済みリマインドの記録。
+//
+// 鍵に endAt を含めるのは、自動延長で終了時刻が動いたら「新しい終了時刻に対する
+// リマインド」として送り直すため。reservationId + minutesBefore だけで鍵にすると、
+// 延長された予約は一度送ったきり二度と通知されない。
+model ReminderSent {
+  id            String   @id @default(cuid())
+  reservationId String
+  minutesBefore Int
+  endAt         DateTime
+  sentAt        DateTime @default(now())
+
+  @@unique([reservationId, minutesBefore, endAt])
+  @@index([sentAt])
 }

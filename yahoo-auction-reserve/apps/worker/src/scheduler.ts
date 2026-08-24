@@ -5,6 +5,10 @@ import {
   REFRESH_INTERVAL_NEAR_MS,
 } from "@yar/shared";
 import { monitorQueue, refreshQueue } from "./queues";
+import { runReminderSweep } from "./jobs/reminder";
+import { runDailySummarySweep } from "./jobs/dailySummary";
+import { runWatchlistSweep } from "./jobs/watchlist";
+import { sweepApprovals } from "./approvalPoller";
 
 // 予約の真実は DB(BidReservation)。Redis のジョブはここから常に再構築できる
 // ようにし、Redis 消失・Worker 再起動から自己修復する(設計 §4, §7.3)。
@@ -19,12 +23,42 @@ import { monitorQueue, refreshQueue } from "./queues";
 //  一度も動いていなかった。2026-08-24 のスモークテストで検出)
 const SCAN_INTERVAL_MS = 30_000;
 
-export function startScheduler(): NodeJS.Timeout {
-  const timer = setInterval(() => {
-    scanOnce().catch((err) => console.error("[scheduler] scan failed:", err));
-  }, SCAN_INTERVAL_MS);
-  scanOnce().catch((err) => console.error("[scheduler] scan failed:", err));
-  return timer;
+// ウォッチリスト同期の間隔。ブラウザを起動するので refresh より粗く回す。
+// これ自体がヤフオクのログイン維持確認を兼ねる(設計追補 2026-08-25)。
+const WATCHLIST_INTERVAL_MS = 60 * 60 * 1000;
+
+export interface SchedulerHandle {
+  stop: () => void;
+}
+
+export function startScheduler(): SchedulerHandle {
+  const run = (label: string, fn: () => Promise<unknown>) => {
+    fn().catch((err) => console.error(`[scheduler] ${label} failed:`, err));
+  };
+
+  // 走査ごとに独立して回す。1つが失敗しても他を止めない
+  // (まとめて await すると、リマインドの失敗で入札の登録まで落ちる)。
+  const tick = () => {
+    run("scan", scanOnce);
+    run("reminder", runReminderSweep);
+    run("dailySummary", runDailySummarySweep);
+    run("approvalSweep", sweepApprovals);
+  };
+  const timer = setInterval(tick, SCAN_INTERVAL_MS);
+  tick();
+
+  const watchlistTimer = setInterval(
+    () => run("watchlist", runWatchlistSweep),
+    WATCHLIST_INTERVAL_MS,
+  );
+  run("watchlist", runWatchlistSweep);
+
+  return {
+    stop: () => {
+      clearInterval(timer);
+      clearInterval(watchlistTimer);
+    },
+  };
 }
 
 export async function scanOnce(): Promise<void> {

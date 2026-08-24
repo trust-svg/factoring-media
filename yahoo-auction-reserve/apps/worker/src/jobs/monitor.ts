@@ -12,6 +12,8 @@ import { notifyUser } from "../notify";
 import { launchBrowser, createYahooContext, markSessionExpired } from "../bidder/session";
 import { placeBid, checkResult } from "../bidder/placeBid";
 import { measureYahooTimeOffset, offsetIsStale, sleepUntil, sleep, yahooNow } from "../time";
+import { tryAutoRaise } from "../autoRaise";
+import { cancelGroupSiblings } from "../group";
 
 // スナイプ実行本体(設計 §7)。入札予定時刻のウォームアップ分だけ手前
 // (= T-(snipeSecondsBefore + MONITOR_WARMUP_SECONDS))で起動される。
@@ -80,17 +82,31 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       });
     }
     if (info?.currentPrice !== undefined && info.currentPrice >= reservation.maxBidAmount) {
-      await prisma.bidReservation.update({
-        where: { id: reservation.id },
-        data: { status: "EXPIRED", failureReason: "PRICE_OVER_LIMIT", currentPrice: info.currentPrice },
-      });
-      await notifyUser(reservation.userId, "EXPIRED", {
-        title: reservation.title,
-        url: reservation.auctionUrl,
-        currentPrice: info.currentPrice,
-        maxBidAmount: reservation.maxBidAmount,
-      });
-      return;
+      // ここは入札の直前。承認を待つ時間は無いので、自動増額(AUTO)だけ試す。
+      // 承認制の予約に対してここで問い合わせても、返事が来る前に終了する。
+      const outcome = await tryAutoRaise(
+        { ...reservation, currentPrice: info.currentPrice },
+        info.currentPrice,
+        { allowApproval: false },
+      );
+      if (outcome.kind === "RAISED") {
+        // 以降のループは増額後の額で入札する
+        reservation.maxBidAmount = outcome.newAmount;
+        reservation.autoRaiseUsedCount += 1;
+      } else {
+        await prisma.bidReservation.update({
+          where: { id: reservation.id },
+          data: { status: "EXPIRED", failureReason: "PRICE_OVER_LIMIT", currentPrice: info.currentPrice },
+        });
+        await notifyUser(reservation.userId, "EXPIRED", {
+          title: reservation.title,
+          url: reservation.auctionUrl,
+          currentPrice: info.currentPrice,
+          maxBidAmount: reservation.maxBidAmount,
+          reason: outcome.kind === "DECLINED" ? outcome.message : undefined,
+        });
+        return;
+      }
     }
 
     // スナイプ時刻まで待機
@@ -182,6 +198,19 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       finalPrice: after?.currentPrice ?? "不明",
       maxBidAmount: reservation.maxBidAmount,
     });
+
+    // 落札したらグループの残りを取りやめる。ここで落ちても落札自体は
+    // 成立しているので、通知を送ったあとに実行して例外を握りつぶさない。
+    if (won) {
+      try {
+        const { cancelled, skipped } = await cancelGroupSiblings(reservation.id);
+        if (cancelled || skipped) {
+          console.log(`[group] ${reservation.id}: ${cancelled}件取りやめ / ${skipped}件は対象外`);
+        }
+      } catch (err) {
+        console.error(`[group] ${reservation.id} の取りやめに失敗:`, err);
+      }
+    }
     return;
   }
 }

@@ -3,6 +3,7 @@ import { Prisma, prisma } from "@yar/db";
 import { fetchAuctionInfo } from "@yar/shared";
 import type { ReservationJobData } from "../queues";
 import { notifyUser } from "../notify";
+import { tryAutoRaise } from "../autoRaise";
 
 // 商品情報の軽量リフレッシュ(設計 §7.1)
 // - 現在価格・終了時刻・早期終了の反映
@@ -36,16 +37,29 @@ export async function runRefreshJob(job: Job<ReservationJobData>): Promise<void>
     info.currentPrice !== undefined &&
     info.currentPrice >= reservation.maxBidAmount
   ) {
+    // 先に価格を書いてから増額を判断する。承認ボタンを押した側は
+    // reservation.currentPrice を見て「承認額で足りるか」を検証するので、
+    // 古い価格のまま聞くと足りない額を承認させてしまう。
+    await prisma.bidReservation.update({ where: { id: reservation.id }, data });
+
+    // 増額はここ(価格更新の時点)で聞く。入札直前では人間が答える時間が無い。
+    const outcome = await tryAutoRaise({ ...reservation, currentPrice: info.currentPrice }, info.currentPrice, {
+      allowApproval: true,
+    });
+    if (outcome.kind === "RAISED") return; // 上限を上げたので予約は生かす
+    if (outcome.kind === "APPROVAL_PENDING") return; // 返事を待つ間は SCHEDULED のまま
+    if (outcome.reason === "ALREADY_PENDING") return; // 前回の問い合わせが継続中
+
     await prisma.bidReservation.update({
       where: { id: reservation.id },
-      data: { ...data, status: "EXPIRED", failureReason: "PRICE_OVER_LIMIT" },
+      data: { status: "EXPIRED", failureReason: "PRICE_OVER_LIMIT" },
     });
     await notifyUser(reservation.userId, "EXPIRED", {
       title: reservation.title,
       url: reservation.auctionUrl,
       currentPrice: info.currentPrice,
       maxBidAmount: reservation.maxBidAmount,
-      reason: "現在価格が上限額に達したため入札をスキップします",
+      reason: `現在価格が上限額に達したため入札をスキップします(${outcome.message})`,
     });
     return;
   }

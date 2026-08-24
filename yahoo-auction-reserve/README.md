@@ -42,6 +42,7 @@ DB から再構築するため、Redis 消失や worker 再起動から自己修
 | `COOKIE_ENCRYPTION_KEY` | ヤフオク Cookie の AES-256-GCM 暗号鍵。**base64 で厳密に 32 バイト** | 同上 |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | 通知メール送信(任意) | 未設定ならメール送信はスキップされ、通知内容は worker のログに出る |
 | `MAIL_FROM` | 通知メールの From | `yar@example.com` |
+| `TELEGRAM_BOT_TOKEN` | Telegram 通知・増額承認ボタンの Bot トークン(任意) | @BotFather で**新規に**作成。未設定なら Telegram 経路はスキップ |
 | `CHROMIUM_EXECUTABLE_PATH` | Playwright が使う Chromium の明示指定(任意) | Docker イメージ同梱のものを使う場合は不要 |
 
 > `COOKIE_ENCRYPTION_KEY` を変更すると **保存済みの連携 Cookie は全て復号できなくなる**。
@@ -139,6 +140,50 @@ npm run yahoo:cookies
 `sameSite` / 有効期限を Playwright が受け付ける形へ変換)、認証用 Cookie が
 欠けている場合は警告を返す。Cookie 本体は AES-256-GCM で暗号化して保存し、
 **API レスポンス・ログには一切出さない**(設計 §8)。
+
+## 通知と自動増額 (Telegram)
+
+worker は 30 秒ごとの走査で以下を回す。いずれも DB を真実とするので、Redis 消失や
+worker 再起動から自己修復する(BullMQ の遅延ジョブに載せていないのは、載せると
+再起動で消えたリマインドが**二度と来ないのに正常に見える**ため)。
+
+| 走査 | 間隔 | 中身 |
+|---|---|---|
+| `scanOnce` | 30秒 | 予約から refresh / monitor ジョブを再構築 |
+| `runReminderSweep` | 30秒 | 終了 N 分前のリマインド(`ReminderSent` の一意制約で二重送信を防ぐ) |
+| `runDailySummarySweep` | 30秒 | 設定時刻を過ぎたら当日分の稼働サマリを1回だけ送る |
+| `sweepApprovals` | 30秒 | 期限切れの承認依頼を TIMEOUT にする(押されないボタンで増額が永久に詰まるのを防ぐ) |
+| `runWatchlistSweep` | 60分 | ヤフオクのウォッチリストを取り込む(一方向・Yahoo → アプリ) |
+
+これとは別に、増額承認ボタンの受け口として `startApprovalPoller()` が
+`getUpdates` の長時間ポーリングを1本張る。
+
+### Bot の用意
+
+1. Telegram の @BotFather で **新規に** Bot を作る(既存 Bot の使い回しは不可。下記)
+2. 発行されたトークンを `.env` の `TELEGRAM_BOT_TOKEN` に入れる
+3. 作った Bot に自分から1通送り、`https://api.telegram.org/bot<token>/getUpdates` の
+   `message.chat.id` を控えて、通知設定の `telegramChatId` に登録する
+
+> [!WARNING]
+> **`getUpdates` は 1 Bot につき消費者1つだけ**。同じトークンを他のツールでも
+> ポーリングしていたり、その Bot に webhook が設定されていると 409 Conflict になり、
+> **通知は届くのに承認ボタンだけ無反応**という形で出る(押しても何も起きない)。
+> worker のログに 409 の警告が出るので、出たら消費者が二重になっていないか確認する。
+
+`TELEGRAM_BOT_TOKEN` 未設定でも動作する(Telegram 経路がスキップされ、メールとログだけになる)。
+その場合 **承認制の自動増額は成立しない** — 承認依頼を送れないので増額しない側に倒れる。
+
+### 自動増額の安全側の倒れ方
+
+`autoRaiseMode` が `AUTO` なら即時、`APPROVAL` なら Telegram のボタンで承認された時だけ
+上限額を引き上げる。以下はすべて「増額しない」に倒れる: 絶対上限 `absoluteMaxAmount` 到達 /
+回数 `autoRaiseMaxCount` 使い切り / 承認の無回答・拒否・送信失敗 / 増額してもなお
+現在価格の次の入札単位に届かない(= 増額しても負ける額)。
+
+承認は**入札直前ではなく価格更新を見た時点(refresh)で聞く**。入札直前(既定 T-30秒)に
+聞いても人間が答える時間が無く、必ずタイムアウトするため。承認の締切は予約の編集締切
+(= monitor 起動の手前)に合わせてある。
 
 ## P0 検証プローブ
 

@@ -115,3 +115,62 @@ describe("decideRaise", () => {
     }
   });
 });
+
+describe("decideRaise(minimumRequired あり)", () => {
+  const cfg: AutoRaiseConfig = {
+    mode: "AUTO",
+    step: 100,
+    maxCount: 5,
+    usedCount: 0,
+    absoluteMax: 10_000,
+  };
+
+  it("step では必要額に届かないとき、必要額まで一気に上げる", () => {
+    // 現在の上限 5,000 / 必要 6,250。step=100 では 5,100 にしかならない
+    const d = decideRaise(5_000, cfg, 6_250);
+    assert.equal(d.raise, true);
+    assert.equal(d.raise && d.nextAmount, 6_250);
+  });
+
+  it("step の方が大きいときは step ぶん上げる(必要額ぴったりに留めない)", () => {
+    const d = decideRaise(5_000, { ...cfg, step: 3_000 }, 5_100);
+    assert.equal(d.raise && d.nextAmount, 8_000);
+  });
+
+  it("天井まで上げても必要額に届かないなら増額しない(回数を捨てない)", () => {
+    const d = decideRaise(5_000, cfg, 12_000); // 天井 10,000 < 必要 12,000
+    assert.equal(d.raise, false);
+    assert.equal(!d.raise && d.reason, "BELOW_REQUIRED");
+  });
+
+  it("必要額が天井ちょうどなら上げる", () => {
+    const d = decideRaise(5_000, cfg, 10_000);
+    assert.equal(d.raise, true);
+    assert.equal(d.raise && d.nextAmount, 10_000);
+  });
+
+  it("増額するときは必ず必要額以上(総当り)", () => {
+    for (const currentAmount of [0, 500, 5_000, 9_900, 10_000]) {
+      for (const step of [1, 100, 5_000]) {
+        for (const required of [1, 501, 6_250, 10_000, 10_001, 999_999]) {
+          const d = decideRaise(currentAmount, { ...cfg, step }, required);
+          if (d.raise) {
+            assert.ok(
+              d.nextAmount >= required && d.nextAmount <= 10_000,
+              `current=${currentAmount} step=${step} required=${required} → ${d.nextAmount}`,
+            );
+          }
+        }
+      }
+    }
+  });
+
+  it("minimumRequired が無い/壊れているときは従来どおり step ぶん", () => {
+    const plain = decideRaise(5_000, cfg);
+    assert.equal(plain.raise && plain.nextAmount, 5_100);
+    const nan = decideRaise(5_000, cfg, Number.NaN);
+    assert.equal(nan.raise && nan.nextAmount, 5_100);
+    const nul = decideRaise(5_000, cfg, null);
+    assert.equal(nul.raise && nul.nextAmount, 5_100);
+  });
+});
