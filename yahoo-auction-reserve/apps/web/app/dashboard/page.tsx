@@ -1,20 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@yar/db";
+import { RESERVATION_STATUS_LABEL } from "@yar/shared/labels";
 import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
-
-const STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "待機中",
-  MONITORING: "実行準備中",
-  BIDDING: "入札中",
-  WON: "落札",
-  LOST: "落札ならず",
-  FAILED: "失敗",
-  CANCELLED: "キャンセル",
-  EXPIRED: "スキップ",
-};
 
 function formatRemaining(endAt: Date): string {
   const ms = endAt.getTime() - Date.now();
@@ -61,7 +51,7 @@ export default async function DashboardPage() {
             <div className="grow">
               <div className="row">
                 <span className={`badge ${r.status}`}>
-                  {STATUS_LABEL[r.status] ?? r.status}
+                  {RESERVATION_STATUS_LABEL[r.status]}
                 </span>
                 {r.hasAutoExtension && <span className="muted">[自動延長あり]</span>}
               </div>

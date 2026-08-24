@@ -2,21 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { SESSION_STATUS_LABEL, type SessionStatusKey } from "@yar/shared/labels";
 
 interface SessionRow {
   id: string;
   label: string;
-  status: string;
+  status: SessionStatusKey;
   lastVerifiedAt: string | null;
   createdAt: string;
   activeReservations: number;
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "有効",
-  EXPIRED: "失効(要再連携)",
-  INVALID: "不正",
-};
 
 export default function YahooSessionManager({
   sessions,
@@ -92,7 +87,7 @@ export default function YahooSessionManager({
             <div className="grow">
               <strong>{s.label}</strong>{" "}
               <span className={`badge ${s.status === "ACTIVE" ? "WON" : "FAILED"}`}>
-                {STATUS_LABEL[s.status] ?? s.status}
+                {SESSION_STATUS_LABEL[s.status]}
               </span>
               <p className="muted">
                 登録: {new Date(s.createdAt).toLocaleString("ja-JP")} / 最終確認:{" "}

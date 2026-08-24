@@ -1,30 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@yar/db";
+import { RESERVATION_STATUS_LABEL, ATTEMPT_OUTCOME_LABEL } from "@yar/shared/labels";
 import { getSessionUser } from "@/lib/auth";
 import ReservationActions from "./ReservationActions";
 
 export const dynamic = "force-dynamic";
-
-const STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "待機中",
-  MONITORING: "実行準備中",
-  BIDDING: "入札中",
-  WON: "落札",
-  LOST: "落札ならず",
-  FAILED: "失敗",
-  CANCELLED: "キャンセル",
-  EXPIRED: "スキップ",
-};
-
-const OUTCOME_LABEL: Record<string, string> = {
-  SUCCESS: "入札成功",
-  OUTBID: "高値更新された",
-  PRICE_OVER_LIMIT: "上限額オーバーのため見送り",
-  SESSION_EXPIRED: "ヤフオクのログインが切れていた",
-  PAGE_ERROR: "ページ操作に失敗",
-  TIMEOUT: "時間内に完了しなかった",
-};
 
 function fmt(d: Date | null): string {
   return d ? new Date(d).toLocaleString("ja-JP") : "—";
@@ -68,7 +49,7 @@ export default async function ReservationDetailPage({
           )}
           <div className="grow">
             <span className={`badge ${reservation.status}`}>
-              {STATUS_LABEL[reservation.status] ?? reservation.status}
+              {RESERVATION_STATUS_LABEL[reservation.status]}
             </span>
             {reservation.hasAutoExtension && (
               <span className="muted"> [自動延長あり]</span>
@@ -164,7 +145,7 @@ export default async function ReservationDetailPage({
                 <span
                   className={`badge ${a.outcome === "SUCCESS" ? "WON" : "FAILED"}`}
                 >
-                  {OUTCOME_LABEL[a.outcome] ?? a.outcome}
+                  {ATTEMPT_OUTCOME_LABEL[a.outcome]}
                 </span>{" "}
                 {a.bidAmount != null && (
                   <strong>{a.bidAmount.toLocaleString()}円</strong>
