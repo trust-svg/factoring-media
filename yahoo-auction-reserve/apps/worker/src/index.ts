@@ -1,3 +1,5 @@
+// 最初に .env を読む(module スコープで環境変数を読むモジュールがあるため順序が重要)
+import "./env";
 import { Worker } from "bullmq";
 import { connection, type ReservationJobData } from "./queues";
 import { runRefreshJob } from "./jobs/refresh";
