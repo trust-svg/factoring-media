@@ -34,9 +34,11 @@ import { notifyUser } from "../notify";
 //    足し直さないこと。**当てずっぽうを増やすのではなく、プローブの
 //    「ウォッチリスト導線の探索」でヤフオク自身にリンクを吐かせる。**
 export const WATCHLIST_URL_CANDIDATES = [
-  // ⚠️ ここも未検証の推測。プローブの探索結果で置き換えること
-  "https://auctions.yahoo.co.jp/jp/show/mystatus?select=watchlist",
-  "https://page.auctions.yahoo.co.jp/jp/show/mystatus?select=watchlist",
+  // ✅ 2026-08-26 実測で確定。トップページの「ウォッチ」リンクの href そのもの。
+  //    タイトルは「Yahoo!オークション - ウォッチ・ほしい物リスト」、HTTP 200。
+  //    `/jp/show/mystatus?select=watchlist` もここへリダイレクトされるが、
+  //    リダイレクト頼みにせず正規の URL を直接叩く。
+  "https://auctions.yahoo.co.jp/my/watchlist",
 ];
 
 export interface WatchlistSyncResult {

@@ -97,3 +97,48 @@ export function bidLandingVerdict(args: {
   }
   return { ok: true, reason: "" };
 }
+
+/**
+ * 同じページを2回読んで、拾えた件数が一致したかの判定。
+ *
+ * なぜ要るか(2026-08-26 実測):
+ * `/my/watchlist` を20秒差で2回読むと、`a[href*="/jp/auction/"]` が
+ * 128件 → 142件(重複除いた商品ID で 64件 → 71件)になった。
+ * ウォッチリストが20秒で7件増えることはないので、これは
+ * **ウォッチリスト以外のもの(おすすめカルーセル)を拾っている** 証拠。
+ *
+ * ⚠️ この誤りは「件数が0件」と違って **正常な顔で通る**。
+ * scrapeWatchlistPage は OK を返し、同期は成功し、ウォッチしていない商品が
+ * 予約候補に並ぶ。数が多いぶん「ちゃんと動いている」ようにすら見える。
+ * 件数の一致は、セレクタが**そのページの静的な一覧だけ**を指している
+ * ことの必要条件なので、P0 で必ず取る。
+ *
+ * ⚠️ これは「合っている」ことの証明ではない(たまたま両方とも同じだけ
+ * 余計に拾った可能性は消せない)。あくまで **不合格を出すための検査**。
+ */
+export interface ListStabilityVerdict {
+  stable: boolean;
+  reason: string;
+}
+
+export function listStabilityVerdict(args: {
+  first: number;
+  second: number;
+}): ListStabilityVerdict {
+  const { first, second } = args;
+  if (first !== second) {
+    return {
+      stable: false,
+      reason:
+        `同じページを2回読んで件数が違う(${first}件 → ${second}件)。` +
+        "遅延読み込みされる別の一覧(おすすめカルーセル等)を巻き込んでいる",
+    };
+  }
+  if (first === 0) {
+    return {
+      stable: false,
+      reason: "2回とも0件。一致しているが、一覧を指せていないだけの可能性が高い",
+    };
+  }
+  return { stable: true, reason: "" };
+}

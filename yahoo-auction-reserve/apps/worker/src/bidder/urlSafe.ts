@@ -15,6 +15,8 @@
  */
 export const SAFE_QUERY_KEYS = new Set([
   "select",
+  // ウォッチリストの「終了分」トグル(2026-08-26 の探索で出た)
+  "watchclosed",
   "tab",
   "page",
   "b",

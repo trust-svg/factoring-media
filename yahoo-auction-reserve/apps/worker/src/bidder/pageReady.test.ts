@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   RENDER_MIN_CLICKABLE,
   bidLandingVerdict,
+  listStabilityVerdict,
   renderVerdict,
 } from "./pageReady";
 
@@ -93,4 +94,32 @@ test("判定は安全側に非対称 — 疑わしい着地点は全部 ok=false
   for (const { url, n } of bad) {
     assert.equal(L(url, n).ok, false, `${url} は信用してはいけない`);
   }
+});
+
+test("同じ件数なら安定", () => {
+  const v = listStabilityVerdict({ first: 12, second: 12 });
+  assert.equal(v.stable, true);
+  assert.equal(v.reason, "");
+});
+
+test("件数が違えば不安定(おすすめカルーセルの巻き込み)", () => {
+  // 2026-08-26 実測。64 → 71 で「OK」が返っていた
+  const v = listStabilityVerdict({ first: 64, second: 71 });
+  assert.equal(v.stable, false);
+  assert.match(v.reason, /64件 → 71件/);
+});
+
+test("1件差でも不安定にする(丸めない)", () => {
+  // 「ほぼ同じだから OK」にすると、遅延読み込みが軽い日に素通りする
+  assert.equal(listStabilityVerdict({ first: 20, second: 21 }).stable, false);
+});
+
+test("2回とも0件は「一致」だが合格にしない", () => {
+  const v = listStabilityVerdict({ first: 0, second: 0 });
+  assert.equal(v.stable, false);
+  assert.match(v.reason, /0件/);
+});
+
+test("減る方向も不安定として扱う", () => {
+  assert.equal(listStabilityVerdict({ first: 71, second: 64 }).stable, false);
 });

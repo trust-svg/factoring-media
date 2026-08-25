@@ -40,7 +40,11 @@ import {
 import type { YahooCookie } from "@yar/shared";
 import { selectors } from "../src/bidder/selectors";
 import { confirmClickVerdict } from "../src/bidder/probeSafety";
-import { bidLandingVerdict, renderVerdict } from "../src/bidder/pageReady";
+import {
+  bidLandingVerdict,
+  listStabilityVerdict,
+  renderVerdict,
+} from "../src/bidder/pageReady";
 import { pageIdentityVerdict } from "../src/bidder/pageIdentity";
 import { redactUrl } from "../src/bidder/urlSafe";
 import {
@@ -512,6 +516,64 @@ async function discovery(page: Page): Promise<void> {
   say("");
 }
 
+/** 祖先をたどる深さ。ヤフオクの新UIは入れ子が深いので余裕を持たせる */
+const ANCESTRY_DEPTH = 14;
+
+/**
+ * 当たった要素が **ページのどのブロックに居るか** を出す。
+ *
+ * なぜ要るか(2026-08-26): `a[href*="/jp/auction/"]` はウォッチリストの
+ * 一覧と、同じページに載っている「おすすめ」カルーセルの **両方** に当たる。
+ * 件数だけ見ていると 64件/71件のような「それらしい数」が返り、
+ * `scrapeWatchlistPage` は OK を返してしまう。
+ * どのコンテナに何件入っているかが分かれば、一覧だけを指す
+ * スコープ付きセレクタが書ける。
+ *
+ * class 名はビルドごとに変わるハッシュ(`gv-Carousel__button--WaNfn7Xe...`)
+ * なので、`--` の前だけを使う。`sc-` / `css-` で始まる styled-components の
+ * 自動生成クラスは意味を持たないので落とす。
+ */
+async function ancestryReport(page: Page, sel: string, label: string): Promise<void> {
+  say(`**${label}: 当たった要素の所属ブロック**`);
+  say("");
+
+  const chains = await page
+    .locator(sel)
+    .evaluateAll(
+      (els, depth) =>
+        els.map((e) => {
+          const names: string[] = [];
+          let node = e.parentElement;
+          for (let i = 0; i < depth && node; i += 1) {
+            const cls = (node.getAttribute("class") ?? "")
+              .split(/\s+/)
+              .map((c: string) => c.split("--")[0])
+              .filter((c: string) => c.length > 0 && !/^(sc|css)-/.test(c));
+            if (cls.length > 0 && !names.includes(cls[0])) names.push(cls[0]);
+            node = node.parentElement;
+          }
+          return names.join(" < ") || "(意味のあるclassが無い)";
+        }),
+      ANCESTRY_DEPTH,
+    );
+
+  const counts = new Map<string, number>();
+  for (const c of chains) counts.set(c, (counts.get(c) ?? 0) + 1);
+  const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+
+  say("| 件数 | 祖先のクラス(内側 → 外側) |");
+  say("|---|---|");
+  for (const [chain, n] of rows) say(`| ${n} | \`${chain}\` |`);
+  say("");
+  if (rows.length > 1) {
+    say(
+      "- ⚠️ **所属ブロックが複数ある = 別々の一覧を混ぜて拾っている**。" +
+        "一覧だけを指すようにスコープを付けること",
+    );
+    say("");
+  }
+}
+
 /** ウォッチリスト導線を探しに行くページ(ログイン後に必ず開けるもの) */
 const WATCHLIST_LINK_SOURCES = [
   "https://auctions.yahoo.co.jp/",
@@ -697,6 +759,24 @@ async function probeWatchlist(
       );
     }
     say("");
+
+    // ⚠️ 件数が「それらしい」だけでは合格にしない。同じページをもう一度読んで
+    // 件数が変われば、遅延読み込みされる別の一覧を巻き込んでいる。
+    // 2026-08-26 はこれで 64件 → 71件 のブレを検出した。
+    if (result.kind === "OK") {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await settle(page, `再読込(候補${idx + 1})`);
+      const again = await scrapeWatchlistPage(page, httpStatus);
+      const stab = listStabilityVerdict({ first: result.itemCount, second: again.itemCount });
+      if (stab.stable) {
+        say(`- ✅ 再読込でも ${again.itemCount}件で一致(一覧だけを指せている可能性が高い)`);
+      } else {
+        say(`- 🚨 **件数が安定しない**: ${stab.reason}`);
+        say("  - この `watchlistItemLink` を selectors.ts に ✅ として写さないこと");
+      }
+      say("");
+      await ancestryReport(page, selectors.watchlistItemLink, "watchlistItemLink");
+    }
 
     await discovery(page);
 

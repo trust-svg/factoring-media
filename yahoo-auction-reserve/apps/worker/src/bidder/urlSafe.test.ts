@@ -51,6 +51,7 @@ test("パースできない文字列は丸ごと伏せる", () => {
 test("許可リストは狭い(値を出してよい名前だけ)", () => {
   // 定数を使った判定だけだと許可リストを広げても落ちない。実物を釘付けにする
   assert.equal(SAFE_QUERY_KEYS.has("select"), true);
+  assert.equal(SAFE_QUERY_KEYS.has("watchclosed"), true);
   for (const dangerous of ["crumb", ".crumb", ".done", "token", "code", "state", "sig"]) {
     assert.equal(SAFE_QUERY_KEYS.has(dangerous), false, `${dangerous} を許可してはいけない`);
   }
