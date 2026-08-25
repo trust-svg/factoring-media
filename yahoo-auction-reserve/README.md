@@ -336,9 +336,12 @@ worker が止まっている**と読むこと(設定 > 通知 で送信時刻を
 推奨の手順(Tailscale):
 
 ```bash
-brew install --cask tailscale && open -a Tailscale   # 初回だけ。iPhone にも同じアカウントで入れる
+brew install --cask tailscale-app && open -a Tailscale   # 初回だけ。iPhone にも同じアカウントで入れる
 scripts/remote-serve.sh                              # 起動 → 公開 → スリープ抑止まで一括
 ```
+
+cask 名は `tailscale-app`(`tailscale` は CLI だけの formula)。
+インストールは **sudo のパスワードを聞かれる** ので、自分のターミナルで実行すること。
 
 初回だけ tailnet 側の設定も要る(https://login.tailscale.com/admin/dns):
 
