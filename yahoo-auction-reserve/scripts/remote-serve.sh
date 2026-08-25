@@ -23,7 +23,7 @@ if [ -z "$TS" ]; then
   cat <<'MSG' >&2
 tailscale が見つかりません。先に入れてください。
 
-  brew install --cask tailscale
+  brew install --cask tailscale-app   # 'tailscale' は CLI だけの formula
   open -a Tailscale     # ログイン。iPhone 側にも同じアカウントで入れておく
 
 MSG
@@ -42,6 +42,20 @@ tailscale はインストール済みですが、ログインしていません�
 
 MSG
   exit 1
+fi
+
+# HTTPS Certificates が OFF だと serve は証明書を取れずに落ちる。
+# ⚠️ ここは exit しない。CertDomains の有無で機能 ON/OFF を見ているが、
+#    その対応が将来ズレたときに「動く構成なのに起動できない」方に倒れると困る。
+#    誤警告の代償は紛らわしい1行だけ、取りこぼしの代償は後段の失敗メッセージが拾う。
+if ! "$TS" status --json 2>/dev/null | tr -d ' \n' | grep -q '"CertDomains":\[[^]]'; then
+  cat <<'MSG' >&2
+⚠️ HTTPS Certificates が有効になっていないようです。このまま進めますが、
+   公開の段階で証明書の取得に失敗する可能性が高いです。
+
+   https://login.tailscale.com/admin/dns で HTTPS Certificates を Enable
+
+MSG
 fi
 
 if [ "${1:-}" = "off" ]; then
