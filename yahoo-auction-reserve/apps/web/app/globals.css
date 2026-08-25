@@ -585,3 +585,7 @@ button.linklike {
   line-height: 1.55;
 }
 .worker-alert strong { font-weight: 600; }
+
+/* 待っても解消しない状態(判定不能など)。ただの muted に混ぜると
+   「まだ処理中なのだろう」と読まれて放置される。 */
+.attention { color: var(--warn); font-weight: 500; }

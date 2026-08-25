@@ -17,6 +17,7 @@ export default async function YahooSettingsPage() {
       label: true,
       status: true,
       lastVerifiedAt: true,
+      lastVerifyAttemptAt: true,
       createdAt: true,
     },
     orderBy: { createdAt: "desc" },
@@ -41,6 +42,7 @@ export default async function YahooSettingsPage() {
         label: s.label,
         status: s.status,
         lastVerifiedAt: s.lastVerifiedAt?.toISOString() ?? null,
+        lastVerifyAttemptAt: s.lastVerifyAttemptAt?.toISOString() ?? null,
         createdAt: s.createdAt.toISOString(),
         activeReservations: activeBySession[s.id] ?? 0,
       }))}

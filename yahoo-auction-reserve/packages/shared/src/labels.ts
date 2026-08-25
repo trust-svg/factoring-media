@@ -78,3 +78,32 @@ export const APPROVAL_STATUS_LABEL: Record<ApprovalStatusKey, string> = {
   REJECTED: "見送りを選択",
   TIMEOUT: "期限までに応答なし(増額せず)",
 };
+
+
+export type SessionVerificationKind =
+  | "VERIFIED" // 一度は生存を確認できている(時刻を出す)
+  | "PENDING" // まだ一度も確認を試みていない(登録直後。待てば結果が出る)
+  | "INCONCLUSIVE"; // 試したが判定できなかった(待っても出ない)
+
+/**
+ * 連携の「最終確認」欄に何を出すかを決める。
+ *
+ * ⚠️ PENDING と INCONCLUSIVE を混ぜない。どちらも lastVerifiedAt が null だが
+ * 意味が正反対で、前者は待てば結果が出る・後者は待っても永久に出ない
+ * (ページ構造が変わってセレクタが外れている)。両方を「未実施」と表示すると、
+ * **判定機構が壊れている状態が「まだ順番が来ていないだけ」に見えて放置される**。
+ */
+export function sessionVerificationKind(
+  lastVerifiedAt: Date | string | null | undefined,
+  lastVerifyAttemptAt: Date | string | null | undefined,
+): SessionVerificationKind {
+  if (lastVerifiedAt) return "VERIFIED";
+  if (lastVerifyAttemptAt) return "INCONCLUSIVE";
+  return "PENDING";
+}
+
+export const SESSION_VERIFICATION_LABEL: Record<SessionVerificationKind, string> = {
+  VERIFIED: "確認済み",
+  PENDING: "確認中(まもなく判定します)",
+  INCONCLUSIVE: "判定できませんでした(セレクタの確認が必要)",
+};

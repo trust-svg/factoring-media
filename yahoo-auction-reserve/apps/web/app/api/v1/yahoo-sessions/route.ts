@@ -20,6 +20,7 @@ export async function GET() {
         label: true,
         status: true,
         lastVerifiedAt: true,
+        lastVerifyAttemptAt: true,
         createdAt: true,
       },
       orderBy: { createdAt: "desc" },
@@ -61,11 +62,14 @@ export async function POST(req: NextRequest) {
       select: { id: true, label: true, status: true, createdAt: true },
     });
     // ここで見ているのは「必要な Cookie 名が揃っているか」の構造だけ(warnings)。
-    // 実際にログインが生きているかは worker の定期確認
-    // (apps/worker/src/jobs/verifySession.ts)が 6 時間ごとに判定し、
-    // 切れていれば SESSION_EXPIRED を通知する。
-    // TODO(P1): 登録直後にその確認を1回キックして、待たずに結果を返せるようにする
-    // (今は最大で次の走査まで「登録できたのに実は切れている」状態が続く)。
+    // 実際にログインが生きているかは worker が実ページを開いて判定する。
+    //
+    // 登録直後の1回は runNewSessionVerifySweep() が走査(30秒)ごとに拾う
+    // (`lastVerifyAttemptAt` が null のものだけを見る速いレーン)。
+    // ここから同期的に待たないのは、判定にブラウザ起動を含み数秒〜十数秒
+    // かかるうえ、**待っている間にリクエストがタイムアウトすると
+    // 「登録に失敗した」ように見えて、実際には登録済みという最悪の形**に
+    // なるため。登録は必ず成功させ、結果は画面の「最終確認」欄に出す。
     return NextResponse.json(
       { ...session, cookieCount: normalized.cookies.length, warnings: normalized.warnings },
       { status: 201 },

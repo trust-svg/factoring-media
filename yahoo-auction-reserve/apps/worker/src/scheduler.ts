@@ -9,7 +9,7 @@ import { runReminderSweep } from "./jobs/reminder";
 import { runDailySummarySweep } from "./jobs/dailySummary";
 import { runWatchlistSweep } from "./jobs/watchlist";
 import { runEnrichSweep } from "./jobs/enrich";
-import { runVerifySessionSweep } from "./jobs/verifySession";
+import { runNewSessionVerifySweep, runVerifySessionSweep } from "./jobs/verifySession";
 import { beat } from "./jobs/heartbeat";
 import { sweepApprovals } from "./approvalPoller";
 
@@ -54,6 +54,9 @@ export function startScheduler(): SchedulerHandle {
     run("dailySummary", runDailySummarySweep);
     run("approvalSweep", sweepApprovals);
     run("enrich", runEnrichSweep);
+    // 登録直後の連携だけ、定期走査(6時間)を待たずにここで確認する。
+    // 対象は「まだ一度も試していない」ものだけなので、通常は空振り1クエリ。
+    run("verifyNewSession", runNewSessionVerifySweep);
   };
   const timer = setInterval(tick, SCAN_INTERVAL_MS);
   tick();

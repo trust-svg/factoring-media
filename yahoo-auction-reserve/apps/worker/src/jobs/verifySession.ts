@@ -109,6 +109,29 @@ export async function verifySession(yahooSessionId: string): Promise<VerifySessi
   return result;
 }
 
+/**
+ * 登録直後の未確認セッションだけを見る速い走査(P1)。
+ *
+ * 登録できたのにログインが切れている、という状態は **登録直後にこそ**
+ * 直したい。6時間おきの定期走査に任せると、次の走査までそれが分からない。
+ * かといって定期走査そのものを速く回すと、走査のたびに全連携でブラウザが
+ * 立ち上がる。「まだ一度も試していない」ものだけを別レーンで拾う。
+ *
+ * ⚠️ 空振りし続けることはない。verifySession() は試行時刻を **開く前に**
+ * 立てるので、失敗しても lastVerifyAttemptAt は埋まり、この条件から外れる。
+ * (条件を lastVerifiedAt(成功時刻)にすると、判定不能な連携を30秒ごとに
+ *  永久に開き続ける。)
+ */
+export async function runNewSessionVerifySweep(): Promise<void> {
+  const sessions = await prisma.yahooSession.findMany({
+    where: { status: "ACTIVE", lastVerifyAttemptAt: null },
+    orderBy: { createdAt: "asc" },
+    take: VERIFY_BATCH,
+    select: { id: true, label: true },
+  });
+  await runVerifyBatch(sessions);
+}
+
 /** 確認期限の来た ACTIVE な連携を順に見る。スケジューラから定期的に呼ぶ */
 export async function runVerifySessionSweep(): Promise<void> {
   const due = new Date(Date.now() - VERIFY_INTERVAL_MS);
@@ -124,6 +147,10 @@ export async function runVerifySessionSweep(): Promise<void> {
     select: { id: true, label: true },
   });
 
+  await runVerifyBatch(sessions);
+}
+
+async function runVerifyBatch(sessions: { id: string; label: string }[]): Promise<void> {
   for (const s of sessions) {
     try {
       const r = await verifySession(s.id);

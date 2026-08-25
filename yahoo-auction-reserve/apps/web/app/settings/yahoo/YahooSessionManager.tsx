@@ -2,16 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { SESSION_STATUS_LABEL, type SessionStatusKey } from "@yar/shared/labels";
+import {
+  SESSION_STATUS_LABEL,
+  SESSION_VERIFICATION_LABEL,
+  sessionVerificationKind,
+  type SessionStatusKey,
+} from "@yar/shared/labels";
 
 interface SessionRow {
   id: string;
   label: string;
   status: SessionStatusKey;
   lastVerifiedAt: string | null;
+  lastVerifyAttemptAt: string | null;
   createdAt: string;
   activeReservations: number;
 }
+
+const verifyKind = (s: SessionRow) =>
+  sessionVerificationKind(s.lastVerifiedAt, s.lastVerifyAttemptAt);
 
 export default function YahooSessionManager({
   sessions,
@@ -49,7 +58,10 @@ export default function YahooSessionManager({
       return;
     }
     form.reset();
-    setNotice(`「${body.label}」を登録しました(Cookie ${body.cookieCount}件)`);
+    setNotice(
+      `「${body.label}」を登録しました(Cookie ${body.cookieCount}件)。` +
+        "ログインが生きているかは30秒ほどで自動確認し、下の「最終確認」に出ます",
+    );
     setWarnings(body.warnings ?? []);
     router.refresh();
   }
@@ -91,9 +103,15 @@ export default function YahooSessionManager({
               </span>
               <p className="muted">
                 登録: {new Date(s.createdAt).toLocaleString("ja-JP")} / 最終確認:{" "}
-                {s.lastVerifiedAt
-                  ? new Date(s.lastVerifiedAt).toLocaleString("ja-JP")
-                  : "未実施"}
+                {/* 「まだ確認していない」と「確認したが判定できなかった」を
+                    同じ表示にしない。後者は待っても解消しない(→ P0 検証が要る)。 */}
+                {s.lastVerifiedAt ? (
+                  new Date(s.lastVerifiedAt).toLocaleString("ja-JP")
+                ) : (
+                  <span className={verifyKind(s) === "INCONCLUSIVE" ? "attention" : undefined}>
+                    {SESSION_VERIFICATION_LABEL[verifyKind(s)]}
+                  </span>
+                )}
                 {s.activeReservations > 0 &&
                   ` / 実行前の予約 ${s.activeReservations}件`}
               </p>
