@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./labels": "./src/labels.ts",
     "./format": "./src/format.ts",
-    "./judgement": "./src/judgement.ts"
+    "./judgement": "./src/judgement.ts",
+    "./liveness": "./src/liveness.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -4,6 +4,7 @@ import "./globals.css";
 import { getSessionUser } from "@/lib/auth";
 import LogoutButton from "./LogoutButton";
 import { SideNav, TabBar } from "./AppNav";
+import WorkerAlert from "./WorkerAlert";
 
 export const metadata: Metadata = {
   title: "ヤフオク入札予約",
@@ -51,7 +52,10 @@ export default async function RootLayout({
                 </Link>
                 <LogoutButton />
               </header>
-              <main>{children}</main>
+              <main>
+                <WorkerAlert />
+                {children}
+              </main>
               <TabBar />
             </>
           ) : (

@@ -10,6 +10,7 @@ import { runDailySummarySweep } from "./jobs/dailySummary";
 import { runWatchlistSweep } from "./jobs/watchlist";
 import { runEnrichSweep } from "./jobs/enrich";
 import { runVerifySessionSweep } from "./jobs/verifySession";
+import { beat } from "./jobs/heartbeat";
 import { sweepApprovals } from "./approvalPoller";
 
 // 予約の真実は DB(BidReservation)。Redis のジョブはここから常に再構築できる
@@ -45,6 +46,9 @@ export function startScheduler(): SchedulerHandle {
   // 走査ごとに独立して回す。1つが失敗しても他を止めない
   // (まとめて await すると、リマインドの失敗で入札の登録まで落ちる)。
   const tick = () => {
+    // 鼓動は最初に打つ。他の走査の後ろに置くと、同期的に例外を投げるジョブが
+    // 1つ増えた日に鼓動ごと止まり、「worker 停止」の誤報になる。
+    run("heartbeat", () => beat());
     run("scan", scanOnce);
     run("reminder", runReminderSweep);
     run("dailySummary", runDailySummarySweep);

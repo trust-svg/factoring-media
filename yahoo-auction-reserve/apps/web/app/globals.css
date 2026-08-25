@@ -566,3 +566,22 @@ button.linklike {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* worker 停止の警告。外出先から見たときに最初に目に入る位置に出す。
+   色は danger(赤系)。notice.warn と同じ見た目にすると、判断材料の注記に
+   紛れて「いつも出ている注意書き」として読み飛ばされる。 */
+.worker-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 14px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--danger);
+  background: var(--danger-wash);
+  color: var(--danger);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.worker-alert strong { font-weight: 600; }

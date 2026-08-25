@@ -336,14 +336,34 @@ worker が止まっている**と読むこと(設定 > 通知 で送信時刻を
 推奨の手順(Tailscale):
 
 ```bash
-# Mac と iPhone に Tailscale を入れて同じアカウントでログインしておく
-docker compose up -d --build              # 本番ビルドで起動(NODE_ENV=production)
-tailscale serve --bg 3000                 # https://<machine>.<tailnet>.ts.net で公開(tailnet 内だけ)
-tailscale serve status
+brew install --cask tailscale && open -a Tailscale   # 初回だけ。iPhone にも同じアカウントで入れる
+scripts/remote-serve.sh                              # 起動 → 公開 → スリープ抑止まで一括
 ```
 
-iPhone の Safari でその URL を開き、共有 > ホーム画面に追加 で PWA になる。
-HTTPS になるのでログイン Cookie の `secure` 属性も効く。
+`scripts/remote-serve.sh` がやること:
+
+1. `docker compose up -d --build`(本番ビルド。`NODE_ENV=production` なので Cookie の `secure` が効く)
+2. `http://localhost:3000/login` が応答するまで待つ(**待たずに公開すると、繋がらないのが
+   Tailscale のせいなのかアプリのせいなのか切り分けられなくなる**)
+3. `tailscale serve --bg 3000` で tailnet だけに公開し、URL を表示する
+4. `caffeinate -dimsu` で常駐(**この窓を閉じるとスリープ抑止も解除される**)
+
+表示された `https://<machine>.<tailnet>.ts.net` を iPhone の Safari で開き、
+共有 > ホーム画面に追加 で PWA になる。公開を取り下げるのは `scripts/remote-serve.sh off`。
+
+### 外出先で「動いていない」に気づく仕組み
+
+外から画面が開けるようになると、**Mac のスリープが「画面は正常なのに入札だけ実行されない」
+という無症状の故障**になる。これを2箇所で見えるようにしてある。
+
+| 仕組み | いつ気づけるか | 実装 |
+|---|---|---|
+| 画面上部の赤い警告 | アプリを開いたとき | `app/WorkerAlert.tsx`(worker の鼓動が3分途絶えたら表示) |
+| 日次サマリ(Telegram) | サマリが来ない日 | `jobs/dailySummary.ts` |
+
+worker はスケジューラの走査ごと(30秒)に `WorkerHeartbeat` を1行上書きする。
+**鼓動は「走査が回っていること」であって「ジョブが成功したこと」ではない** —
+予約が1件も無い日と worker が死んでいる日を区別できなくしないため(設計 §14.8)。
 
 ### 外に出す前に必ず確認すること
 

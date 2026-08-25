@@ -303,3 +303,16 @@ model ReminderSent {
   @@unique([reservationId, minutesBefore, endAt])
   @@index([sentAt])
 }
+
+// worker(常駐プロセス)の鼓動。走査ごとに1行を上書きする。
+//
+// ⚠️ 行が増える設計にしない。履歴が欲しくなっても、鼓動は 30 秒ごとに打たれる
+// ので1日 2,880 行たまる。生死判定に必要なのは最後の1点だけ。
+//
+// ⚠️ 鼓動＝「走査が回っていること」。ジョブの成功を鼓動にすると、予約が
+// 1件も無い日と worker が死んでいる日が区別できなくなる。
+model WorkerHeartbeat {
+  id        String   @id @default("singleton")
+  beatAt    DateTime
+  startedAt DateTime @default(now())
+}
