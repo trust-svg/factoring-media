@@ -19,7 +19,10 @@ async function main(): Promise<void> {
     concurrency: 5,
   });
   // 入札実行はブラウザを伴うため並列度を絞る。
-  // 同一ヤフオクセッションの直列化(設計 §7.4)はフェーズ2で group 機能により実装予定。
+  // 同一ヤフオクセッションからの入札送信は sessionLock.ts で直列化する
+  // (設計 §7.4)。⚠️ そのロックはプロセス内メモリなので、**worker を
+  // 複数立てると直列化は効かない**。Telegram の getUpdates も 1 プロセス
+  // 排他なので、worker は1つで運用すること。
   const monitorWorker = new Worker<ReservationJobData>("monitor", runMonitorJob, {
     connection,
     concurrency: 4,

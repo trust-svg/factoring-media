@@ -14,6 +14,7 @@ import { placeBid, checkResult } from "../bidder/placeBid";
 import { measureYahooTimeOffset, offsetIsStale, sleepUntil, sleep, yahooNow } from "../time";
 import { tryAutoRaise } from "../autoRaise";
 import { cancelGroupSiblings } from "../group";
+import { acquireSessionLock, sessionLockWaitMs } from "../sessionLock";
 
 // スナイプ実行本体(設計 §7)。入札予定時刻のウォームアップ分だけ手前
 // (= T-(snipeSecondsBefore + MONITOR_WARMUP_SECONDS))で起動される。
@@ -130,7 +131,30 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       data: { status: "BIDDING" },
     });
     const scheduledFor = snipeAt;
-    const result = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount);
+
+    // 同一アカウントからの入札は重ねない(設計 §7.4)。ただし待つのは
+    // 「待っても入札に間に合う」範囲だけで、取れなければそのまま実行する。
+    // ここで無制限に待つと、同じアカウントで終了時刻が近い2件を予約した
+    // 瞬間に片方が入札されずに終わる。
+    const lease = await acquireSessionLock(
+      reservation.yahooSessionId,
+      sessionLockWaitMs(yahooNow().getTime(), endAt.getTime()),
+    );
+    if (!lease.serialized) {
+      console.warn(
+        `[monitor] ${reservation.id} 同一セッションの入札と並行実行します` +
+          `(${lease.waitedMs}ms 待機。終了が近いため直列化を諦めました)`,
+      );
+    }
+
+    let result;
+    try {
+      result = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount);
+    } finally {
+      // 入札の送信だけがロックの対象。この後の結果確認・終了待ちまで
+      // 抱えると、同じアカウントの次の予約が最大30分待たされる。
+      lease.release();
+    }
     await prisma.bidAttempt.create({
       data: {
         reservationId: reservation.id,
@@ -155,8 +179,18 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       return;
     }
     if (result.outcome !== "SUCCESS") {
-      // 1回だけ即時リトライ(設計 §7.3)
-      const retry = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount);
+      // 1回だけ即時リトライ(設計 §7.3)。ここも同一アカウントの送信なので
+      // ロックを取り直す(1回目で解放しているので、間に他の予約が入りうる)。
+      const retryLease = await acquireSessionLock(
+        reservation.yahooSessionId,
+        sessionLockWaitMs(yahooNow().getTime(), endAt.getTime()),
+      );
+      let retry;
+      try {
+        retry = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount);
+      } finally {
+        retryLease.release();
+      }
       if (retry.outcome !== "SUCCESS") {
         await failReservation(reservation, retry.outcome, "detail" in retry ? retry.detail : undefined);
         return;
