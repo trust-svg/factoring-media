@@ -1,4 +1,5 @@
 import type { Page } from "playwright";
+import { submitTargetVerdict } from "./probeSafety";
 import { selectors } from "./selectors";
 
 export type BidResult =
@@ -25,13 +26,46 @@ export async function placeBid(
       return { outcome: "SESSION_EXPIRED" };
     }
 
-    await page.locator(selectors.bidButton).first().click({ timeout: timeoutMs });
+    const bidButton = page.locator(selectors.bidButton).first();
+    // 確定直前のガードで「同じ要素か」を見るために、押す前に掴んでおく
+    const bidHandle = await bidButton.elementHandle({ timeout: timeoutMs });
+    const urlBeforeBid = page.url();
+    await bidButton.click({ timeout: timeoutMs });
+
     await page.locator(selectors.priceInput).first().fill(String(amount), {
       timeout: timeoutMs,
     });
     await page.locator(selectors.bidConfirmButton).first().click({ timeout: timeoutMs });
-    // 確認画面 → 確定
-    await page.locator(selectors.bidSubmitButton).first().click({ timeout: timeoutMs });
+
+    // --- 確認画面 → 確定。ここから先は取り消せない ---
+    //
+    // selectors.bidSubmitButton は bidButton と文字列が同一なので、
+    // 確認クリックが遷移を起こしていないと、商品ページの「入札する」を
+    // もう一度押して SUCCESS を返してしまう(入札していないのに成功報告)。
+    // 押す前に「本当に別の要素か」を確かめる。判定は probeSafety.ts。
+    const submitButton = page.locator(selectors.bidSubmitButton).first();
+    const submitHandle = await submitButton
+      .elementHandle({ timeout: timeoutMs })
+      .catch(() => null);
+    const navigated = page.url() !== urlBeforeBid;
+    // 遷移していれば比較しない(ハンドルが無効になっていて必ず失敗するため)。
+    // 遷移していない場合だけ比較し、比較そのものが失敗したら止める側に倒す。
+    const sameAsBidButton =
+      navigated || !submitHandle
+        ? false
+        : await page
+            .evaluate(([a, b]) => a === b, [bidHandle, submitHandle])
+            .catch(() => true);
+
+    const verdict = submitTargetVerdict({
+      found: submitHandle !== null,
+      navigated,
+      sameAsBidButton,
+    });
+    if (!verdict.safe) {
+      return { outcome: "PAGE_ERROR", detail: `確定を中止: ${verdict.reason}` };
+    }
+    await submitButton.click({ timeout: timeoutMs });
 
     // 確定後の遷移完了を待つ
     await page.waitForLoadState("domcontentloaded", { timeout: timeoutMs });

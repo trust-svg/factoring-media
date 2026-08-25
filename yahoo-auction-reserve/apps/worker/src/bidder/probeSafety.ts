@@ -1,5 +1,8 @@
-// P0 プローブ(scripts/p0-probe.ts)の Stage 2 で、
-// 「確認ボタンのつもりで押した要素が実は確定ボタンだった」を防ぐ判定。
+// 「押すつもりの無いボタンを押してしまった」を防ぐ判定。
+//
+// 使うのは2箇所:
+//   - P0 プローブ(scripts/p0-probe.ts)の Stage 2 → confirmClickVerdict
+//   - 本番の入札(bidder/placeBid.ts)の確定直前   → submitTargetVerdict
 //
 // なぜ要るか: Stage 2 は実商品に実額を入れた状態で確認ボタンを押す。
 // その「確認ボタン」は未検証のセレクタで選ばれる。つまりスクリプト冒頭の
@@ -60,5 +63,64 @@ export function confirmClickVerdict(args: {
     };
   }
 
+  return { safe: true, reason: "" };
+}
+
+
+/**
+ * 確定ボタンを押す直前の最終ガード。
+ *
+ * なぜ要るか: selectors.bidSubmitButton は selectors.bidButton と
+ * **文字列が同一**(どちらも `role=button[name="入札する"]`)。
+ * 確認画面の確定ボタンの表示テキストが未確認なので、当てずっぽうの別文言を
+ * 置くより同一のまま残す判断をした(selectors.ts の地雷7)。
+ *
+ * その結果、確認ボタンのクリックが遷移を起こさなかった場合、
+ * placeBid は **商品ページに残ったまま入札フォームを開くボタンを押し**、
+ * それを「確定した」と解釈して SUCCESS を返してしまう。
+ * 入札していないのに成功と報告する = 予約が空振りしても誰も気づかない。
+ *
+ * ⚠️ 止めるのは安全側。誤検知の代償は「1件入札できずに失敗通知が飛ぶ」で、
+ * 見逃しの代償は「入札できていないのに成功と報告される」。後者の方が悪い。
+ */
+export interface SubmitTargetVerdict {
+  safe: boolean;
+  reason: string;
+}
+
+export function submitTargetVerdict(args: {
+  /** 確定ボタン候補が1つでも見つかったか */
+  found: boolean;
+  /** 入札ボタンを押した後、URL が変わったか */
+  navigated: boolean;
+  /**
+   * 最初に押した「入札する」ボタンと同一要素か。
+   * ⚠️ 遷移した場合は前のページの要素ハンドルが無効になるので比較できない。
+   * 比較できなかったときは true(=止める)を渡すこと。navigated=true なら
+   * この値は見ない。
+   */
+  sameAsBidButton: boolean;
+}): SubmitTargetVerdict {
+  if (!args.found) {
+    return {
+      safe: false,
+      reason: "確定ボタンが見つからない(確認画面に着いていない可能性がある)",
+    };
+  }
+  // 別ページに移っているなら、商品ページの「入札する」ボタンはもう存在しない。
+  // 同一要素になりようがないので、ここで通す。
+  // (要素の同一性比較は遷移をまたぐと必ず失敗するため、順序が逆だと
+  //  正常な入札が全部止まる)
+  if (args.navigated) {
+    return { safe: true, reason: "" };
+  }
+  if (args.sameAsBidButton) {
+    return {
+      safe: false,
+      reason:
+        "確定ボタンが最初の「入札する」ボタンと同一要素。" +
+        "確認画面に遷移しておらず、商品ページに留まっている",
+    };
+  }
   return { safe: true, reason: "" };
 }

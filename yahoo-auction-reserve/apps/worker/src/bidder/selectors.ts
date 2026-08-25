@@ -6,16 +6,16 @@
 //
 // | セレクタ | 状態 | 根拠 |
 // |---|---|---|
-// | loginLink              | ✅ 検証済 | 2026-08-24 v1241268301。ログイン中0件 / 未ログイン2件 |
-// | loggedInIndicator      | 🟡 1回のみ | 同上。ログイン中に a.mhdPcUserName__link を確認 |
+// | loginLink              | ✅ 検証済 | 2026-08-24/25。ログイン中0件 / 未ログイン2件(陰陽対照済) |
+// | loggedInIndicator      | 🟡 旧UI限定 | 2026-08-25。旧UIヘッダのあるページでのみ当たる(下記5) |
 //
 // ⚠️ loginLink は入札フローだけでなく **セッションの生存確認**
 // (jobs/verifySession.ts)でも使う。ここが外れると、失効を検知できないまま
 // 入札の瞬間まで気づけない。判定の非対称性は src/sessionVerdict.ts を読むこと。
 //
-// | bidButton              | ✅ 検証済 | 同上。<button> でテキストのみが手掛かり |
+// | bidButton              | 🟡 要再検証 | 2026-08-25 の Stage 2 は罠の候補を押していた(下記6) |
 // | priceInput             | ❌ 未検証 | Stage 2 (--stage2) が必要 |
-// | bidConfirmButton       | ❌ 未検証 | 同上 |
+// | bidConfirmButton       | ❌ 未検証 | 同上。data-testid は実在しないので削除済(下記7) |
 // | bidSubmitButton        | ❌ 未検証 | 同上 |
 // | wonIndicator           | ❌ 未検証 | 自分が入札した終了済み商品でないと出ない |
 // | highestBidderIndicator | ❌ 未検証 | 同上 |
@@ -42,6 +42,23 @@
 //    掴めるのは**アクセシブルネーム(表示テキスト)だけ**。
 // 4. 「入札する」ボタンの個数は実行によって変わる(ログイン中1件 / 未ログイン2件。
 //    画面下の固定バー分と思われる)。件数を前提にした判定を書かない。
+//
+// --- 実測で分かった地雷 (2026-08-25) ---
+//
+// 5. 新UIはクライアントサイドレンダリング(CSR)。`domcontentloaded` 直後の DOM は
+//    ほぼ空で、そこを読むと **セレクタが正しくても「0件」** になる。
+//    ⚠️ この「0件」は「セレクタが違う」ときと見分けがつかない。
+//    プローブ側の描画待ち・描画判定は src/bidder/pageReady.ts。
+//    旧UIヘッダ(mhdPc*)のあるページと新UI(gv-*)のページが混在しているので、
+//    loggedInIndicator は **どのページで見たか** とセットでないと意味がない。
+// 6. `role=button[name="入札する"]` の **引用符付きの時点で既に完全一致**
+//    (かつ空白正規化される)。`[exact=true]` は role セレクタの属性として
+//    存在せず、書くと構文エラーで **常に0件** になる。
+//    「まとめて入札する」を弾く目的は引用符だけで達成できている。
+// 7. 商品ページに `data-testid` は `initViewLogging-csr` 以外1つも無い。
+//    `[data-testid="bid-confirm"]` 等は完全な作り話だったので消した。
+//    プレースホルダは「実在しそうな形」で置くこと。実在しない属性は
+//    永久に0件のまま「まだ検証していないだけ」に見え続ける。
 // =============================================================
 
 export const selectors = {
@@ -57,17 +74,30 @@ export const selectors = {
   // --- 商品ページ → 入札フォーム ---
   //
   // role セレクタを使うのは、実体が <button> で id も name も無く、
-  // クラスがビルドハッシュ付きだから。exact=true は「まとめて入札する」等の
-  // 部分一致を拾わないため。
-  bidButton: 'role=button[name="入札する"][exact=true]',
+  // クラスがビルドハッシュ付きだから。
+  // 引用符付きの name は完全一致なので「まとめて入札する」は当たらない
+  // (`[exact=true]` は不正な構文だった。上の地雷6)。
+  bidButton: 'role=button[name="入札する"]',
 
   // ❌ 以下3つは未検証のプレースホルダのまま。
   // ボタンが <button> でリンクでないため、クリック後に別ページへ遷移するのか
   // モーダルが開くのかも未確定。--stage2 の実測で確定させること。
+  //
+  // ⚠️ これが未検証のうちは worker を本番稼働させない。
+  // 入札の瞬間に「押せるボタンが無い」で落ちる = 予約は全部空振りする。
   priceInput: 'input[name="Bid_price"], input[name="price"]',
-  bidConfirmButton: '[data-testid="bid-confirm"]',
-  // 確認画面 → 入札確定
-  bidSubmitButton: '[data-testid="bid-submit"], input[type="submit"][value*="入札"]',
+  bidConfirmButton: 'role=button[name="入札内容を確認する"]',
+  // 確認画面 → 入札確定。ここを押すと **取り消せない**。
+  // 罠を掴んだときの被害が最大なので、広い候補を足さないこと。
+  //
+  // ⚠️ bidButton と **文字列が同一**。これは承知の上で置いている。
+  // 確認画面の確定ボタンの表示テキストが未確認で、当てずっぽうの別文言を
+  // 書くと「実在しない属性」と同じ(永久に0件なのに未検証にしか見えない)。
+  // ただし同一である以上、**このセレクタは「確認画面にいる」ことを
+  // 別途確かめてからでないと使ってはいけない**。商品ページで当たるのは
+  // 入札フォームを開くだけのボタンで、確定ボタンではない。
+  // 着地点の判定は src/bidder/pageReady.ts の bidLandingVerdict。
+  bidSubmitButton: 'role=button[name="入札する"]',
 
   // --- 結果判定(終了後の商品ページ) ❌ 未検証 ---
   wonIndicator: "text=あなたが落札しました",
@@ -84,5 +114,6 @@ export const selectors = {
   // 1商品ぶんのリンク。オークションIDを含む href を手掛かりにする
   watchlistItemLink: 'a[href*="/jp/auction/"]',
   // ページャの「次へ」。無ければ1ページで打ち切る
-  watchlistNextPage: 'role=link[name="次へ"][exact=true]',
+  // `[exact=true]` は不正だったので外した(上の地雷6)
+  watchlistNextPage: 'role=link[name="次へ"]',
 } as const;

@@ -40,6 +40,7 @@ import {
 import type { YahooCookie } from "@yar/shared";
 import { selectors } from "../src/bidder/selectors";
 import { confirmClickVerdict } from "../src/bidder/probeSafety";
+import { bidLandingVerdict, renderVerdict } from "../src/bidder/pageReady";
 import {
   WATCHLIST_URL_CANDIDATES,
   scrapeWatchlistPage,
@@ -52,8 +53,23 @@ import {
 // 加えて、テキストベースなど壊れにくい書き方の候補を混ぜてある。
 // プローブの目的は「どれが当たったか」を知ることであって、当たり前提で使うことではない。
 // 全滅したときのために discovery ダンプ(後述)を必ず併せて見ること。
+//
+// ⚠️ `{ sel, trap }` 形式の候補は **罠と分かっている候補**。
+// 2026-08-25 の実測で、ゆるい候補がフッターや入札履歴を掴んだまま
+// 「✅」として報告され、Stage 2 がそれを押した(入札履歴ページが開いた)。
+// 罠候補は「当たること自体が情報」なので消さずに残すが、
+//   - 見出しの ✅ には数えない
+//   - Stage 2 のクリック対象には選ばない
+// ようにして、レポートを読む人が取り違えないようにする。
 // ---------------------------------------------------------------
-const CANDIDATES: Record<string, string[]> = {
+interface TrapCandidate {
+  sel: string;
+  /** なぜ罠なのか。レポートにそのまま出る */
+  trap: string;
+}
+type Candidate = string | TrapCandidate;
+
+const CANDIDATES: Record<string, Candidate[]> = {
   loggedInIndicator: [
     selectors.loggedInIndicator,
     "#msthdBs",
@@ -68,11 +84,13 @@ const CANDIDATES: Record<string, string[]> = {
   bidButton: [
     selectors.bidButton,
     "#bid",
-    // `/jp/show/bid` は入札履歴 `/jp/show/bid_hist` にも前方一致する。
-    // 除外なしの素の候補も残してあるのは、罠が当たっていることをレポート上で
-    // 見えるようにするため(下の「当たった候補の実体」で別要素だと分かる)。
     "a[href*='/jp/show/bid']:not([href*='bid_hist'])",
-    "a[href*='/jp/show/bid']",
+    {
+      sel: "a[href*='/jp/show/bid']",
+      // 2026-08-25 に実際に押してしまった候補。入札履歴 `/jp/show/bid_hist`
+      // に前方一致するので、「5件」という履歴リンクを掴んで開いた
+      trap: "入札履歴 /jp/show/bid_hist に前方一致する",
+    },
     "form[name='bidform'] input[type='submit']",
     "text=入札する",
   ],
@@ -109,7 +127,12 @@ const CANDIDATES: Record<string, string[]> = {
   watchlistItemLink: [
     selectors.watchlistItemLink,
     "a[href*='/jp/auction/']",
-    "li a[href*='auction']",
+    {
+      sel: "li a[href*='auction']",
+      // 2026-08-25 実測: これが ✅ として報告されたが、実体は
+      // cm-Footer__serviceLink(「ガイドライン」「特定商取引法の表示」)だった
+      trap: "フッターの auctions.yahoo.co.jp リンクを拾う",
+    },
   ],
   watchlistNextPage: [
     selectors.watchlistNextPage,
@@ -241,6 +264,8 @@ const nodeKey = (n: NodeDesc): string => [n.tag, n.id, n.href, n.text].join("|")
 
 interface SlotResult {
   selector: string;
+  /** 罠と分かっている候補ならその理由。通常候補は undefined */
+  trap?: string;
   count: number;
   visible: boolean;
   text: string;
@@ -253,12 +278,14 @@ const NODES_PER_CANDIDATE = 3;
 // 候補セレクタの総当り。hit の一覧を返す
 async function probeSlot(page: Page, slot: string): Promise<SlotResult[]> {
   const results: SlotResult[] = [];
-  for (const selector of CANDIDATES[slot] ?? []) {
+  for (const cand of CANDIDATES[slot] ?? []) {
+    const selector = typeof cand === "string" ? cand : cand.sel;
+    const trap = typeof cand === "string" ? undefined : cand.trap;
     try {
       const loc = page.locator(selector);
       const count = await loc.count();
       if (count === 0) {
-        results.push({ selector, count: 0, visible: false, text: "", nodes: [] });
+        results.push({ selector, trap, count: 0, visible: false, text: "", nodes: [] });
         continue;
       }
       const first = loc.first();
@@ -267,11 +294,12 @@ async function probeSlot(page: Page, slot: string): Promise<SlotResult[]> {
       for (let i = 0; i < Math.min(count, NODES_PER_CANDIDATE); i++) {
         nodes.push(await describeNode(loc.nth(i)));
       }
-      results.push({ selector, count, visible, text: nodes[0]?.text ?? "", nodes });
+      results.push({ selector, trap, count, visible, text: nodes[0]?.text ?? "", nodes });
     } catch (err) {
       // セレクタ構文自体が通らない場合もここに来る
       results.push({
         selector,
+        trap,
         count: -1,
         visible: false,
         text: err instanceof Error ? err.message.slice(0, 60) : String(err),
@@ -282,10 +310,19 @@ async function probeSlot(page: Page, slot: string): Promise<SlotResult[]> {
   return results;
 }
 
+/**
+ * そのスロットで「採用してよい」当たり候補。
+ * 罠と分かっている候補は当たっても採らない(2026-08-25 に押してしまった経路)。
+ */
+function usableHits(results: SlotResult[]): SlotResult[] {
+  return results.filter((r) => r.count > 0 && r.visible && !r.trap);
+}
+
 async function reportSlots(page: Page, slots: string[]): Promise<void> {
   for (const slot of slots) {
     const results = await probeSlot(page, slot);
-    const hits = results.filter((r) => r.count > 0 && r.visible);
+    const hits = usableHits(results);
+    const trapHits = results.filter((r) => r.count > 0 && r.trap);
     // 当たった候補が別々の要素を指しているなら、先頭を採るのは単なる運試し。
     // ここで見出しに ✅ を出さないのは、✅ が「そのまま selectors.ts に写してよい」
     // という意味に読まれるため。
@@ -300,13 +337,22 @@ async function reportSlots(page: Page, slots: string[]): Promise<void> {
           : `⚠️ ${hits.length}件が当たったが指す要素が ${distinct.size} 種類ある`;
     say(`### ${slot} ${head}`);
     say("");
-    say("| 候補 | 件数 | 可視 | テキスト |");
-    say("|---|---|---|---|");
+    say("| 候補 | 件数 | 可視 | 罠 | テキスト |");
+    say("|---|---|---|---|---|");
     for (const r of results) {
       const n = r.count < 0 ? "err" : String(r.count);
-      say(`| \`${r.selector}\` | ${n} | ${r.visible ? "○" : "-"} | ${r.text} |`);
+      say(
+        `| \`${r.selector}\` | ${n} | ${r.visible ? "○" : "-"} | ${r.trap ? "🪤 " + r.trap : ""} | ${r.text} |`,
+      );
     }
     say("");
+    if (trapHits.length > 0) {
+      say(
+        "> 🪤 罠と分かっている候補が当たっている。**これは ✅ に数えていないし、" +
+          "クリック対象にも選ばれない。** selectors.ts に写さないこと。",
+      );
+      say("");
+    }
     if (hits.length > 0) {
       say("**当たった候補の実体**");
       say("");
@@ -361,6 +407,67 @@ async function dumpElements(
     rows.push(row);
   }
   return rows;
+}
+
+/**
+ * CSR の描画を待ってから、描画できているかを報告する。
+ *
+ * 2026-08-25 の実測で分かったこと(pageReady.ts の冒頭も読むこと):
+ * ヤフオクの新UIはクライアントサイドレンダリング。`domcontentloaded` の直後は
+ * DOM がほぼ空で、その状態で候補を試すと **セレクタが正しくても全部0件** になる。
+ *
+ * ⚠️ ここが無いと、レポートの「❌ 全滅」が
+ *   (a) セレクタが違う   (b) まだ描画されていない
+ * のどちらなのか永久に区別できない。落ちようがない検証と同じで、
+ * 当たりようがない検証になっていた。
+ *
+ * 待ち方は networkidle 頼みにしない。広告・計測ビーコンが鳴り続けるページでは
+ * networkidle が来ないので、**要素数が増えなくなったこと** を主な合図にする。
+ */
+const SETTLE_POLL_MS = 400;
+const SETTLE_STABLE_ROUNDS = 3;
+const SETTLE_MAX_MS = 15_000;
+
+async function settle(page: Page, label: string): Promise<void> {
+  // networkidle は「来たら儲けもの」。来なくても下のポーリングで進む
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
+
+  const started = Date.now();
+  let stable = 0;
+  let prev = -1;
+  let clickable = 0;
+  let inputs = 0;
+  while (Date.now() - started < SETTLE_MAX_MS) {
+    clickable = await page
+      .locator("button, input[type=submit], input[type=button], a")
+      .count()
+      .catch(() => 0);
+    inputs = await page.locator("input").count().catch(() => 0);
+    if (clickable === prev) {
+      stable += 1;
+      if (stable >= SETTLE_STABLE_ROUNDS) break;
+    } else {
+      stable = 0;
+      prev = clickable;
+    }
+    await page.waitForTimeout(SETTLE_POLL_MS);
+  }
+
+  const elapsed = Date.now() - started;
+  const v = renderVerdict({ clickable, inputs });
+  say(
+    `_描画待ち(${label}): ${elapsed}ms / クリック要素 ${clickable} / input ${inputs}_`,
+  );
+  say("");
+  if (!v.rendered) {
+    say(`> ⚠️ **まだ描画されていない可能性がある** — ${v.reason}`);
+    say("");
+    say(
+      "> この状態で下に出る「❌ 全滅」は、セレクタが違う証拠にならない。" +
+        "スクリーンショットを見て、本当に中身が出ているか確かめること。",
+    );
+    say("");
+  }
 }
 
 async function discovery(page: Page): Promise<void> {
@@ -435,6 +542,8 @@ async function probeWatchlist(
     say(`- 到達URL: ${page.url()}`);
     say(`- ページタイトル: ${await page.title()}`);
     say(`- 所要: ${Date.now() - t0}ms`);
+    say("");
+    await settle(page, `ウォッチリスト候補${idx + 1}`);
     if (/login\.yahoo\.co\.jp/.test(page.url())) {
       say(
         anonymous
@@ -682,6 +791,8 @@ async function main(): Promise<void> {
   say(`- 到達URL: ${page.url()}`);
   say(`- ページタイトル: ${await page.title()}`);
   say(`- 所要: ${Date.now() - t0}ms`);
+  say("");
+  await settle(page, "商品ページ");
   if (/login\.yahoo\.co\.jp/.test(page.url())) {
     say("- ⚠️ **ログイン画面へリダイレクトされた = Cookie が失効している**");
   }
@@ -722,65 +833,114 @@ async function main(): Promise<void> {
       }
     };
 
-    // 入札ボタン: Stage 1 で当たった候補を使う
-    const bidHits = (await probeSlot(page, "bidButton")).filter(
-      (r) => r.count > 0 && r.visible,
-    );
+    // 入札ボタン: Stage 1 で当たった候補を使う。
+    // ⚠️ 罠と分かっている候補は選ばない(usableHits)。2026-08-25 はここで
+    // `a[href*='/jp/show/bid']` が先頭に来て、入札履歴ページを開いた。
+    const bidResults = await probeSlot(page, "bidButton");
+    const bidHits = usableHits(bidResults);
     if (bidHits.length === 0) {
+      const trapped = bidResults.filter((r) => r.count > 0 && r.trap);
       say("入札ボタンの候補が全滅しているため Stage 2 は進めない。上のダンプから候補を足すこと。");
+      if (trapped.length > 0) {
+        say("");
+        say(
+          `(罠と分かっている候補 ${trapped.map((r) => "\`" + r.selector + "\`").join(" / ")} ` +
+            "は当たっているが、押さない)",
+        );
+      }
     } else {
       const bidSel = bidHits[0].selector;
       say(`使用した入札ボタン: \`${bidSel}\``);
       say("");
+      const urlBeforeBid = page.url();
       const ok = await step("入札ボタンをクリック", async () => {
         await page.locator(bidSel).first().click({ timeout: 15_000 });
         await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
       });
       if (ok) {
-        await reportSlots(page, STAGE2_SLOTS);
-        await discovery(page);
-        const priceHits = (await probeSlot(page, "priceInput")).filter((r) => r.count > 0);
-        if (priceHits.length > 0) {
-          await step(`入札額 ${args.amount} を入力`, async () => {
-            await page.locator(priceHits[0].selector).first().fill(String(args.amount), {
-              timeout: 15_000,
-            });
-          });
-        }
-        const confirmHits = (await probeSlot(page, "bidConfirmButton")).filter(
-          (r) => r.count > 0 && r.visible,
-        );
-        // 押す前に「それは確定ボタンではないか」を確かめる。
-        // この時点で入札額は入力済みなので、確定ボタンを押すと **実入札が飛ぶ**。
-        // 押してよいかを未検証のセレクタの正しさに委ねない(probeSafety.ts)。
-        const submitKeys = (await probeSlot(page, "bidSubmitButton"))
-          .filter((r) => r.count > 0)
-          .flatMap((r) => r.nodes.map(nodeKey));
-        const confirmNode = confirmHits[0]?.nodes[0];
-        const verdict = confirmHits.length === 0 || !confirmNode
-          ? { safe: false, reason: "確認ボタンの候補が全滅している" }
-          : confirmClickVerdict({
-              confirmKey: nodeKey(confirmNode),
-              submitKeys,
-              label: confirmNode.text || confirmNode.value,
-            });
+        await settle(page, "入札ボタンをクリックした後");
 
-        if (!verdict.safe) {
-          say(`### ⚠️ 確認ボタンを押さずに止めた — ${verdict.reason}`);
+        // 押した先が本当に入札フォームかを確かめる。
+        // ⚠️ クリックが「成功」したことは、正しいページに着いたことを意味しない。
+        // 2026-08-25 はクリック○(47ms)と報告しながら入札履歴を開いていて、
+        // それが分かるのはこの後の全スロット全滅からだけだった。
+        // その全滅は「まだ描画されていない」と見分けがつかない。
+        const priceCount = usableHits(await probeSlot(page, "priceInput")).length;
+        const landing = bidLandingVerdict({
+          url: page.url(),
+          priceInputCount: priceCount,
+        });
+        if (!landing.ok) {
+          say(`### ⚠️ 入札フォームに着いていない — ${landing.reason}`);
           say("");
-          say("入札額は入力済みだが、ここから先へは自動では進めない。");
-          say("上のダンプで実体を確認し、確認ボタンだと判断できたら **画面上で自分で押すこと**。");
+          say(`- クリック前: ${urlBeforeBid}`);
+          say(`- クリック後: ${page.url()}`);
           say("");
-          steps.push({ name: "確認画面へ進む", ms: 0, ok: false, detail: verdict.reason });
-        } else {
-          await step("確認画面へ進む", async () => {
-            await page.locator(confirmHits[0].selector).first().click({ timeout: 15_000 });
-            await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
+          say(
+            "**この先は進めない。** 使った候補が別の要素を指している可能性が高いので、" +
+              "下のダンプを見て候補を直し、CANDIDATES の罠マークを足してから回し直すこと。",
+          );
+          say("");
+          steps.push({
+            name: "入札フォームに着地",
+            ms: 0,
+            ok: false,
+            detail: landing.reason,
           });
-          say("### 確認画面のスロット");
-          say("");
-          await reportSlots(page, ["bidSubmitButton"]);
           await discovery(page);
+          await page
+            .screenshot({ path: reportPath.replace(/\.md$/, "-landing.png") })
+            .catch(() => {});
+        }
+        // ⚠️ ここで return すると下の writeFileSync に届かず、レポートが
+        //    1バイトも残らない。着地に失敗した回こそレポートが要る。
+        if (landing.ok) {
+          await reportSlots(page, STAGE2_SLOTS);
+          await discovery(page);
+          const priceHits = (await probeSlot(page, "priceInput")).filter(
+            (r) => r.count > 0 && !r.trap,
+          );
+          if (priceHits.length > 0) {
+            await step(`入札額 ${args.amount} を入力`, async () => {
+              await page.locator(priceHits[0].selector).first().fill(String(args.amount), {
+                timeout: 15_000,
+              });
+            });
+          }
+          const confirmHits = usableHits(await probeSlot(page, "bidConfirmButton"));
+          // 押す前に「それは確定ボタンではないか」を確かめる。
+          // この時点で入札額は入力済みなので、確定ボタンを押すと **実入札が飛ぶ**。
+          // 押してよいかを未検証のセレクタの正しさに委ねない(probeSafety.ts)。
+          const submitKeys = (await probeSlot(page, "bidSubmitButton"))
+            .filter((r) => r.count > 0)
+            .flatMap((r) => r.nodes.map(nodeKey));
+          const confirmNode = confirmHits[0]?.nodes[0];
+          const verdict = confirmHits.length === 0 || !confirmNode
+            ? { safe: false, reason: "確認ボタンの候補が全滅している" }
+            : confirmClickVerdict({
+                confirmKey: nodeKey(confirmNode),
+                submitKeys,
+                label: confirmNode.text || confirmNode.value,
+              });
+
+          if (!verdict.safe) {
+            say(`### ⚠️ 確認ボタンを押さずに止めた — ${verdict.reason}`);
+            say("");
+            say("入札額は入力済みだが、ここから先へは自動では進めない。");
+            say("上のダンプで実体を確認し、確認ボタンだと判断できたら **画面上で自分で押すこと**。");
+            say("");
+            steps.push({ name: "確認画面へ進む", ms: 0, ok: false, detail: verdict.reason });
+          } else {
+            await step("確認画面へ進む", async () => {
+              await page.locator(confirmHits[0].selector).first().click({ timeout: 15_000 });
+              await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
+            });
+            await settle(page, "確認ボタンをクリックした後");
+            say("### 確認画面のスロット");
+            say("");
+            await reportSlots(page, ["bidSubmitButton"]);
+            await discovery(page);
+          }
         }
       }
 
