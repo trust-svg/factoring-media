@@ -41,6 +41,8 @@ import type { YahooCookie } from "@yar/shared";
 import { selectors } from "../src/bidder/selectors";
 import { confirmClickVerdict } from "../src/bidder/probeSafety";
 import { bidLandingVerdict, renderVerdict } from "../src/bidder/pageReady";
+import { pageIdentityVerdict } from "../src/bidder/pageIdentity";
+import { redactUrl } from "../src/bidder/urlSafe";
 import {
   WATCHLIST_URL_CANDIDATES,
   scrapeWatchlistPage,
@@ -510,6 +512,88 @@ async function discovery(page: Page): Promise<void> {
   say("");
 }
 
+/** ウォッチリスト導線を探しに行くページ(ログイン後に必ず開けるもの) */
+const WATCHLIST_LINK_SOURCES = [
+  "https://auctions.yahoo.co.jp/",
+  "https://auctions.yahoo.co.jp/jp/show/mystatus",
+];
+
+/**
+ * ウォッチリストの URL を **ヤフオク自身に吐かせる**。
+ *
+ * なぜ URL 候補を増やすのではなくこれをやるか(2026-08-26):
+ * 候補に入れていた2つの URL はどちらも存在しなかった。推測を足していく方法は
+ * 「外れたときに何も分からない」上に、外れた候補が404案内ページを返すせいで
+ * 「ウォッチリストが空」と見分けが付かない出力になる。
+ * トップページやマイオークションには必ずウォッチリストへの導線があるので、
+ * そのリンクの href を読めば **推測せずに** 正解が手に入る。
+ *
+ * ⚠️ href はレポートに書き出すので redactUrl を通す。ヤフオクの導線 URL には
+ * `.done=` や `crumb` が乗る(設計 §8: 秘匿情報をログに残さない)。
+ */
+async function discoverWatchlistLinks(page: Page): Promise<void> {
+  say("## ウォッチリスト導線の探索(ヤフオクのページからリンクを読む)");
+  say("");
+
+  for (const src of WATCHLIST_LINK_SOURCES) {
+    say(`### 探索元: ${src}`);
+    say("");
+    try {
+      await page.goto(src, { waitUntil: "domcontentloaded" });
+    } catch (err) {
+      say(`- ⚠️ 遷移に失敗: ${err instanceof Error ? err.message : String(err)}`);
+      say("");
+      continue;
+    }
+    await settle(page, `探索元 ${src}`);
+
+    const links = await page
+      .locator("a[href]")
+      .evaluateAll((els) =>
+        els.map((e) => ({
+          href: e.getAttribute("href") ?? "",
+          text: (e.textContent ?? "").replace(/\s+/g, " ").trim(),
+        })),
+      );
+
+    const pageUrl = page.url();
+    const hits: { text: string; url: string }[] = [];
+    const seen = new Set<string>();
+    for (const l of links) {
+      if (!l.href) continue;
+      // 表示文字とURLの両方を見る。アイコンだけのリンクは文字が空になるので
+      // href 側だけで当たることがある
+      const looksWatch = l.text.includes("ウォッチ") || /watch/i.test(l.href);
+      if (!looksWatch) continue;
+      let abs = "";
+      try {
+        abs = new URL(l.href, pageUrl).toString();
+      } catch {
+        continue;
+      }
+      const safe = redactUrl(abs);
+      const key = `${l.text}|${safe}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      hits.push({ text: l.text || "(文字なし)", url: safe });
+    }
+
+    if (hits.length === 0) {
+      say("- ❌ 「ウォッチ」を含むリンクが1つも無い");
+      say(`  - 参考: このページのリンク総数 ${links.length}件`);
+    } else {
+      say("| 表示文字 | href(秘匿値は伏せてある) |");
+      say("|---|---|");
+      for (const h of hits.slice(0, 20)) {
+        say(`| ${h.text} | \`${h.url}\` |`);
+      }
+      say("");
+      say("- ⬆️ **これが WATCHLIST_URL_CANDIDATES に入れるべき URL**");
+    }
+    say("");
+  }
+}
+
 /**
  * ウォッチリストの URL 候補とセレクタを確定させる(--watchlist)。
  *
@@ -527,29 +611,53 @@ async function probeWatchlist(
   reportPath: string,
   anonymous: boolean,
 ): Promise<void> {
+  // 候補を試す前に、正解の URL をヤフオク自身から取りに行く。
+  // 候補が全滅しても、ここに答えが出ていれば次の一手が決まる。
+  await discoverWatchlistLinks(page);
+
   for (const [idx, url] of WATCHLIST_URL_CANDIDATES.entries()) {
     say(`## 候補URL ${idx + 1}: ${url}`);
     say("");
 
     const t0 = Date.now();
+    let httpStatus: number | null = null;
     try {
-      await page.goto(url, { waitUntil: "domcontentloaded" });
+      const res = await page.goto(url, { waitUntil: "domcontentloaded" });
+      httpStatus = res?.status() ?? null;
     } catch (err) {
       say(`- ⚠️ 遷移に失敗: ${err instanceof Error ? err.message : String(err)}`);
       say("");
       continue;
     }
     say(`- 到達URL: ${page.url()}`);
+    say(`- HTTPステータス: ${httpStatus ?? "(取れず)"}`);
     say(`- ページタイトル: ${await page.title()}`);
     say(`- 所要: ${Date.now() - t0}ms`);
     say("");
     await settle(page, `ウォッチリスト候補${idx + 1}`);
-    if (/login\.yahoo\.co\.jp/.test(page.url())) {
+
+    // ⚠️ セレクタの当たり外れを見る前に、そもそもどこに着いたかを言う。
+    // 存在しない URL の案内ページは商品リンク0件になるので、これが無いと
+    // 「セレクタが外れた」と「URL が無い」を取り違える(2026-08-26 に発生)
+    const identity = pageIdentityVerdict({
+      url: page.url(),
+      httpStatus,
+      bodyText: await page.locator("body").innerText().catch(() => ""),
+    });
+    if (identity.kind === "NOT_FOUND") {
+      say(`- 🪦 **この URL は存在しない**: ${identity.reason}`);
+      say("  - 以下のセレクタ全滅は「セレクタが違う」証拠にならない");
+    } else if (identity.kind === "LOGIN_REQUIRED") {
       say(
         anonymous
-          ? "- ✅ 未ログインでログイン画面へ飛んだ(= ログイン必須の陽性対照)"
-          : "- ⚠️ **ログイン画面へリダイレクトされた = Cookie が失効している**",
+          ? `- ✅ 未ログインでログイン画面へ飛んだ(= ログイン必須の陽性対照): ${identity.reason}`
+          : `- ⚠️ **ログイン画面へリダイレクトされた = Cookie が失効している**: ${identity.reason}`,
       );
+    } else {
+      say("- ✅ 404でもログイン画面でもない = 中身のあるページに着いている");
+      if (anonymous) {
+        say("  - ⚠️ 未ログインなのにログイン画面へ飛ばされていない。ログイン必須のページではない可能性");
+      }
     }
     say("");
 
@@ -578,7 +686,7 @@ async function probeWatchlist(
     say("");
 
     // 本番コードをそのまま通す。ここの kind がプローブの結論。
-    const result = await scrapeWatchlistPage(page);
+    const result = await scrapeWatchlistPage(page, httpStatus);
     say(
       `- \`scrapeWatchlistPage\` の判定: **${result.kind}** / ${result.itemCount}件` +
         (result.detail ? ` (${result.detail})` : ""),
@@ -598,6 +706,7 @@ async function probeWatchlist(
 
   say("### 次にやること");
   say("");
+  say("- 「ウォッチリスト導線の探索」で出た URL を WATCHLIST_URL_CANDIDATES に入れる(推測で足さない)");
   say("- `scrapeWatchlistPage` が OK を返した候補URLを WATCHLIST_URL_CANDIDATES の先頭にする");
   say("- 当たったセレクタを selectors.ts に書き、状態表を ✅ に更新する");
   say("- `--anonymous` の回で watchlistLoginWall が当たっていることを確認する(陰陽の対照)");

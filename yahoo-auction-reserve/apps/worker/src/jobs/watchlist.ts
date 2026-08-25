@@ -1,6 +1,7 @@
 import type { Browser, Page } from "playwright";
 import { prisma } from "@yar/db";
 import { YAHOO_AUCTION_URL_PATTERN, fetchAuctionInfo } from "@yar/shared";
+import { pageIdentityVerdict } from "../bidder/pageIdentity";
 import { selectors } from "../bidder/selectors";
 import { createYahooContext, launchBrowser, markSessionExpired } from "../bidder/session";
 import { notifyUser } from "../notify";
@@ -22,9 +23,20 @@ import { notifyUser } from "../notify";
 // 候補を順に試し、ログイン壁でも商品リンクでもない場合は次を試す。
 // プローブ(scripts/p0-probe.ts --watchlist)と同じ配列を使う。片方だけ
 // 直すと「プローブでは当たったのに本番は別の URL を叩いている」が起きる。
+//
+// 🪦 2026-08-26 に **存在しないことを確認して外した** URL:
+//      https://auctions.yahoo.co.jp/user/jp/show/watchlist
+//      https://auctions.yahoo.co.jp/watchlist
+//    どちらも「指定されたURLのページは存在しません。」の案内ページが出る。
+//    この案内ページはヘッダーとカテゴリ一覧で50個超のリンクを持つため、
+//    「描画済み・ログイン壁なし・商品0件」= 空のウォッチリストと区別が
+//    付かなかった(詳細は bidder/pageIdentity.ts)。同じ URL を推測で
+//    足し直さないこと。**当てずっぽうを増やすのではなく、プローブの
+//    「ウォッチリスト導線の探索」でヤフオク自身にリンクを吐かせる。**
 export const WATCHLIST_URL_CANDIDATES = [
-  "https://auctions.yahoo.co.jp/user/jp/show/watchlist",
-  "https://auctions.yahoo.co.jp/watchlist",
+  // ⚠️ ここも未検証の推測。プローブの探索結果で置き換えること
+  "https://auctions.yahoo.co.jp/jp/show/mystatus?select=watchlist",
+  "https://page.auctions.yahoo.co.jp/jp/show/mystatus?select=watchlist",
 ];
 
 export interface WatchlistSyncResult {
@@ -45,7 +57,30 @@ export interface ScrapedWatchItem {
  * セレクタが変わっただけの日に「ウォッチリストが空になりました」という
  * 正常そうな結果が返り、誰も気づかないまま候補が更新されなくなる。
  */
-export async function scrapeWatchlistPage(page: Page): Promise<WatchlistSyncResult & { items: ScrapedWatchItem[] }> {
+export async function scrapeWatchlistPage(
+  page: Page,
+  httpStatus: number | null = null,
+): Promise<WatchlistSyncResult & { items: ScrapedWatchItem[] }> {
+  // ⚠️ 商品リンクを数える **前** に、そもそもウォッチリストに着いているかを見る。
+  // 存在しない URL のヤフオク案内ページは商品リンクが0件になるので、
+  // 後段の「0件」判定に落ちると「空のウォッチリスト」と区別が付かない。
+  const identity = pageIdentityVerdict({
+    url: page.url(),
+    httpStatus,
+    bodyText: await page.locator("body").innerText().catch(() => ""),
+  });
+  if (identity.kind === "NOT_FOUND") {
+    return {
+      kind: "UNPARSEABLE",
+      itemCount: 0,
+      items: [],
+      detail: `ウォッチリストの URL が存在しません: ${identity.reason}`,
+    };
+  }
+  if (identity.kind === "LOGIN_REQUIRED") {
+    return { kind: "SESSION_EXPIRED", itemCount: 0, items: [] };
+  }
+
   if ((await page.locator(selectors.watchlistLoginWall).count()) > 0) {
     return { kind: "SESSION_EXPIRED", itemCount: 0, items: [] };
   }
@@ -97,8 +132,8 @@ export async function runWatchlistSync(yahooSessionId: string): Promise<Watchlis
 
     let last: (WatchlistSyncResult & { items: ScrapedWatchItem[] }) | null = null;
     for (const url of WATCHLIST_URL_CANDIDATES) {
-      await page.goto(url, { waitUntil: "domcontentloaded" });
-      last = await scrapeWatchlistPage(page);
+      const res = await page.goto(url, { waitUntil: "domcontentloaded" });
+      last = await scrapeWatchlistPage(page, res?.status() ?? null);
       if (last.kind !== "UNPARSEABLE") break; // 壁に当たったか、読めたか
     }
     const result = last ?? { kind: "UNPARSEABLE" as const, itemCount: 0, items: [] };
@@ -114,9 +149,12 @@ export async function runWatchlistSync(yahooSessionId: string): Promise<Watchlis
 
     if (result.kind === "UNPARSEABLE") {
       // 既存のウォッチリストには触らない。lastWatchlistSyncAt も進めない。
+      // ⚠️ 理由を決め打ちで書かない。2026-08-26 は実際には
+      // 「URL が存在しない」だったのに、この行は「セレクタが外れている」と
+      // 断言していて、切り分けを1日ぶん遅らせた。detail を出す。
       console.error(
-        `[watchlist] ${session.label}: ページを解釈できませんでした。` +
-          "セレクタ(watchlistItemLink)の P0 検証が必要です",
+        `[watchlist] ${session.label}: ウォッチリストを読めませんでした。` +
+          `${result.detail ?? "理由不明"} (P0 検証: npm run p0:probe -- --watchlist)`,
       );
       return result;
     }
