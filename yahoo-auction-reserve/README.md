@@ -340,8 +340,18 @@ brew install --cask tailscale && open -a Tailscale   # 初回だけ。iPhone に
 scripts/remote-serve.sh                              # 起動 → 公開 → スリープ抑止まで一括
 ```
 
+初回だけ tailnet 側の設定も要る(https://login.tailscale.com/admin/dns):
+
+- **MagicDNS** を有効化
+- **HTTPS Certificates** を有効化
+
+どちらかが無効だと `tailscale serve` が通らない。スクリプトはこの失敗を
+検出して手順を出すので、メッセージに従って有効化してから実行し直す。
+
 `scripts/remote-serve.sh` がやること:
 
+0. `tailscale` の存在と **ログイン済みかどうか** を先に確かめる
+   (ログインしていないと公開だけ失敗し、docker を起動しきった後に落ちて原因が見えにくい)
 1. `docker compose up -d --build`(本番ビルド。`NODE_ENV=production` なので Cookie の `secure` が効く)
 2. `http://localhost:3000/login` が応答するまで待つ(**待たずに公開すると、繋がらないのが
    Tailscale のせいなのかアプリのせいなのか切り分けられなくなる**)

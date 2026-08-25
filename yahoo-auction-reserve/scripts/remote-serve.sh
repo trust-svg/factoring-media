@@ -30,6 +30,20 @@ MSG
   exit 1
 fi
 
+# インストール済みでもログインしていなければ serve は通らない。
+# ここで落としておかないと、docker compose を起動しきった後に
+# 「公開だけできない」状態で失敗して、原因が分かりにくい。
+if ! "$TS" status >/dev/null 2>&1; then
+  cat <<'MSG' >&2
+tailscale はインストール済みですが、ログインしていません。
+
+  open -a Tailscale     # メニューバーのアイコンからログイン
+  # iPhone 側にも同じアカウントでログインしておくこと
+
+MSG
+  exit 1
+fi
+
 if [ "${1:-}" = "off" ]; then
   "$TS" serve reset
   echo "公開を取り下げました(アプリと worker は動いたままです)"
@@ -53,7 +67,23 @@ for i in $(seq 1 60); do
 done
 
 echo "==> tailnet に公開"
-"$TS" serve --bg "$PORT"
+# serve は tailnet の HTTPS 証明書が有効でないと通らない。
+# 初回はここで必ず引っかかるので、エラーを読める形にして落とす。
+if ! "$TS" serve --bg "$PORT"; then
+  cat <<'MSG' >&2
+
+公開に失敗しました。初回は tailnet 側の設定が要ります。
+
+  https://login.tailscale.com/admin/dns
+  → MagicDNS を有効化
+  → HTTPS Certificates を有効化
+
+有効にしてからもう一度このスクリプトを実行してください。
+(アプリ自体は起動済みなので、Mac 上では http://localhost:${PORT} で開けます)
+
+MSG
+  exit 1
+fi
 "$TS" serve status
 
 cat <<'MSG'
