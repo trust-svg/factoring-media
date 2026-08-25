@@ -39,6 +39,7 @@ import {
 } from "@yar/shared";
 import type { YahooCookie } from "@yar/shared";
 import { selectors } from "../src/bidder/selectors";
+import { confirmClickVerdict } from "../src/bidder/probeSafety";
 import {
   WATCHLIST_URL_CANDIDATES,
   scrapeWatchlistPage,
@@ -749,7 +750,29 @@ async function main(): Promise<void> {
         const confirmHits = (await probeSlot(page, "bidConfirmButton")).filter(
           (r) => r.count > 0 && r.visible,
         );
-        if (confirmHits.length > 0) {
+        // 押す前に「それは確定ボタンではないか」を確かめる。
+        // この時点で入札額は入力済みなので、確定ボタンを押すと **実入札が飛ぶ**。
+        // 押してよいかを未検証のセレクタの正しさに委ねない(probeSafety.ts)。
+        const submitKeys = (await probeSlot(page, "bidSubmitButton"))
+          .filter((r) => r.count > 0)
+          .flatMap((r) => r.nodes.map(nodeKey));
+        const confirmNode = confirmHits[0]?.nodes[0];
+        const verdict = confirmHits.length === 0 || !confirmNode
+          ? { safe: false, reason: "確認ボタンの候補が全滅している" }
+          : confirmClickVerdict({
+              confirmKey: nodeKey(confirmNode),
+              submitKeys,
+              label: confirmNode.text || confirmNode.value,
+            });
+
+        if (!verdict.safe) {
+          say(`### ⚠️ 確認ボタンを押さずに止めた — ${verdict.reason}`);
+          say("");
+          say("入札額は入力済みだが、ここから先へは自動では進めない。");
+          say("上のダンプで実体を確認し、確認ボタンだと判断できたら **画面上で自分で押すこと**。");
+          say("");
+          steps.push({ name: "確認画面へ進む", ms: 0, ok: false, detail: verdict.reason });
+        } else {
           await step("確認画面へ進む", async () => {
             await page.locator(confirmHits[0].selector).first().click({ timeout: 15_000 });
             await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
