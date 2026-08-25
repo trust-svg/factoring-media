@@ -44,6 +44,7 @@ DB から再構築するため、Redis 消失や worker 再起動から自己修
 | `MAIL_FROM` | 通知メールの From | `yar@example.com` |
 | `TELEGRAM_BOT_TOKEN` | Telegram 通知・増額承認ボタンの Bot トークン(任意) | @BotFather で**新規に**作成。未設定なら Telegram 経路はスキップ |
 | `CHROMIUM_EXECUTABLE_PATH` | Playwright が使う Chromium の明示指定(任意) | Docker イメージ同梱のものを使う場合は不要 |
+| `ALLOW_REGISTRATION` | 新規登録の開閉(任意) | `true` のときだけ開く。**未設定なら利用者0人のときだけ許可**され、1人登録された時点で自動的に閉じる |
 
 > `COOKIE_ENCRYPTION_KEY` を変更すると **保存済みの連携 Cookie は全て復号できなくなる**。
 > 鍵を入れ替えたら `YahooSession` を作り直すこと。
@@ -304,6 +305,55 @@ Stage 2 はステップごとの所要時間も出す。これが §13-2(実行�
 
 確認先の URL は 予約中の商品ページ → ウォッチリストの商品 → ヤフオクトップ の順で選ぶ。
 ログイン有無の差を実測できているのは商品ページの `loginLink` だけのため。
+
+## 外出先からアクセスする
+
+### 前提: worker は Mac から動かすしかない
+
+ヤフオクは **VPS(データセンター IP)からのアクセスを 403 で弾く**。
+アプリごと VPS へ載せると、画面は開くのに入札だけ落ちる。
+そのため「web も worker も Mac で動かし、外からは Mac の画面に届かせるだけ」にする。
+
+⚠️ **Mac がスリープすると入札は動かない。** これは外出時に限らず今もそうで、
+外から画面が見えるようになると「見えているのに動いていない」に化けやすくなる。
+入札を任せる日は電源に繋いでスリープを切っておくこと。
+
+```bash
+caffeinate -dimsu          # 実行中はスリープしない(終了で元に戻る)
+```
+
+生きているかどうかは日次サマリ(Telegram)で外出先からも分かる。**サマリが来ない日は
+worker が止まっている**と読むこと(設定 > 通知 で送信時刻を決める)。
+
+### 到達方法(公開面を増やさない順)
+
+| 方法 | 公開されるか | HTTPS | 備考 |
+|---|---|---|---|
+| **Tailscale + `tailscale serve`**(推奨) | されない(自分の端末だけ) | ○ | iPhone に Tailscale を入れるだけ。PWA としてホーム画面に置ける |
+| Cloudflare Tunnel + Access | 公開URLだが Access で認証必須 | ○ | 独自ドメインを当てたいとき。Access を外すと**世界中から到達可能**になる |
+| VPS の Caddy → Mac への SSH リバーストンネル | 公開 | ○ | 既存インフラに乗るが、VPS が落ちるとアプリも見えない |
+
+推奨の手順(Tailscale):
+
+```bash
+# Mac と iPhone に Tailscale を入れて同じアカウントでログインしておく
+docker compose up -d --build              # 本番ビルドで起動(NODE_ENV=production)
+tailscale serve --bg 3000                 # https://<machine>.<tailnet>.ts.net で公開(tailnet 内だけ)
+tailscale serve status
+```
+
+iPhone の Safari でその URL を開き、共有 > ホーム画面に追加 で PWA になる。
+HTTPS になるのでログイン Cookie の `secure` 属性も効く。
+
+### 外に出す前に必ず確認すること
+
+- **新規登録が閉じているか。** 既定では利用者が1人でも居れば `/register` は 403 を返す。
+  開けたいときだけ `ALLOW_REGISTRATION=true` を立て、**終わったら消す**
+- ログイン試行は 15 分に 5 回まで(メールアドレス単位 / IP 単位)。超えると 429。
+  記録はプロセス内メモリなので、web を再起動すると解除される
+- `AUTH_SECRET` と `COOKIE_ENCRYPTION_KEY` が開発用の使い回しになっていないか
+- このアプリは **ヤフオクのログイン Cookie を預かっている**。到達できる範囲を広げることは、
+  その Cookie に到達できる範囲を広げること。公開URLにするなら認証を前段に置く
 
 ## 既知の制約(MVP 時点)
 
