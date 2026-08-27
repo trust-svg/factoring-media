@@ -35,6 +35,7 @@ import {
   YAHOO_AUCTION_URL_PATTERN,
   decryptSecret,
   extractAuctionId,
+  minimumBidToBeat,
   parseAuctionPage,
 } from "@yar/shared";
 import type { YahooCookie } from "@yar/shared";
@@ -162,8 +163,15 @@ const STAGE1_SLOTS = [
   "highestBidderIndicator",
   "outbidIndicator",
 ];
-// 入札フォーム〜確認画面で確認したいスロット(Stage 2 で見る)
-const STAGE2_SLOTS = ["priceInput", "bidConfirmButton", "bidSubmitButton"];
+// 入札フォームで確認したいスロット(Stage 2 の確認ボタンを押す前に見る)
+//
+// ⚠️ bidSubmitButton を **ここに入れないこと**。2026-08-28 の実測で、
+// 入札フォームはモーダル(URL が変わらない)で、裏の商品ページの
+// 「入札する」ボタン2件が DOM に残ったままだと分かった。確認画面に
+// 着いていないのに `role=button[name="入札する"]` が2件当たり、
+// レポートには **✅ 検証済に見える偽陽性**が出る(実際にそう出た)。
+// 確定ボタンは「確認ボタンを押した後」にだけ意味がある。
+const STAGE2_SLOTS = ["priceInput", "bidConfirmButton"];
 // ウォッチリストページで確認したいスロット(--watchlist)
 const WATCHLIST_SLOTS = [
   "watchlistLoginWall",
@@ -228,6 +236,13 @@ const fmt = (d: Date | undefined) =>
   d ? d.toLocaleString("ja-JP", { timeZone: JST }) : "(取得できず)";
 
 const out: string[] = [];
+/**
+ * 途中で落ちても・ブラウザを閉じられてもレポートだけは残すための書き出し口。
+ * main() が reportPath を決めた時点で実体が入る。
+ */
+let saveReport: () => void = () => {};
+let reportAnnounced = false;
+
 function say(line = ""): void {
   console.log(line);
   out.push(line);
@@ -812,7 +827,11 @@ async function probeWatchlist(
 }
 
 // 認証済み DOM に対してパーサが機能するかを見る(未認証 fetch とは差が出うる)
-async function reportParser(page: Page, url: string, anonymous: boolean): Promise<void> {
+async function reportParser(
+  page: Page,
+  url: string,
+  anonymous: boolean,
+): Promise<ReturnType<typeof parseAuctionPage>> {
   const info = parseAuctionPage(await page.content(), url);
   say(`### パーサ結果(${anonymous ? "未ログイン" : "認証済み"} DOM)`);
   say("");
@@ -829,6 +848,7 @@ async function reportParser(page: Page, url: string, anonymous: boolean): Promis
     say("> ⚠️ 終了時刻か現在価格が取れていない。ここが取れないと監視ジョブが機能しない。");
     say("");
   }
+  return info;
 }
 
 async function launchContext(headless: boolean): Promise<BrowserContext> {
@@ -959,6 +979,16 @@ async function main(): Promise<void> {
     `../../tmp/p0/${slug}${args.anonymous ? "-anon" : ""}-${stamp}.md`,
   );
   mkdirSync(dirname(reportPath), { recursive: true });
+  // ⚠️ 以前は最後に1回だけ書いていた。Stage 2 は最後に「Enter で閉じる」待ちに
+  //    入るので、**ブラウザの窓を閉じた回・Ctrl-C で抜けた回はレポートが
+  //    1バイトも残らなかった**(2026-08-27/28 の2回とも消えた。png だけ残る)。
+  //    P0 は実ページを1回開くたびに手が要る作業なので、取り直しの代償が高い。
+  //    以後は「書ける時点で毎回書く」。out は追記しかしないので上書きで良い。
+  saveReport = () => {
+    writeFileSync(reportPath, out.join("\n"), "utf-8");
+    if (!reportAnnounced) console.log(`\nレポート: ${reportPath}`);
+    reportAnnounced = true;
+  };
 
   say(`# P0 プローブ結果 — ${slug}`);
   say("");
@@ -984,8 +1014,7 @@ async function main(): Promise<void> {
 
   if (args.watchlist) {
     await probeWatchlist(page, reportPath, args.anonymous);
-    writeFileSync(reportPath, out.join("\n"), "utf-8");
-    console.log(`\nレポート: ${reportPath}`);
+    saveReport();
     await close();
     await prisma.$disconnect();
     return;
@@ -1006,7 +1035,7 @@ async function main(): Promise<void> {
   say("");
 
   await reportSlots(page, STAGE1_SLOTS);
-  await reportParser(page, args.url, args.anonymous);
+  const parsed = await reportParser(page, args.url, args.anonymous);
   await discovery(page);
 
   const shot1 = reportPath.replace(/\.md$/, "-stage1.png");
@@ -1022,6 +1051,38 @@ async function main(): Promise<void> {
     say("> **このスクリプトは確定ボタンを押さない。**");
     say("> 確認画面まで進めたらブラウザを開いたまま止めるので、確定するかどうかは人が決める。");
     say("");
+
+    // --amount が最低入札額に届いていないと、確認ボタンを押した先はフォームの
+    // 検証エラーで、確認画面には **絶対に着かない**。
+    // ⚠️ 弾かれ方が地雷: 画面はモーダルのまま・URL も変わらないので、
+    //    「セレクタが違う」「まだ描画されていない」と見分けがつかない。
+    //    2026-08-28 に現在価格4,900円へ 4,901 を入れて回し、1往復を無駄にした
+    //    (入札単位100円なので最低は5,000円。端数を足しただけでは足りない)。
+    // ⚠️ この判定に使う入札単位の表(packages/shared/src/bidUnit.ts)自体が
+    //    まだ P0 未検証。ここで止まったら、フォームが出す「最低入札価格」の
+    //    表示と突き合わせて表の側を直すこと(合わせて表の検証にもなる)。
+    const minAmount =
+      parsed.currentPrice === undefined ? undefined : minimumBidToBeat(parsed.currentPrice);
+    if (minAmount !== undefined && (args.amount ?? 0) < minAmount) {
+      say(`### ⚠️ 入札額 ${args.amount} では進めない — 最低入札額は ${minAmount} 円`);
+      say("");
+      say(`- 現在価格: ${parsed.currentPrice} 円`);
+      say(`- 入札単位: ${minAmount - parsed.currentPrice!} 円(bidUnit.ts の表による推定)`);
+      say("");
+      say("入札ボタンには触っていない。`--amount` を上げて回し直すこと。");
+      say("");
+      // ⚠️ 上の「ここで return するとレポートが残らない」に該当しないよう、
+      //    先に書き出してから抜ける。
+      saveReport();
+      console.log(
+        `\n>>> 入札額 ${args.amount} は最低入札額 ${minAmount} 円に届かない。` +
+          `\n>>> --amount ${minAmount} 以上で回し直すこと(何もクリックしていない)。`,
+      );
+      await close();
+      await prisma.$disconnect();
+      return;
+    }
+
     const steps: { name: string; ms: number; ok: boolean; detail: string }[] = [];
     const step = async (name: string, fn: () => Promise<void>) => {
       const s = Date.now();
@@ -1170,6 +1231,8 @@ async function main(): Promise<void> {
 
     const shot2 = reportPath.replace(/\.md$/, "-stage2.png");
     await page.screenshot({ path: shot2 }).catch(() => {});
+    // 対話待ちの **前** に書く。ここを越えられるかは人の操作次第。
+    saveReport();
 
     if (!args.headless) {
       console.log(
@@ -1183,8 +1246,7 @@ async function main(): Promise<void> {
     }
   }
 
-  writeFileSync(reportPath, out.join("\n"), "utf-8");
-  console.log(`\nレポート: ${reportPath}`);
+  saveReport();
 
   await close();
   await prisma.$disconnect();
@@ -1192,6 +1254,12 @@ async function main(): Promise<void> {
 
 main().catch(async (err) => {
   console.error("[p0-probe]", err instanceof Error ? err.message : err);
+  // 落ちた回こそレポートが要る(ブラウザを閉じられた回もここに来る)
+  try {
+    saveReport();
+  } catch {
+    // 書き出し先が作られる前に落ちたときは諦める
+  }
   await prisma.$disconnect().catch(() => {});
   process.exit(1);
 });

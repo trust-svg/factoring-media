@@ -38,4 +38,12 @@ describe("minimumBidToBeat", () => {
     assert.equal(minimumBidToBeat(1_400), 1_500);
     assert.equal(minimumBidToBeat(6_000), 6_250);
   });
+
+  // 2026-08-28 の P0 で実際に踏んだ回。現在価格4,900円の商品に 4,901 を入れて
+  // Stage 2 を回し、確認画面に着けずに1往復を無駄にした。
+  // 「現在価格より1円でも高ければ通る」ではない。
+  it("現在価格を1円上回るだけでは足りない — 2026-08-28 の実測ケース", () => {
+    assert.equal(minimumBidToBeat(4_900), 5_000);
+    assert.ok(4_901 < minimumBidToBeat(4_900), "4,901 は最低入札額に届かない");
+  });
 });
