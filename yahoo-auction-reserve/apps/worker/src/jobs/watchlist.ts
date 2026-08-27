@@ -4,6 +4,8 @@ import { YAHOO_AUCTION_URL_PATTERN, fetchAuctionInfo } from "@yar/shared";
 import { pageIdentityVerdict } from "../bidder/pageIdentity";
 import { selectors } from "../bidder/selectors";
 import { createYahooContext, launchBrowser, markSessionExpired } from "../bidder/session";
+import { settlePage } from "../bidder/settle";
+import { CAROUSEL_ANCESTOR_SELECTOR, watchlistScopeVerdict } from "../bidder/watchlistScope";
 import { notifyUser } from "../notify";
 
 // ウォッチリスト同期(ヤフオク → アプリの一方向。設計追補 2026-08-25)。
@@ -87,11 +89,45 @@ export async function scrapeWatchlistPage(
     return { kind: "SESSION_EXPIRED", itemCount: 0, items: [] };
   }
 
+  // ⚠️ おすすめカルーセルを除く。同じページに同居していて、素で数えると
+  // ウォッチ中9件のところ70件が出る(詳細は bidder/watchlistScope.ts)。
+  //
   // DOM 型(HTMLAnchorElement)は worker の tsconfig(lib: ES only)に無いので、
-  // ブラウザ側では getAttribute で取り、絶対 URL 化はこちらで行う。
-  const rawHrefs = await page
+  // ブラウザ側では getAttribute / closest で取り、絶対 URL 化はこちらで行う。
+  const allHrefs = await page
     .locator(selectors.watchlistItemLink)
     .evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? "").filter(Boolean));
+  const rawHrefs = await page
+    .locator(selectors.watchlistItemLink)
+    .evaluateAll(
+      (els, sel: string) =>
+        els
+          .filter((e) => e.closest(sel) === null)
+          .map((e) => e.getAttribute("href") ?? "")
+          .filter(Boolean),
+      CAROUSEL_ANCESTOR_SELECTOR,
+    );
+  const carouselContainers = await page.locator(CAROUSEL_ANCESTOR_SELECTOR).count();
+
+  const scope = watchlistScopeVerdict({
+    total: allHrefs.length,
+    kept: rawHrefs.length,
+    carouselContainers,
+  });
+  // ⚠️ この3つは毎回出す。クラス名ごと変わって除外が効かなくなった日は、
+  // 件数が跳ねること以外に手掛かりが無くなるため(watchlistScope.ts の既知の限界)。
+  console.log(
+    `[watchlist] 商品リンク ${allHrefs.length}本 → カルーセル除外後 ${rawHrefs.length}本 ` +
+      `(カルーセル要素 ${carouselContainers}個)`,
+  );
+  if (!scope.ok) {
+    return {
+      kind: "UNPARSEABLE",
+      itemCount: 0,
+      items: [],
+      detail: `ウォッチリストの一覧を切り出せませんでした: ${scope.reason}`,
+    };
+  }
   const pageUrl = page.url();
   const hrefs = rawHrefs.map((h) => {
     try {
@@ -135,6 +171,14 @@ export async function runWatchlistSync(yahooSessionId: string): Promise<Watchlis
     let last: (WatchlistSyncResult & { items: ScrapedWatchItem[] }) | null = null;
     for (const url of WATCHLIST_URL_CANDIDATES) {
       const res = await page.goto(url, { waitUntil: "domcontentloaded" });
+      // ⚠️ ここで待たないと、React がマウントし切る前の DOM を読む。
+      // 「読むたびに件数が違う」の原因(bidder/settle.ts)。
+      const settled = await settlePage(page);
+      if (!settled.verdict.rendered) {
+        console.error(
+          `[watchlist] ${session.label}: ${url} が描画され切っていません — ${settled.verdict.reason}`,
+        );
+      }
       last = await scrapeWatchlistPage(page, res?.status() ?? null);
       if (last.kind !== "UNPARSEABLE") break; // 壁に当たったか、読めたか
     }

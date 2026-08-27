@@ -40,11 +40,12 @@ import {
 import type { YahooCookie } from "@yar/shared";
 import { selectors } from "../src/bidder/selectors";
 import { confirmClickVerdict } from "../src/bidder/probeSafety";
+import { bidLandingVerdict, listStabilityVerdict } from "../src/bidder/pageReady";
+import { settlePage } from "../src/bidder/settle";
 import {
-  bidLandingVerdict,
-  listStabilityVerdict,
-  renderVerdict,
-} from "../src/bidder/pageReady";
+  CAROUSEL_ANCESTOR_SELECTOR,
+  watchlistScopeVerdict,
+} from "../src/bidder/watchlistScope";
 import { pageIdentityVerdict } from "../src/bidder/pageIdentity";
 import { redactUrl } from "../src/bidder/urlSafe";
 import {
@@ -430,39 +431,14 @@ async function dumpElements(
  * 待ち方は networkidle 頼みにしない。広告・計測ビーコンが鳴り続けるページでは
  * networkidle が来ないので、**要素数が増えなくなったこと** を主な合図にする。
  */
-const SETTLE_POLL_MS = 400;
-const SETTLE_STABLE_ROUNDS = 3;
-const SETTLE_MAX_MS = 15_000;
-
+// ⚠️ 待ち方の実体は src/bidder/settle.ts に置いてある。
+//    ここに写しを持たないこと — プローブだけ直して本番の同期が古いままになる。
+//    2026-08-27 まで実際にそうなっていて、同じページをプローブは商品リンク148本、
+//    同期は回によって9〜33件と、別々のものを見ていた。
 async function settle(page: Page, label: string): Promise<void> {
-  // networkidle は「来たら儲けもの」。来なくても下のポーリングで進む
-  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
-
-  const started = Date.now();
-  let stable = 0;
-  let prev = -1;
-  let clickable = 0;
-  let inputs = 0;
-  while (Date.now() - started < SETTLE_MAX_MS) {
-    clickable = await page
-      .locator("button, input[type=submit], input[type=button], a")
-      .count()
-      .catch(() => 0);
-    inputs = await page.locator("input").count().catch(() => 0);
-    if (clickable === prev) {
-      stable += 1;
-      if (stable >= SETTLE_STABLE_ROUNDS) break;
-    } else {
-      stable = 0;
-      prev = clickable;
-    }
-    await page.waitForTimeout(SETTLE_POLL_MS);
-  }
-
-  const elapsed = Date.now() - started;
-  const v = renderVerdict({ clickable, inputs });
+  const { clickable, inputs, elapsedMs, verdict: v } = await settlePage(page);
   say(
-    `_描画待ち(${label}): ${elapsed}ms / クリック要素 ${clickable} / input ${inputs}_`,
+    `_描画待ち(${label}): ${elapsedMs}ms / クリック要素 ${clickable} / input ${inputs}_`,
   );
   say("");
   if (!v.rendered) {
@@ -533,6 +509,39 @@ const ANCESTRY_DEPTH = 14;
  * なので、`--` の前だけを使う。`sc-` / `css-` で始まる styled-components の
  * 自動生成クラスは意味を持たないので落とす。
  */
+/**
+ * カルーセル除外が効いているかを数で出す。
+ *
+ * ⚠️ 「当たった件数」だけを見ていると、**多いほど成功に見える** という
+ *    一番まずい向きに壊れる。実際 2026-08-27 まで、70件拾えているのに
+ *    ウォッチ中は9件だけ、という状態が「✅ 当たった」と報告されていた。
+ */
+async function scopeReport(page: Page): Promise<void> {
+  const total = await page.locator(selectors.watchlistItemLink).count();
+  const containers = await page.locator(CAROUSEL_ANCESTOR_SELECTOR).count();
+  const kept = await page
+    .locator(selectors.watchlistItemLink)
+    .evaluateAll((els, sel: string) => els.filter((e) => e.closest(sel) === null).length,
+      CAROUSEL_ANCESTOR_SELECTOR);
+  const v = watchlistScopeVerdict({ total, kept, carouselContainers: containers });
+
+  say("**watchlistItemLink: カルーセル除外の内訳**");
+  say("");
+  say("| 項目 | 件数 |");
+  say("|---|---|");
+  say(`| 商品リンク(除外前) | ${total} |`);
+  say(`| うちカルーセルの中 | ${total - kept} |`);
+  say(`| **ウォッチ中として採用** | **${kept}** |`);
+  say(`| ページ上のカルーセル要素 | ${containers} |`);
+  say("");
+  if (v.ok) {
+    say(`- ✅ スコープは効いている(除外条件: \`${CAROUSEL_ANCESTOR_SELECTOR}\`)`);
+  } else {
+    say(`- 🚨 **スコープが効いていない**: ${v.reason}`);
+  }
+  say("");
+}
+
 async function ancestryReport(page: Page, sel: string, label: string): Promise<void> {
   say(`**${label}: 当たった要素の所属ブロック**`);
   say("");
@@ -769,12 +778,16 @@ async function probeWatchlist(
       const again = await scrapeWatchlistPage(page, httpStatus);
       const stab = listStabilityVerdict({ first: result.itemCount, second: again.itemCount });
       if (stab.stable) {
-        say(`- ✅ 再読込でも ${again.itemCount}件で一致(一覧だけを指せている可能性が高い)`);
+        // ⚠️ 一致は合格の根拠にならない。2026-08-27 の実測では、
+        // おすすめカルーセル65商品を巻き込んだまま 70件 → 70件 で一致した。
+        // 描画が落ち着いた後ならカルーセルも安定するため。
+        say(`- 再読込でも ${again.itemCount}件で一致(**一致は合格の根拠ではない** — 下のスコープ内訳を見ること)`);
       } else {
         say(`- 🚨 **件数が安定しない**: ${stab.reason}`);
         say("  - この `watchlistItemLink` を selectors.ts に ✅ として写さないこと");
       }
       say("");
+      await scopeReport(page);
       await ancestryReport(page, selectors.watchlistItemLink, "watchlistItemLink");
     }
 
