@@ -1,21 +1,12 @@
-import { resolve } from "node:path";
+import { loadLocalEnv } from "@yar/db";
 
-// ローカル実行(npm run dev:worker / npm run p0:probe)用の .env 読み込み。
-//
-// docker compose では env_file: .env で渡るので不要だが、ローカルでは何も
-// 読み込む仕組みが無く、README どおり `cp .env.example .env` しても
-// DATABASE_URL 未定義で落ちていた。
+// ローカル実行用の環境変数読み込み。実体は packages/db/src/loadEnv.ts。
 //
 // queues.ts が module スコープで REDIS_URL を読むため、**副作用として
 // import 時に読み込む**。呼び出し側では必ず最初の import にすること。
-// 既に定義済みの環境変数は上書きしない(compose 側の値が勝つ)。
-const CANDIDATES = ["../../.env", ".env"];
-
-for (const rel of CANDIDATES) {
-  try {
-    process.loadEnvFile(resolve(process.cwd(), rel));
-    break;
-  } catch {
-    // 見つからない/読めないときは既存の環境変数をそのまま使う
-  }
-}
+//
+// ⚠️ 以前はこのファイルが読み込みの実装そのものを持っていた。その結果、
+//    worker のスクリプトだけが動き、web 側のスクリプトは
+//    `Environment variable not found: DATABASE_URL` で落ちた。
+//    実装は @yar/db に移してある(PrismaClient を作る前に必ず通る場所)。
+loadLocalEnv();
