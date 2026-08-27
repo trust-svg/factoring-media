@@ -103,16 +103,21 @@ const CANDIDATES: Record<string, Candidate[]> = {
   ],
   priceInput: [
     selectors.priceInput,
-    "input[name='Bid_price']",
-    "input[name='bidYen']",
-    "input[name='price']",
-    "input[type='tel'][name*='price' i]",
+    // 2026-08-28 実測: 入力欄は type=tel で **name 属性が無い**。
+    // name を当てにした候補(Bid_price / bidYen / price)は実在しなかったので消した。
+    // 実在しない候補を残すと、永久に0件なのが「まだ検証していないだけ」に見える(地雷7)
+    "input[type='tel']",
+    {
+      sel: "input[type='text']",
+      // ページ上部のヘッダ検索窓(#mhdSearchBoxInput)に当たる。
+      // 入札額をここに入れても画面は何も言わない
+      trap: "ヘッダの検索窓 #mhdSearchBoxInput に当たる",
+    },
   ],
   bidConfirmButton: [
     selectors.bidConfirmButton,
-    "input[type='submit'][value*='確認']",
+    // 2026-08-28 実測: 表示は「確認する」。<button> なので submit input は無い
     "button:has-text('確認')",
-    "text=入札内容を確認",
   ],
   bidSubmitButton: [
     selectors.bidSubmitButton,
@@ -1038,6 +1043,11 @@ async function main(): Promise<void> {
     // 入札ボタン: Stage 1 で当たった候補を使う。
     // ⚠️ 罠と分かっている候補は選ばない(usableHits)。2026-08-25 はここで
     // `a[href*='/jp/show/bid']` が先頭に来て、入札履歴ページを開いた。
+    // 最後に出す案内を実際の到達点に合わせるためのフラグ。
+    // ⚠️ 以前は無条件に「確認画面で止めた」と出していた。着地に失敗した回でも
+    //    そう出るので、**進めなかったことが端末上では分からなかった**
+    //    (レポートには出ているが、その場で読むのは最後の2行)。
+    let reachedConfirmScreen = false;
     const bidResults = await probeSlot(page, "bidButton");
     const bidHits = usableHits(bidResults);
     if (bidHits.length === 0) {
@@ -1138,6 +1148,7 @@ async function main(): Promise<void> {
               await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
             });
             await settle(page, "確認ボタンをクリックした後");
+            reachedConfirmScreen = true;
             say("### 確認画面のスロット");
             say("");
             await reportSlots(page, ["bidSubmitButton"]);
@@ -1162,7 +1173,9 @@ async function main(): Promise<void> {
 
     if (!args.headless) {
       console.log(
-        "\n>>> 確認画面で止めた。確定するなら画面上で自分でクリックすること。\n>>> 終わったら Enter を押すとブラウザを閉じる。",
+        reachedConfirmScreen
+          ? "\n>>> 確認画面で止めた。確定するなら画面上で自分でクリックすること。\n>>> 終わったら Enter を押すとブラウザを閉じる。"
+          : "\n>>> 確認画面までは進めていない(上のレポートの ⚠️ を読むこと)。\n>>> ブラウザは開いたままなので、画面の実物を見てから Enter で閉じる。",
       );
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       await rl.question("");

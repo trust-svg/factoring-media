@@ -75,6 +75,13 @@ export interface LandingVerdict {
  *
  * ⚠️ 押す前のセレクタの正しさではなく、**着いた先** で判定する。
  * セレクタが将来ずれても、着地点の判定は生き残る。
+ *
+ * ⚠️ ただし「入力欄が無い」の判定だけは priceInput の正しさに乗っている。
+ * 2026-08-28 の実測では、実際にはモーダルの入札フォームに着いていたのに
+ * priceInput が name 属性を当てにした実在しない候補だったため、
+ * 「入札フォームに着いていない」と報告した(selectors.ts 地雷11)。
+ * だから reason には「セレクタが違う」を **最初に** 残してある。
+ * 原因の順番を入れ替えないこと。読む人はここから調べ始める。
  */
 export function bidLandingVerdict(args: {
   url: string;
@@ -92,7 +99,7 @@ export function bidLandingVerdict(args: {
       ok: false,
       reason:
         `入札額の入力欄が1つも無い(${url})。` +
-        `入札フォームに着いていないか、まだ描画されていない`,
+        `セレクタが違うか、入札フォームに着いていないか、まだ描画されていない`,
     };
   }
   return { ok: true, reason: "" };

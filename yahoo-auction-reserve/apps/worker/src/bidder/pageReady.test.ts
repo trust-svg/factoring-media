@@ -84,6 +84,18 @@ test("入札額の入力欄が無い着地点は信用しない", () => {
   assert.match(v.reason, /入力欄/);
 });
 
+test("入力欄0件の理由は「セレクタが違う」を先に挙げる — 2026-08-28 の誤診", () => {
+  // 実際にはモーダルの入札フォームに着いていたのに、priceInput が
+  // 実在しない name を見ていたため「着いていない」と報告した。
+  // 読む人が最初に疑うべき原因を先頭に置く
+  const v = L("https://auctions.yahoo.co.jp/jp/auction/j1241905417", 0);
+  assert.match(v.reason, /セレクタが違う/);
+  assert.ok(
+    v.reason.indexOf("セレクタが違う") < v.reason.indexOf("着いていない"),
+    "セレクタの疑いは着地の疑いより先に出すこと",
+  );
+});
+
 test("判定は安全側に非対称 — 疑わしい着地点は全部 ok=false", () => {
   const bad = [
     { url: "https://auctions.yahoo.co.jp/jp/show/bid_hist?aID=b1", n: 2 },
