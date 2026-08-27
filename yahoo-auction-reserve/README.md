@@ -5,12 +5,12 @@
 競合調査は [`COMPETITORS.md`](../docs/yahoo-auction-reserve-app/COMPETITORS.md)。
 
 > [!WARNING]
-> **現在は MVP スケルトンであり、実際の入札は成功しない前提で扱うこと。**
-> `apps/worker/src/bidder/selectors.ts` の P0 検証(設計 §13)は**途中まで**しか終わっていない。
-> 2026-08-24 の実測で `loginLink` / `bidButton` は確定したが、入札フォーム以降
-> (`priceInput` / `bidConfirmButton` / `bidSubmitButton`)と結果判定の3つは
-> **未検証のプレースホルダのまま**で、入札フローは動作保証がない。
-> どれが確定済みかは `selectors.ts` 冒頭の表が正。
+> **入札の確定クリックはまだ一度も実行していない。実際に落札できる保証は無い。**
+> `apps/worker/src/bidder/selectors.ts` の P0 検証(設計 §13)の進捗:
+> `loginLink` / `bidButton` / `priceInput` / `bidConfirmButton` は実測で確定済み(✅)。
+> 確定ボタン `bidSubmitButton` は 2026-08-28 に確認画面まで到達してラベルを実測したが、
+> **押した先は未確認**(押すと取り消せないため)。結果判定(落札/高値更新)も未検証。
+> どれが確定済みかは `selectors.ts` 冒頭の表が正(README より表を信じること)。
 > P0 検証は人手で実施する。CI や自動テストからヤフオクへ実アクセスしないこと。
 
 ## 構成
@@ -440,7 +440,8 @@ worker はスケジューラの走査ごと(30秒)に `WorkerHeartbeat` を1行�
 
 ## 既知の制約(MVP 時点)
 
-- 入札フローのセレクタは P0 未検証(上記の警告を参照)。埋める手順は「P0 検証プローブ」を参照。
+- 入札フローのセレクタは確認画面まで確定済み、**確定クリックだけ未検証**(上記の警告を参照)。
+  埋める手順は「P0 検証プローブ」を参照。
   `--stage2` は実商品に実額を入力するが、確認ボタンを押す前に
   「それは確定ボタンではないか」を判定して止める(`apps/worker/src/bidder/probeSafety.ts`)。
   止まった場合は画面上で自分で押すこと
