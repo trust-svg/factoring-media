@@ -18,6 +18,11 @@ import { notifyUser } from "../notify";
 // 失敗しただけで候補が消えると、予約しようとしていた商品が黙って無くなる。
 // 消えたことは lastSeenAt が古いままになることで表現する。
 //
+// ⚠️ 2026-08-28 追記: この「行は残す」方針は、**一覧が lastSeenAt を見て
+// いること** が前提。見ていなかったので、カルーセル混入時代の残骸61件が
+// ウォッチ中の商品として並び続けた(本物9件)。絞り込みは
+// shared/watchFreshness.ts。行を消す方向へ倒さないこと。
+//
 // ⚠️ ウォッチリストはログイン必須なので、**この同期自体がセッションの
 // 死活監視を兼ねる**。ログイン画面へ飛ばされたらセッションを EXPIRED にする。
 
@@ -205,10 +210,15 @@ export async function runWatchlistSync(yahooSessionId: string): Promise<Watchlis
       return result;
     }
 
-    await upsertItems(session.userId, yahooSessionId, result.items);
+    // ⚠️ 商品と連携に **同じ時刻** を刻む。一覧は
+    // 「lastSeenAt >= lastWatchlistSyncAt」で今回見えたものだけを出すので
+    // (shared/watchFreshness.ts)、ここで別々に new Date() すると
+    // 商品側が必ず数十秒~数分古くなり、**正しく取れた商品が全部消える**。
+    const syncedAt = new Date();
+    await upsertItems(session.userId, yahooSessionId, result.items, syncedAt);
     await prisma.yahooSession.update({
       where: { id: yahooSessionId },
-      data: { lastWatchlistSyncAt: new Date(), lastVerifiedAt: new Date() },
+      data: { lastWatchlistSyncAt: syncedAt, lastVerifiedAt: syncedAt },
     });
     return { kind: "OK", itemCount: result.itemCount };
   } finally {
@@ -220,6 +230,7 @@ async function upsertItems(
   userId: string,
   yahooSessionId: string,
   items: ScrapedWatchItem[],
+  syncedAt: Date,
 ): Promise<void> {
   for (const item of items) {
     // 商品の詳細は Cookie 無しの HTTP で取れる(実測 2026-08-24: ログイン有無で
@@ -233,6 +244,10 @@ async function upsertItems(
         yahooSessionId,
         auctionId: item.auctionId,
         auctionUrl: item.auctionUrl,
+        // 既定値(now())に任せない。1件ずつ商品情報を取りに行くので、
+        // 既定値だと同じ同期の中で商品ごとに数分ずれる
+        firstSeenAt: syncedAt,
+        lastSeenAt: syncedAt,
         title: info?.title,
         imageUrl: info?.imageUrl,
         currentPrice: info?.currentPrice,
@@ -240,7 +255,7 @@ async function upsertItems(
         hasAutoExtension: info?.hasAutoExtension,
       },
       update: {
-        lastSeenAt: new Date(),
+        lastSeenAt: syncedAt,
         yahooSessionId,
         // 取れなかった項目は既存値を残す。undefined を書き込んで
         // 「一度は取れていた終了時刻」を消さない。

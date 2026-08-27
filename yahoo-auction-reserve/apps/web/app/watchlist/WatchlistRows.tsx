@@ -33,6 +33,8 @@ export default function WatchlistRows({
     return () => clearInterval(t);
   }, []);
 
+  // この一覧から消すだけ。ヤフオクのウォッチリストには触らない
+  // (アプリからヤフオク側へ書き込まない方針。jobs/watchlist.ts)
   const dismiss = async (id: string) => {
     setBusy(id);
     try {
@@ -80,8 +82,9 @@ export default function WatchlistRows({
                     className="secondary"
                     disabled={busy === r.id}
                     onClick={() => dismiss(r.id)}
+                    title="この一覧から消します。ヤフオクのウォッチリストはそのままです"
                   >
-                    伏せる
+                    一覧から消す
                   </button>
                 </>
               )}

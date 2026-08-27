@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@yar/db";
+import { isSeenInLatestSync } from "@yar/shared";
 import { formatJstDayLabel, formatJstTime } from "@yar/shared/format";
 import { getSessionUser } from "@/lib/auth";
 import WatchlistRows, { type WatchlistRow } from "./WatchlistRows";
@@ -17,6 +18,10 @@ export default async function WatchlistPage() {
     prisma.watchlistItem.findMany({
       where: { userId: user.id, dismissedAt: null },
       orderBy: [{ endAt: "asc" }, { lastSeenAt: "desc" }],
+      // 連携ごとの最終同期時刻と突き合わせて「今回見えたもの」だけを出す。
+      // 連携が複数あるときに他方の同期時刻で判定しないよう、商品ごとに
+      // **その商品を取り込んだ連携** の時刻を見る
+      include: { yahooSession: { select: { lastWatchlistSyncAt: true } } },
       take: 200,
     }),
     prisma.yahooSession.findMany({
@@ -30,7 +35,17 @@ export default async function WatchlistPage() {
   ]);
 
   const reservedBy = new Map(reservations.map((r) => [r.auctionId, r.status]));
-  const rows: WatchlistRow[] = items.map((i) => ({
+  // ⚠️ 同期は upsert しかしない(ヤフオク側から消えた行も残す)。ここで
+  // 絞らないと、前の同期の残骸がウォッチ中の商品として並ぶ。
+  // 2026-08-28 実測: 本物9件に対し70件表示されていた(shared/watchFreshness.ts)
+  const current = items.filter((i) =>
+    isSeenInLatestSync({
+      lastSeenAt: i.lastSeenAt,
+      sessionLastSyncAt: i.yahooSession.lastWatchlistSyncAt,
+    }),
+  );
+  const hiddenStale = items.length - current.length;
+  const rows: WatchlistRow[] = current.map((i) => ({
     id: i.id,
     auctionUrl: i.auctionUrl,
     title: i.title,
@@ -59,8 +74,15 @@ export default async function WatchlistPage() {
         {stale &&
           "。ヤフオクのログインが切れているか、ページ構造が変わって読めていない可能性があります(この一覧が0件でも「ウォッチが無い」とは限りません)。"}
         {" "}
-        取り込みは Yahoo → アプリの一方向で、アプリ側で伏せてもヤフオク側は変わりません。
+        取り込みは Yahoo → アプリの一方向です。ここで非表示にしても、ヤフオク側の
+        ウォッチリストは変わりません。
       </p>
+      {hiddenStale > 0 && (
+        <p className="notice">
+          直近の同期で見つからなかった {hiddenStale} 件は表示していません(ヤフオク側で
+          ウォッチを外した商品や、取り込みを直す前の古い残骸です)。
+        </p>
+      )}
       {rows.length === 0 ? (
         <p className="empty">表示できるウォッチ商品がありません。</p>
       ) : (
