@@ -15,7 +15,8 @@
     "yahoo:cookies": "npm run yahoo:cookies -w @yar/worker --",
     "build": "npm run db:generate && npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "user:password": "tsx apps/web/scripts/set-password.ts"
   },
   "engines": {
     "node": ">=22"

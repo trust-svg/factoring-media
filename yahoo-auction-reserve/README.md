@@ -398,6 +398,22 @@ scripts/install-autostart.sh uninstall  # 解除(コンテナは止めない)
 (Docker Desktop の Settings > General)。`autostart.sh` は `open -a Docker` で
 起動を試みるが、Docker 側の設定で入れておく方が速い。
 
+### パスワードを忘れたとき
+
+```bash
+npm run user:password -- info@trustlink-tk.com
+```
+
+新規登録は **ユーザーが0人のときだけ** 自動的に開く(`packages/shared/src/access.ts`)。
+初回セットアップが済んだ時点で閉じるので、パスワードを忘れると画面からは
+何もできなくなる。
+
+⚠️ `ALLOW_REGISTRATION=true` で開けて別アカウントを作るのは解決にならない。
+ヤフオク連携もウォッチリストも予約も、既存ユーザーに紐づいたままになる。
+
+パスワードは端末上でだけ入力する(エコーしない)。引数に書くとシェル履歴と
+`ps` の出力に残るので、このスクリプトは引数からは受け取らない。
+
 ### 外出先で「動いていない」に気づく仕組み
 
 外から画面が開けるようになると、**Mac のスリープが「画面は正常なのに入札だけ実行されない」
