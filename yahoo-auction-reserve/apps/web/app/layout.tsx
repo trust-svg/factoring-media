@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
+import { prisma } from "@yar/db";
+import { canRegister } from "@yar/shared";
 import { getSessionUser } from "@/lib/auth";
 import LogoutButton from "./LogoutButton";
 import { SideNav, TabBar } from "./AppNav";
@@ -31,6 +33,20 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const user = await getSessionUser();
+
+  // 未ログイン時に「新規登録」を出すかどうか。
+  //
+  // ⚠️ 登録は「利用者が0人のときだけ」自動的に開く(packages/shared/src/access.ts)。
+  //    ここを常に出していたため、URL を開くと登録画面へ誘導されるのに
+  //    登録は断られるという行き止まりができていた。判定は API 側と
+  //    **同じ関数** を使う。文言や条件を書き写すと必ずズレる。
+  const registrationOpen =
+    user === null &&
+    canRegister({
+      allowFlag: process.env.ALLOW_REGISTRATION,
+      existingUserCount: await prisma.user.count(),
+    }).allowed;
+
   return (
     <html lang="ja">
       <head>
@@ -66,7 +82,7 @@ export default async function RootLayout({
                 </Link>
                 <nav className="row">
                   <Link href="/login">ログイン</Link>
-                  <Link href="/register">新規登録</Link>
+                  {registrationOpen && <Link href="/register">新規登録</Link>}
                 </nav>
               </header>
               <main>{children}</main>
