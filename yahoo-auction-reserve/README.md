@@ -364,6 +364,40 @@ cask 名は `tailscale-app`(`tailscale` は CLI だけの formula)。
 表示された `https://<machine>.<tailnet>.ts.net` を iPhone の Safari で開き、
 共有 > ホーム画面に追加 で PWA になる。公開を取り下げるのは `scripts/remote-serve.sh off`。
 
+### 毎回ターミナルを開かずに済ませる(ログイン時の自動起動)
+
+```bash
+scripts/install-autostart.sh            # 登録して即起動
+scripts/install-autostart.sh status     # 状態・ログ・再起動コマンドを出す
+scripts/install-autostart.sh uninstall  # 解除(コンテナは止めない)
+```
+
+`~/Library/LaunchAgents/com.trustlink.yar-autostart.plist` を置き、ログイン時に
+`scripts/autostart.sh`(remote-serve.sh の無人版)を走らせる。ログは
+`tmp/autostart/autostart.log`。
+
+登録後に `scripts/remote-serve.sh` を実行するのは **イメージを作り直すとき**
+(コードを変えたとき)だけでよい。
+
+`autostart.sh` が `remote-serve.sh` と違う点は3つ。**どれも無人で走ることに由来する**。
+
+| 違い | 理由 |
+|---|---|
+| `--build` しない | ログイン時に数分かかるうえ、ネットワークがまだ繋がっていない時間帯に当たると失敗する |
+| Docker デーモンの起動を最大3分待ち、駄目なら `exit 1` | ログイン直後は Docker Desktop がまだ上がっていない。**待たずに進むと「起動した気になって終了」し、KeepAlive も再試行しない** |
+| 公開(`tailscale serve`)に失敗しても `exit 1` しない | 公開できなくても **入札は動く**。外から見えないだけなので、止める方が被害が大きい |
+
+コンテナ側にも `restart: unless-stopped` を付けてあるので、Docker Desktop さえ
+上がれば個々のコンテナは自力で復帰する。
+
+⚠️ **登録している間、Mac はスリープしない**(`caffeinate` 常駐)。入札の実行に
+必要な代償で、蓋を閉じても止まらない。電源に繋いでおくこと。一時的に止めたい
+だけなら解除ではなく `launchctl kill TERM gui/$(id -u)/com.trustlink.yar-autostart`。
+
+⚠️ **Docker Desktop 自体の「ログイン時に起動」は別途チェックが要る**
+(Docker Desktop の Settings > General)。`autostart.sh` は `open -a Docker` で
+起動を試みるが、Docker 側の設定で入れておく方が速い。
+
 ### 外出先で「動いていない」に気づく仕組み
 
 外から画面が開けるようになると、**Mac のスリープが「画面は正常なのに入札だけ実行されない」
