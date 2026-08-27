@@ -51,6 +51,11 @@ export default async function ReservationDetailPage({
             <span className={`badge ${reservation.status}`}>
               {RESERVATION_STATUS_LABEL[reservation.status]}
             </span>
+            {reservation.dryRun && (
+              <span className="badge dryrun-tag" style={{ marginLeft: 6 }}>
+                テスト実行(入札しない)
+              </span>
+            )}
             {reservation.hasAutoExtension && (
               <span className="muted"> [自動延長あり]</span>
             )}
@@ -129,13 +134,17 @@ export default async function ReservationDetailPage({
         editable={editable}
         maxBidAmount={reservation.maxBidAmount}
         snipeSecondsBefore={reservation.snipeSecondsBefore}
+        dryRun={reservation.dryRun}
       />
 
       <div className="card">
         <h2>実行ログ</h2>
         {reservation.attempts.length === 0 && (
           <p className="muted">
-            まだ実行されていません。終了{reservation.snipeSecondsBefore}秒前に自動で入札します。
+            まだ実行されていません。終了{reservation.snipeSecondsBefore}秒前に
+            {reservation.dryRun
+              ? "自動で起動し、確認画面まで進んで止まります(入札はしません)。"
+              : "自動で入札します。"}
           </p>
         )}
         <ol style={{ paddingLeft: 18 }}>

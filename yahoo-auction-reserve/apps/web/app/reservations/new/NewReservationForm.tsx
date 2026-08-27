@@ -56,6 +56,7 @@ export default function NewReservationForm({
   const [autoRaiseStep, setAutoRaiseStep] = useState("500");
   const [autoRaiseMaxCount, setAutoRaiseMaxCount] = useState("3");
   // "" = グループなし / "__new" = 新規作成 / それ以外は既存グループのID
+  const [dryRun, setDryRun] = useState(false);
   const [groupChoice, setGroupChoice] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
 
@@ -173,6 +174,7 @@ export default function NewReservationForm({
         autoRaiseStep: autoRaiseMode === "OFF" ? null : Number(autoRaiseStep),
         autoRaiseMaxCount: autoRaiseMode === "OFF" ? null : Number(autoRaiseMaxCount),
         groupId,
+        dryRun,
       }),
     });
     const body = await res.json();
@@ -394,6 +396,27 @@ export default function NewReservationForm({
                 ))}
               </select>
             </div>
+            <div>
+              <label
+                htmlFor="dryRun"
+                style={{ display: "flex", alignItems: "center", gap: 8 }}
+              >
+                <input
+                  id="dryRun"
+                  type="checkbox"
+                  checked={dryRun}
+                  onChange={(e) => setDryRun(e.target.checked)}
+                  style={{ width: "auto" }}
+                />
+                テスト実行にする(実際には入札しない)
+              </label>
+              <p className="hint">
+                予定時刻に自動で起動し、入札額の入力と確認画面までを本番と同じ手順で
+                行ったうえで、<strong>最後の確定だけ押さずに終わります</strong>。
+                「予約したのに時間になっても動かない」を落札のリスクなしで確かめるための設定です。
+                結果は通知で届きます。
+              </p>
+            </div>
             {step === "input" && error && <p className="error">{error}</p>}
             <button disabled={busy}>確認画面へ</button>
           </form>
@@ -405,8 +428,23 @@ export default function NewReservationForm({
         <div className="card">
           <h2>3. 内容の確認</h2>
           <p>この内容で入札を予約します。よろしければ「予約を確定する」を押してください。</p>
+          {dryRun && (
+            <p className="notice warn">
+              これは<strong>テスト実行</strong>の予約です。予定時刻に動きますが、入札は成立しません。
+            </p>
+          )}
           <table>
             <tbody>
+              <tr>
+                <th style={{ textAlign: "left", paddingRight: 16 }}>実行モード</th>
+                <td>
+                  {dryRun ? (
+                    <strong>テスト実行(入札しない)</strong>
+                  ) : (
+                    "本番(落札しうる)"
+                  )}
+                </td>
+              </tr>
               <tr>
                 <th style={{ textAlign: "left", paddingRight: 16 }}>商品</th>
                 <td>{preview.title ?? preview.auctionId}</td>

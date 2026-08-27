@@ -81,7 +81,11 @@ export async function POST(req: NextRequest) {
     const duplicate = await prisma.bidReservation.findUnique({
       where: { userId_auctionId: { userId: user.id, auctionId } },
     });
-    if (duplicate && !["CANCELLED", "FAILED", "LOST", "EXPIRED"].includes(duplicate.status)) {
+    // 終了済みの予約は再登録を許す。DRY_RUN(テスト実行)も終了状態なので
+    // ここに入れる。入れ忘れると「テスト実行した商品を本番で予約できない」
+    // = テスト実行するほど本番が登録できなくなる。
+    const FINISHED = ["CANCELLED", "FAILED", "LOST", "EXPIRED", "DRY_RUN"];
+    if (duplicate && !FINISHED.includes(duplicate.status)) {
       return jsonError(409, "この商品は既に予約済みです");
     }
 
@@ -168,6 +172,9 @@ export async function POST(req: NextRequest) {
         sellerRating: info.sellerRating ?? null,
         sellerRatingCount: info.sellerRatingCount ?? null,
         groupId,
+        // テスト実行。確定クリックだけを行わず、それ以外は本番と同じ経路を通す。
+        // 明示的に true を送ったときだけ有効(未指定は本番実行)。
+        dryRun: body.dryRun === true,
         ...raise.value,
       },
     });

@@ -149,7 +149,9 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
 
     let result;
     try {
-      result = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount);
+      result = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount, undefined, {
+        dryRun: reservation.dryRun,
+      });
     } finally {
       // 入札の送信だけがロックの対象。この後の結果確認・終了待ちまで
       // 抱えると、同じアカウントの次の予約が最大30分待たされる。
@@ -178,6 +180,28 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       });
       return;
     }
+    // ⚠️ この分岐は下の `!== "SUCCESS"` より **前** に置くこと。
+    // 後ろに置くと DRY_RUN が「入札に失敗した」と読まれてリトライされ、
+    // 2回目も DRY_RUN なので最終的に FAILED になる。テスト実行が成功したのに
+    // 失敗通知が飛ぶ = 何を確かめたのか分からなくなる。
+    if (result.outcome === "DRY_RUN") {
+      await prisma.bidReservation.update({
+        where: { id: reservation.id },
+        data: { status: "DRY_RUN", failureReason: null },
+      });
+      // 通知は必ず出す。テスト実行の目的は「予定時刻に本当に動いたか」の確認で、
+      // 静かに終わると動いていない場合と区別が付かない。
+      await notifyUser(reservation.userId, "DRY_RUN", {
+        title: reservation.title,
+        url: reservation.auctionUrl,
+        maxBidAmount: reservation.maxBidAmount,
+        detail: result.detail,
+        lateBySec: `${lateBySec}秒`,
+      });
+      console.log(`[monitor] ${reservation.id} テスト実行完了: ${result.detail}`);
+      return;
+    }
+
     if (result.outcome !== "SUCCESS") {
       // 1回だけ即時リトライ(設計 §7.3)。ここも同一アカウントの送信なので
       // ロックを取り直す(1回目で解放しているので、間に他の予約が入りうる)。
@@ -187,7 +211,9 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       );
       let retry;
       try {
-        retry = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount);
+        retry = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount, undefined, {
+          dryRun: reservation.dryRun,
+        });
       } finally {
         retryLease.release();
       }

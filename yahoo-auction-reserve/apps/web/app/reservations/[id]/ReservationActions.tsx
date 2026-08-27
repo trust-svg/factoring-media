@@ -11,11 +11,13 @@ export default function ReservationActions({
   editable,
   maxBidAmount,
   snipeSecondsBefore,
+  dryRun: initialDryRun,
 }: {
   id: string;
   editable: boolean;
   maxBidAmount: number;
   snipeSecondsBefore: number;
+  dryRun: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -23,6 +25,7 @@ export default function ReservationActions({
   const [notice, setNotice] = useState<string | null>(null);
   const [amount, setAmount] = useState(String(maxBidAmount));
   const [seconds, setSeconds] = useState(String(snipeSecondsBefore));
+  const [dryRun, setDryRun] = useState(initialDryRun);
 
   if (!editable) {
     return (
@@ -46,6 +49,7 @@ export default function ReservationActions({
       body: JSON.stringify({
         maxBidAmount: Number(amount),
         snipeSecondsBefore: Number(seconds),
+        dryRun,
       }),
     });
     setBusy(false);
@@ -96,6 +100,25 @@ export default function ReservationActions({
         {error && <p className="error">{error}</p>}
         {notice && <p className="muted">{notice}</p>}
         <div className="row">
+          <div>
+            <label
+              htmlFor="dryRun"
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <input
+                id="dryRun"
+                type="checkbox"
+                checked={dryRun}
+                onChange={(e) => setDryRun(e.target.checked)}
+                style={{ width: "auto" }}
+              />
+              テスト実行にする(実際には入札しない)
+            </label>
+            <p className="hint">
+              確認画面までは本番と同じ手順で進み、最後の確定だけ押しません。
+              実行が始まる前(待機中)にだけ切り替えられます。
+            </p>
+          </div>
           <button disabled={busy}>変更を保存</button>
           <button
             type="button"

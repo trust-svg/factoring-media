@@ -40,12 +40,23 @@ export type NotificationType =
   | "RAISE_DECLINED" // 増額できる状態ではなかった(天井到達・回数切れ・承認なし)
   | "APPROVAL_REQUEST" // 増額してよいか Telegram で聞いている
   | "GROUP_CANCELLED" // 同じグループの他を落札したので取りやめた
-  | "DAILY_SUMMARY"; // 毎日の稼働サマリ(届かないこと自体が異常の合図)
+  | "DAILY_SUMMARY" // 毎日の稼働サマリ(届かないこと自体が異常の合図)
+  | "DRY_RUN"; // テスト実行が確認画面まで到達した(実際には入札していない)
 
 // 通知の系統。ユーザー設定(NotificationSetting)で切れるのは RESULT と ERROR だけで、
 // ACTION(承認依頼)は切れない。入札の可否を決める問い合わせなので、
 // 届かない = 増額しないという実害に直結する。
-export type NotificationCategory = "RESULT" | "ERROR" | "REMINDER" | "ACTION" | "SUMMARY";
+// TEST(テスト実行の結果)を RESULT に入れないのは、結果通知を切っている
+// ユーザーがテスト実行すると **何も届かないまま終わる** ため。
+// テスト実行はユーザーが明示的に仕込んだ検証で、結果が届かないと
+// 「予約したのに何も起きなかった」と区別が付かない。
+export type NotificationCategory =
+  | "RESULT"
+  | "ERROR"
+  | "REMINDER"
+  | "ACTION"
+  | "SUMMARY"
+  | "TEST";
 
 export const NOTIFICATION_CATEGORY: Record<NotificationType, NotificationCategory> = {
   WON: "RESULT",
@@ -59,4 +70,5 @@ export const NOTIFICATION_CATEGORY: Record<NotificationType, NotificationCategor
   REMINDER: "REMINDER",
   APPROVAL_REQUEST: "ACTION",
   DAILY_SUMMARY: "SUMMARY",
+  DRY_RUN: "TEST",
 };

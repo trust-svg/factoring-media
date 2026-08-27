@@ -28,6 +28,7 @@ const SUBJECTS: Record<NotificationType, string> = {
   APPROVAL_REQUEST: "【承認待ち】増額してよいか確認しています",
   GROUP_CANCELLED: "【取りやめ】同じグループの他の商品を落札しました",
   DAILY_SUMMARY: "【稼働サマリ】入札予約の状況",
+  DRY_RUN: "【テスト実行】確認画面まで到達しました(入札はしていません)",
 };
 
 // payload のキーをそのまま出すと "maxBidAmount: 6000" のような画面になるので、
@@ -45,6 +46,8 @@ const FIELD_LABELS: Record<string, string> = {
   endAt: "終了時刻",
   minutesBefore: "終了まで",
   groupName: "グループ",
+  detail: "結果",
+  lateBySec: "予定との差",
 };
 
 /** payload の "_lines" は見出しを付けずそのまま並べる(サマリ用) */

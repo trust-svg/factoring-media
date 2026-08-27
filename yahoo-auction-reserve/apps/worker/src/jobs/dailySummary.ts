@@ -90,7 +90,7 @@ async function sendSummary(userId: string, now: Date): Promise<void> {
       }),
       prisma.bidReservation.groupBy({
         by: ["status"],
-        where: { userId, updatedAt: { gte: since }, status: { in: ["WON", "LOST", "FAILED", "EXPIRED", "CANCELLED"] } },
+        where: { userId, updatedAt: { gte: since }, status: { in: ["WON", "LOST", "FAILED", "EXPIRED", "CANCELLED", "DRY_RUN"] } },
         _count: { _all: true },
       }),
       prisma.yahooSession.findMany({
@@ -118,6 +118,10 @@ async function sendSummary(userId: string, now: Date): Promise<void> {
   const lines = [
     `予約中: ${active.length}件(本日終了 ${todayCount}件 / 上限額合計 ¥${totalCap.toLocaleString("ja-JP")})`,
     `直近24時間: 落札 ${countOf("WON")} / 落札ならず ${countOf("LOST")} / 失敗 ${countOf("FAILED")} / スキップ ${countOf("EXPIRED")} / 取りやめ ${countOf("CANCELLED")}`,
+    // テスト実行は別行にする。上の行に混ぜると「入札した件数」に見えるし、
+    // 集計対象(status の in)に入れたまま表示しないと、数えたのに
+    // どこにも出ない件が生まれる。
+    ...(countOf("DRY_RUN") > 0 ? [`テスト実行(入札なし): ${countOf("DRY_RUN")}件`] : []),
     `承認待ち: ${pendingApprovals}件`,
     lastPriceCheck
       ? `最終価格取得: ${formatJstTime(lastPriceCheck)}(${Math.round((now.getTime() - lastPriceCheck.getTime()) / 60_000)}分前)`

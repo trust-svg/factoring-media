@@ -43,8 +43,14 @@ export async function PATCH(
       return jsonError(409, "実行が始まっているため変更できません");
     }
     const body = await req.json();
-    const data: { maxBidAmount?: number; snipeSecondsBefore?: number } &
+    const data: { maxBidAmount?: number; snipeSecondsBefore?: number; dryRun?: boolean } &
       Partial<AutoRaiseFields> = {};
+    // テスト実行の切り替えは実行前(SCHEDULED)のみ。
+    // OFF にし忘れたまま終了時刻を迎えると実入札が飛ぶので、
+    // 気づいた時点で ON に倒せるようにここで受ける。
+    if (body.dryRun !== undefined) {
+      data.dryRun = body.dryRun === true;
+    }
     if (body.maxBidAmount !== undefined) {
       const v = Number(body.maxBidAmount);
       if (!Number.isInteger(v) || v <= (reservation.currentPrice ?? 0)) {

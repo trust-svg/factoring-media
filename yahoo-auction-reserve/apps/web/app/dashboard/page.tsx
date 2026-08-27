@@ -24,6 +24,7 @@ export default async function DashboardPage() {
     imageUrl: r.imageUrl,
     endAtMs: r.endAt.getTime(),
     status: r.status,
+    dryRun: r.dryRun,
     currentPrice: r.currentPrice,
     maxBidAmount: r.maxBidAmount,
     absoluteMaxAmount: r.absoluteMaxAmount,

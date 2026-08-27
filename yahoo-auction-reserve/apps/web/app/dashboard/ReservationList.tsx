@@ -34,11 +34,21 @@ export interface ReservationItem {
   sellerRating: number | null;
   marketMedianPrice: number | null;
   marketSampleCount: number | null;
+  dryRun: boolean;
 }
 
 export type Segment = "active" | "today" | "done";
 
-const DONE: ReservationStatusKey[] = ["WON", "LOST", "FAILED", "CANCELLED", "EXPIRED"];
+// ⚠️ ここに新しい終端ステータスを足し忘れると、その予約は「実行待ち」の側に
+// 残り続けて一覧の先頭に居座る(終わっているのに終わって見えない)。
+const DONE: ReservationStatusKey[] = [
+  "WON",
+  "LOST",
+  "FAILED",
+  "CANCELLED",
+  "EXPIRED",
+  "DRY_RUN",
+];
 const SEGMENTS: { key: Segment; label: string }[] = [
   { key: "active", label: "すべて" },
   { key: "today", label: "今日" },
@@ -164,7 +174,14 @@ function Row({ r, now }: { r: ReservationItem; now: Date }) {
     <Link href={`/reservations/${r.id}`} className={cls.join(" ")}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="row-thumb" src={r.imageUrl ?? undefined} alt="" />
-      <h3 className="row-title">{r.title}</h3>
+      <h3 className="row-title">
+        {r.dryRun && (
+          <span className="badge dryrun-tag" style={{ marginRight: 6 }}>
+            テスト
+          </span>
+        )}
+        {r.title}
+      </h3>
       <div className="row-meta">
         <span className="m-price">{r.currentPrice != null ? formatYen(r.currentPrice) : "—"}</span>
         <span className="m-arrow" aria-hidden="true">
@@ -241,7 +258,16 @@ function Clock({
     return <span className="row-clock state live">{RESERVATION_STATUS_LABEL[r.status]}</span>;
   }
   if (!waiting) {
-    const tone = r.status === "WON" ? "won" : r.status === "FAILED" ? "bad" : "lost";
+    // DRY_RUN を "lost" 色にすると「落札ならず」と見分けが付かない。
+    // 入札していないのだから勝敗の色は付けない。
+    const tone =
+      r.status === "WON"
+        ? "won"
+        : r.status === "FAILED"
+          ? "bad"
+          : r.status === "DRY_RUN"
+            ? "test"
+            : "lost";
     return (
       <span className={`row-clock state ${tone}`}>
         {RESERVATION_STATUS_LABEL[r.status]}

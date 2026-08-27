@@ -17,7 +17,8 @@ export type ReservationStatusKey =
   | "LOST"
   | "FAILED"
   | "CANCELLED"
-  | "EXPIRED";
+  | "EXPIRED"
+  | "DRY_RUN";
 
 export const RESERVATION_STATUS_LABEL: Record<ReservationStatusKey, string> = {
   SCHEDULED: "待機中",
@@ -28,6 +29,7 @@ export const RESERVATION_STATUS_LABEL: Record<ReservationStatusKey, string> = {
   FAILED: "失敗",
   CANCELLED: "キャンセル",
   EXPIRED: "スキップ",
+  DRY_RUN: "テスト実行(入札していません)",
 };
 
 export type AttemptOutcomeKey =
@@ -39,7 +41,8 @@ export type AttemptOutcomeKey =
   | "TIMEOUT"
   | "AUTO_RAISED"
   | "RAISE_DECLINED"
-  | "GROUP_CANCELLED";
+  | "GROUP_CANCELLED"
+  | "DRY_RUN";
 
 export const ATTEMPT_OUTCOME_LABEL: Record<AttemptOutcomeKey, string> = {
   SUCCESS: "入札成功",
@@ -51,6 +54,7 @@ export const ATTEMPT_OUTCOME_LABEL: Record<AttemptOutcomeKey, string> = {
   AUTO_RAISED: "増額して入札しなおした",
   RAISE_DECLINED: "増額しなかった",
   GROUP_CANCELLED: "同じグループの他の商品を落札したため取りやめ",
+  DRY_RUN: "テスト実行(確認画面まで到達・確定は押していない)",
 };
 
 export type SessionStatusKey = "ACTIVE" | "EXPIRED" | "INVALID";

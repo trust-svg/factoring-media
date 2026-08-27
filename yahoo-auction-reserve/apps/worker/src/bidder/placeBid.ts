@@ -6,15 +6,24 @@ export type BidResult =
   | { outcome: "SUCCESS" }
   | { outcome: "SESSION_EXPIRED" }
   | { outcome: "PAGE_ERROR"; detail: string }
-  | { outcome: "TIMEOUT"; detail: string };
+  | { outcome: "TIMEOUT"; detail: string }
+  /** テスト実行。確認画面まで到達し、4点ガードも通ったが確定は押していない */
+  | { outcome: "DRY_RUN"; detail: string };
 
 // 商品ページを開いた状態の page に対して、上限額で入札を確定させる。
 // ここは P0 検証で実フローに合わせて必ず調整すること(設計 §13)。
+//
+// `dryRun: true` のときは **確定ボタンを押す直前で止める**。止める位置は
+// submitTargetVerdict の判定より **後** に置いてある。判定より前で返すと
+// 「確認画面に着けていないのに DRY_RUN 成功」になり、テスト実行が
+// 一番確かめたいこと(本番なら正しいボタンを押せたか)を確かめないまま
+// 合格を出す。DRY_RUN が返ったということは4点ガードを全部通ったということ。
 export async function placeBid(
   page: Page,
   auctionUrl: string,
   amount: number,
   timeoutMs = 15_000,
+  opts: { dryRun?: boolean } = {},
 ): Promise<BidResult> {
   try {
     if (page.url() !== auctionUrl) {
@@ -86,6 +95,16 @@ export async function placeBid(
     });
     if (!verdict.safe) {
       return { outcome: "PAGE_ERROR", detail: `確定を中止: ${verdict.reason}` };
+    }
+    // --- ここから先を実行するかどうかが、テスト実行と本番の唯一の差 ---
+    if (opts.dryRun) {
+      return {
+        outcome: "DRY_RUN",
+        detail:
+          `テスト実行のため確定を押していません。` +
+          `確認画面には到達済(入札額の入力欄が消えている)。` +
+          `押すはずだったボタン: ${JSON.stringify(label.trim())} / 入札額: ${amount}円`,
+      };
     }
     await submitButton.click({ timeout: timeoutMs });
 
