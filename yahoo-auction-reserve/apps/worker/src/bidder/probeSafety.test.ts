@@ -48,8 +48,16 @@ test("判定は安全側に非対称 — 迷う入力は全部 unsafe になる"
   }
 });
 
-const S = (sameAsBidButton: boolean, found = true, navigated = false) =>
-  submitTargetVerdict({ sameAsBidButton, found, navigated });
+// 2026-08-28 実測の確定ボタンの表示テキスト。
+const SUBMIT_LABEL = "上記のガイドライン等、情報提供に同意して 入札する";
+
+const S = (
+  sameAsBidButton: boolean,
+  found = true,
+  navigated = false,
+  label = SUBMIT_LABEL,
+  formStillOpen = false,
+) => submitTargetVerdict({ sameAsBidButton, found, navigated, label, formStillOpen });
 
 test("確定ボタンが別要素として見つかっていれば押してよい", () => {
   assert.equal(S(false).safe, true);
@@ -84,4 +92,46 @@ test("遷移していなければ同一要素判定が効く", () => {
 
 test("遷移していても確定ボタンが無ければ押さない", () => {
   assert.equal(S(false, false, true).safe, false);
+});
+
+test("入札額の入力欄が残っていれば押さない(確認画面に進んでいない)", () => {
+  const v = S(false, true, false, SUBMIT_LABEL, true);
+  assert.equal(v.safe, false);
+  assert.match(v.reason, /入力欄/);
+});
+
+// ⚠️ 商品ページには「入札する」ボタンが2つある(2026-08-28 実測)。
+// 同一要素判定は最初に押した1つとしか比較しないので、もう片方を掴むと
+// sameAsBidButton=false のまま通り抜ける。ラベルで落とす。
+test("ラベルが「入札する」ちょうどなら押さない — 裏に残る商品ページのボタン", () => {
+  const v = S(false, true, false, "入札する");
+  assert.equal(v.safe, false);
+  assert.match(v.reason, /商品ページ側/);
+});
+
+test("前後の空白を削っても「入札する」ちょうどなら押さない", () => {
+  assert.equal(S(false, true, false, " 入札する \n").safe, false);
+});
+
+test("遷移していても、ラベルが商品ページ側のボタンなら押さない", () => {
+  // navigated=true は同一要素判定を飛ばす逃げ道。ラベル判定はその前に置く。
+  assert.equal(S(false, true, true, "入札する").safe, false);
+});
+
+test("文言が変わって「入札する」を含まなくなったら押さない", () => {
+  const v = S(false, true, false, "同意して落札する");
+  assert.equal(v.safe, false);
+  assert.match(v.reason, /入札する/);
+});
+
+test("実測した確定ボタンのラベルは通る", () => {
+  // ここが false になったら、本番で入札が一度も成立しなくなる
+  assert.equal(S(false, true, false, SUBMIT_LABEL).safe, true);
+});
+
+test("入力欄の判定は見つからない判定より後・ラベル判定より先", () => {
+  // 上流原因(そもそも見つかっていない)を先に出す
+  assert.match(S(false, false, false, "入札する", true).reason, /見つからない/);
+  // 入力欄が残っているのは「画面が進んでいない」= ラベルの話より上流
+  assert.match(S(false, true, false, "入札する", true).reason, /入力欄/);
 });

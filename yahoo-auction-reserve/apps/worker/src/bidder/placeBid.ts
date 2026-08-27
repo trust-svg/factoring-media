@@ -39,18 +39,19 @@ export async function placeBid(
 
     // --- 確認画面 → 確定。ここから先は取り消せない ---
     //
-    // ⚠️ 2026-08-28 実測: 入札フォームは **モーダル** で URL が変わらない。
-    // つまり下の `navigated` は常に false で、「遷移したから別要素」という
-    // 逃げ道は存在しない。bidSubmitButton が bidButton と同じ文字列のままだと、
-    // モーダルの裏に残っている商品ページの「入札する」を掴んで
-    // sameAsBidButton=true になり、確定は **必ず** 中止される。
-    // 安全側の停止だが、この状態では入札は一度も成立しない。
-    // 確認画面の確定ボタンの実体を P0 で取るまで本番稼働させないこと。
+    // ⚠️ 2026-08-28 実測: 商品ページ・入札フォーム・確認画面の3画面すべてが
+    // **同じ URL**(全部モーダル)。つまり下の `navigated` は常に false で、
+    // 「遷移したから別の画面だ」という判断材料は最後まで存在しない。
+    // しかも裏の商品ページの「入札する」ボタン2件は確認画面表示中も
+    // DOM に残る。セレクタが緩いとそれを押して SUCCESS を返す
+    // = **入札していないのに成功報告**(予約が空振りしても誰も気づかない)。
     //
-    // selectors.bidSubmitButton は bidButton と文字列が同一なので、
-    // 確認クリックが遷移を起こしていないと、商品ページの「入札する」を
-    // もう一度押して SUCCESS を返してしまう(入札していないのに成功報告)。
-    // 押す前に「本当に別の要素か」を確かめる。判定は probeSafety.ts。
+    // そこで「確認画面に着いた」ことを別々の根拠で確かめてから押す。
+    // 判定そのものは probeSafety.ts の submitTargetVerdict に集約:
+    //   - found         : 確定ボタンが見つかる
+    //   - formStillOpen : #inputPrice が消えている(着地の唯一の positive な証拠)
+    //   - label         : ラベルが「入札する」ちょうど(=裏のボタン)ではない
+    //   - sameAsBidButton: 最初に押した入札ボタンと別要素
     const submitButton = page.locator(selectors.bidSubmitButton).first();
     const submitHandle = await submitButton
       .elementHandle({ timeout: timeoutMs })
@@ -64,11 +65,24 @@ export async function placeBid(
         : await page
             .evaluate(([a, b]) => a === b, [bidHandle, submitHandle])
             .catch(() => true);
+    // 確認画面に進むと入札額の入力欄は DOM から消える(地雷12c)。
+    // 数え損ねたときは「まだ残っている」= 止める側に倒す。
+    const formStillOpen = await page
+      .locator(selectors.priceInput)
+      .count()
+      .then((n) => n > 0)
+      .catch(() => true);
+    // ラベルが取れなかったときも止める側(空文字は「入札する」を含まない)。
+    const label = submitHandle
+      ? ((await submitButton.textContent({ timeout: timeoutMs }).catch(() => "")) ?? "")
+      : "";
 
     const verdict = submitTargetVerdict({
       found: submitHandle !== null,
       navigated,
       sameAsBidButton,
+      formStillOpen,
+      label,
     });
     if (!verdict.safe) {
       return { outcome: "PAGE_ERROR", detail: `確定を中止: ${verdict.reason}` };

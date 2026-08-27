@@ -121,9 +121,23 @@ const CANDIDATES: Record<string, Candidate[]> = {
     "button:has-text('確認')",
   ],
   bidSubmitButton: [
+    // 2026-08-28 の Stage 2 完走で実測。確定ボタンの表示は
+    // 「上記のガイドライン等、情報提供に同意して 入札する」(地雷12)
     selectors.bidSubmitButton,
-    "input[type='submit'][value*='入札']",
+    'role=button[name="上記のガイドライン等、情報提供に同意して 入札する"]',
+    {
+      sel: 'role=button[name="入札する"]',
+      // 確認画面でも2件当たる。裏の商品ページのボタンで、押しても入札は
+      // 成立しないのに ✅ に見える(2026-08-28 に実際そう出た)
+      trap: "確認画面でも裏の商品ページのボタン2件に当たる",
+    },
+    // 裏2件 + 本物1件 = 3件になるはず。数が合うかで上の判断を裏取りする
     "button:has-text('入札する')",
+    {
+      sel: "input[type='submit'][value*='入札']",
+      // 2026-08-28 実測で0件。<button> なので submit input は存在しない
+      trap: "実測0件(確定ボタンは <button>)",
+    },
   ],
   wonIndicator: [selectors.wonIndicator, "text=落札しました"],
   highestBidderIndicator: [
