@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@yar/db";
 import { RESERVATION_STATUS_LABEL, ATTEMPT_OUTCOME_LABEL } from "@yar/shared/labels";
+import { judgeBuyNow } from "@yar/shared/judgement";
 import { getSessionUser } from "@/lib/auth";
 import ReservationActions from "./ReservationActions";
 
@@ -34,6 +35,7 @@ export default async function ReservationDetailPage({
     reservation.endAt.getTime() - reservation.snipeSecondsBefore * 1000,
   );
   const editable = reservation.status === "SCHEDULED";
+  const buyNow = judgeBuyNow(reservation.maxBidAmount, reservation.buyNowPrice);
 
   return (
     <>
@@ -110,6 +112,17 @@ export default async function ReservationDetailPage({
                 </span>
               </td>
             </tr>
+            {reservation.buyNowPrice != null && (
+              <tr>
+                <th style={{ textAlign: "left", paddingRight: 16 }}>即決価格</th>
+                <td>
+                  {reservation.buyNowPrice.toLocaleString()}円
+                  {buyNow.level === "warn" && (
+                    <span className="error"> — {buyNow.reasons[0]}</span>
+                  )}
+                </td>
+              </tr>
+            )}
             {reservation.resultPrice != null && (
               <tr>
                 <th style={{ textAlign: "left", paddingRight: 16 }}>最終価格</th>

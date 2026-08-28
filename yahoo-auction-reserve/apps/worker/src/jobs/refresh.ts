@@ -22,6 +22,10 @@ export async function runRefreshJob(job: Job<ReservationJobData>): Promise<void>
 
   // 判断材料は「まだ入っていないときだけ」埋める。毎回上書きすると、
   // パーサが壊れた回の undefined で既に取れていた値を潰しかねない。
+  // 即決価格は出品者が途中で下げる/取り下げることがあるので、
+  // 取れたときは毎回上書きする(他の判断材料と扱いが違う)。取れなかった
+  // 回に null で潰すと「即決なし」に化けるので、undefined は触らない。
+  if (info.buyNowPrice !== undefined) data.buyNowPrice = info.buyNowPrice;
   if (reservation.shippingFee === null && info.shippingFee !== undefined) {
     data.shippingFee = info.shippingFee;
   }

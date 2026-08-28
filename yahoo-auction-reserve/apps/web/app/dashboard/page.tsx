@@ -26,6 +26,7 @@ export default async function DashboardPage() {
     status: r.status,
     dryRun: r.dryRun,
     currentPrice: r.currentPrice,
+    buyNowPrice: r.buyNowPrice,
     maxBidAmount: r.maxBidAmount,
     absoluteMaxAmount: r.absoluteMaxAmount,
     autoRaiseMode: r.autoRaiseMode,

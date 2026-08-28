@@ -12,7 +12,7 @@ import {
   jstDayKey,
   urgencyOf,
 } from "@yar/shared/format";
-import { judgeMarket, totalWithShipping } from "@yar/shared/judgement";
+import { judgeBuyNow, judgeMarket, totalWithShipping } from "@yar/shared/judgement";
 import { RESERVATION_STATUS_LABEL, type ReservationStatusKey } from "@yar/shared/labels";
 
 export interface ReservationItem {
@@ -22,6 +22,7 @@ export interface ReservationItem {
   endAtMs: number;
   status: ReservationStatusKey;
   currentPrice: number | null;
+  buyNowPrice: number | null;
   maxBidAmount: number;
   absoluteMaxAmount: number | null;
   autoRaiseMode: "OFF" | "AUTO" | "APPROVAL";
@@ -198,6 +199,7 @@ function Row({ r, now }: { r: ReservationItem; now: Date }) {
           {formatYen(r.maxBidAmount)}
           {r.autoRaiseMode !== "OFF" ? "↑" : ""}
         </span>
+        <BuyNow r={r} />
         <span className="m-ext">{r.hasAutoExtension ? "延長" : "延長なし"}</span>
         <span className="m-timing">{r.snipeSecondsBefore}秒前</span>
       </div>
@@ -209,6 +211,34 @@ function Row({ r, now }: { r: ReservationItem; now: Date }) {
       </span>
       <RowNote r={r} />
     </Link>
+  );
+}
+
+/**
+ * 即決価格。
+ *
+ * ⚠️ **即決価格が無い行でも空の span を描く**。PC 幅では .row-meta が
+ * display:contents で固定列グリッドに流し込まれるので、条件付きで要素が
+ * 増減すると即決ありの行だけ以降の列が1つずれる(全行を見比べる画面なので
+ * ズレは致命的)。
+ *
+ * 上限額が即決価格以上のときは、ここを警告色にする。3行目の row-note は
+ * PC 幅では display:none なので、警告をそこだけに出すと PC で見えない。
+ */
+function BuyNow({ r }: { r: ReservationItem }) {
+  const over = judgeBuyNow(r.maxBidAmount, r.buyNowPrice).level === "warn";
+  if (r.buyNowPrice == null) return <span className="m-bin" aria-hidden="true" />;
+  return (
+    <span
+      className={`m-bin${over ? " over" : ""}`}
+      title={
+        over
+          ? "上限額が即決価格以上です。入札した時点で即決成立になります"
+          : "即決価格"
+      }
+    >
+      {over ? "⚠ " : ""}即決 {formatYen(r.buyNowPrice)}
+    </span>
   );
 }
 
@@ -231,6 +261,10 @@ function RowNote({ r }: { r: ReservationItem }) {
   }
   const market = judgeMarket(r.maxBidAmount, r.marketMedianPrice, r.marketSampleCount);
   if (market.level === "warn") parts.push(`⚠ ${market.reasons[0]}`);
+  // 即決価格以上の上限額は「終了を待たずに落札する」を意味する。
+  // 落札は成功として記録されるので、ここに出さないと気付けない。
+  const buyNow = judgeBuyNow(r.maxBidAmount, r.buyNowPrice);
+  if (buyNow.level === "warn") parts.push(`⚠ ${buyNow.reasons[0]}`);
   if (r.sellerRating != null && r.sellerRating < 95) {
     parts.push(`⚠ 出品者評価 ${r.sellerRating}%`);
   }

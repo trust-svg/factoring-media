@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { totalWithShipping, type Judgement } from "@yar/shared/judgement";
+import { judgeBuyNow, totalWithShipping, type Judgement } from "@yar/shared/judgement";
 
 interface AuctionPreview {
   auctionId: string;
@@ -11,6 +11,7 @@ interface AuctionPreview {
   imageUrl?: string;
   sellerName?: string;
   currentPrice?: number;
+  buyNowPrice?: number;
   endAt?: string;
   hasAutoExtension?: boolean;
   isClosed?: boolean;
@@ -234,6 +235,8 @@ export default function NewReservationForm({
                 {preview.currentPrice !== undefined
                   ? `${preview.currentPrice.toLocaleString()}円`
                   : "取得できませんでした"}{" "}
+                {preview.buyNowPrice !== undefined &&
+                  `/ 即決 ${preview.buyNowPrice.toLocaleString()}円 `}
                 / 終了{" "}
                 {endAt ? endAt.toLocaleString("ja-JP") : "取得できませんでした"}
               </p>
@@ -264,6 +267,10 @@ export default function NewReservationForm({
                 ヤフオクは自動入札制のため、上限額を入れても支払額は競合相手の入札額
                 +入札単位までに収まります。
               </p>
+              <BuyNowWarning
+                maxBidAmount={Number(maxBidAmount)}
+                buyNowPrice={preview.buyNowPrice ?? null}
+              />
             </div>
             <div>
               <label htmlFor="snipeSeconds">実行タイミング(終了何秒前)</label>
@@ -455,6 +462,18 @@ export default function NewReservationForm({
                   <strong>{Number(maxBidAmount).toLocaleString()}円</strong>
                 </td>
               </tr>
+              {preview.buyNowPrice !== undefined && (
+                <tr>
+                  <th style={{ textAlign: "left", paddingRight: 16 }}>即決価格</th>
+                  <td>
+                    {preview.buyNowPrice.toLocaleString()}円
+                    <BuyNowWarning
+                      maxBidAmount={Number(maxBidAmount)}
+                      buyNowPrice={preview.buyNowPrice}
+                    />
+                  </td>
+                </tr>
+              )}
               <tr>
                 <th style={{ textAlign: "left", paddingRight: 16 }}>自動増額</th>
                 <td>
@@ -501,6 +520,29 @@ export default function NewReservationForm({
       )}
     </>
   );
+}
+
+/**
+ * 上限額が即決価格以上のときの警告。
+ *
+ * ⚠️ これは「高すぎる」という助言ではなく **動作が変わる** 警告。
+ * 即決価格以上で入札すると終了を待たずにその場で落札が成立するので、
+ * 終了30秒前まで待つ意味が無くなる(常に即決価格で買うことになる)。
+ * 落札は成功として記録されるため、警告を出さないと気付く機会が無い。
+ */
+function BuyNowWarning({
+  maxBidAmount,
+  buyNowPrice,
+}: {
+  maxBidAmount: number;
+  buyNowPrice: number | null;
+}) {
+  // 入力途中(空欄・NaN)では出さない。0 を「即決以上」と判定して
+  // 常時警告が出ると、本当に危ないときの警告まで読み飛ばされる。
+  if (!Number.isFinite(maxBidAmount) || maxBidAmount <= 0) return null;
+  const judgement = judgeBuyNow(maxBidAmount, buyNowPrice);
+  if (judgement.level !== "warn") return null;
+  return <p className="error">⚠ {judgement.reasons[0]}</p>;
 }
 
 /**

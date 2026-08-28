@@ -74,6 +74,10 @@ model BidReservation {
   snipeSecondsBefore Int       @default(30) // 5〜600
   currentPrice       Int?
   priceCheckedAt     DateTime?
+  // 即決価格(設定されている出品だけ)。null は「即決なし」または未取得。
+  // ⚠️ maxBidAmount がこれ以上だと、終了直前を待たずに入札した時点で
+  // 即決成立＝その場で落札になる。スナイプの前提が崩れるので画面で警告する。
+  buyNowPrice        Int?
 
   // --- テスト実行(2026-08-28 追加) ---
   // true にすると、スケジューラ起動から確認画面到達までを本番と全く同じ経路で

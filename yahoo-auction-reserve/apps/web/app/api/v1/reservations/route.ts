@@ -166,6 +166,7 @@ export async function POST(req: NextRequest) {
         maxBidAmount,
         snipeSecondsBefore,
         currentPrice: info.currentPrice,
+        buyNowPrice: info.buyNowPrice ?? null,
         priceCheckedAt: new Date(),
         shippingFee: info.shippingFee ?? null,
         shippingNote: info.shippingNote ?? null,

@@ -267,6 +267,13 @@ main {
 .row-meta .m-cap { color: var(--ink); font-weight: 500; }
 .row-meta .m-cap.near { color: var(--warn); font-weight: 600; }
 .row-meta .m-arrow { color: var(--line-strong); }
+.row-meta .m-bin {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.row-meta .m-bin:empty { display: none; }
+.row-meta .m-bin.over { color: var(--warn); font-weight: 600; }
 .row-meta .m-ext,
 .row-meta .m-timing { white-space: nowrap; }
 .row-meta .m-ext::before,
@@ -403,7 +410,7 @@ main {
   .snipe-row {
     grid-template-areas: none;
     grid-template-columns:
-      44px minmax(0, 1fr) 96px 14px 96px 52px 76px 104px 92px;
+      44px minmax(0, 1fr) 96px 14px 96px 84px 52px 76px 104px 92px;
     column-gap: 12px;
     padding: 9px 14px;
   }
@@ -412,6 +419,8 @@ main {
   .row-meta { display: contents; }
   .row-meta .m-price, .row-meta .m-cap { justify-self: end; }
   .row-meta .m-arrow { justify-self: center; }
+  .row-meta .m-bin { justify-self: end; font-size: 0.78rem; }
+  .row-meta .m-bin:empty { display: block; }
   .row-meta .m-ext, .row-meta .m-timing { justify-self: start; font-size: 0.78rem; }
   .row-meta .m-ext::before, .row-meta .m-timing::before { content: none; }
   .row-end { justify-self: end; font-size: 0.8rem; }

@@ -102,3 +102,31 @@ export function totalWithShipping(
   if (shippingFee == null) return { total: null, shippingKnown: false };
   return { total: price + shippingFee, shippingKnown: true };
 }
+
+/**
+ * 即決価格と上限額の関係。
+ *
+ * ⚠️ **これはスナイプ入札の前提が崩れる条件**。即決価格が設定されている
+ * 出品では、即決価格以上の額で入札した時点でその場で落札が成立する。
+ * つまり上限額 >= 即決価格 のまま予約すると、
+ * 「終了30秒前まで待って、他に競合が無ければ安く獲る」はずが
+ * **入札した瞬間に即決価格で買う**ことになる(スナイプの意味が無い)。
+ *
+ * 落札自体は起きるので、失敗としては一切表面化しない。予約時と一覧で
+ * 見えるようにしておかないと、高く買ったことに後から気付けない。
+ */
+export function judgeBuyNow(
+  maxBidAmount: number,
+  buyNowPrice: number | null,
+): Judgement {
+  if (buyNowPrice == null) return { level: "unknown", reasons: [] };
+  if (maxBidAmount >= buyNowPrice) {
+    return {
+      level: "warn",
+      reasons: [
+        `上限額が即決価格(${buyNowPrice}円)以上です。入札した時点で即決成立になります`,
+      ],
+    };
+  }
+  return { level: "ok", reasons: [] };
+}

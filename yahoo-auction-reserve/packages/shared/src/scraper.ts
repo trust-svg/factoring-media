@@ -53,6 +53,22 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
       const price = pickNumber(embedded, ["price", "currentPrice", "Price"]);
       if (price !== undefined) info.currentPrice = price;
     }
+    if (info.buyNowPrice === undefined) {
+      // 即決価格。キー名が揺れるうえ、同名キーが boolean(即決あり/なし)で
+      // 先に見つかることがあるので、数値として読める最初の値を採る
+      // (pickNumber は数値化できない候補を読み飛ばす)。
+      const bin = pickNumber(embedded, [
+        "bidOrBuyPrice",
+        "bidorbuyPrice",
+        "bidorbuy_price",
+        "Bidorbuy",
+        "bidorbuy",
+        "buyNowPrice",
+        "buyPrice",
+      ]);
+      // 0 は「即決なし」を 0 で表す実装があるため採らない(0円即決に見える)。
+      if (bin !== undefined && bin > 0) info.buyNowPrice = bin;
+    }
     const endTime = pickValue(embedded, ["endTime", "endtime", "EndTime"]);
     if (typeof endTime === "string" || typeof endTime === "number") {
       const d = parseYahooDate(endTime);
@@ -70,6 +86,15 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
   if (info.currentPrice === undefined) {
     const m = html.match(/現在(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
     if (m) info.currentPrice = Number(m[1].replaceAll(",", ""));
+  }
+  if (info.buyNowPrice === undefined) {
+    // 「即決価格 12,345円」「即決 12,345 円」の両方を拾う。
+    // 「現在価格」の行を巻き込まないよう、数字までの距離を短く取る。
+    const m = html.match(/即決(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
+    if (m) {
+      const v = Number(m[1].replaceAll(",", ""));
+      if (Number.isFinite(v) && v > 0) info.buyNowPrice = v;
+    }
   }
   if (info.hasAutoExtension === undefined) {
     if (/自動延長\s*[:：]?\s*あり/.test(html)) info.hasAutoExtension = true;
@@ -147,8 +172,12 @@ function extractEmbeddedJson(html: string): unknown | null {
   return null;
 }
 
-// ネストしたオブジェクトからキー名の一致で最初の値を探す(構造変更に強くするため)
-function pickValue(obj: unknown, keys: string[]): unknown {
+// ネストしたオブジェクトからキー名が一致する値を探す(構造変更に強くするため)。
+// 見つかった順に **すべて** 返す。1件目で打ち切ると、同じキー名が別の型で
+// 先に現れたときに後続の使える値まで捨てることになる(即決価格は
+// boolean の「即決あり/なし」と同名で入っている実装がある)。
+function pickAll(obj: unknown, keys: string[]): unknown[] {
+  const found: unknown[] = [];
   const seen = new Set<unknown>();
   const stack: unknown[] = [obj];
   while (stack.length > 0) {
@@ -156,19 +185,31 @@ function pickValue(obj: unknown, keys: string[]): unknown {
     if (cur === null || typeof cur !== "object" || seen.has(cur)) continue;
     seen.add(cur);
     for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
-      if (keys.includes(k) && v !== null && v !== undefined) return v;
+      if (keys.includes(k) && v !== null && v !== undefined) found.push(v);
       if (typeof v === "object") stack.push(v);
     }
+  }
+  return found;
+}
+
+function pickValue(obj: unknown, keys: string[]): unknown {
+  return pickAll(obj, keys)[0];
+}
+
+function toNumber(v: unknown): number | undefined {
+  if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+  if (typeof v === "string") {
+    const n = Number(v.replaceAll(",", ""));
+    if (Number.isFinite(n) && v.trim() !== "") return n;
   }
   return undefined;
 }
 
+/** 数値として読める最初の候補を返す。読めない候補(boolean・オブジェクト)は飛ばす */
 function pickNumber(obj: unknown, keys: string[]): number | undefined {
-  const v = pickValue(obj, keys);
-  if (typeof v === "number") return v;
-  if (typeof v === "string") {
-    const n = Number(v.replaceAll(",", ""));
-    if (Number.isFinite(n)) return n;
+  for (const v of pickAll(obj, keys)) {
+    const n = toNumber(v);
+    if (n !== undefined) return n;
   }
   return undefined;
 }
