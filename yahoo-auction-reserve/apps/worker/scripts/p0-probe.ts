@@ -11,6 +11,13 @@
  * Stage 1 (既定): 商品ページを開いて読むだけ。クリック・入力は一切しない。
  * Stage 2 (--stage2): 入札フォーム〜確認画面まで進む。
  *          **最終確定ボタンは絶対に押さない**(押すのは人間が画面上で手動)。
+ * Stage 3 (--stage3): **実際に入札する。取り消せない。**
+ *          worker が本番で使う placeBid() をそのまま呼び、押した後に
+ *          商品ページを開き直して「最高額入札者になっているか」を読み戻す。
+ *          クリックできたこと(SUCCESS)を成功の根拠にしない。
+ *
+ * ⚠️ Stage 2 と Stage 3 の関係: 先に Stage 2 で確定ボタンのヒット数を測ること。
+ *    1件でないなら Stage 3 を回してはいけない(押す対象が一意に決まっていない)。
  *
  * 使い方:
  *   npm run p0:probe -- <商品URL>
@@ -18,6 +25,7 @@
  *   npm run p0:probe -- <商品URL> --anonymous         # 未ログインの対照(loginLink を取る)
  *   npm run p0:probe -- <商品URL> --watch 20          # 自動延長のDOM挙動(§13-3)
  *   npm run p0:probe -- <商品URL> --stage2 --amount 1200
+ *   npm run p0:probe -- <商品URL> --stage3 --amount 1   # ★実入札(要タイプ確認)
  *   npm run p0:probe -- --watchlist                   # ウォッチリストのURL/セレクタ確定(商品URL不要)
  *   npm run p0:probe -- --watchlist --anonymous       # ログイン壁(watchlistLoginWall)の陽性対照
  *
@@ -40,6 +48,7 @@ import {
 } from "@yar/shared";
 import type { YahooCookie } from "@yar/shared";
 import { selectors } from "../src/bidder/selectors";
+import { placeBid } from "../src/bidder/placeBid";
 import { confirmClickVerdict } from "../src/bidder/probeSafety";
 import { bidLandingVerdict, listStabilityVerdict } from "../src/bidder/pageReady";
 import { settlePage } from "../src/bidder/settle";
@@ -121,10 +130,14 @@ const CANDIDATES: Record<string, Candidate[]> = {
     "button:has-text('確認')",
   ],
   bidSubmitButton: [
-    // 2026-08-28 の Stage 2 完走で実測。確定ボタンの表示は
-    // 「上記のガイドライン等、情報提供に同意して 入札する」(地雷12)
+    // ⚠️ 確定ボタンの文言は **商品によって変わる**。実測2種:
+    //   2026-08-28 21:00 「上記のガイドライン等、情報提供に同意して 入札する」
+    //   2026-08-28 22:44 「上記に同意のうえ入札する」
+    // 1商品で見た文言を固定値にすると、別商品でヒット0件になって入札が
+    // 成立しない(実際に2回失敗した)。共通部は「同意」と「入札する」だけ。
     selectors.bidSubmitButton,
     'role=button[name="上記のガイドライン等、情報提供に同意して 入札する"]',
+    'role=button[name="上記に同意のうえ入札する"]',
     {
       sel: 'role=button[name="入札する"]',
       // 確認画面でも2件当たる。裏の商品ページのボタンで、押しても入札は
@@ -202,6 +215,8 @@ interface Args {
   sessionRef?: string;
   watchMinutes?: number;
   stage2: boolean;
+  /** 実際に入札する。取り消せない */
+  stage3: boolean;
   amount?: number;
   /** ウォッチリストの URL・セレクタを確定させるモード(商品URL不要) */
   watchlist: boolean;
@@ -214,6 +229,7 @@ function parseArgs(argv: string[]): Args {
     headless: false,
     anonymous: false,
     stage2: false,
+    stage3: false,
     watchlist: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -221,6 +237,7 @@ function parseArgs(argv: string[]): Args {
     if (a === "--headless") args.headless = true;
     else if (a === "--anonymous") args.anonymous = true;
     else if (a === "--stage2") args.stage2 = true;
+    else if (a === "--stage3") args.stage3 = true;
     else if (a === "--watchlist") args.watchlist = true;
     else if (a === "--session") args.sessionRef = argv[++i];
     else if (a === "--watch") args.watchMinutes = Number(argv[++i]);
@@ -242,8 +259,29 @@ function parseArgs(argv: string[]): Args {
   if (args.stage2 && args.anonymous) {
     throw new Error("--anonymous は未ログインの対照用。--stage2 とは併用できない");
   }
+  if (args.stage3) {
+    if (args.stage2) throw new Error("--stage2 と --stage3 は併用できない(先に Stage 2 で測ること)");
+    if (args.watchlist) throw new Error("--watchlist と --stage3 は併用できない");
+    if (args.anonymous) throw new Error("--anonymous では入札できない");
+    if (!(args.amount && args.amount > 0)) throw new Error("--stage3 には --amount <入札額> が必須");
+    // 検証のための道具なので、金額の上限を置く。ここを外して大きい額を入れると
+    // 「セレクタが正しいか確かめる」ためだけに落札してしまう。
+    if (args.amount > STAGE3_MAX_AMOUNT) {
+      throw new Error(
+        `--stage3 の入札額は ${STAGE3_MAX_AMOUNT} 円までに制限してある(指定: ${args.amount} 円)。` +
+          "これは確定クリックが本当に効くかを確かめるための道具で、実運用の入札には使わない。",
+      );
+    }
+  }
   return args;
 }
+
+/**
+ * Stage 3 で許す入札額の上限(円)。
+ * 確定クリックが効くかを確かめるだけの道具なので、落札してしまっても
+ * 痛くない額に制限する。実運用の入札はアプリ本体から行う。
+ */
+const STAGE3_MAX_AMOUNT = 1_000;
 
 const JST = "Asia/Tokyo";
 const fmt = (d: Date | undefined) =>
@@ -1014,9 +1052,11 @@ async function main(): Promise<void> {
     `- stage: ${
       args.watchlist
         ? "watchlist (ウォッチリストのURL・セレクタ確定)"
-        : args.stage2
-          ? "2 (入札フォーム〜確認画面)"
-          : "1 (読むだけ)"
+        : args.stage3
+          ? "**3 (実入札。取り消せない)**"
+          : args.stage2
+            ? "2 (入札フォーム〜確認画面)"
+            : "1 (読むだけ)"
     }`,
   );
   say("");
@@ -1057,6 +1097,73 @@ async function main(): Promise<void> {
 
   if (args.watchMinutes && args.watchMinutes > 0) {
     await watchExtension(page, args.url, args.watchMinutes);
+  }
+
+  if (args.stage3) {
+    say("## Stage 3 — 実入札(取り消せない)");
+    say("");
+    say("> worker が本番で使う `placeBid()` をそのまま呼ぶ。プローブ独自の経路は通らない。");
+    say("> 4点ガード(確定ボタンが見つかる / 入力欄が消えている / ラベルが商品ページ側でない /");
+    say("> 最初に押した入札ボタンと別要素)を全部通らないと押さない。");
+    say("");
+
+    // 取り消せない操作なので、実行の意思を毎回タイプで取る。
+    // `--stage3` を打ったこと自体を同意とみなさない(履歴からの再実行で飛ぶ)。
+    if (!process.stdin.isTTY) {
+      throw new Error("--stage3 は対話端末からのみ実行できる(実行の確認をタイプで取るため)");
+    }
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await rl.question(
+      `\n>>> ${args.url}\n` +
+        `>>> に ${args.amount} 円で **実際に入札** する。取り消せない。\n` +
+        `>>> 誰も上回らなければ落札になり、送料を含めて支払い義務が発生する。\n` +
+        `>>> 実行するなら「入札する」とタイプして Enter (それ以外は中止): `,
+    );
+    rl.close();
+
+    if (answer.trim() !== "入札する") {
+      say(`- 中止した(入力: ${JSON.stringify(answer.trim())})`);
+      say("");
+      console.log(">>> 中止した。入札していない。");
+    } else {
+      const bidPage = await context.newPage();
+      const t = Date.now();
+      const result = await placeBid(bidPage, args.url, args.amount as number, 20_000, {
+        dryRun: false,
+      });
+      const detail = "detail" in result ? result.detail : "";
+      say(`- placeBid の戻り: **${result.outcome}** (${Date.now() - t}ms)`);
+      say(`- detail: ${detail || "(なし)"}`);
+      say("");
+      await bidPage
+        .screenshot({ path: reportPath.replace(/\.md$/, "-stage3-after-click.png") })
+        .catch(() => {});
+
+      // ⚠️ SUCCESS は「押せてページが読み込まれた」までしか意味しない。
+      // 入札が成立した証拠は商品ページ側にしか無いので、必ず読み戻す。
+      // (押せたことを成功の根拠にすると、裏のボタンを押した回も成功に見える)
+      say("### 読み戻し — 入札が本当に成立したか");
+      say("");
+      await bidPage.goto(args.url, { waitUntil: "domcontentloaded" }).catch(() => {});
+      await settle(bidPage, "入札後の商品ページ");
+      await reportSlots(bidPage, [
+        "highestBidderIndicator",
+        "outbidIndicator",
+        "loggedInIndicator",
+      ]);
+      await reportParser(bidPage, args.url, false);
+      await bidPage
+        .screenshot({ path: reportPath.replace(/\.md$/, "-stage3-readback.png") })
+        .catch(() => {});
+      say("");
+      say("**判定**: `highestBidderIndicator` が当たっていて、現在価格が入札額まで");
+      say("上がっていれば、確定クリックは本当に効いている(P0 の最後の1つ)。");
+      say("当たっていなければ、押せてはいるが入札は成立していない = セレクタが");
+      say("裏のボタンを掴んでいる。その場合 selectors.ts を ✅ にしないこと。");
+      say("");
+      console.log(`\n>>> placeBid: ${result.outcome} ${detail}`);
+    }
+    saveReport();
   }
 
   if (args.stage2) {
