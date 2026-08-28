@@ -217,6 +217,19 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       } finally {
         retryLease.release();
       }
+      // ⚠️ リトライの結果も必ず残す。ここが無いと、失敗した予約の
+      // BidAttempt が1件しか無く、2回目に何が起きたのかが永久に分からない
+      // (1回目と同じ理由で落ちたのか、別の理由なのかが切り分けられない)。
+      await prisma.bidAttempt.create({
+        data: {
+          reservationId: reservation.id,
+          scheduledFor,
+          executedAt: yahooNow(),
+          bidAmount: reservation.maxBidAmount,
+          outcome: retry.outcome,
+          detail: `リトライ / ${"detail" in retry ? retry.detail : "(詳細なし)"}`,
+        },
+      });
       if (retry.outcome !== "SUCCESS") {
         await failReservation(reservation, retry.outcome, "detail" in retry ? retry.detail : undefined);
         return;
@@ -280,6 +293,10 @@ async function failReservation(
   code: string,
   detail?: string,
 ): Promise<void> {
+  // ⚠️ ここに console が無かったせいで、2026-08-28 のテスト実行は
+  // worker のログに1行も残らなかった(記録は DB の1行だけ)。
+  // 入札はこのシステムが存在する唯一の瞬間なので、失敗は必ずログに出す。
+  console.error(`[monitor] ${reservation.id} 失敗(${code}): ${detail ?? "(詳細なし)"}`);
   await prisma.bidReservation.update({
     where: { id: reservation.id },
     data: {

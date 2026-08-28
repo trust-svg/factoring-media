@@ -1,4 +1,5 @@
 import type { Page } from "playwright";
+import { captureConfirmScreen } from "./diagnose";
 import { submitTargetVerdict } from "./probeSafety";
 import { selectors } from "./selectors";
 
@@ -94,7 +95,15 @@ export async function placeBid(
       label,
     });
     if (!verdict.safe) {
-      return { outcome: "PAGE_ERROR", detail: `確定を中止: ${verdict.reason}` };
+      // 押すのはもう諦めた後なので、ここで画面を1往復だけ計測して残す。
+      // これが無いと「確定ボタンが見つからない」の1行しか残らず、
+      // 文言が違うのか確認画面に着いていないのかを切り分けるために
+      // オークションをもう1件使う羽目になる(2026-08-28 に実際に起きた)。
+      const snapshot = await captureConfirmScreen(page);
+      return {
+        outcome: "PAGE_ERROR",
+        detail: `確定を中止: ${verdict.reason} ${snapshot}`,
+      };
     }
     // --- ここから先を実行するかどうかが、テスト実行と本番の唯一の差 ---
     if (opts.dryRun) {
