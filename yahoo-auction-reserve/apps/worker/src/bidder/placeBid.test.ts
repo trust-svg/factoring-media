@@ -30,6 +30,8 @@ function fakePage(
     submitLabel?: string;
     /** 確定ボタンが最初の「入札する」ボタンと同一要素か */
     sameElement?: boolean;
+    /** ラベルが textContent ではなく value に入っている(`<input type=submit>` 型) */
+    labelInValue?: boolean;
   } = {},
 ): FakePage {
   const clicks: string[] = [];
@@ -44,7 +46,11 @@ function fakePage(
   const loc = (sel: string) => {
     const self: any = {
       first: () => self,
-      count: async () => (sel === selectors.priceInput ? priceInputCount() : 1),
+      count: async () => {
+        if (sel === selectors.priceInput) return priceInputCount();
+        if (sel === selectors.bidSubmitButton) return o.submitFound === false ? 0 : 1;
+        return 1;
+      },
       isVisible: async () => sel === selectors.loginLink && o.loginVisible === true,
       fill: async (v: string) => {
         fills.push([sel, v]);
@@ -54,6 +60,13 @@ function fakePage(
         if (sel === selectors.bidConfirmButton) confirmed = true;
       },
       textContent: async () => (sel === selectors.bidSubmitButton ? (o.submitLabel ?? SUBMIT_LABEL) : ""),
+      // 実装はラベルを evaluate 経由で読む(`<input type=submit>` は value 側に入るため)
+      evaluate: async (fn: any) => {
+        const label = sel === selectors.bidSubmitButton ? (o.submitLabel ?? SUBMIT_LABEL) : "";
+        return o.labelInValue === true
+          ? fn({ value: label, textContent: "" })
+          : fn({ value: "", textContent: label });
+      },
       elementHandle: async () => {
         if (sel === selectors.bidSubmitButton) {
           if (o.submitFound === false) throw new Error("not found");
@@ -112,6 +125,26 @@ describe("placeBid のテスト実行(dryRun)", () => {
     assert.equal(r.outcome, "DRY_RUN");
     assert.ok("detail" in r && r.detail.includes(SUBMIT_LABEL), r.outcome);
     assert.ok("detail" in r && r.detail.includes("5000円"), "入札額が入っていない");
+  });
+
+  it("DRY_RUN の detail に、確定ボタンのセレクタのヒット数が入る", () => {
+    // 2026-08-28 の失敗は2回とも「セレクタが0件」だった。テスト実行の目的は
+    // 本番で押すはずのボタンが **ちょうど1件** だと先に確かめること。
+    // 件数を出さないと、テスト実行が成功しても本番で緩いセレクタが裏の
+    // ボタンを掴む余地(地雷12b)が残ったままになる。
+    return placeBid(fakePage().page, URL_, 5_000, 1_000, { dryRun: true }).then((r) => {
+      assert.ok("detail" in r && r.detail.includes("ヒット=1件"), r.outcome);
+      assert.ok("detail" in r && !r.detail.includes("⚠️"), "1件なのに警告が出ている");
+    });
+  });
+
+  it("ラベルが value にしか無くても(input[type=submit]) DRY_RUN まで通る", async () => {
+    // 確認画面の確定ボタンがどの要素で描かれているかは未実測。
+    // textContent だけを見ていると、正しく掴んでいるのにガードで落ちる。
+    const f = fakePage({ labelInValue: true });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000, { dryRun: true });
+    assert.equal(r.outcome, "DRY_RUN", "detail" in r ? r.detail : "");
+    assert.ok("detail" in r && r.detail.includes(SUBMIT_LABEL));
   });
 
   // --- ここから「ガードを通っていないのに DRY_RUN を返さない」の確認 ---

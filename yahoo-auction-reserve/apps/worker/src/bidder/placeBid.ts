@@ -83,9 +83,20 @@ export async function placeBid(
       .then((n) => n > 0)
       .catch(() => true);
     // ラベルが取れなかったときも止める側(空文字は「入札する」を含まない)。
+    // ⚠️ `<input type="submit">` は textContent が空。ラベルは value に入る。
+    // textContent だけを見ると、正しく確定ボタンを掴んでいるのに毎回
+    // 「ラベルが取れない」でガードに落ちて入札が成立しなくなる。
     const label = submitHandle
-      ? ((await submitButton.textContent({ timeout: timeoutMs }).catch(() => "")) ?? "")
+      ? ((await submitButton
+          .evaluate((el) => {
+            const node = el as unknown as { value?: unknown; textContent: string | null };
+            return typeof node.value === "string" && node.value ? node.value : (node.textContent ?? "");
+          })
+          .catch(() => "")) ?? "")
       : "";
+    // 確定ボタンに当たった数。1件でないなら、押す前に人間が知る必要がある
+    // (2026-08-28 は 0件で2回失敗した。次は「本当に1件か」を DRY_RUN で確かめる)
+    const submitHits = await page.locator(selectors.bidSubmitButton).count().catch(() => -1);
 
     const verdict = submitTargetVerdict({
       found: submitHandle !== null,
@@ -112,7 +123,9 @@ export async function placeBid(
         detail:
           `テスト実行のため確定を押していません。` +
           `確認画面には到達済(入札額の入力欄が消えている)。` +
-          `押すはずだったボタン: ${JSON.stringify(label.trim())} / 入札額: ${amount}円`,
+          `押すはずだったボタン: ${JSON.stringify(label.trim())}` +
+          `(セレクタのヒット=${submitHits}件${submitHits === 1 ? "" : " ⚠️1件でない"})` +
+          ` / 入札額: ${amount}円`,
       };
     }
     await submitButton.click({ timeout: timeoutMs });
