@@ -891,6 +891,9 @@ async function reportParser(
   say("|---|---|");
   say(`| title | ${info.title ?? "(取得できず)"} |`);
   say(`| currentPrice | ${info.currentPrice ?? "(取得できず)"} |`);
+  // 即決価格はまだ実ページで一度も確認できていない(2026-08-28 のテスト対象は
+  // 即決なしだった)。「今すぐ落札」があるのに (取得できず) なら抽出が壊れている。
+  say(`| buyNowPrice | ${info.buyNowPrice ?? "(取得できず / 即決なし)"} |`);
   say(`| endAt (JST) | ${fmt(info.endAt)} |`);
   say(`| hasAutoExtension | ${info.hasAutoExtension ?? "(取得できず)"} |`);
   say(`| sellerName | ${info.sellerName ?? "(取得できず)"} |`);
