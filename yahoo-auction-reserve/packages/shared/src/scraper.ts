@@ -54,6 +54,14 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
       if (price !== undefined) info.currentPrice = price;
     }
     if (info.buyNowPrice === undefined) {
+      // ⚠️ 2026-08-29 実測: 同じ商品(n1242036522)で **取り出し元によって値が違う**。
+      //   埋め込みJSON 8100 / ページ表示テキスト 8910(ちょうど 1.1 倍)
+      // JSON が税抜・表示が税込と考えるのが自然で、そうなら買い手が払うのは
+      // 8910 のほう。ここは JSON を優先するので、**10% 低い額を出しうる**。
+      // 税込側が正だと確認できたら優先順位を入れ替えること。
+      // 未確定のまま挙動を変えると、今度は税抜が正しかった商品で 10% 高く出る。
+      // 判定材料は p0-probe の「buyNowPrice (表示テキスト)」の行で集める。
+      //
       // 即決価格。キー名が揺れるうえ、同名キーが boolean(即決あり/なし)で
       // 先に見つかることがあるので、数値として読める最初の値を採る
       // (pickNumber は数値化できない候補を読み飛ばす)。

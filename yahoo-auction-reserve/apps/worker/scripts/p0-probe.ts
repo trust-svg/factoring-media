@@ -891,21 +891,38 @@ async function reportParser(
   url: string,
   anonymous: boolean,
 ): Promise<ReturnType<typeof parseAuctionPage>> {
-  const info = parseAuctionPage(await page.content(), url);
+  const html = await page.content();
+  const info = parseAuctionPage(html, url);
+  // 即決価格は **取り出し元によって値が変わる**。2026-08-29 実測:
+  //   商品ページ(埋め込みJSON) 8100 / 入札後のページ(表示テキスト) 8910
+  // ちょうど 1.1 倍なので、JSON 側が税抜・表示側が税込と考えるのが自然。
+  // 総額表示義務がある以上、買い手が払うのは表示側のはず。
+  // パーサは JSON を優先するので、そのままだと 10% 低い額を出しうる。
+  // どちらを正とするかを決めるために、両方を並べて出す。
+  const textBin = html.match(/即決(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
   say(`### パーサ結果(${anonymous ? "未ログイン" : "認証済み"} DOM)`);
   say("");
   say("| 項目 | 値 |");
   say("|---|---|");
   say(`| title | ${info.title ?? "(取得できず)"} |`);
   say(`| currentPrice | ${info.currentPrice ?? "(取得できず)"} |`);
-  // 即決価格はまだ実ページで一度も確認できていない(2026-08-28 のテスト対象は
-  // 即決なしだった)。「今すぐ落札」があるのに (取得できず) なら抽出が壊れている。
-  say(`| buyNowPrice | ${info.buyNowPrice ?? "(取得できず / 即決なし)"} |`);
+  // 「今すぐ落札」があるのに (取得できず) なら抽出が壊れている。
+  say(`| buyNowPrice (パーサ) | ${info.buyNowPrice ?? "(取得できず / 即決なし)"} |`);
+  say(`| buyNowPrice (表示テキスト) | ${textBin ? textBin[1] : "(見つからず)"} |`);
   say(`| endAt (JST) | ${fmt(info.endAt)} |`);
   say(`| hasAutoExtension | ${info.hasAutoExtension ?? "(取得できず)"} |`);
   say(`| sellerName | ${info.sellerName ?? "(取得できず)"} |`);
   say(`| isClosed | ${info.isClosed ?? "(取得できず)"} |`);
   say("");
+  const textBinNum = textBin ? Number(textBin[1].replaceAll(",", "")) : undefined;
+  if (info.buyNowPrice !== undefined && textBinNum !== undefined && info.buyNowPrice !== textBinNum) {
+    const ratio = (textBinNum / info.buyNowPrice).toFixed(3);
+    say(
+      `> ⚠️ 即決価格が2つある(パーサ ${info.buyNowPrice} / 表示 ${textBinNum}・比 ${ratio})。` +
+        "1.100 なら税抜と税込。買い手に見せる額としてどちらが正しいかを決めること。",
+    );
+    say("");
+  }
   if (info.endAt === undefined || info.currentPrice === undefined) {
     say("> ⚠️ 終了時刻か現在価格が取れていない。ここが取れないと監視ジョブが機能しない。");
     say("");
@@ -1166,10 +1183,14 @@ async function main(): Promise<void> {
         .screenshot({ path: reportPath.replace(/\.md$/, "-stage3-readback.png") })
         .catch(() => {});
       say("");
-      say("**判定**: `highestBidderIndicator` が当たっていて、現在価格が入札額まで");
-      say("上がっていれば、確定クリックは本当に効いている(P0 の最後の1つ)。");
-      say("当たっていなければ、押せてはいるが入札は成立していない = セレクタが");
-      say("裏のボタンを掴んでいる。その場合 selectors.ts を ✅ にしないこと。");
+      say("**判定**: `highestBidderIndicator` が当たっていれば、確定クリックは");
+      say("本当に効いている。当たっていなければ、押せてはいるが入札は成立して");
+      say("いない = セレクタが裏のボタンを掴んでいる。selectors.ts を ✅ にしないこと。");
+      say("");
+      say("⚠️ **現在価格を根拠にしない**。ヤフオクは自動入札なので、対抗者が");
+      say("いなければ現在価格は開始価格のまま動かず、上がるのは自分の上限だけ。");
+      say("2026-08-29 は 1円の商品に 11円で入札して成立したが、現在価格は 1円の");
+      say("ままだった。「価格が上がっていないから失敗」と読むと逆の結論になる。");
       say("");
       console.log(`\n>>> placeBid: ${result.outcome} ${detail}`);
     }
