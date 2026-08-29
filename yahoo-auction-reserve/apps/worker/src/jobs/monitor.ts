@@ -255,22 +255,39 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
     }
 
     // 決着
-    const verdict = await checkResult(page, reservation.auctionUrl);
+    const { verdict, reason } = await checkResult(page, reservation.auctionUrl);
     const won = verdict === "WON";
+    // ⚠️ UNKNOWN を LOST に畳まないこと。落札しているのに「落札ならず」を
+    // 送ると、取引ナビが立っているのに誰も気づかず、出品者と落札者の双方が
+    // こちらの沈黙を待つ。分からないときは FAILED(=人間が確認する状態)にする。
+    // 2026-08-29 まで checkResult は構造上 UNKNOWN しか返せなかったので、
+    // この経路は「必ず LOST を通知する」状態だった。
+    const status = verdict === "UNKNOWN" ? "FAILED" : verdict;
     await prisma.bidReservation.update({
       where: { id: reservation.id },
       data: {
-        status: won ? "WON" : "LOST",
+        status,
         resultPrice: after?.currentPrice ?? null,
-        failureReason: verdict === "UNKNOWN" ? "RESULT_UNVERIFIED" : null,
+        failureReason: verdict === "UNKNOWN" ? `RESULT_UNVERIFIED: ${reason}` : null,
       },
     });
-    await notifyUser(reservation.userId, won ? "WON" : "LOST", {
-      title: reservation.title,
-      url: reservation.auctionUrl,
-      finalPrice: after?.currentPrice ?? "不明",
-      maxBidAmount: reservation.maxBidAmount,
-    });
+    if (verdict === "UNKNOWN") {
+      await notifyUser(reservation.userId, "FAILED", {
+        title: reservation.title,
+        url: reservation.auctionUrl,
+        reason: `落札できたかどうかを確認できませんでした(${reason})`,
+        hint: "ヤフオクの「マイオク > 落札」で結果を確認してください",
+        finalPrice: after?.currentPrice ?? "不明",
+        maxBidAmount: reservation.maxBidAmount,
+      });
+    } else {
+      await notifyUser(reservation.userId, won ? "WON" : "LOST", {
+        title: reservation.title,
+        url: reservation.auctionUrl,
+        finalPrice: after?.currentPrice ?? "不明",
+        maxBidAmount: reservation.maxBidAmount,
+      });
+    }
 
     // 落札したらグループの残りを取りやめる。ここで落ちても落札自体は
     // 成立しているので、通知を送ったあとに実行して例外を握りつぶさない。

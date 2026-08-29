@@ -1,4 +1,5 @@
 import type { Page } from "playwright";
+import { bidHistoryUrl, bidHistoryVerdict, type ResultVerdict } from "./bidHistory";
 import { captureConfirmScreen } from "./diagnose";
 import { submitTargetVerdict } from "./probeSafety";
 import { selectors } from "./selectors";
@@ -142,21 +143,38 @@ export async function placeBid(
   }
 }
 
-// 終了後の商品ページから勝敗を判定する
+// 終了後の勝敗を判定する。
+//
+// ⚠️ 見るのは **商品ページではなく入札履歴ページ**。
+// 2026-08-29 実測(n1242036522): 終了後の商品ページに載っている状態表示は
+// 「このオークションは終了しています」の1行だけで、落札者名も
+// 「あなたが落札しました」も「高値更新」も無い。**商品ページを読む限り
+// WON と LOST は区別できず**、旧実装は必ず UNKNOWN を返していた。
+// (その UNKNOWN を monitor が LOST に畳んでいたので、落札しても
+//  「落札ならず」と通知される経路だった。理由は bidHistory.ts に記録)
+//
+// 判定そのものは bidHistory.ts の bidHistoryVerdict に集約する
+// (ブラウザ無しでテストできる形にして、実データの行をテストに固定してある)。
 export async function checkResult(
   page: Page,
   auctionUrl: string,
-): Promise<"WON" | "LOST" | "UNKNOWN"> {
+): Promise<{ verdict: ResultVerdict; reason: string }> {
+  const url = bidHistoryUrl(auctionUrl);
+  if (!url) {
+    return { verdict: "UNKNOWN", reason: `商品URLから入札履歴URLを作れない: ${auctionUrl}` };
+  }
   try {
-    await page.goto(auctionUrl, { waitUntil: "domcontentloaded" });
-    if (await page.locator(selectors.wonIndicator).first().isVisible().catch(() => false)) {
-      return "WON";
-    }
-    if (await page.locator(selectors.outbidIndicator).first().isVisible().catch(() => false)) {
-      return "LOST";
-    }
-    return "UNKNOWN";
-  } catch {
-    return "UNKNOWN";
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    // 自分の表示名。伏字にならないのは自分の行だけなので、これが鍵になる。
+    const myDisplayName = await page
+      .locator(selectors.loggedInIndicator)
+      .first()
+      .innerText()
+      .catch(() => "");
+    const rows = await page.locator(selectors.bidHistoryRow).allInnerTexts().catch(() => []);
+    return bidHistoryVerdict({ rows, myDisplayName });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return { verdict: "UNKNOWN", reason: `入札履歴ページを読めなかった: ${detail}` };
   }
 }
