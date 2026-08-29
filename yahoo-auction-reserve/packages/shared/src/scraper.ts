@@ -50,7 +50,10 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
   const embedded = extractEmbeddedJson(html);
   if (embedded) {
     if (info.currentPrice === undefined) {
-      const price = pickNumber(embedded, ["price", "currentPrice", "Price"]);
+      // 具体的なキーを先に置く。優先順位が実際に効くようになったので、
+      // 汎用的な `price`(送料・関連商品などにも付く)を先頭にすると
+      // そちらが勝ってしまう。
+      const price = pickNumber(embedded, ["currentPrice", "Price", "price"]);
       if (price !== undefined) info.currentPrice = price;
     }
     if (info.buyNowPrice === undefined) {
@@ -86,8 +89,26 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
     if (typeof autoExt === "boolean") info.hasAutoExtension = autoExt;
     const closed = pickValue(embedded, ["isClosed", "closed"]);
     if (typeof closed === "boolean") info.isClosed = closed;
-    const seller = pickValue(embedded, ["sellerId", "displayName"]);
-    if (typeof seller === "string") info.sellerName = seller;
+    // ⚠️ 出品者名を木全体から `displayName` で拾わないこと。
+    // 2026-08-29 実測(n1242036522・入札後の商品ページ): ログイン中の自分の
+    // 表示名「Royal Coin Japan」が出品者名として入っていた(正しくは
+    // 「ReRe オークションストア」)。`displayName` はキー名だけでは
+    // 持ち主が決まらないので、まず出品者の入れ物まで降りてから探す。
+    //
+    // 入れ物が見つからなければ `sellerId`(ID なので持ち主が曖昧にならない)
+    // だけを見て、それも無ければ **undefined のままにする**。
+    // 「誰かの名前が入っている」より「空」のほうが安全で、
+    // 出品者を見て入札を止める判断が他人の名前で下されることを防ぐ。
+    const sellerBox = pickContainer(embedded, [
+      "seller",
+      "sellerInfo",
+      "sellerModule",
+      "Seller",
+    ]);
+    const seller =
+      pickValue(sellerBox, ["displayName", "name", "sellerId", "id"]) ??
+      pickValue(embedded, ["sellerId"]);
+    if (typeof seller === "string" && seller.trim() !== "") info.sellerName = seller;
   }
 
   // --- テキストベースのフォールバック ---
@@ -184,8 +205,17 @@ function extractEmbeddedJson(html: string): unknown | null {
 // 見つかった順に **すべて** 返す。1件目で打ち切ると、同じキー名が別の型で
 // 先に現れたときに後続の使える値まで捨てることになる(即決価格は
 // boolean の「即決あり/なし」と同名で入っている実装がある)。
+//
+// ⚠️ 並びは **キー配列の優先順位が先、木の探索順は後**。
+// 2026-08-29 まではキー配列を `includes` で「どれか一致」として扱っていたので、
+// 呼び出し側が優先順位のつもりで並べたキーが効いておらず、**たまたま探索で
+// 先に当たったキー**が勝っていた(探索は stack.pop() の深さ優先なので、
+// 文書順ですらない)。実害として、入札後の商品ページで
+// `pickValue(embedded, ["sellerId", "displayName"])` が
+// **ログイン中の自分の表示名**を出品者名として返した。
+// キー配列は優先順位である、を実装に一致させる。
 function pickAll(obj: unknown, keys: string[]): unknown[] {
-  const found: unknown[] = [];
+  const byKey = new Map<string, unknown[]>(keys.map((k) => [k, []]));
   const seen = new Set<unknown>();
   const stack: unknown[] = [obj];
   while (stack.length > 0) {
@@ -193,15 +223,25 @@ function pickAll(obj: unknown, keys: string[]): unknown[] {
     if (cur === null || typeof cur !== "object" || seen.has(cur)) continue;
     seen.add(cur);
     for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
-      if (keys.includes(k) && v !== null && v !== undefined) found.push(v);
+      if (v !== null && v !== undefined) byKey.get(k)?.push(v);
       if (typeof v === "object") stack.push(v);
     }
   }
-  return found;
+  return keys.flatMap((k) => byKey.get(k) ?? []);
 }
 
 function pickValue(obj: unknown, keys: string[]): unknown {
   return pickAll(obj, keys)[0];
+}
+
+// キー名が containerKeys のいずれかに一致する **入れ物** を探して返す。
+// 「出品者の表示名」のように、キー名だけでは持ち主が決まらない値のために使う。
+// 木全体から `displayName` を拾うと買い手(自分)の名前も候補に入るので、
+// まず出品者の入れ物まで降りてから探す。
+function pickContainer(obj: unknown, containerKeys: string[]): unknown {
+  return pickAll(obj, containerKeys).find(
+    (v) => v !== null && typeof v === "object",
+  );
 }
 
 function toNumber(v: unknown): number | undefined {
