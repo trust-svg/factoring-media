@@ -53,22 +53,37 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
       // 具体的なキーを先に置く。優先順位が実際に効くようになったので、
       // 汎用的な `price`(送料・関連商品などにも付く)を先頭にすると
       // そちらが勝ってしまう。
+      //
+      // ⚠️ 即決価格と違い、ここは **税込(taxinPrice)に寄せていない**。
+      // 現在価格は minimumBidToBeat 経由で **入札額の計算**に使うので、
+      // 入札欄と同じ物差しでなければならない。入札欄が税抜か税込かは
+      // 未測定(2026-08-29 に測った n1242036522 は price も taxinPrice も 1 で
+      // 区別が付かなかった)。物差しを間違えると入札額が 10% ずれるので、
+      // ストア出品(price ≠ taxinPrice)で `--stage2` を回し、
+      // 入札フォームの最低入札価格と突き合わせてから変えること。
       const price = pickNumber(embedded, ["currentPrice", "Price", "price"]);
       if (price !== undefined) info.currentPrice = price;
     }
     if (info.buyNowPrice === undefined) {
-      // ⚠️ 2026-08-29 実測: 同じ商品(n1242036522)で **取り出し元によって値が違う**。
-      //   埋め込みJSON 8100 / ページ表示テキスト 8910(ちょうど 1.1 倍)
-      // JSON が税抜・表示が税込と考えるのが自然で、そうなら買い手が払うのは
-      // 8910 のほう。ここは JSON を優先するので、**10% 低い額を出しうる**。
-      // 税込側が正だと確認できたら優先順位を入れ替えること。
-      // 未確定のまま挙動を変えると、今度は税抜が正しかった商品で 10% 高く出る。
-      // 判定材料は p0-probe の「buyNowPrice (表示テキスト)」の行で集める。
+      // ⚠️ **税込を先に採る**。2026-08-29 に実ページの埋め込みJSONで確定:
+      //   ストア出品 n1242036522: bidOrBuyPrice 8100 / taxRate 10 /
+      //                           taxinBidorbuy 8910、表示は「即決 8,910円(税込)」
+      //   個人出品   o1242306599: 税キーそのものが無く、表示は「即決 44,000円(税0円)」
+      // つまり bidOrBuyPrice は **税抜**で、買い手が払うのは taxin 側。
+      // 個人出品は税0なので両者は一致する。
+      //
+      // 税抜(小さいほう)を出すと、支払額を 10% 低く見せることになる。
+      // 逆に税込にすると judgeBuyNow の「上限額が即決価格以上」の警告が
+      // 鳴らない帯(8100〜8910)ができるが、その帯で即決が成立しても
+      // **支払額は必ず本人の上限以下**なので、金銭的な損は出ない
+      // (驚きは出る)。表示額の誤りのほうが実害が大きいので税込を採る。
       //
       // 即決価格。キー名が揺れるうえ、同名キーが boolean(即決あり/なし)で
       // 先に見つかることがあるので、数値として読める最初の値を採る
       // (pickNumber は数値化できない候補を読み飛ばす)。
       const bin = pickNumber(embedded, [
+        "taxinBidorbuy",
+        "taxinBidOrBuyPrice",
         "bidOrBuyPrice",
         "bidorbuyPrice",
         "bidorbuy_price",
@@ -112,25 +127,38 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
   }
 
   // --- テキストベースのフォールバック ---
+  //
+  // ⚠️ **生HTMLに当ててはいけない**。ヤフオクの商品ページはこう出る:
+  //   即決</dt><dd class="sc-1f0603b0-1 eNGAca"><span class="sc-1f0603b0-3 ...">44,000<!-- -->円
+  // ラベルと数字の間に 90 文字以上のタグが挟まり、しかも **クラス名に数字が
+  // 入っている**(sc-1f0603b0-1)。下の正規表現はどれも「間に数字が無いこと」を
+  // 要求するので、生HTMLに対しては構造上ぜったいに当たらない。
+  // 2026-08-29 に実ページ3件で確認: 表示テキスト側が全件「見つからず」だった。
+  //
+  // 埋め込みJSONが取れている間は誰も気づかない。しかも同じ日に、
+  // プレーン fetch の SSR JSON には bidOrBuyPrice が **無い**ことも分かった
+  // (ブラウザで描画した DOM には有る)。つまりこのフォールバックが必要になる
+  // 場面は実在していて、そこで黙って空を返していた。
+  const text = stripTags(html);
   if (info.currentPrice === undefined) {
-    const m = html.match(/現在(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
+    const m = text.match(/現在(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
     if (m) info.currentPrice = Number(m[1].replaceAll(",", ""));
   }
   if (info.buyNowPrice === undefined) {
     // 「即決価格 12,345円」「即決 12,345 円」の両方を拾う。
     // 「現在価格」の行を巻き込まないよう、数字までの距離を短く取る。
-    const m = html.match(/即決(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
+    const m = text.match(/即決(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
     if (m) {
       const v = Number(m[1].replaceAll(",", ""));
       if (Number.isFinite(v) && v > 0) info.buyNowPrice = v;
     }
   }
   if (info.hasAutoExtension === undefined) {
-    if (/自動延長\s*[:：]?\s*あり/.test(html)) info.hasAutoExtension = true;
-    else if (/自動延長\s*[:：]?\s*なし/.test(html)) info.hasAutoExtension = false;
+    if (/自動延長\s*[:：]?\s*あり/.test(text)) info.hasAutoExtension = true;
+    else if (/自動延長\s*[:：]?\s*なし/.test(text)) info.hasAutoExtension = false;
   }
   if (info.isClosed === undefined) {
-    info.isClosed = /このオークションは終了しています/.test(html);
+    info.isClosed = /このオークションは終了しています/.test(text);
   }
 
   // --- 判断材料(送料・出品者評価) ---
@@ -146,24 +174,24 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
     if (count !== undefined && count >= 0) info.sellerRatingCount = count;
   }
   if (info.shippingFee === undefined) {
-    if (/送料無料|送料込/.test(html)) info.shippingFee = 0;
+    if (/送料無料|送料込/.test(text)) info.shippingFee = 0;
     else {
-      const m = html.match(/送料[^0-9]{0,20}([\d,]+)\s*円/);
+      const m = text.match(/送料[^0-9]{0,20}([\d,]+)\s*円/);
       if (m) info.shippingFee = Number(m[1].replaceAll(",", ""));
-      else if (/落札者(?:の)?負担/.test(html)) {
+      else if (/落札者(?:の)?負担/.test(text)) {
         info.shippingNote = "落札者負担(金額は商品ページを確認)";
       }
     }
   }
   if (info.sellerRating === undefined) {
-    const m = html.match(/([\d.]{1,5})\s*%[^0-9]{0,10}(?:good|良い|評価)/i);
+    const m = text.match(/([\d.]{1,5})\s*%[^0-9]{0,10}(?:good|良い|評価)/i);
     if (m) {
       const v = Number(m[1]);
       if (Number.isFinite(v) && v >= 0 && v <= 100) info.sellerRating = Math.round(v);
     }
   }
   if (info.sellerRatingCount === undefined) {
-    const m = html.match(/評価[^0-9]{0,10}([\d,]+)\s*件/);
+    const m = text.match(/評価[^0-9]{0,10}([\d,]+)\s*件/);
     if (m) info.sellerRatingCount = Number(m[1].replaceAll(",", ""));
   }
 
@@ -176,6 +204,21 @@ export async function fetchAuctionInfo(url: string): Promise<AuctionInfo> {
 }
 
 // ---- helpers -------------------------------------------------
+
+// タグを落として「人が読む文字」だけにする。テキストのフォールバックは
+// 必ずこれを通してから当てる(理由は parseAuctionPage 内のコメント)。
+//
+// script/style を先に消すのは、埋め込みJSONの中身が本文に混ざるのを防ぐため
+// (`"price":510` のような文字列が数値の正規表現に拾われうる)。
+function stripTags(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ");
+}
 
 function extractEmbeddedJson(html: string): unknown | null {
   // 1) __NEXT_DATA__

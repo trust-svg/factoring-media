@@ -901,13 +901,22 @@ async function reportParser(
 ): Promise<ReturnType<typeof parseAuctionPage>> {
   const html = await page.content();
   const info = parseAuctionPage(html, url);
-  // 即決価格は **取り出し元によって値が変わる**。2026-08-29 実測:
-  //   商品ページ(埋め込みJSON) 8100 / 入札後のページ(表示テキスト) 8910
-  // ちょうど 1.1 倍なので、JSON 側が税抜・表示側が税込と考えるのが自然。
-  // 総額表示義務がある以上、買い手が払うのは表示側のはず。
-  // パーサは JSON を優先するので、そのままだと 10% 低い額を出しうる。
-  // どちらを正とするかを決めるために、両方を並べて出す。
-  const textBin = html.match(/即決(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
+  // 即決価格を **2つの経路で出す**。2026-08-29 に決着済み:
+  //   埋め込みJSON の bidOrBuyPrice は税抜(8100)、taxinBidorbuy が税込(8910)。
+  //   ページの表示は税込(「即決 8,910円(税込)」)。個人出品は税キーが無く一致。
+  // パーサは税込を採るので、以降この2行は **一致するのが正常**。
+  // ずれたら、税の扱いかタグの形が変わったということ。
+  //
+  // ⚠️ 表示テキスト側はタグを剥がしてから当てる。生HTMLだと
+  //    `即決</dt><dd class="sc-1f0603b0-1 ...">44,000<!-- -->円` のように
+  //    クラス名の数字とタグが挟まって **構造上ぜったいに当たらない**
+  //    (2026-08-29 以前はここが常に「見つからず」だった)。
+  const flatText = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ");
+  const textBin = flatText.match(/即決(?:価格)?[^0-9]{0,20}([\d,]+)\s*円/);
   say(`### パーサ結果(${anonymous ? "未ログイン" : "認証済み"} DOM)`);
   say("");
   say("| 項目 | 値 |");
@@ -926,8 +935,9 @@ async function reportParser(
   if (info.buyNowPrice !== undefined && textBinNum !== undefined && info.buyNowPrice !== textBinNum) {
     const ratio = (textBinNum / info.buyNowPrice).toFixed(3);
     say(
-      `> ⚠️ 即決価格が2つある(パーサ ${info.buyNowPrice} / 表示 ${textBinNum}・比 ${ratio})。` +
-        "1.100 なら税抜と税込。買い手に見せる額としてどちらが正しいかを決めること。",
+      `> ⚠️ パーサと表示で即決価格が違う(パーサ ${info.buyNowPrice} / 表示 ${textBinNum}・比 ${ratio})。` +
+        "2026-08-29 以降、パーサは税込(taxinBidorbuy)を採るので **一致するのが正常**。" +
+        "比が 1.100 前後なら税抜が漏れている(taxin 系のキー名が変わった可能性)。",
     );
     say("");
   }
