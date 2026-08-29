@@ -20,7 +20,7 @@
 // | wonIndicator           | ❌ 未検証 | 自分が落札した終了済み商品でないと出ない |
 // | highestBidderIndicator | ✅ 検証済 | 2026-08-29 実測。`<h1>あなたが最高額入札者です</h1>`(旧値は0件だった) |
 // | outbidIndicator        | ❌ 未検証 | 誰かに上回られないと出ない(陽性対照が未取得) |
-// | watchlistLoginWall     | ❌ 未検証 | `npm run p0:probe -- --watchlist --anonymous` で陽性対照を取る |
+// | watchlistLoginWall     | ✅ 検証済 | 2026-08-29 実測。判定の主役は URL 側。DOM は `input[name=handle]` だけが実在 |
 // | watchlistItemLink      | ✅ 要スコープ | セレクタ単体では不合格。カルーセル除外と **必ずセット** で使う(地雷9) |
 // | watchlistNextPage      | ❓ 判定不能 | 全滅したが、実物が9件でページャが出る状況ではない(地雷10) |
 //
@@ -236,13 +236,32 @@ export const selectors = {
   highestBidderIndicator: "text=あなたが最高額入札者です",
   outbidIndicator: "text=高値更新",
 
-  // --- ウォッチリスト(ログイン必須) ❌ 未検証 ---
+  // --- ウォッチリスト(ログイン必須) ---
   //
   // ウォッチリストは未ログインだと商品が1件も出ず、ログイン画面へ飛ばされる。
   // つまり「0件」と「ログインが切れている」が **同じ見た目**になる。
   // watchlistLoginWall を先に見て、空リストと取得失敗を必ず区別すること
   // (区別しないと、セッション切れが「ウォッチリストが空になった」に化ける)。
-  watchlistLoginWall: 'form[action*="login.yahoo.co.jp"], input[name="login"]',
+  //
+  // ⚠️ ログイン壁の判定の主役は **このセレクタではなく URL**
+  // (pageIdentity.ts が login.yahoo.co.jp への遷移を見ている)。
+  // 2026-08-29 実測: 未ログインで /my/watchlist を開くと
+  //   https://login.yahoo.co.jp/config/login?.src=auc&.done=... へ **302 されて HTTP 200**。
+  // つまりステータスは正常系のまま、DOM もヤフオクのものではなくなる。
+  // ここは「遷移せず同じページ内に壁が出た」場合の後詰め。
+  //
+  // ⚠️ 直前まで置いていた `form[action*="login.yahoo.co.jp"], input[name="login"]`
+  // は実在せず、**本物のログイン壁に対して0件**だった(同時に試した
+  // `form[action*=...]` 単体・`input[name='login']`・`text=ログインしてください`
+  // も全て0件)。書いた本人には二重化したつもりの行が、実際には一度も
+  // 効かないまま「壁を見る処理はある」という安心だけを作っていた。
+  // 実測で存在したのはログインID入力欄の `handle` だけ(id は毎回変わる乱数、
+  // data-testid は1つも無い)。
+  //
+  // ⚠️ `text=ログイン` に広げないこと。同じログイン画面で3件当たり、
+  // うち1件は「パスワードのみでの**ログイン**を終了します」という別物だった
+  // (Playwright の `text=` は部分一致)。
+  watchlistLoginWall: 'input[name="handle"]',
   // 1商品ぶんのリンク。オークションIDを含む href を手掛かりにする
   watchlistItemLink: 'a[href*="/jp/auction/"]',
   // ページャの「次へ」。無ければ1ページで打ち切る

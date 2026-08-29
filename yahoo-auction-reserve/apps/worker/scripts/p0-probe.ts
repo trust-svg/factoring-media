@@ -167,9 +167,17 @@ const CANDIDATES: Record<string, Candidate[]> = {
   outbidIndicator: [selectors.outbidIndicator, "text=高値更新"],
   watchlistLoginWall: [
     selectors.watchlistLoginWall,
+    // ↓ 2026-08-29 の実測で **全て0件**。消さずに残すのは、消すと
+    // 「試したが無かった」が記録から消えて、次に誰かが同じ形を書き直すから。
     "form[action*='login.yahoo.co.jp']",
     "input[name='login']",
     "text=ログインしてください",
+    {
+      sel: "text=ログイン",
+      // 3件当たるが、1件は「パスワードのみでのログインを終了します」。
+      // 部分一致なので壁の判定には使えない(実測 2026-08-29)。
+      trap: "部分一致で別の文にも当たる(実測3件・うち1件は無関係な案内文)",
+    },
   ],
   watchlistItemLink: [
     selectors.watchlistItemLink,
