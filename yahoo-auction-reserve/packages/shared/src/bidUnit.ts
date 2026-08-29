@@ -34,14 +34,19 @@ export function yahooBidUnit(currentPrice: number): number {
 /**
  * 現在価格を上回るのに必要な最低額。
  *
- * ⚠️ **入札が1件も無い商品では過大**。ヤフオクは入札0件のとき現在価格
- * (=開始価格)ちょうどで入札できるが、ここは常に単位を足した額を返す。
- * 2026-08-29 に開始価格1円・入札0件の商品で 11 円と算出した(実際は1円で入る)。
+ * `bidCount` を渡すと入札0件の商品を正しく扱う。ヤフオクは入札が1件も
+ * 無いとき現在価格(=開始価格)ちょうどで入札できるので、単位を足すと過大になる
+ * (2026-08-29 に開始価格1円・入札0件の商品で 11 円と算出していた)。
  *
- * 入札額としては過大でも弾かれはしない(自動入札の上限が上がるだけ)ので、
- * 実害は「最低額での入札ができない」だけ。直すには入札件数の抽出が要り、
- * そのセレクタが未検証なので保留してある。
+ * ⚠️ 件数が分からないとき(undefined)は **単位を足す側**に倒す。
+ * 足りない額で出すと弾かれて入札が成立しないが、多い額は自動入札の上限が
+ * 上がるだけで実害が小さいため。誤りのコストが方向で非対称なので、
+ * 「分からない = 安全側」を既定にしておく。
+ *
+ * 入札件数は埋め込みJSONの `bids` から取れる(scraper.ts)。セレクタが
+ * 要らないので、2026-08-29 に保留を解除した。
  */
-export function minimumBidToBeat(currentPrice: number): number {
+export function minimumBidToBeat(currentPrice: number, bidCount?: number): number {
+  if (bidCount === 0) return currentPrice;
   return currentPrice + yahooBidUnit(currentPrice);
 }

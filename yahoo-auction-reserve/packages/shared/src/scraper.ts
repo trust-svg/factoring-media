@@ -95,6 +95,12 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
       // 0 は「即決なし」を 0 で表す実装があるため採らない(0円即決に見える)。
       if (bin !== undefined && bin > 0) info.buyNowPrice = bin;
     }
+    // 入札件数。2026-08-29 実測でヤフオクの埋め込みJSONに `bids` として入って
+    // いることを確認した(o1242306599 で 10件、p1241285646 で 0件)。
+    // `biddersNum`(入札した人数)とは別物なので混ぜない。同じ商品で
+    // bids 10 / biddersNum 8 だった。
+    const bids = pickNumber(embedded, ["bids", "bidCount", "bidsCount"]);
+    if (bids !== undefined && bids >= 0) info.bidCount = bids;
     const endTime = pickValue(embedded, ["endTime", "endtime", "EndTime"]);
     if (typeof endTime === "string" || typeof endTime === "number") {
       const d = parseYahooDate(endTime);

@@ -18,6 +18,9 @@ export interface AuctionInfo {
   imageUrl?: string;
   sellerName?: string;
   currentPrice?: number;
+  // 入札件数。0 は「まだ誰も入札していない」で、現在価格ちょうどで入札できる
+  // (minimumBidToBeat の分岐に使う)。取れなければ undefined。
+  bidCount?: number;
   // 即決価格。設定されていない出品の方が多いので、無いことは undefined。
   // ⚠️ 0 を入れない。0 は「0円で即決できる」に読めてしまう。
   buyNowPrice?: number;

@@ -47,3 +47,23 @@ describe("minimumBidToBeat", () => {
     assert.ok(4_901 < minimumBidToBeat(4_900), "4,901 は最低入札額に届かない");
   });
 });
+
+describe("minimumBidToBeat の入札0件", () => {
+  it("入札0件なら現在価格ちょうどで入札できる", () => {
+    // 開始価格のまま誰も入札していない商品。単位を足すと過大になる。
+    assert.equal(minimumBidToBeat(1, 0), 1);
+    assert.equal(minimumBidToBeat(13_500, 0), 13_500);
+  });
+
+  it("入札があれば単位を足す", () => {
+    assert.equal(minimumBidToBeat(1, 10), 11);
+    assert.equal(minimumBidToBeat(13_500, 2), 14_000);
+  });
+
+  it("件数が分からないときは弾かれない側(単位を足す)に倒す", () => {
+    // 足りない額は弾かれて入札が成立しない。多い額は自動入札の上限が
+    // 上がるだけ。分からないときは安いほうではなく、通るほうを選ぶ。
+    assert.equal(minimumBidToBeat(1), 11);
+    assert.equal(minimumBidToBeat(1, undefined), 11);
+  });
+});

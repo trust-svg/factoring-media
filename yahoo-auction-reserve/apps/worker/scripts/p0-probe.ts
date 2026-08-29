@@ -923,6 +923,9 @@ async function reportParser(
   say("|---|---|");
   say(`| title | ${info.title ?? "(取得できず)"} |`);
   say(`| currentPrice | ${info.currentPrice ?? "(取得できず)"} |`);
+  // 0件なら現在価格ちょうどで入札できる。表示しないと、最低入札額の
+  // 計算が合わないときに件数のせいか単位表のせいかを切り分けられない。
+  say(`| bidCount | ${info.bidCount ?? "(取得できず)"} |`);
   // 「今すぐ落札」があるのに (取得できず) なら抽出が壊れている。
   say(`| buyNowPrice (パーサ) | ${info.buyNowPrice ?? "(取得できず / 即決なし)"} |`);
   say(`| buyNowPrice (表示テキスト) | ${textBin ? textBin[1] : "(見つからず)"} |`);
@@ -1232,7 +1235,9 @@ async function main(): Promise<void> {
     //    まだ P0 未検証。ここで止まったら、フォームが出す「最低入札価格」の
     //    表示と突き合わせて表の側を直すこと(合わせて表の検証にもなる)。
     const minAmount =
-      parsed.currentPrice === undefined ? undefined : minimumBidToBeat(parsed.currentPrice);
+      parsed.currentPrice === undefined
+        ? undefined
+        : minimumBidToBeat(parsed.currentPrice, parsed.bidCount);
     if (minAmount !== undefined && (args.amount ?? 0) < minAmount) {
       say(`### ⚠️ 入札額 ${args.amount} では進めない — 最低入札額は ${minAmount} 円`);
       say("");
