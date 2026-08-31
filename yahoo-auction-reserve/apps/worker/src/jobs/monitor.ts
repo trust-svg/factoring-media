@@ -16,6 +16,15 @@ import { tryAutoRaise } from "../autoRaise";
 import { cancelGroupSiblings } from "../group";
 import { acquireSessionLock, sessionLockWaitMs } from "../sessionLock";
 
+// monitor は「何もしなかった」ときと「判断して見送った」ときが
+// ログ上で見分けられない状態だった。2026-08-30 に上限超過で入札を
+// 見送った回は DB の failureReason にしか痕跡が無く、ログを見ても
+// 起動したことすら分からなかった。判断の分岐点では必ず1行出す。
+// (時刻は docker/journald 側が付けるのでここでは出さない = JST/UTC 事故を避ける)
+function logMonitor(reservation: { id: string; auctionId: string }, message: string): void {
+  console.log(`[monitor] ${reservation.auctionId} (${reservation.id}) ${message}`);
+}
+
 // スナイプ実行本体(設計 §7)。入札予定時刻のウォームアップ分だけ手前
 // (= T-(snipeSecondsBefore + MONITOR_WARMUP_SECONDS))で起動される。
 // 1. ブラウザ+セッションのウォームアップ(失効ならこの時点で緊急通知)
@@ -34,6 +43,11 @@ export async function runMonitorJob(job: Job<ReservationJobData>): Promise<void>
     where: { id: reservation.id },
     data: { status: "MONITORING" },
   });
+  logMonitor(
+    reservation,
+    `監視開始: 上限 ¥${reservation.maxBidAmount} / ` +
+      `${reservation.snipeSecondsBefore}秒前に入札${reservation.dryRun ? " (テスト実行)" : ""}`,
+  );
 
   if (offsetIsStale()) await measureYahooTimeOffset();
 
@@ -82,6 +96,17 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
         data: { endAt },
       });
     }
+    if (info?.currentPrice === undefined) {
+      // 取れないまま入札には進む(上限額での入札自体はヤフオク側が弾く)。
+      // 「確認できなかった」ことをここで残さないと、上限判定を一度も
+      // 通していないのに通したように見える。
+      logMonitor(reservation, "価格確認: 取得できず(上限チェックを行えていない)");
+    } else {
+      logMonitor(
+        reservation,
+        `価格確認: 現在 ¥${info.currentPrice} / 上限 ¥${reservation.maxBidAmount}`,
+      );
+    }
     if (info?.currentPrice !== undefined && info.currentPrice >= reservation.maxBidAmount) {
       // ここは入札の直前。承認を待つ時間は無いので、自動増額(AUTO)だけ試す。
       // 承認制の予約に対してここで問い合わせても、返事が来る前に終了する。
@@ -92,9 +117,15 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       );
       if (outcome.kind === "RAISED") {
         // 以降のループは増額後の額で入札する
+        logMonitor(reservation, `自動増額: 上限を ¥${outcome.newAmount} に引き上げ`);
         reservation.maxBidAmount = outcome.newAmount;
         reservation.autoRaiseUsedCount += 1;
       } else {
+        logMonitor(
+          reservation,
+          `入札しません: 現在価格 ¥${info.currentPrice} が上限 ¥${reservation.maxBidAmount} 以上` +
+            `(自動増額: ${outcome.kind})`,
+        );
         await prisma.bidReservation.update({
           where: { id: reservation.id },
           data: { status: "EXPIRED", failureReason: "PRICE_OVER_LIMIT", currentPrice: info.currentPrice },
@@ -157,6 +188,11 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       // 抱えると、同じアカウントの次の予約が最大30分待たされる。
       lease.release();
     }
+    logMonitor(
+      reservation,
+      `入札実行: ¥${reservation.maxBidAmount} → ${result.outcome}` +
+        ("detail" in result && result.detail ? ` (${result.detail})` : ""),
+    );
     await prisma.bidAttempt.create({
       data: {
         reservationId: reservation.id,
@@ -256,6 +292,7 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
 
     // 決着
     const { verdict, reason } = await checkResult(page, reservation.auctionUrl);
+    logMonitor(reservation, `結果判定: ${verdict} - ${reason}`);
     const won = verdict === "WON";
     // ⚠️ UNKNOWN を LOST に畳まないこと。落札しているのに「落札ならず」を
     // 送ると、取引ナビが立っているのに誰も気づかず、出品者と落札者の双方が

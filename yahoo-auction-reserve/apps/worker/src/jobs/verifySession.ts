@@ -4,6 +4,7 @@ import { selectors } from "../bidder/selectors";
 import { createYahooContext, launchBrowser, markSessionExpired } from "../bidder/session";
 import { notifyUser } from "../notify";
 import { judgeSession, planVerifyOutcome } from "../sessionVerdict";
+import { WATCHLIST_URL_CANDIDATES } from "./watchlist";
 
 // 連携 Cookie の生存確認(設計 §8-3)。
 //
@@ -18,37 +19,29 @@ import { judgeSession, planVerifyOutcome } from "../sessionVerdict";
 const VERIFY_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /** 1回の走査で確認する上限。全件を一度に開くとブラウザ起動が詰まる */
 const VERIFY_BATCH = 3;
-/** 予約もウォッチもない連携の確認先。ログインリンクの有無で判定する */
-const FALLBACK_URL = "https://auctions.yahoo.co.jp/";
+/**
+ * 生存確認を行うページ。**ウォッチリスト固定**。
+ *
+ * ⚠️ 2026-08-30 まではここが予約中の商品ページだった。結果、4回中4回が
+ * UNKNOWN になり、この確認は「静かに何もしていない」状態だった。
+ * 商品ページは新UI(CSR)で `loginLink` も `loggedInIndicator` も 0件になり、
+ * **ログイン中と失効が同じ見た目**になる。判定に必要なのは片方の実測ではなく
+ * 陰陽の対照で、それが揃っているのはウォッチリストだけ:
+ *
+ * - ログイン中 (2026-08-26 実測): `loggedInIndicator` 1件 / `loginLink` 0件 → ACTIVE
+ * - 未ログイン (2026-08-29 実測): `login.yahoo.co.jp/config/login?...` へ 302
+ *   (HTTP は 200 のまま) → 到達 URL で EXPIRED
+ *
+ * ウォッチが0件でもページ自体は開けるので、件数には依存しない。
+ * URL は同期ジョブと同じものを参照する(片方だけ直して気づかない事故を防ぐ)。
+ */
+const VERIFY_TARGET_URL = WATCHLIST_URL_CANDIDATES[0]!;
 
 export interface VerifySessionResult {
   kind: "ACTIVE" | "EXPIRED" | "UNKNOWN";
   reason: string;
   /** 実際に開いた URL(判定の根拠を残す) */
   url: string;
-}
-
-/**
- * 確認先の URL を選ぶ。
- *
- * 予約中の商品ページを最優先にする。P0 実測(2026-08-24)でログイン有無の
- * 差を確認できているのは商品ページの `loginLink` だけなので、そこで見るのが
- * 一番確実。無ければウォッチリストの商品、それも無ければトップページ。
- */
-async function pickTargetUrl(yahooSessionId: string, userId: string): Promise<string> {
-  const reservation = await prisma.bidReservation.findFirst({
-    where: { yahooSessionId, status: { in: ["SCHEDULED", "MONITORING"] } },
-    orderBy: { endAt: "asc" },
-    select: { auctionUrl: true },
-  });
-  if (reservation) return reservation.auctionUrl;
-
-  const watched = await prisma.watchlistItem.findFirst({
-    where: { userId, dismissedAt: null },
-    orderBy: { lastSeenAt: "desc" },
-    select: { auctionUrl: true },
-  });
-  return watched?.auctionUrl ?? FALLBACK_URL;
 }
 
 export async function verifySession(yahooSessionId: string): Promise<VerifySessionResult> {
@@ -64,7 +57,7 @@ export async function verifySession(yahooSessionId: string): Promise<VerifySessi
     data: { lastVerifyAttemptAt: new Date() },
   });
 
-  const url = await pickTargetUrl(yahooSessionId, session.userId);
+  const url = VERIFY_TARGET_URL;
 
   let browser: Browser | undefined;
   let result: VerifySessionResult;
@@ -101,6 +94,8 @@ export async function verifySession(yahooSessionId: string): Promise<VerifySessi
   if (plan.warn) {
     // 判定できない状態が続くと、この確認は「静かに何もしていない」のと
     // 同じになる。lastVerifiedAt が進まないので日次サマリに古い時刻が出る。
+    // ⚠️ ウォッチリストで判断できないなら、それは「たまたま」ではなく
+    // ページ構造が変わった疑いが濃い(ここは陰陽の対照が取れている唯一の面)。
     console.warn(
       `[verifySession] ${session.label}: ${result.reason} (${url})。` +
         "セレクタ(loginLink / loggedInIndicator)の確認が必要かもしれません",
