@@ -45,6 +45,7 @@ import {
   extractAuctionId,
   minimumBidToBeat,
   parseAuctionPage,
+  sellerNameCandidates,
 } from "@yar/shared";
 import type { YahooCookie } from "@yar/shared";
 import { selectors } from "../src/bidder/selectors";
@@ -52,6 +53,7 @@ import { placeBid } from "../src/bidder/placeBid";
 import { confirmClickVerdict } from "../src/bidder/probeSafety";
 import { bidLandingVerdict, listStabilityVerdict } from "../src/bidder/pageReady";
 import { settlePage } from "../src/bidder/settle";
+import { captureBidEntry } from "../src/bidder/diagnose";
 import {
   CAROUSEL_ANCESTOR_SELECTOR,
   watchlistScopeVerdict,
@@ -893,6 +895,72 @@ async function probeWatchlist(
   say("");
 }
 
+// 出品者名の真値を取りに行く。
+//
+// パーサが返す名前が正しいかどうかは、**パーサの出力だけを見ても分からない**
+// (2026-09-02 時点の DB には入札者の伏字 ID が出品者名として入っていた)。
+// そこで「埋め込みJSONに居た候補を全部」と「画面に出ている出品者リンク」を
+// 並べて出す。実ページの構造を推測せずに突き合わせるための材料。
+async function reportSellerEvidence(page: Page, url: string): Promise<void> {
+  const html = await page.content();
+  say("### 出品者名の候補(パーサが見ている中身)");
+  say("");
+  const cands = sellerNameCandidates(html, url);
+  if (cands.length === 0) {
+    say("- (埋め込みJSONに候補なし)");
+  } else {
+    say("| 探した範囲 | キー | 値 | 伏字 |");
+    say("|---|---|---|---|");
+    // 先頭が採用される候補。2件目以降と食い違っていたら、
+    // どちらが本物かを下の「画面上の出品者リンク」で決める。
+    for (const c of cands.slice(0, 12)) {
+      say(`| ${c.scope} | ${c.key} | ${c.value} | ${c.masked ? "⚠️ はい" : ""} |`);
+    }
+    if (cands.length > 12) say(`| … | | 他 ${cands.length - 12} 件 | |`);
+  }
+  say("");
+  // 画面側の真値。出品者リンクは評価ページ / プロフィールへ飛ぶので、
+  // href に ID が出る(伏字にならない)。どれが出品者かは決め打ちせず全部出す。
+  const links = await page
+    .locator("a[href*='auc_user='], a[href*='/seller/'], a[href*='profile.yahoo.co.jp']")
+    .evaluateAll((els) =>
+      els.slice(0, 12).map((el) => {
+        // worker の tsconfig に DOM 型は入っていないので構造で受ける
+        const a = el as unknown as { textContent: string | null; href: string };
+        return { text: (a.textContent ?? "").trim().slice(0, 40), href: a.href.slice(0, 120) };
+      }),
+    )
+    .catch(() => [] as { text: string; href: string }[]);
+  say("**画面上の出品者リンク(真値)**");
+  say("");
+  if (links.length === 0) {
+    say("- (見つからず。出品者リンクの形が変わった可能性)");
+  } else {
+    say("| テキスト | href |");
+    say("|---|---|");
+    for (const l of links) say(`| ${l.text || "(空)"} | ${l.href} |`);
+  }
+  say("");
+}
+
+// 入札ボタンを掴めなかったときに実際に残る計測を、**成功する場面で1回出す**。
+// 2026-09-02 の実入札が Timeout の1行しか残さなかったので入れた仕掛けだが、
+// 失敗した瞬間に初めて動かすのでは、壊れていても気づけない(そのときには
+// もう次のオークションが必要になる)。ここで形を見ておく。
+async function reportBidEntryCapture(page: Page): Promise<void> {
+  say("### 入口の計測(captureBidEntry の出力)");
+  say("");
+  say("```");
+  say(await captureBidEntry(page));
+  say("```");
+  say("");
+  say(
+    "> 実入札が失敗したときは、これと同じ内容が失敗理由の後ろに付く。" +
+      "ここで `入札ボタン候補=0` や `ログインリンク>0` が出ているなら、**計測のほうが壊れている**。",
+  );
+  say("");
+}
+
 // 認証済み DOM に対してパーサが機能するかを見る(未認証 fetch とは差が出うる)
 async function reportParser(
   page: Page,
@@ -1138,6 +1206,8 @@ async function main(): Promise<void> {
 
   await reportSlots(page, STAGE1_SLOTS);
   const parsed = await reportParser(page, args.url, args.anonymous);
+  await reportSellerEvidence(page, args.url);
+  await reportBidEntryCapture(page);
   await discovery(page);
 
   const shot1 = reportPath.replace(/\.md$/, "-stage1.png");
