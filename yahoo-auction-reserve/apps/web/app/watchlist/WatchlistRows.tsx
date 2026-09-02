@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatJstDayLabel, formatJstTime, formatRemaining, formatYen } from "@yar/shared/format";
+import { RESERVATION_STATUS_LABEL, type ReservationStatusKey } from "@yar/shared/labels";
 
 export interface WatchlistRow {
   id: string;
@@ -13,7 +14,14 @@ export interface WatchlistRow {
   currentPrice: number | null;
   endAtMs: number | null;
   hasAutoExtension: boolean | null;
+  /** 動いている予約の状態。ある行は予約し直せない */
   reservedStatus: string | null;
+  /** 予約し直せる過去の予約の状態(キャンセル・失敗など) */
+  pastStatus: string | null;
+}
+
+function statusLabel(status: string): string {
+  return RESERVATION_STATUS_LABEL[status as ReservationStatusKey] ?? status;
 }
 
 export default function WatchlistRows({
@@ -72,9 +80,14 @@ export default function WatchlistRows({
             </div>
             <div className="wl-actions">
               {r.reservedStatus ? (
-                <span className="muted">予約済み</span>
+                <span className="muted">{statusLabel(r.reservedStatus)}</span>
               ) : (
                 <>
+                  {/* 前回の結果は消さずに残す。行が元に戻るだけだと
+                      「キャンセルできていないのでは」と読めてしまう */}
+                  {r.pastStatus && (
+                    <span className="muted">前回: {statusLabel(r.pastStatus)}</span>
+                  )}
                   <Link href={`/reservations/new?url=${encodeURIComponent(r.auctionUrl)}`}>
                     <button>予約する</button>
                   </Link>

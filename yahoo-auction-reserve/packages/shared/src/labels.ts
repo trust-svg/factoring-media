@@ -32,6 +32,33 @@ export const RESERVATION_STATUS_LABEL: Record<ReservationStatusKey, string> = {
   DRY_RUN: "テスト実行(入札していません)",
 };
 
+/**
+ * もう動いていないので、**同じ商品をもう一度予約してよい** 状態。
+ *
+ * ⚠️ 「終わった予約」(ダッシュボードの結果タブ)とは別物。WON はここに
+ * 入れない — 落札済みの商品を予約し直すことはできない。
+ *
+ * ⚠️ この一覧はもともと予約APIの中にだけ書かれていて、ウォッチリスト画面は
+ * 「予約が1件でもあれば予約済み」と見ていた。結果、キャンセルした商品の行から
+ * 「予約する」も「一覧から消す」も消え、**ウォッチリストからは二度と予約
+ * できなくなっていた**(2026-09-02 報告)。API 側は最初から再登録を許して
+ * いたので、壊れていたのは画面だけ。同じ判断を2箇所で書かないためここに置く。
+ */
+export const RESERVATION_REBOOKABLE_STATUSES: ReservationStatusKey[] = [
+  "CANCELLED",
+  "FAILED",
+  "LOST",
+  "EXPIRED",
+  // テスト実行は「本番の予約をまだしていない」状態。ここに入れ忘れると
+  // テスト実行するほど本番の予約ができなくなる。
+  "DRY_RUN",
+];
+
+/** 予約し直せる状態か(未知の値は「動いている」側に倒す) */
+export function isRebookableReservation(status: string): boolean {
+  return (RESERVATION_REBOOKABLE_STATUSES as string[]).includes(status);
+}
+
 export type AttemptOutcomeKey =
   | "SUCCESS"
   | "OUTBID"

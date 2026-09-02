@@ -11,6 +11,7 @@ import {
   normalizeAuctionUrl,
   validateAutoRaiseInput,
 } from "@yar/shared";
+import { isRebookableReservation } from "@yar/shared/labels";
 import { requireUser } from "@/lib/auth";
 import { handle, jsonError } from "@/lib/api";
 
@@ -81,11 +82,10 @@ export async function POST(req: NextRequest) {
     const duplicate = await prisma.bidReservation.findUnique({
       where: { userId_auctionId: { userId: user.id, auctionId } },
     });
-    // 終了済みの予約は再登録を許す。DRY_RUN(テスト実行)も終了状態なので
-    // ここに入れる。入れ忘れると「テスト実行した商品を本番で予約できない」
-    // = テスト実行するほど本番が登録できなくなる。
-    const FINISHED = ["CANCELLED", "FAILED", "LOST", "EXPIRED", "DRY_RUN"];
-    if (duplicate && !FINISHED.includes(duplicate.status)) {
+    // 終了済みの予約は再登録を許す(判定は @yar/shared/labels に集約。
+    // ウォッチリスト画面と同じ一覧を使わないと、API は許すのに画面からは
+    // 二度と予約できない状態になる)。
+    if (duplicate && !isRebookableReservation(duplicate.status)) {
       return jsonError(409, "この商品は既に予約済みです");
     }
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@yar/db";
 import { isSeenInLatestSync } from "@yar/shared";
+import { splitReservedStatuses } from "@/lib/reservedStatus";
 import { formatJstDayLabel, formatJstTime } from "@yar/shared/format";
 import { getSessionUser } from "@/lib/auth";
 import WatchlistRows, { type WatchlistRow } from "./WatchlistRows";
@@ -34,7 +35,11 @@ export default async function WatchlistPage() {
     }),
   ]);
 
-  const reservedBy = new Map(reservations.map((r) => [r.auctionId, r.status]));
+  // ⚠️ 「予約が1件でもあれば予約済み」にしない。キャンセル・失敗・落札ならず・
+  // テスト実行の予約が残っている商品は **もう一度予約できる**(API も許して
+  // いる)。ここで区別しないと、キャンセルした瞬間にその行から操作が全部
+  // 消え、ウォッチリストからは二度と予約できなくなる(2026-09-02 報告)。
+  const { live: reservedBy, past: pastBy } = splitReservedStatuses(reservations);
   // ⚠️ 同期は upsert しかしない(ヤフオク側から消えた行も残す)。ここで
   // 絞らないと、前の同期の残骸がウォッチ中の商品として並ぶ。
   // 2026-08-28 実測: 本物9件に対し70件表示されていた(shared/watchFreshness.ts)
@@ -54,6 +59,7 @@ export default async function WatchlistPage() {
     endAtMs: i.endAt?.getTime() ?? null,
     hasAutoExtension: i.hasAutoExtension,
     reservedStatus: reservedBy.get(i.auctionId) ?? null,
+    pastStatus: pastBy.get(i.auctionId) ?? null,
   }));
 
   const lastSync = sessions
