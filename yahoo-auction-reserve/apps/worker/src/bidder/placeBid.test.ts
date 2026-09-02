@@ -17,6 +17,8 @@ const SUBMIT_LABEL = "上記のガイドライン等、情報提供に同意し�
 interface FakePage {
   clicks: string[];
   fills: Array<[string, string]>;
+  /** page.goto に渡された URL(リトライで読み直しているかの確認用) */
+  gotos: string[];
   // Page の代わりに placeBid へ渡す本体
   page: any;
 }
@@ -32,10 +34,13 @@ function fakePage(
     sameElement?: boolean;
     /** ラベルが textContent ではなく value に入っている(`<input type=submit>` 型) */
     labelInValue?: boolean;
+    /** 商品ページの「入札する」が見つからない(2026-09-02 の実入札と同じ状態) */
+    bidFound?: boolean;
   } = {},
 ): FakePage {
   const clicks: string[] = [];
   const fills: Array<[string, string]> = [];
+  const gotos: string[] = [];
   let confirmed = false;
 
   const bidHandle = { id: "bid" };
@@ -72,6 +77,12 @@ function fakePage(
           if (o.submitFound === false) throw new Error("not found");
           return submitHandle;
         }
+        if (sel === selectors.bidButton && o.bidFound === false) {
+          // 実物の文言に合わせる(Playwright の Timeout メッセージ)
+          throw new Error(
+            `locator.elementHandle: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('${sel}').first()`,
+          );
+        }
         return bidHandle;
       },
     };
@@ -80,12 +91,14 @@ function fakePage(
 
   const page: any = {
     url: () => URL_,
-    goto: async () => {},
+    goto: async (u: string) => {
+      gotos.push(u);
+    },
     waitForLoadState: async () => {},
     evaluate: async (fn: any, args: any) => fn(args),
     locator: (sel: string) => loc(sel),
   };
-  return { clicks, fills, page };
+  return { clicks, fills, gotos, page };
 }
 
 describe("placeBid のテスト実行(dryRun)", () => {
@@ -179,5 +192,45 @@ describe("placeBid のテスト実行(dryRun)", () => {
     const r = await placeBid(f.page, URL_, 5_000, 1_000, { dryRun: true });
     assert.equal(r.outcome, "SESSION_EXPIRED");
     assert.deepEqual(f.clicks, []);
+  });
+});
+
+describe("入札ボタンを掴めなかったとき", () => {
+  it("TIMEOUT を返し、detail に画面の実測を添える", async () => {
+    // 2026-09-02 の実入札(k1242598835)は Timeout の1行だけを残して落ちた。
+    // その1行では「文言が変わった / 描画が終わっていない / 商品ページに
+    // 居ない」を切り分けられず、原因を知るにはオークションをもう1件使う
+    // しかなかった。掴めなかった時点で押すのは諦めているので、
+    // そこで画面を1往復計測して残す。
+    const f = fakePage({ bidFound: false });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.equal(r.outcome, "TIMEOUT");
+    assert.ok("detail" in r && r.detail.includes("[入札ボタンの実測]"), "実測が添えられていない");
+    // 元のエラーも消さない(どのセレクタで待っていたかが残る)
+    assert.ok("detail" in r && r.detail.includes(selectors.bidButton), "待っていたセレクタが消えている");
+    assert.deepEqual(f.clicks, [], "掴めていないのに何かを押している");
+  });
+
+  it("dryRun でも同じで、入札フォームには進まない", async () => {
+    const f = fakePage({ bidFound: false });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000, { dryRun: true });
+    assert.equal(r.outcome, "TIMEOUT");
+    assert.deepEqual(f.fills, []);
+  });
+});
+
+describe("リトライ時の読み直し", () => {
+  it("reload:true なら URL が同じでも goto する", async () => {
+    // ⚠️ 読み直さないリトライは、1回目と同じ DOM を触るので同じ理由で落ちる。
+    // モーダルは URL を変えない(地雷11c)ので「URL が同じ = 同じ画面」でもない。
+    const f = fakePage();
+    await placeBid(f.page, URL_, 5_000, 1_000, { reload: true });
+    assert.deepEqual(f.gotos, [URL_]);
+  });
+
+  it("reload を渡さなければ、URL が一致している限り goto しない", async () => {
+    const f = fakePage();
+    await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.deepEqual(f.gotos, []);
   });
 });

@@ -11,6 +11,7 @@ import type { ReservationJobData } from "../queues";
 import { notifyUser } from "../notify";
 import { launchBrowser, createYahooContext, markSessionExpired } from "../bidder/session";
 import { placeBid, checkResult } from "../bidder/placeBid";
+import { settlePage } from "../bidder/settle";
 import { measureYahooTimeOffset, offsetIsStale, sleepUntil, sleep, yahooNow } from "../time";
 import { tryAutoRaise } from "../autoRaise";
 import { cancelGroupSiblings } from "../group";
@@ -60,6 +61,20 @@ export async function runMonitorJob(job: Job<ReservationJobData>): Promise<void>
 
     // ウォームアップ: 商品ページを開いてログイン状態を確認
     await page.goto(reservation.auctionUrl, { waitUntil: "domcontentloaded" });
+    // ⚠️ 新UIは CSR。`domcontentloaded` 直後の DOM はほぼ空(セレクタ表の地雷5)。
+    // 描画を待つ処理がプローブにしか無く、ジョブ側が待っていない状態は
+    // ウォッチリスト同期で一度やらかしている(settle.ts の警告)。入札までは
+    // MONITOR_WARMUP_SECONDS ぶん余裕があるので、ここで待って結果を残す。
+    // 残す理由: 入札に失敗した後で「そもそも描画されていたのか」を
+    // 問えるようにするため。ここが NG のまま失敗したなら原因は描画側。
+    const settled = await settlePage(page).catch(() => null);
+    logMonitor(
+      reservation,
+      settled
+        ? `ウォームアップ: クリック要素${settled.clickable}個 / 入力欄${settled.inputs}個 / ` +
+            `描画判定 ${settled.verdict.rendered ? "OK" : `NG(${settled.verdict.reason})`}`
+        : "ウォームアップ: 描画待ちに失敗(計測できず)",
+    );
 
     await snipeLoop(page, reservation);
   } catch (err) {
@@ -247,8 +262,13 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       );
       let retry;
       try {
+        // ⚠️ リトライは **必ず読み直す**。同じ page を再利用すると、
+        // 1回目に開いたモーダルや空の DOM をそのまま触ることになり、
+        // 2回目が1回目と同じ理由で落ちることが確定する
+        // (2026-09-02: 同じ Timeout を15秒×2回出して終わった)。
         retry = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount, undefined, {
           dryRun: reservation.dryRun,
+          reload: true,
         });
       } finally {
         retryLease.release();

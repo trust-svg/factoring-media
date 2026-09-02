@@ -1,6 +1,6 @@
 import type { Page } from "playwright";
 import { bidHistoryUrl, bidHistoryVerdict, type ResultVerdict } from "./bidHistory";
-import { captureConfirmScreen } from "./diagnose";
+import { captureBidEntry, captureConfirmScreen } from "./diagnose";
 import { submitTargetVerdict } from "./probeSafety";
 import { selectors } from "./selectors";
 
@@ -25,10 +25,17 @@ export async function placeBid(
   auctionUrl: string,
   amount: number,
   timeoutMs = 15_000,
-  opts: { dryRun?: boolean } = {},
+  opts: { dryRun?: boolean; reload?: boolean } = {},
 ): Promise<BidResult> {
   try {
-    if (page.url() !== auctionUrl) {
+    // `reload` はリトライ用。URL が同じでも読み直す。
+    // ⚠️ URL 一致だけで再読込を省くと、リトライが **1回目と同じ DOM** を
+    // 触ることになる。入札フォームのモーダルは URL を変えないので(地雷11c)、
+    // 1回目がモーダルを開いた状態で落ちていれば、2回目は裏に残った
+    // 商品ページの「入札する」を掴む。1回目が空の DOM で落ちていれば、
+    // 2回目も同じ空の DOM を 15 秒待って落ちる(2026-09-02 の実入札が
+    // まさにこれで、同じ Timeout を2回出した)。
+    if (opts.reload || page.url() !== auctionUrl) {
       await page.goto(auctionUrl, { waitUntil: "domcontentloaded" });
     }
 
@@ -39,7 +46,21 @@ export async function placeBid(
 
     const bidButton = page.locator(selectors.bidButton).first();
     // 確定直前のガードで「同じ要素か」を見るために、押す前に掴んでおく
-    const bidHandle = await bidButton.elementHandle({ timeout: timeoutMs });
+    let bidHandle: Awaited<ReturnType<typeof bidButton.elementHandle>>;
+    try {
+      bidHandle = await bidButton.elementHandle({ timeout: timeoutMs });
+    } catch (err) {
+      // 入口で掴めなかったときは、諦める前に画面を1往復だけ計測して残す。
+      // これが無いと Timeout の1行しか残らず、「文言が変わった」「描画が
+      // 終わっていない」「そもそも商品ページに居ない」を切り分けられない
+      // (2026-09-02 の実入札 k1242598835 が実際にこれで手掛かりを失った)。
+      const detail = err instanceof Error ? err.message : String(err);
+      const snapshot = await captureBidEntry(page);
+      return {
+        outcome: /Timeout/i.test(detail) ? "TIMEOUT" : "PAGE_ERROR",
+        detail: `${detail} ${snapshot}`,
+      };
+    }
     const urlBeforeBid = page.url();
     await bidButton.click({ timeout: timeoutMs });
 

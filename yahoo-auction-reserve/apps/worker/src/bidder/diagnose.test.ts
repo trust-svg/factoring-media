@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatConfirmScreenSnapshot, normalizeLabels } from "./diagnose";
+import { formatBidEntrySnapshot, formatConfirmScreenSnapshot, normalizeLabels } from "./diagnose";
 
 test("空白の潰し・重複除去・件数の上限", () => {
   const { labels, truncated } = normalizeLabels([
@@ -54,4 +54,53 @@ test("ラベルは引用符付きで出す(前後の空白や紛らわしい文�
   assert.match(line, /"入札する"/);
   assert.match(line, /情報提供に同意して/);
   assert.ok(line.endsWith("…"), "切り落としたことが末尾で分かる");
+});
+
+// --- 入札ボタンが掴めなかったときの計測(2026-09-02 の実入札で必要になった) ---
+
+test("「入札」を含む可視要素が0件でも、0件と分かる形で出す", () => {
+  // ⚠️ 空文字にすると「計測できなかった」と区別が付かない。0件は
+  // 「描画が終わっていない」「商品ページに居ない」の強い証拠なので言葉にする。
+  const line = formatBidEntrySnapshot({
+    url: "https://page.auctions.yahoo.co.jp/jp/auction/x1",
+    title: "商品ページ",
+    bidSelectorHits: 0,
+    loginLinkHits: 0,
+    clickable: 3,
+    bidLikeLabels: [],
+    truncated: false,
+  });
+  assert.ok(line.includes("(0件)"), line);
+  assert.ok(line.includes("クリック要素=3個"), line);
+});
+
+test("要素の種類(button か a か)とパス名が読める形で残る", () => {
+  // 旧UIの入札の入口は <a href="/jp/show/bid">。role=button のセレクタからは
+  // 永久に見えないので、ここで種類が分からないと次の1回も無駄になる。
+  const line = formatBidEntrySnapshot({
+    url: "https://page.auctions.yahoo.co.jp/jp/auction/x1",
+    title: "商品ページ",
+    bidSelectorHits: 0,
+    loginLinkHits: 0,
+    clickable: 88,
+    bidLikeLabels: ["<a /jp/show/bid> 入札する", "<a /jp/show/bid_hist> 入札履歴"],
+    truncated: false,
+  });
+  assert.ok(line.includes("/jp/show/bid>"), line);
+  assert.ok(line.includes("/jp/show/bid_hist>"), line);
+});
+
+test("URL とタイトルを載せる(別のページに居た場合の判別)", () => {
+  const line = formatBidEntrySnapshot({
+    url: "https://login.yahoo.co.jp/config/login",
+    title: "ログイン - Yahoo! JAPAN",
+    bidSelectorHits: 0,
+    loginLinkHits: 2,
+    clickable: 12,
+    bidLikeLabels: [],
+    truncated: false,
+  });
+  assert.ok(line.includes("login.yahoo.co.jp"), line);
+  assert.ok(line.includes("ログイン - Yahoo! JAPAN"), line);
+  assert.ok(line.includes("ログインリンク=2件"), line);
 });
