@@ -120,16 +120,8 @@ export function parseAuctionPage(html: string, url: string): AuctionInfo {
     // だけを見て、それも無ければ **undefined のままにする**。
     // 「誰かの名前が入っている」より「空」のほうが安全で、
     // 出品者を見て入札を止める判断が他人の名前で下されることを防ぐ。
-    const sellerBox = pickContainer(embedded, [
-      "seller",
-      "sellerInfo",
-      "sellerModule",
-      "Seller",
-    ]);
-    const seller =
-      pickValue(sellerBox, ["displayName", "name", "sellerId", "id"]) ??
-      pickValue(embedded, ["sellerId"]);
-    if (typeof seller === "string" && seller.trim() !== "") info.sellerName = seller;
+    const seller = pickSellerName(embedded, auctionId);
+    if (seller !== undefined) info.sellerName = seller;
   }
 
   // --- テキストベースのフォールバック ---
@@ -300,6 +292,108 @@ function pickContainer(obj: unknown, containerKeys: string[]): unknown {
   return pickAll(obj, containerKeys).find(
     (v) => v !== null && typeof v === "object",
   );
+}
+
+const SELLER_CONTAINER_KEYS = ["seller", "sellerInfo", "sellerModule", "Seller"];
+const SELLER_NAME_KEYS = ["displayName", "name", "sellerId", "id"];
+const AUCTION_ID_KEYS = ["auctionId", "auctionID", "aID", "aid"];
+
+/**
+ * 伏字化された ID(`buo********`)かどうか。
+ *
+ * ⚠️ ヤフオクが伏せるのは **入札者**の ID。出品者は評価ページへのリンクに
+ * ID がそのまま出るので伏字にならない。つまり伏字が出品者名として
+ * 取れたということは、**入札者の入れ物を掴んでいる**という証拠であって、
+ * 「伏字の出品者」ではない。実際に保存されている壊れた値がこの形
+ * (`buo********` / `piz********`)。
+ */
+export function isMaskedYahooId(v: string): boolean {
+  return /\*{2,}/.test(v);
+}
+
+/** 対象オークションの id を持つオブジェクトを、木の中から全部集める */
+function objectsForAuction(obj: unknown, auctionId: string): unknown[] {
+  const hits: unknown[] = [];
+  const seen = new Set<unknown>();
+  const stack: unknown[] = [obj];
+  while (stack.length > 0) {
+    const cur = stack.pop();
+    if (cur === null || typeof cur !== "object" || seen.has(cur)) continue;
+    seen.add(cur);
+    const entries = Object.entries(cur as Record<string, unknown>);
+    if (entries.some(([k, v]) => AUCTION_ID_KEYS.includes(k) && v === auctionId)) {
+      hits.push(cur);
+    }
+    for (const [, v] of entries) if (typeof v === "object") stack.push(v);
+  }
+  return hits;
+}
+
+/**
+ * 出品者名を取る。
+ *
+ * ⚠️ 木全体から最初に見つかった `seller` を採ってはいけない。商品ページには
+ * **おすすめ・関連商品など他の出品者の入れ物が同居**しており、探索は
+ * stack.pop() の深さ優先なので文書順ですらない。どれが勝つかは実質偶然で、
+ * 「たまたま先に当たった他人」が出品者として保存される(実害の記録は
+ * 上の parseAuctionPage 内コメントと、DB に残った伏字の値)。
+ *
+ * そこで **対象オークションの id を持つ入れ物の中を先に見る**。
+ * 見つからなければ木全体に落ちるが、伏字(入札者の印)は最後まで採らない。
+ * どれも駄目なら **undefined のまま返す**。他人の名前で「この出品者だから
+ * 入札する/しない」を判断されるより、空のほうが安全。
+ */
+export function pickSellerName(embedded: unknown, auctionId: string): string | undefined {
+  const scopes = [...objectsForAuction(embedded, auctionId), embedded];
+  for (const scope of scopes) {
+    const box = pickContainer(scope, SELLER_CONTAINER_KEYS);
+    // ⚠️ 入れ物の中も **候補を全部** 見る。先頭(displayName)が伏字だからと
+    // いって入れ物ごと捨てると、同じ入れ物に入っている使える名前まで
+    // 落ちる(この形はテストで踏んだ)。
+    for (const v of pickAll(box, SELLER_NAME_KEYS)) {
+      if (typeof v === "string" && v.trim() !== "" && !isMaskedYahooId(v)) return v.trim();
+    }
+  }
+  const id = pickValue(embedded, ["sellerId"]);
+  if (typeof id === "string" && id.trim() !== "" && !isMaskedYahooId(id)) return id.trim();
+  return undefined;
+}
+
+/**
+ * 出品者名の候補を **採用順に全部** 返す(P0 プローブの証拠取り用)。
+ * 「どれを採ったか」ではなく「何と何が候補に居たか」を見るためのもので、
+ * 実ページの構造を推測せずに確かめるために使う。
+ */
+export function sellerNameCandidates(
+  html: string,
+  url: string,
+): { scope: string; key: string; value: string; masked: boolean }[] {
+  const embedded = extractEmbeddedJson(html);
+  if (!embedded) return [];
+  const auctionId = extractAuctionId(url) ?? "unknown";
+  const out: { scope: string; key: string; value: string; masked: boolean }[] = [];
+  const anchored = objectsForAuction(embedded, auctionId);
+  const scopes: [string, unknown][] = [
+    ...anchored.map((o, i): [string, unknown] => [`auctionId一致#${i + 1}`, o]),
+    ["木全体", embedded],
+  ];
+  for (const [label, scope] of scopes) {
+    const box = pickContainer(scope, SELLER_CONTAINER_KEYS);
+    if (box === undefined) continue;
+    for (const key of SELLER_NAME_KEYS) {
+      for (const v of pickAll(box, [key])) {
+        if (typeof v === "string" && v.trim() !== "") {
+          out.push({ scope: label, key, value: v.trim(), masked: isMaskedYahooId(v) });
+        }
+      }
+    }
+  }
+  for (const v of pickAll(embedded, ["sellerId"])) {
+    if (typeof v === "string" && v.trim() !== "") {
+      out.push({ scope: "木全体(sellerIdのみ)", key: "sellerId", value: v.trim(), masked: isMaskedYahooId(v) });
+    }
+  }
+  return out;
 }
 
 function toNumber(v: unknown): number | undefined {

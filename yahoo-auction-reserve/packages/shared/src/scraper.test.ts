@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseAuctionPage } from "./scraper";
+import { parseAuctionPage, sellerNameCandidates } from "./scraper";
 
 const URL = "https://page.auctions.yahoo.co.jp/jp/auction/x1234567890";
 
@@ -122,4 +122,74 @@ test("税キーが無い出品(個人)は bidOrBuyPrice をそのまま使う", 
   // 2026-08-29 実測(o1242306599・個人出品): 税キーが無く「税0円」表示。
   const html = pageWithJson({ item: { currentPrice: 510, bidOrBuyPrice: 44000 } });
   assert.equal(parseAuctionPage(html, URL).buyNowPrice, 44000);
+});
+
+// --- 出品者名: 他の出品者の入れ物が同居するケース --------------------------
+//
+// 2026-09-02 時点の DB に `buo********` / `piz********` という値が
+// 出品者名として保存されていた。これはヤフオクが **入札者**の ID を
+// 伏せる形で、出品者の表示名ではない(出品者は評価リンクに ID がそのまま出る)。
+// つまり出品者以外の入れ物を掴んでいた。
+//
+// ⚠️ ここの JSON はヤフオクの実物ではなく手書き。実ページの形は
+// P0 プローブの「出品者名の候補」で確かめる(推測でキー名を足さないこと)。
+
+test("おすすめ枠の別出品者より、対象オークションの入れ物が勝つ", () => {
+  const html = pageWithJson({
+    props: {
+      // ⚠️ 並び順に意味がある。探索は stack.pop() の深さ優先なので
+      // **後ろに書いたほうが先に訪問される**。木全体から拾う実装では
+      // ここで `recommend` が勝って「よその店」が返る(変異テストで確認済み:
+      // auctionId で絞る処理を外すとこのテストだけが落ちる)。
+      // 本命を先に書くと、絞らなくても偶然正解して落ちようがない検証になる。
+      item: {
+        auctionId: "x1234567890",
+        currentPrice: 1,
+        seller: { displayName: "本命ストア" },
+      },
+      recommend: {
+        items: [
+          { auctionId: "z9999999999", seller: { displayName: "よその店" } },
+        ],
+      },
+    },
+  });
+  assert.equal(parseAuctionPage(html, URL).sellerName, "本命ストア");
+});
+
+test("伏字の ID は出品者名として採らない(他に候補が無ければ空)", () => {
+  const html = pageWithJson({
+    props: { item: { currentPrice: 1, seller: { displayName: "buo********" } } },
+  });
+  assert.equal(parseAuctionPage(html, URL).sellerName, undefined);
+});
+
+test("伏字が先に見つかっても、伏字でない候補があればそちらを採る", () => {
+  const html = pageWithJson({
+    props: {
+      item: {
+        auctionId: "x1234567890",
+        currentPrice: 1,
+        seller: { displayName: "piz********", name: "きちんとした店名" },
+      },
+    },
+  });
+  assert.equal(parseAuctionPage(html, URL).sellerName, "きちんとした店名");
+});
+
+test("sellerNameCandidates は採用しなかった候補も伏字の印つきで返す", () => {
+  const html = pageWithJson({
+    props: {
+      recommend: { items: [{ auctionId: "z9999999999", seller: { displayName: "よその店" } }] },
+      item: { auctionId: "x1234567890", seller: { displayName: "buo********", name: "本命ストア" } },
+    },
+  });
+  const got = sellerNameCandidates(html, URL);
+  const masked = got.find((c) => c.value === "buo********");
+  assert.ok(masked, "伏字の候補が候補一覧に出ること");
+  assert.equal(masked?.masked, true);
+  assert.ok(
+    got.some((c) => c.value === "本命ストア" && c.scope.startsWith("auctionId一致")),
+    "対象オークションの入れ物から拾った候補には、そう分かる印が付くこと",
+  );
 });
