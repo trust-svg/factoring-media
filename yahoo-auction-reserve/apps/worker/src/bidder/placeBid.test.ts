@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { placeBid } from "./placeBid";
 import { selectors } from "./selectors";
+import { CLICKABLE_SELECTOR } from "./settle";
 
 // テスト実行(dryRun)の経路を、Playwright 無しで確かめる。
 //
@@ -19,6 +20,8 @@ interface FakePage {
   fills: Array<[string, string]>;
   /** page.goto に渡された URL(リトライで読み直しているかの確認用) */
   gotos: string[];
+  /** 描画待ちがクリック要素を数えた回数(=待ったかどうかの唯一の観測点) */
+  settleProbes: () => number;
   // Page の代わりに placeBid へ渡す本体
   page: any;
 }
@@ -36,12 +39,17 @@ function fakePage(
     labelInValue?: boolean;
     /** 商品ページの「入札する」が見つからない(2026-09-02 の実入札と同じ状態) */
     bidFound?: boolean;
+    /** 今開いているページが描画済みか(false = CSR がまだマウントしていない) */
+    rendered?: boolean;
+    /** 今開いているページの URL(別の商品ページに居る場合の確認用) */
+    currentUrl?: string;
   } = {},
 ): FakePage {
   const clicks: string[] = [];
   const fills: Array<[string, string]> = [];
   const gotos: string[] = [];
   let confirmed = false;
+  let settleProbes = 0;
 
   const bidHandle = { id: "bid" };
   const submitHandle = o.sameElement === true ? bidHandle : { id: "submit" };
@@ -54,6 +62,13 @@ function fakePage(
       count: async () => {
         if (sel === selectors.priceInput) return priceInputCount();
         if (sel === selectors.bidSubmitButton) return o.submitFound === false ? 0 : 1;
+        // 描画判定(renderVerdict)が見る2つ。実測の商品ページはクリック要素
+        // 229個・入力欄11個(2026-09-03 コンテナ)。未マウントは3個程度。
+        if (sel === CLICKABLE_SELECTOR) {
+          settleProbes += 1;
+          return o.rendered === false ? 3 : 229;
+        }
+        if (sel === "input") return o.rendered === false ? 0 : 11;
         return 1;
       },
       isVisible: async () => sel === selectors.loginLink && o.loginVisible === true,
@@ -90,15 +105,17 @@ function fakePage(
   };
 
   const page: any = {
-    url: () => URL_,
+    url: () => o.currentUrl ?? URL_,
     goto: async (u: string) => {
       gotos.push(u);
     },
     waitForLoadState: async () => {},
+    // 描画待ちのポーリング間隔。テストでは待たない
+    waitForTimeout: async () => {},
     evaluate: async (fn: any, args: any) => fn(args),
     locator: (sel: string) => loc(sel),
   };
-  return { clicks, fills, gotos, page };
+  return { clicks, fills, gotos, settleProbes: () => settleProbes, page };
 }
 
 describe("placeBid のテスト実行(dryRun)", () => {
@@ -219,18 +236,74 @@ describe("入札ボタンを掴めなかったとき", () => {
   });
 });
 
-describe("リトライ時の読み直し", () => {
-  it("reload:true なら URL が同じでも goto する", async () => {
+describe("読み直すかどうかの判定", () => {
+  it("温めたページが同じ商品で描画済みなら goto しない", async () => {
+    // ⚠️ ここが以前の欠陥。URL 一致で判定していたので、リダイレクト先に
+    // 居る本番では条件が常に真になり、monitor がウォームアップで描画まで
+    // 待ったページを入札の瞬間に毎回捨てて開き直していた。開き直した DOM は
+    // CSR でほぼ空なので、15秒のセレクタ待ちがマウント時間ごと背負う。
+    const f = fakePage();
+    await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.deepEqual(f.gotos, []);
+  });
+
+  it("リダイレクト先(ホストが違う)に居ても、同じ商品なら goto しない", async () => {
+    // 保存している URL は page.auctions… / 着地は auctions…(地雷14)。
+    // URL の一致で判定する実装はここで必ず読み直してしまう。
+    const f = fakePage({ currentUrl: "https://auctions.yahoo.co.jp/jp/auction/x1" });
+    await placeBid(f.page, "https://page.auctions.yahoo.co.jp/jp/auction/x1", 5_000, 1_000);
+    assert.deepEqual(f.gotos, []);
+  });
+
+  it("別の商品ページに居たら読み直す", async () => {
+    const f = fakePage({ currentUrl: "https://auctions.yahoo.co.jp/jp/auction/zzz9" });
+    await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.deepEqual(f.gotos, [URL_]);
+  });
+
+  it("描画されていなければ(CSR未マウント)読み直す", async () => {
+    // 「同じ商品ページだから使い回す」だけだと、骨組みしか無いページを
+    // そのまま掴んで15秒待つことになる。
+    const f = fakePage({ rendered: false });
+    await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.deepEqual(f.gotos, [URL_]);
+  });
+
+  it("reload:true なら描画済みの同じ商品ページでも goto する", async () => {
     // ⚠️ 読み直さないリトライは、1回目と同じ DOM を触るので同じ理由で落ちる。
     // モーダルは URL を変えない(地雷11c)ので「URL が同じ = 同じ画面」でもない。
     const f = fakePage();
     await placeBid(f.page, URL_, 5_000, 1_000, { reload: true });
     assert.deepEqual(f.gotos, [URL_]);
   });
+});
 
-  it("reload を渡さなければ、URL が一致している限り goto しない", async () => {
+describe("読み直した後の描画待ち", () => {
+  // ⚠️ 「待ったかどうか」は結果からは見えない(フェイクの描画はすぐ落ち着く
+  // ので、予算を無視しても outcome は変わらない)。数えているのは
+  // 描画待ちがクリック要素を数えた回数。reload:true のときは、この
+  // カウントが増えるのは settlePage の中だけ。
+
+  it("残り時間が十分あれば、読み直した後に描画を待つ", async () => {
     const f = fakePage();
-    await placeBid(f.page, URL_, 5_000, 1_000);
-    assert.deepEqual(f.gotos, []);
+    await placeBid(f.page, URL_, 5_000, 1_000, { reload: true, remainingMs: 60_000 });
+    assert.ok(f.settleProbes() > 0, "読み直したのに描画を待っていない");
+  });
+
+  it("残り時間が入札の手順ぶんしか無ければ、描画を待たずに入札へ進む", async () => {
+    // ⚠️ ここを待つと、5秒前入札の予約が待っている間に終わる。
+    const f = fakePage();
+    const r = await placeBid(f.page, URL_, 5_000, 1_000, { reload: true, remainingMs: 2_000 });
+    assert.equal(f.settleProbes(), 0, "残り時間が無いのに描画を待っている");
+    // 描画は諦めたが、入札そのものは実行されている
+    assert.equal(r.outcome, "SUCCESS", "detail" in r ? r.detail : r.outcome);
+    assert.ok(f.clicks.includes(selectors.bidButton), "入札を試みていない");
+  });
+
+  it("入札ボタンを掴めなかったときの detail に、描画待ちの実測が入る", async () => {
+    const f = fakePage({ bidFound: false });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000, { reload: true });
+    assert.equal(r.outcome, "TIMEOUT");
+    assert.ok("detail" in r && r.detail.includes("[描画待ち]"), "描画の実測が無い");
   });
 });

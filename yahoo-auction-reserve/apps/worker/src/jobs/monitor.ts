@@ -197,6 +197,9 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
     try {
       result = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount, undefined, {
         dryRun: reservation.dryRun,
+        // 描画待ちの上限を切るために残り時間を渡す(settleBudgetMs)。
+        // これが無いと、5秒前入札の予約で描画を待っている間に終わる。
+        remainingMs: endAt.getTime() - yahooNow().getTime(),
       });
     } finally {
       // 入札の送信だけがロックの対象。この後の結果確認・終了待ちまで
@@ -269,6 +272,8 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
         retry = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount, undefined, {
           dryRun: reservation.dryRun,
           reload: true,
+          // 1回目で時間を使っているので、ここで測り直す
+          remainingMs: endAt.getTime() - yahooNow().getTime(),
         });
       } finally {
         retryLease.release();

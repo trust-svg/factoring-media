@@ -1,8 +1,27 @@
 import type { Page } from "playwright";
+import { extractAuctionId } from "@yar/shared";
 import { bidHistoryUrl, bidHistoryVerdict, type ResultVerdict } from "./bidHistory";
 import { captureBidEntry, captureConfirmScreen } from "./diagnose";
+import { renderVerdict } from "./pageReady";
 import { submitTargetVerdict } from "./probeSafety";
 import { selectors } from "./selectors";
+import { CLICKABLE_SELECTOR, settleBudgetMs, settlePage, type SettleResult } from "./settle";
+
+/**
+ * 今 page に出ているのが「その商品ページで、かつ描画済み」か。
+ *
+ * ⚠️ **URL の一致では判定しない**(地雷14)。保存している URL は
+ *    `page.auctions…` で着地は `auctions…` なので、一致は永久に成立しない。
+ *    見るのは「商品IDが URL に含まれるか」と「描画されているか」の2点だけ。
+ */
+async function isSameAuctionPageRendered(page: Page, auctionUrl: string): Promise<boolean> {
+  const id = extractAuctionId(auctionUrl);
+  if (!id) return false;
+  if (!page.url().includes(id)) return false;
+  const clickable = await page.locator(CLICKABLE_SELECTOR).count().catch(() => 0);
+  const inputs = await page.locator("input").count().catch(() => 0);
+  return renderVerdict({ clickable, inputs }).rendered;
+}
 
 export type BidResult =
   | { outcome: "SUCCESS" }
@@ -25,24 +44,35 @@ export async function placeBid(
   auctionUrl: string,
   amount: number,
   timeoutMs = 15_000,
-  opts: { dryRun?: boolean; reload?: boolean } = {},
+  opts: { dryRun?: boolean; reload?: boolean; remainingMs?: number } = {},
 ): Promise<BidResult> {
+  // 終了時刻までの残り。描画待ちの上限を切るためだけに使う。
+  // 呼び出し側の時計(yahooNow)で測った値をもらい、以後の経過は
+  // こちら側で引く(ヤフオクとの時刻ずれを二重に持ち込まないため)。
+  const startedAt = Date.now();
+  const remainingMsNow = (): number | undefined =>
+    opts.remainingMs === undefined ? undefined : opts.remainingMs - (Date.now() - startedAt);
+  let settled: SettleResult | null = null;
   try {
-    // `reload` はリトライ用。URL が同じでも読み直す。
-    // ⚠️ URL 一致だけで再読込を省くと、リトライが **1回目と同じ DOM** を
-    // 触ることになる。入札フォームのモーダルは URL を変えないので(地雷11c)、
-    // 1回目がモーダルを開いた状態で落ちていれば、2回目は裏に残った
-    // 商品ページの「入札する」を掴む。
+    // 読み直すかどうか。`reload` はリトライ用で、必ず読み直す。
     //
-    // ⚠️ ただし **この分岐は実運用ではそもそも成立しない**。保存している URL は
-    // `page.auctions.yahoo.co.jp/...` で、開いた先は `auctions.yahoo.co.jp/...`
-    // にリダイレクトされる(地雷14)ので `page.url() !== auctionUrl` が常に真。
-    // 2026-09-02 の実入札を「リトライが同じ DOM を触ったから同じ Timeout が
-    // 出た」と説明したのは **誤り**で、実際は2回とも読み直したうえで
-    // 15秒0件だった。`reload` は意図を明示するために残すが、
-    // これを入れたことで直った不具合はまだ1件も無い。
-    if (opts.reload || page.url() !== auctionUrl) {
+    // ⚠️ **温めたページを捨てない**。以前は `page.url() !== auctionUrl` で
+    // 判定していたが、着地はリダイレクト先の `auctions…` なので条件が
+    // 常に真になり(地雷14)、monitor がウォームアップで描画まで待った
+    // ページを入札の瞬間に毎回捨てて開き直していた。読み直した直後の
+    // DOM は CSR でほぼ空(地雷5)なので、その後の15秒のセレクタ待ちが
+    // **マウント時間ごと** 背負うことになる。
+    // 2026-09-03 実測: 同じ商品ページの描画待ちが Mac 1,284〜1,516ms に対し
+    // コンテナは 7,241ms(無負荷で約5倍)。15秒の予算の半分を描画が食う。
+    if (opts.reload || !(await isSameAuctionPageRendered(page, auctionUrl))) {
       await page.goto(auctionUrl, { waitUntil: "domcontentloaded" });
+      // 読み直したなら描画を待つ。
+      // ⚠️ 待ち時間は **必ず残り時間で上限を切る**(settleBudgetMs)。
+      // 固定で15秒待つと、5秒前入札の予約だけが待っている間に終わる。
+      const budget = settleBudgetMs({ remainingMs: remainingMsNow() });
+      if (budget > 0) {
+        settled = await settlePage(page, budget).catch(() => null);
+      }
     }
 
     // ログイン確認: ログインリンクが見えている=未ログイン
@@ -62,9 +92,15 @@ export async function placeBid(
       // (2026-09-02 の実入札 k1242598835 が実際にこれで手掛かりを失った)。
       const detail = err instanceof Error ? err.message : String(err);
       const snapshot = await captureBidEntry(page);
+      // 描画待ちの実測も添える。「0件だった」のか「まだ描き終わっていな
+      // かった」のかは、この数字が無いと最後まで区別できない。
+      const render = settled
+        ? `[描画待ち] ${settled.elapsedMs}ms / クリック要素${settled.clickable}個 / ` +
+          `判定 ${settled.verdict.rendered ? "OK" : `NG(${settled.verdict.reason})`}`
+        : "[描画待ち] 実施せず(温めたページをそのまま使った or 残り時間なし)";
       return {
         outcome: /Timeout/i.test(detail) ? "TIMEOUT" : "PAGE_ERROR",
-        detail: `${detail} ${snapshot}`,
+        detail: `${detail} ${snapshot} ${render}`,
       };
     }
     const urlBeforeBid = page.url();
