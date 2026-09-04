@@ -19,6 +19,10 @@
 //
 // 終了コード: 入札ボタンが1件以上なら 0 / 0件なら 1(繰り返し回して
 // 「たまに0件になる」型の故障を捕まえるため)。
+//
+// 2026-09-04 追記: 入札ボタンの文言は **自分がその商品に入札済みだと
+// 「値段を上げて入札」に変わる**(地雷15)。あわせて「あなたが最高額入札者です」
+// の有無も出す。本番はこれが見えていれば入札せずに戻る(ALREADY_HIGHEST)。
 // =============================================================
 import "../src/env";
 import { prisma } from "@yar/db";
@@ -69,6 +73,19 @@ async function main(): Promise<number> {
     console.log(`ログインリンクが見えている(=未ログイン扱い): ${loginVisible}`);
     const hits = await page.locator(selectors.bidButton).count().catch(() => -1);
     console.log(`入札ボタン(${selectors.bidButton}): ${hits}件`);
+    // 押さない側の判定(placeBid の ALREADY_HIGHEST ゲートと同じ条件)。
+    // ⚠️ ここが true の商品では、本番は入札せずに戻る。自分が最高額入札者に
+    // なっている商品で1回踏んで、**本当に true になるか**を確かめること
+    // (ここが常に false なら、ガードは一度も効かないまま素通りする)。
+    const highest = await page
+      .locator(selectors.highestBidderIndicator)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    console.log(
+      `最高額入札者の表示(${selectors.highestBidderIndicator}): ${highest}` +
+        (highest ? " → 本番はここで入札せず ALREADY_HIGHEST を返す" : ""),
+    );
     console.log(await captureBidEntry(page));
     console.log(`所要: ${Date.now() - startedAt}ms`);
     return hits > 0 ? 0 : 1;

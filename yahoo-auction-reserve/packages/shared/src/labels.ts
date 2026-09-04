@@ -69,6 +69,7 @@ export type AttemptOutcomeKey =
   | "AUTO_RAISED"
   | "RAISE_DECLINED"
   | "GROUP_CANCELLED"
+  | "ALREADY_HIGHEST"
   | "DRY_RUN";
 
 export const ATTEMPT_OUTCOME_LABEL: Record<AttemptOutcomeKey, string> = {
@@ -81,6 +82,7 @@ export const ATTEMPT_OUTCOME_LABEL: Record<AttemptOutcomeKey, string> = {
   AUTO_RAISED: "増額して入札しなおした",
   RAISE_DECLINED: "増額しなかった",
   GROUP_CANCELLED: "同じグループの他の商品を落札したため取りやめ",
+  ALREADY_HIGHEST: "すでに自分が最高額入札者だったので入札していない",
   DRY_RUN: "テスト実行(確認画面まで到達・確定は押していない)",
 };
 

@@ -20,6 +20,7 @@ describe("通知の系統", () => {
       "WON", "LOST", "AUTO_RAISED", "GROUP_CANCELLED",
       "FAILED", "EXPIRED", "SESSION_EXPIRED", "RAISE_DECLINED",
       "REMINDER", "APPROVAL_REQUEST", "DAILY_SUMMARY", "DRY_RUN",
+      "ALREADY_HIGHEST",
     ];
     for (const t of types) {
       assert.ok(NOTIFICATION_CATEGORY[t], `${t} に系統が無い`);

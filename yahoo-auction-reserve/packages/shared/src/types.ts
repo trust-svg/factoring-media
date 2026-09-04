@@ -47,6 +47,7 @@ export type NotificationType =
   | "APPROVAL_REQUEST" // 増額してよいか Telegram で聞いている
   | "GROUP_CANCELLED" // 同じグループの他を落札したので取りやめた
   | "DAILY_SUMMARY" // 毎日の稼働サマリ(届かないこと自体が異常の合図)
+  | "ALREADY_HIGHEST" // すでに最高額入札者だったので入札しなかった
   | "DRY_RUN"; // テスト実行が確認画面まで到達した(実際には入札していない)
 
 // 通知の系統。ユーザー設定(NotificationSetting)で切れるのは RESULT と ERROR だけで、
@@ -69,6 +70,9 @@ export const NOTIFICATION_CATEGORY: Record<NotificationType, NotificationCategor
   LOST: "RESULT",
   AUTO_RAISED: "RESULT",
   GROUP_CANCELLED: "RESULT",
+  // 入札の瞬間の結末なので RESULT。落札できたかどうかは、この後の
+  // 終了待ち → 勝敗判定で WON / LOST として別に届く。
+  ALREADY_HIGHEST: "RESULT",
   FAILED: "ERROR",
   EXPIRED: "ERROR",
   SESSION_EXPIRED: "ERROR",

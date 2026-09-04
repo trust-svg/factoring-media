@@ -43,6 +43,8 @@ function fakePage(
     rendered?: boolean;
     /** 今開いているページの URL(別の商品ページに居る場合の確認用) */
     currentUrl?: string;
+    /** 商品ページに「あなたが最高額入札者です」が出ているか */
+    highestBidder?: boolean;
   } = {},
 ): FakePage {
   const clicks: string[] = [];
@@ -71,7 +73,11 @@ function fakePage(
         if (sel === "input") return o.rendered === false ? 0 : 11;
         return 1;
       },
-      isVisible: async () => sel === selectors.loginLink && o.loginVisible === true,
+      isVisible: async () => {
+        if (sel === selectors.loginLink) return o.loginVisible === true;
+        if (sel === selectors.highestBidderIndicator) return o.highestBidder === true;
+        return false;
+      },
       fill: async (v: string) => {
         fills.push([sel, v]);
       },
@@ -305,5 +311,60 @@ describe("読み直した後の描画待ち", () => {
     const r = await placeBid(f.page, URL_, 5_000, 1_000, { reload: true });
     assert.equal(r.outcome, "TIMEOUT");
     assert.ok("detail" in r && r.detail.includes("[描画待ち]"), "描画の実測が無い");
+  });
+});
+
+// ヤフオクは自動入札(代理入札)なので、自分が最高額入札者のまま上限だけ上げても
+// 現在価格は動かず、得るものが無いのに取り消せない操作だけが残る。
+// 2026-09-04 の d1242748141 は、手動入札済みの商品で入口ボタンが
+// 「値段を上げて入札」に変わっていた(selectors.ts の地雷15)。
+describe("すでに自分が最高額入札者だったとき", () => {
+  it("入札ボタンに触れずに ALREADY_HIGHEST を返す", async () => {
+    const f = fakePage({ highestBidder: true });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.equal(r.outcome, "ALREADY_HIGHEST");
+    // ⚠️ 「クリックしていない」だけでは足りない。入力欄に額を入れた時点で
+    //    フォームが開いている = 押せる状態まで進んでいる。
+    assert.deepEqual(f.clicks, [], `何かを押している: ${JSON.stringify(f.clicks)}`);
+    assert.deepEqual(f.fills, [], `入札額を入れている: ${JSON.stringify(f.fills)}`);
+  });
+
+  it("dryRun でも同じ(テスト実行が本番と違う判断をしない)", async () => {
+    const f = fakePage({ highestBidder: true });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000, { dryRun: true });
+    assert.equal(r.outcome, "ALREADY_HIGHEST");
+    assert.deepEqual(f.clicks, []);
+  });
+
+  it("detail に予定額が入る(いくら入れようとしたのかが後から分かる)", async () => {
+    const f = fakePage({ highestBidder: true });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.ok("detail" in r && r.detail.includes("5000"), `detail: ${JSON.stringify(r)}`);
+  });
+
+  // ⚠️ 順序が逆だと、ログインが切れて商品ページすら出ていない状態で
+  //    「最高額入札者ではない」と読んで入札に進む。切れているのだから
+  //    入札できるはずがなく、原因が SESSION_EXPIRED ではなく
+  //    Timeout として記録されて切り分けが遅れる。
+  it("ログイン切れの判定の方が先", async () => {
+    const f = fakePage({ highestBidder: true, loginVisible: true });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.equal(r.outcome, "SESSION_EXPIRED");
+  });
+
+  // ⚠️ 判定できなかったときは入札する側に倒す。最高額表示を読めないことを
+  //    理由に入札を見送ると、予約が静かに空振りする(こちらの方が損害が大きい)。
+  it("最高額表示の判定が例外を投げたら、止めずに入札へ進む", async () => {
+    const f = fakePage();
+    const orig = f.page.locator;
+    f.page.locator = (sel: string) => {
+      const l = orig(sel);
+      if (sel === selectors.highestBidderIndicator) {
+        return { ...l, first: () => ({ isVisible: async () => { throw new Error("detached"); } }) };
+      }
+      return l;
+    };
+    const r = await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.equal(r.outcome, "SUCCESS");
   });
 });

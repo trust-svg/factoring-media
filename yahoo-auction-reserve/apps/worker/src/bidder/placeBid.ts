@@ -28,6 +28,12 @@ export type BidResult =
   | { outcome: "SESSION_EXPIRED" }
   | { outcome: "PAGE_ERROR"; detail: string }
   | { outcome: "TIMEOUT"; detail: string }
+  /**
+   * 入札の瞬間に **自分がすでに最高額入札者だった** ので、押さずに戻った。
+   * ⚠️ 失敗ではない。リトライしないこと(何度読み直しても同じ状態で、
+   * リトライすると2回目の記録まで残って「2回失敗した」ように見える)。
+   */
+  | { outcome: "ALREADY_HIGHEST"; detail: string }
   /** テスト実行。確認画面まで到達し、4点ガードも通ったが確定は押していない */
   | { outcome: "DRY_RUN"; detail: string };
 
@@ -78,6 +84,36 @@ export async function placeBid(
     // ログイン確認: ログインリンクが見えている=未ログイン
     if (await page.locator(selectors.loginLink).first().isVisible().catch(() => false)) {
       return { outcome: "SESSION_EXPIRED" };
+    }
+
+    // すでに自分が最高額入札者なら押さない(2026-09-04 追加)。
+    //
+    // ヤフオクは上限額方式の自動入札なので、最高額入札者のまま上乗せしても
+    // 上がるのは自分の上限だけで、対抗者が来なければ落札価格は変わらない。
+    // 得るものが無いのに取り消せない操作をすることになるので、ここで止める。
+    //
+    // ⚠️ **入口ボタンの文言では判定しないこと**。「値段を上げて入札」は
+    // 「その商品に自分が入札済み」で出る文言で、最高額を保っている場合と
+    // **他人に上回られている場合の両方**で出る(selectors.ts の地雷15)。
+    // 上回られているときに競り上げるのは予約の目的そのものなので、
+    // 文言で止めると一番動いてほしい場面が動かなくなる。
+    // 見るのは「あなたが最高額入札者です」の h1 だけ。
+    //
+    // ⚠️ 判定できなかったときは入札する側に倒す(catch → false)。
+    // 誤って止める代償は「落札の機会を黙って失う」で、こちらの方が悪い。
+    if (
+      await page
+        .locator(selectors.highestBidderIndicator)
+        .first()
+        .isVisible()
+        .catch(() => false)
+    ) {
+      return {
+        outcome: "ALREADY_HIGHEST",
+        detail:
+          "すでに自分が最高額入札者だったので入札しませんでした" +
+          `(商品ページに「あなたが最高額入札者です」が出ている / 予定額 ${amount}円)`,
+      };
     }
 
     const bidButton = page.locator(selectors.bidButton).first();

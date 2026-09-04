@@ -29,6 +29,7 @@ const SUBJECTS: Record<NotificationType, string> = {
   GROUP_CANCELLED: "【取りやめ】同じグループの他の商品を落札しました",
   DAILY_SUMMARY: "【稼働サマリ】入札予約の状況",
   DRY_RUN: "【テスト実行】確認画面まで到達しました(入札はしていません)",
+  ALREADY_HIGHEST: "【入札せず】すでにあなたが最高額入札者でした",
 };
 
 // payload のキーをそのまま出すと "maxBidAmount: 6000" のような画面になるので、

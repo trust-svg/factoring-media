@@ -254,9 +254,22 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       });
       console.log(`[monitor] ${reservation.id} テスト実行完了: ${result.detail}`);
       return;
-    }
-
-    if (result.outcome !== "SUCCESS") {
+    } else if (result.outcome === "ALREADY_HIGHEST") {
+      // ⚠️ この分岐も `!== "SUCCESS"` より **前**(else if で繋いでいる)。
+      // すでに自分が最高額入札者だったので押さなかった、という結末は失敗ではない。
+      // 後ろに置くとリトライに落ちるが、読み直しても同じ状態なので2回目も
+      // ALREADY_HIGHEST になり、最終的に FAILED = 最高額を保っているのに
+      // 「入札に失敗しました」が飛ぶ。
+      // ⚠️ ここは return しない。落札できたかどうかは未確定なので、
+      // 下の終了待ち → checkResult に流して WON / LOST を出す必要がある。
+      await notifyUser(reservation.userId, "ALREADY_HIGHEST", {
+        title: reservation.title,
+        url: reservation.auctionUrl,
+        maxBidAmount: reservation.maxBidAmount,
+        detail: result.detail,
+      });
+      logMonitor(reservation, `入札せず(すでに最高額入札者): ${result.detail}`);
+    } else if (result.outcome !== "SUCCESS") {
       // 1回だけ即時リトライ(設計 §7.3)。ここも同一アカウントの送信なので
       // ロックを取り直す(1回目で解放しているので、間に他の予約が入りうる)。
       const retryLease = await acquireSessionLock(

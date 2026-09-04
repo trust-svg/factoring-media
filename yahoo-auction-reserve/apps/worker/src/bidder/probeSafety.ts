@@ -81,7 +81,7 @@ export function confirmClickVerdict(args: {
  * そこで4つ別々の根拠を要求する:
  *   1. 確定ボタンが見つかる
  *   2. 入札額の入力欄が消えている(確認画面に着いた positive な証拠)
- *   3. ラベルが商品ページ側のボタン(「入札する」ちょうど)ではない
+ *   3. ラベルが商品ページ側のボタン(「入札する」/「値段を上げて入札」ちょうど)ではない
  *   4. 最初に押した入札ボタンと同一要素ではない
  *
  * ⚠️ 止めるのは安全側。誤検知の代償は「1件入札できずに失敗通知が飛ぶ」で、
@@ -97,8 +97,22 @@ export interface SubmitTargetVerdict {
  * ⚠️ 確認画面の確定ボタンは「上記のガイドライン等、情報提供に同意して 入札する」で、
  * **これとは別物**(2026-08-28 実測)。ちょうどこの文字列だけのボタンを掴んで
  * いるなら、それはモーダルの裏に残っている商品ページのボタン。
+ *
+ * ⚠️ 2つある。自分がその商品に入札済みだと文言が「値段を上げて入札」に
+ * 変わる(2026-09-04 実測・selectors.ts の地雷15)。片方だけを弾いていると、
+ * 入札済みの商品では裏のボタンがこのガードを素通りする
+ * = **入札していないのに SUCCESS** に戻る。
  */
-const OPEN_FORM_LABEL = "入札する";
+const OPEN_FORM_LABELS = ["入札する", "値段を上げて入札"] as const;
+
+/**
+ * 確定ボタンのラベルに必ず入っている語。
+ * ⚠️ 「入札する」ではなく「入札」。入口が「値段を上げて入札」に変わる商品では
+ * 確定側も「…同意…値段を上げて入札」になりうる(未実測)。狭いままだと、
+ * 正しく掴んでいるのにここで落ちて入札が一度も成立しない。
+ * 裏のボタンとの判別は上の完全一致(OPEN_FORM_LABELS)が担当する。
+ */
+const SUBMIT_LABEL_WORD = "入札";
 
 export function submitTargetVerdict(args: {
   /** 確定ボタン候補が1つでも見つかったか */
@@ -140,18 +154,19 @@ export function submitTargetVerdict(args: {
   // ⚠️ 同一要素判定(sameAsBidButton)は最初に押した1つとしか比較しない。
   //    商品ページには「入札する」が2つあるので、**もう片方を掴むと
   //    同一要素判定をすり抜ける**。ラベルで落とすのはその穴を塞ぐため。
-  if (args.label.trim() === OPEN_FORM_LABEL) {
+  const trimmed = args.label.trim();
+  if ((OPEN_FORM_LABELS as readonly string[]).includes(trimmed)) {
     return {
       safe: false,
-      reason: `ラベルが「${OPEN_FORM_LABEL}」ちょうど(商品ページ側のボタンを掴んでいる)`,
+      reason: `ラベルが「${trimmed}」ちょうど(商品ページ側のボタンを掴んでいる)`,
     };
   }
   // 文言が変わったときは、当てずっぽうで押さずに止める。
   // 誤検知の代償は「入札できずに失敗通知」、見逃しの代償は「意図しない操作」。
-  if (!args.label.includes(OPEN_FORM_LABEL)) {
+  if (!args.label.includes(SUBMIT_LABEL_WORD)) {
     return {
       safe: false,
-      reason: `ラベルに「${OPEN_FORM_LABEL}」が無い(${JSON.stringify(args.label)})`,
+      reason: `ラベルに「${SUBMIT_LABEL_WORD}」が無い(${JSON.stringify(args.label)})`,
     };
   }
   // 別ページに移っているなら、商品ページの「入札する」ボタンはもう存在しない。

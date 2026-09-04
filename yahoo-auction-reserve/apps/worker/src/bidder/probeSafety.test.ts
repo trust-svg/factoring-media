@@ -118,10 +118,35 @@ test("遷移していても、ラベルが商品ページ側のボタンなら�
   assert.equal(S(false, true, true, "入札する").safe, false);
 });
 
-test("文言が変わって「入札する」を含まなくなったら押さない", () => {
+test("文言が変わって「入札」を含まなくなったら押さない", () => {
   const v = S(false, true, false, "同意して落札する");
   assert.equal(v.safe, false);
-  assert.match(v.reason, /入札する/);
+  assert.match(v.reason, /入札/);
+});
+
+// ⚠️ 自分がその商品に入札済みだと、商品ページ側のボタンの文言が
+// 「値段を上げて入札」に変わる(2026-09-04 実測・selectors.ts の地雷15)。
+// 「入札する」だけを弾いていると、入札済みの商品ではこのボタンが
+// 確定ボタンとしてこのガードを素通りする = 入札していないのに SUCCESS。
+test("ラベルが「値段を上げて入札」ちょうどなら押さない — 入札済み商品の裏のボタン", () => {
+  const v = S(false, true, false, "値段を上げて入札");
+  assert.equal(v.safe, false);
+  assert.match(v.reason, /商品ページ側/);
+});
+
+test("「値段を上げて入札」も遷移後・空白付きで弾く", () => {
+  assert.equal(S(false, true, true, "値段を上げて入札").safe, false);
+  assert.equal(S(false, true, false, " 値段を上げて入札 \n").safe, false);
+});
+
+// 入口が「値段を上げて入札」に変わる商品では、確定側も
+// 「…同意…値段を上げて入札」になりうる(未実測)。「入札する」で判定していると
+// 正しく掴んでいるのにここで落ちて、入札が一度も成立しない。
+test("確定ボタンが「入札する」以外の入札文言でも、同意の語があれば通る", () => {
+  assert.equal(
+    S(false, true, false, "上記のガイドライン等、情報提供に同意して 値段を上げて入札").safe,
+    true,
+  );
 });
 
 test("実測した確定ボタンのラベルは通る", () => {
