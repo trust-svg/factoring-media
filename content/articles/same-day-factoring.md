@@ -136,8 +136,6 @@ OLTAは日本初のオンライン完結型ファクタリングサービスと�
 
 [PAYTODAY（ペイトゥデイ）](https://faccel.jp/go/pay-today) — 手数料1%〜9.5%・最短30分入金・AI与信で面談不要。法人・個人事業主に対応。
 
-[株式会社No.1 ファクタリング](https://px.a8.net/svt/ejp?a8mat=4B3UZ8+CAYJMI+4EKW+61RIA) — 即日資金調達・WEB申込完結。急ぎの資金調達に対応。
-
 [ファクタープラン](https://px.a8.net/svt/ejp?a8mat=4B3UZ8+CC5EU2+5RC6+5YJRM) — 最短1時間審査・専門家が徹底サポート。無料見積もりから相談可能。
 
 ※PR（アフィリエイト広告を含みます）
