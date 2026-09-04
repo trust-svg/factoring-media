@@ -9,12 +9,17 @@ import { useRouter } from "next/navigation";
 export default function ReservationActions({
   id,
   editable,
+  running,
+  currentPrice,
   maxBidAmount,
   snipeSecondsBefore,
   dryRun: initialDryRun,
 }: {
   id: string;
   editable: boolean;
+  /** 走行中(監視中・入札中)で、まだ終了していない = 上限額の引き上げだけ可能 */
+  running: boolean;
+  currentPrice: number | null;
   maxBidAmount: number;
   snipeSecondsBefore: number;
   dryRun: boolean;
@@ -26,6 +31,64 @@ export default function ReservationActions({
   const [amount, setAmount] = useState(String(maxBidAmount));
   const [seconds, setSeconds] = useState(String(snipeSecondsBefore));
   const [dryRun, setDryRun] = useState(initialDryRun);
+  // 引き上げ後の額の初期値。現在価格が分かっていればそれを上回る額から始める。
+  const [raiseAmount, setRaiseAmount] = useState(
+    String(Math.max(maxBidAmount, currentPrice ?? 0) + 1000),
+  );
+
+  async function onRaise(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    // ⚠️ maxBidAmount **だけ** を送る。走行中のサーバ側は他のキーが1つでも
+    // 混ざると 409 で弾く(走っているループの前提と食い違うため)。
+    const res = await fetch(`/api/v1/reservations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ maxBidAmount: Number(raiseAmount) }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setError((await res.json()).error ?? "引き上げに失敗しました");
+      return;
+    }
+    setNotice("上限額を引き上げました。次の入札タイミングで再入札します。");
+    router.refresh();
+  }
+
+  if (!editable && running) {
+    return (
+      <div className="card">
+        <h2>上限額を上げて再入札</h2>
+        <p className="muted">
+          実行中の予約です。変更できるのは上限額の引き上げだけです
+          (実行タイミング・テスト実行・キャンセルはできません)。
+          引き上げると、終了{snipeSecondsBefore}秒前の入札タイミングで
+          同じ予約のまま入札しなおします。
+        </p>
+        <form className="form" onSubmit={onRaise}>
+          <div>
+            <label htmlFor="raiseAmount">
+              新しい上限入札額(円) — 現在の上限 ¥{maxBidAmount.toLocaleString("ja-JP")}
+              {currentPrice !== null && ` / 現在価格 ¥${currentPrice.toLocaleString("ja-JP")}`}
+            </label>
+            <input
+              id="raiseAmount"
+              type="number"
+              value={raiseAmount}
+              onChange={(e) => setRaiseAmount(e.target.value)}
+            />
+          </div>
+          {error && <p className="error">{error}</p>}
+          {notice && <p className="muted">{notice}</p>}
+          <div className="row">
+            <button disabled={busy}>上限額を引き上げる</button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   if (!editable) {
     return (

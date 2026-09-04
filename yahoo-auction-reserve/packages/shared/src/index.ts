@@ -6,6 +6,7 @@ export * from "./cookies";
 export * from "./format";
 export * from "./autoRaise";
 export * from "./bidUnit";
+export * from "./runningRaise";
 export * from "./market";
 export * from "./judgement";
 export * from "./access";

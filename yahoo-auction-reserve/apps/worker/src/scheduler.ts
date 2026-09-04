@@ -12,6 +12,7 @@ import { runEnrichSweep } from "./jobs/enrich";
 import { runNewSessionVerifySweep, runVerifySessionSweep } from "./jobs/verifySession";
 import { beat } from "./jobs/heartbeat";
 import { sweepApprovals } from "./approvalPoller";
+import { runStuckSweep } from "./jobs/stuck";
 import { planMonitorEnqueue, type MonitorJobRef, type MonitorJobState } from "./monitorPlan";
 
 // 予約の真実は DB(BidReservation)。Redis のジョブはここから常に再構築できる
@@ -47,6 +48,10 @@ const WATCHLIST_INTERVAL_MS = 60 * 60 * 1000;
 // 連携 Cookie の生存確認。走査自体は 15 分ごとに回すが、実際に開くのは
 // 前回の確認から 6 時間経った連携だけ(判定は jobs/verifySession.ts)。
 const VERIFY_SESSION_INTERVAL_MS = 15 * 60 * 1000;
+
+// 走行中のまま取り残された予約の掃除。監視ジョブの一覧を Redis から取り直すので
+// 30秒の走査には載せず、独立して粗く回す(対象の猶予が15分なので十分)。
+const STUCK_INTERVAL_MS = 5 * 60 * 1000;
 
 export interface SchedulerHandle {
   stop: () => void;
@@ -87,11 +92,19 @@ export function startScheduler(): SchedulerHandle {
   );
   run("verifySession", runVerifySessionSweep);
 
+  const stuckSweep = async () => {
+    const live = await collectMonitorJobs();
+    return runStuckSweep(new Set(live.keys()));
+  };
+  const stuckTimer = setInterval(() => run("stuck", stuckSweep), STUCK_INTERVAL_MS);
+  run("stuck", stuckSweep);
+
   return {
     stop: () => {
       clearInterval(timer);
       clearInterval(watchlistTimer);
       clearInterval(verifyTimer);
+      clearInterval(stuckTimer);
     },
   };
 }

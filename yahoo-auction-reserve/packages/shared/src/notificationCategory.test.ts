@@ -15,12 +15,23 @@ describe("通知の系統", () => {
     assert.notEqual(category, "ERROR");
   });
 
+  // 高値更新の通知は「結果の報告」ではなく「まだ間に合ううちに増額しますか」
+  // の問い合わせ。RESULT / ERROR に入れると通知設定で切れてしまい、切っている人は
+  // **追加入札できたことを知らないまま負ける**(切った人が想定しているのは
+  // 終わったあとの報告であって、行動の機会ではない)。
+  it("高値更新の通知は、ユーザー設定で切れる系統に入れない", () => {
+    const category = NOTIFICATION_CATEGORY.OUTBID;
+    assert.equal(category, "ACTION");
+    assert.notEqual(category, "RESULT");
+    assert.notEqual(category, "ERROR");
+  });
+
   it("全ての通知種別に系統が割り当てられている", () => {
     const types: NotificationType[] = [
       "WON", "LOST", "AUTO_RAISED", "GROUP_CANCELLED",
       "FAILED", "EXPIRED", "SESSION_EXPIRED", "RAISE_DECLINED",
       "REMINDER", "APPROVAL_REQUEST", "DAILY_SUMMARY", "DRY_RUN",
-      "ALREADY_HIGHEST",
+      "ALREADY_HIGHEST", "OUTBID",
     ];
     for (const t of types) {
       assert.ok(NOTIFICATION_CATEGORY[t], `${t} に系統が無い`);

@@ -36,13 +36,13 @@ describe("monitor の DRY_RUN 分岐", () => {
 
   it("テスト実行の結果は必ず通知する(静かに終わると動いていない場合と区別が付かない)", () => {
     const branch = SRC.slice(SRC.indexOf('result.outcome === "DRY_RUN"'));
-    const end = branch.indexOf("\n    }\n");
+    const end = branch.indexOf("\n      } else if");
     assert.ok(branch.slice(0, end).includes('notifyUser(reservation.userId, "DRY_RUN"'));
   });
 
   it("テスト実行を WON/LOST にしない(入札していないので落札結果ではない)", () => {
     const branch = SRC.slice(SRC.indexOf('result.outcome === "DRY_RUN"'));
-    const end = branch.indexOf("\n    }\n");
+    const end = branch.indexOf("\n      } else if");
     const body = branch.slice(0, end);
     assert.ok(body.includes('status: "DRY_RUN"'), "status を DRY_RUN にしていない");
     assert.ok(!body.includes('"WON"') && !body.includes('"LOST"'));

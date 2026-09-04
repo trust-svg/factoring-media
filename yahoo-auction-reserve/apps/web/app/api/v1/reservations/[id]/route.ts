@@ -5,6 +5,7 @@ import {
   SNIPE_SECONDS_MAX,
   SNIPE_SECONDS_MIN,
   validateAutoRaiseInput,
+  validateRunningRaise,
   type AutoRaiseFields,
 } from "@yar/shared";
 import { requireUser } from "@/lib/auth";
@@ -39,6 +40,27 @@ export async function PATCH(
     const user = await requireUser();
     const reservation = await findOwned((await params).id, user.id);
     if (!reservation) return jsonError(404, "予約が見つかりません");
+    // 走行中(監視中・入札中)は「上限額の引き上げ」だけ受ける。
+    //
+    // ⚠️ 締切(editDeadlineSeconds)の判定はここでは行わない。あの締切は
+    // 「monitor が起動時に読んだ内容のまま走るので、起動後に書いても
+    // 反映されない」ことから来ていた。monitor はスナイプ時刻の直前に
+    // 予約を読み直すようになったので(jobs/monitor.ts の syncReservation)、
+    // 終了直前でも書けば拾われる。ここを塞ぐと、入札後に高値更新された
+    // ときに増額する手段が無くなり、**この機能そのものが成立しない**。
+    //
+    // 引き下げとその他の項目を受けないのは、送信済みの入札を取り消せない
+    // から。上限を下げても効果が無く、実行秒数やテスト実行を今さら変えると
+    // 走っているループが持っている前提と食い違う。
+    if (reservation.status === "MONITORING" || reservation.status === "BIDDING") {
+      const raise = validateRunningRaise(await req.json(), reservation, Date.now());
+      if (!raise.ok) return jsonError(raise.status, raise.error);
+      const updated = await prisma.bidReservation.update({
+        where: { id: reservation.id },
+        data: { maxBidAmount: raise.maxBidAmount },
+      });
+      return NextResponse.json(updated);
+    }
     if (reservation.status !== "SCHEDULED") {
       return jsonError(409, "実行が始まっているため変更できません");
     }

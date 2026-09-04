@@ -30,6 +30,7 @@ const SUBJECTS: Record<NotificationType, string> = {
   DAILY_SUMMARY: "【稼働サマリ】入札予約の状況",
   DRY_RUN: "【テスト実行】確認画面まで到達しました(入札はしていません)",
   ALREADY_HIGHEST: "【入札せず】すでにあなたが最高額入札者でした",
+  OUTBID: "【要対応】高値更新されました(上限を上げれば再入札します)",
 };
 
 // payload のキーをそのまま出すと "maxBidAmount: 6000" のような画面になるので、
@@ -40,6 +41,7 @@ const FIELD_LABELS: Record<string, string> = {
   currentPrice: "現在価格",
   finalPrice: "落札価格",
   maxBidAmount: "入札額",
+  requiredAmount: "上回るのに必要な額",
   absoluteMaxAmount: "絶対上限",
   nextAmount: "増額後の入札額",
   reason: "理由",

@@ -35,6 +35,11 @@ export default async function ReservationDetailPage({
     reservation.endAt.getTime() - reservation.snipeSecondsBefore * 1000,
   );
   const editable = reservation.status === "SCHEDULED";
+  // 走行中(監視中・入札中)で、まだ終了していない予約は「上限額の引き上げ」
+  // だけできる。入札後に高値更新されたときの追加入札がこの経路。
+  const running =
+    (reservation.status === "MONITORING" || reservation.status === "BIDDING") &&
+    reservation.endAt.getTime() > Date.now();
   const buyNow = judgeBuyNow(reservation.maxBidAmount, reservation.buyNowPrice);
 
   return (
@@ -145,6 +150,8 @@ export default async function ReservationDetailPage({
       <ReservationActions
         id={reservation.id}
         editable={editable}
+        running={running}
+        currentPrice={reservation.currentPrice}
         maxBidAmount={reservation.maxBidAmount}
         snipeSecondsBefore={reservation.snipeSecondsBefore}
         dryRun={reservation.dryRun}
