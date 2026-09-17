@@ -7,7 +7,7 @@ import {
 import { monitorQueue, refreshQueue } from "./queues";
 import { runReminderSweep } from "./jobs/reminder";
 import { runDailySummarySweep } from "./jobs/dailySummary";
-import { runWatchlistSweep } from "./jobs/watchlist";
+import { runWatchlistRequestSweep, runWatchlistSweep } from "./jobs/watchlist";
 import { runEnrichSweep } from "./jobs/enrich";
 import { runNewSessionVerifySweep, runVerifySessionSweep } from "./jobs/verifySession";
 import { beat } from "./jobs/heartbeat";
@@ -76,6 +76,10 @@ export function startScheduler(): SchedulerHandle {
     // 登録直後の連携だけ、定期走査(6時間)を待たずにここで確認する。
     // 対象は「まだ一度も試していない」ものだけなので、通常は空振り1クエリ。
     run("verifyNewSession", runNewSessionVerifySweep);
+    // 画面の「今すぐ更新」を拾う。1時間の定期同期を待たずに反映するための
+    // 唯一の入口(web は Chromium を持たないので自分では同期できない)。
+    // 要求が無ければ1クエリで空振りして終わる。
+    run("watchlistRequest", runWatchlistRequestSweep);
   };
   const timer = setInterval(tick, SCAN_INTERVAL_MS);
   tick();

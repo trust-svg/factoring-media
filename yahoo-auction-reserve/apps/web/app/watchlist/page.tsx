@@ -5,6 +5,7 @@ import { splitReservedStatuses } from "@/lib/reservedStatus";
 import { formatJstDayLabel, formatJstTime } from "@yar/shared/format";
 import { getSessionUser } from "@/lib/auth";
 import WatchlistRows, { type WatchlistRow } from "./WatchlistRows";
+import WatchlistSyncButton from "./WatchlistSyncButton";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,12 @@ export default async function WatchlistPage() {
     }),
     prisma.yahooSession.findMany({
       where: { userId: user.id },
-      select: { label: true, status: true, lastWatchlistSyncAt: true },
+      select: {
+        label: true,
+        status: true,
+        lastWatchlistSyncAt: true,
+        watchlistSyncRequestedAt: true,
+      },
     }),
     prisma.bidReservation.findMany({
       where: { userId: user.id },
@@ -69,6 +75,8 @@ export default async function WatchlistPage() {
   // 同期が止まっているのに一覧が空だと「ウォッチが0件」に見えるが、実際は
   // ログイン切れやセレクタ崩れで読めていない。最終同期時刻を必ず出す。
   const stale = !lastSync || Date.now() - lastSync.getTime() > STALE_SYNC_MS;
+  // 押した直後に再読み込みされても「同期中」の表示を続けられるようにする
+  const syncPending = sessions.some((s) => s.watchlistSyncRequestedAt != null);
 
   return (
     <>
@@ -83,6 +91,10 @@ export default async function WatchlistPage() {
         取り込みは Yahoo → アプリの一方向です。ここで非表示にしても、ヤフオク側の
         ウォッチリストは変わりません。
       </p>
+      <WatchlistSyncButton
+        lastSyncAtMs={lastSync?.getTime() ?? null}
+        initialPending={syncPending}
+      />
       {hiddenStale > 0 && (
         <p className="notice">
           直近の同期で見つからなかった {hiddenStale} 件は表示していません(ヤフオク側で

@@ -52,6 +52,12 @@ model YahooSession {
   // ウォッチリストはログイン必須なので、この同期自体が死活監視を兼ねる
   // (開いてログイン画面に飛ばされたら EXPIRED にする)。
   lastWatchlistSyncAt DateTime?
+
+  // 画面の「今すぐ更新」で立つ手動同期の要求。worker の30秒走査が拾って
+  // 1回だけ同期し、**成否に関わらず終わったら null に戻す**。
+  // ⚠️ 拾った時点ではなく終わってから下ろすこと。先に下ろすと、同期中
+  // (数十秒)のあいだ要求が消えて見えるので、連打の歯止めが効かなくなる。
+  watchlistSyncRequestedAt DateTime?
 }
 
 model BidReservation {

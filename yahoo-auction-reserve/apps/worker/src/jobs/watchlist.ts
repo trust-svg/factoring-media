@@ -271,19 +271,81 @@ async function upsertItems(
   }
 }
 
+// 定期同期と手動同期で共有する鍵。worker は単一プロセス前提(sessionLock.ts と
+// 同じ約束)なので、プロセス内の変数で足りる。
+//
+// ⚠️ 鍵を2つに分けてはいけない。手動同期は30秒走査から、定期同期は1時間の
+//    タイマーから入るので、押した直後に毎時の同期と重なることがある。
+//    重なると **同じアカウントで Chromium が2本同時にヤフオクへ入る**。
+//    bot 検知の観点でこれが最悪の形なので、どちらか片方だけを通す。
+let watchlistSyncInFlight = false;
+
+async function withWatchlistSyncLock(label: string, fn: () => Promise<void>): Promise<void> {
+  if (watchlistSyncInFlight) {
+    console.log(`[watchlist] ${label}: 別の同期が実行中のため見送り`);
+    return;
+  }
+  watchlistSyncInFlight = true;
+  try {
+    await fn();
+  } finally {
+    watchlistSyncInFlight = false;
+  }
+}
+
+async function syncSessions(
+  sessions: Array<{ id: string; label: string }>,
+  tag: string,
+): Promise<void> {
+  for (const s of sessions) {
+    try {
+      const r = await runWatchlistSync(s.id);
+      console.log(`[watchlist] ${s.label}: ${tag}${r.kind} ${r.itemCount}件`);
+    } catch (err) {
+      // 1件の失敗で他の連携の同期を止めない
+      console.error(`[watchlist] ${s.label} の同期に失敗:`, err);
+    }
+  }
+}
+
 /** ACTIVE な連携すべてを同期する。スケジューラから1時間ごとに呼ぶ */
 export async function runWatchlistSweep(): Promise<void> {
   const sessions = await prisma.yahooSession.findMany({
     where: { status: "ACTIVE" },
     select: { id: true, label: true },
   });
-  for (const s of sessions) {
-    try {
-      const r = await runWatchlistSync(s.id);
-      console.log(`[watchlist] ${s.label}: ${r.kind} ${r.itemCount}件`);
-    } catch (err) {
-      // 1件の失敗で他の連携の同期を止めない
-      console.error(`[watchlist] ${s.label} の同期に失敗:`, err);
+  await withWatchlistSyncLock("定期同期", () => syncSessions(sessions, ""));
+}
+
+/**
+ * 画面の「今すぐ更新」で立った要求を拾って同期する。スケジューラの30秒走査から呼ぶ。
+ *
+ * web は Chromium を持っていないので同期そのものを実行できない。web は
+ * watchlistSyncRequestedAt を立てるだけにして、ヤフオクに触るのは worker
+ * だけという分担を保つ(設計 §4)。
+ */
+export async function runWatchlistRequestSweep(): Promise<void> {
+  // 要求が無いときの30秒ごとの空振りを1クエリで終わらせる。
+  // 鍵はここでは取らない(定期同期が走っていても、この問い合わせは邪魔しない)
+  const requested = await prisma.yahooSession.findMany({
+    where: { status: "ACTIVE", watchlistSyncRequestedAt: { not: null } },
+    select: { id: true, label: true },
+  });
+  if (requested.length === 0) return;
+
+  await withWatchlistSyncLock("手動同期", async () => {
+    for (const s of requested) {
+      try {
+        await syncSessions([s], "手動 ");
+      } finally {
+        // ⚠️ 成否に関わらず必ず下ろす。残すと30秒ごとに永久に再実行して
+        // ヤフオクを叩き続ける(失敗するほど頻度が上がる、最悪の壊れ方)。
+        await prisma.yahooSession
+          .update({ where: { id: s.id }, data: { watchlistSyncRequestedAt: null } })
+          .catch((err) =>
+            console.error(`[watchlist] ${s.label} の同期要求を下ろせませんでした:`, err),
+          );
+      }
     }
-  }
+  });
 }
