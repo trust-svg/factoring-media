@@ -18,8 +18,19 @@
  *  - @media(prefers-color-scheme: dark) かつ [data-theme="light"] でない時
  *  - [data-theme="dark"] が明示された時
  * 個々の部品は必ずトークン越しに色を取る(メディアクエリの中で色を直接書かない)。
+ *
+ * ⚠️ 現在 layout.tsx が <html data-theme="light"> を常に付けているので、
+ *    下のダーク2ブロックはどちらも当たらない(＝画面は常にライト)。消さずに
+ *    残してあるのは、テーマ切替を足すときに属性を外す/"dark" にするだけで
+ *    効くようにするため。ダークを直したいときは属性の方を先に見ること。
+ *
+ * color-scheme は「地の色」ではなく **ブラウザ内蔵UIの配色** を決める。
+ * これが無いと、本文はライトなのに <select> のドロップダウン・日時ピッカー・
+ * スクロールバーだけ端末のダーク配色で描かれる(黒地に黒文字になり得る)。
  */
 :root {
+  color-scheme: light;
+
   --ground: #eceff2;
   --surface: #ffffff;
   --surface-2: #f4f6f8;
@@ -46,6 +57,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --ground: #0f1317;
     --surface: #171d23;
     --surface-2: #1e252c;
@@ -65,6 +77,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --ground: #0f1317;
   --surface: #171d23;
   --surface-2: #1e252c;

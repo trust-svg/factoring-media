@@ -21,10 +21,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#eceff2" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f1317" },
-  ],
+  // 端末がダークモードでも画面はライト固定(下の data-theme="light")なので、
+  // ここも1色にする。media で出し分けたままにすると、本文は明るいのに
+  // iOS のステータスバー・Android のURLバーだけ黒いという食い違いになる。
+  themeColor: "#eceff2",
 };
 
 export default async function RootLayout({
@@ -48,7 +48,10 @@ export default async function RootLayout({
     }).allowed;
 
   return (
-    <html lang="ja">
+    // 端末のダークモード設定に関わらずライト固定。
+    // ⚠️ 外すと prefers-color-scheme に従うので、スマホの OS がダークだと
+    //    画面もダークになる(globals.css のトークンが2組あるのはそのため)。
+    <html lang="ja" data-theme="light">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
