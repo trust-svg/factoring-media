@@ -14,7 +14,34 @@ import { CLICKABLE_SELECTOR, settleBudgetMs, settlePage, type SettleResult } fro
  *    `page.auctions…` で着地は `auctions…` なので、一致は永久に成立しない。
  *    見るのは「商品IDが URL に含まれるか」と「描画されているか」の2点だけ。
  */
+/**
+ * 入札フローに一度でも触れたページの集合。
+ *
+ * ⚠️ 2026-09-19 の実害(l1244376785 / u1244471651 / d1243323945 の3件)。
+ * 入札に成功すると商品ページに「あなたが最高額入札者です」が生える。
+ * ヤフオクの自動延長で終了時刻が +5分 されると monitor は **同じ page** で
+ * 再スナイプするが、下の再利用判定は「URL に商品IDが含まれる」「描画済み」
+ * しか見ておらず、**いつ描画されたか** を見ていない。だから `goto` せずに
+ * 5分前の DOM をそのまま読む。その間に他人が高値更新していても
+ * 「あなたが最高額入札者です」は残ったままなので、ALREADY_HIGHEST ガードが
+ * 誤発火し、**一度も入札しないまま LOST** で終わった。
+ *
+ * 実ログ(同一ループ内):
+ *   価格確認: 現在 ¥29000 / 上限 ¥22500   ← fetchAuctionInfo(別経路)＝新鮮
+ *   入札実行: ¥31500 → ALREADY_HIGHEST     ← ページの DOM ＝5分前
+ * 価格と表示が食い違ったまま、表示の側だけを信じていた。
+ *
+ * 入札ボタンを押した時点で、そのページはもう「商品ページの素の描画」では
+ * ない(モーダルが開き、確定すると自分の状態表示が書き換わる)。だから触れた
+ * ページは再利用の対象から外す。**初回入札のページはこの集合に入らない**
+ * ので、monitor がウォームアップで温めたページは捨てない(地雷14の対策は無傷)。
+ */
+const pagesTouchedByBidFlow = new WeakSet<object>();
+
 async function isSameAuctionPageRendered(page: Page, auctionUrl: string): Promise<boolean> {
+  // 入札フローに触れたページの DOM は、その商品の「今」を表していない。
+  // 描画済みかどうかとは無関係に、必ず読み直す。
+  if (pagesTouchedByBidFlow.has(page)) return false;
   const id = extractAuctionId(auctionUrl);
   if (!id) return false;
   if (!page.url().includes(id)) return false;
@@ -50,7 +77,20 @@ export async function placeBid(
   auctionUrl: string,
   amount: number,
   timeoutMs = 15_000,
-  opts: { dryRun?: boolean; reload?: boolean; remainingMs?: number } = {},
+  opts: {
+    dryRun?: boolean;
+    reload?: boolean;
+    remainingMs?: number;
+    /**
+     * 「すでに自分が最高額入札者」の判定を飛ばす。
+     *
+     * ⚠️ 呼び出し側が **ページより確かな根拠** で「最高額入札者ではありえない」
+     * と分かっているときだけ true にする(monitor: 新鮮な現在価格が前回自分が
+     * 入れた額を超えている = alreadyHighestGuard)。ページの表示を信用できない
+     * 場面のための保険で、通常は指定しない。
+     */
+    skipAlreadyHighestCheck?: boolean;
+  } = {},
 ): Promise<BidResult> {
   // 終了時刻までの残り。描画待ちの上限を切るためだけに使う。
   // 呼び出し側の時計(yahooNow)で測った値をもらい、以後の経過は
@@ -72,6 +112,9 @@ export async function placeBid(
     // コンテナは 7,241ms(無負荷で約5倍)。15秒の予算の半分を描画が食う。
     if (opts.reload || !(await isSameAuctionPageRendered(page, auctionUrl))) {
       await page.goto(auctionUrl, { waitUntil: "domcontentloaded" });
+      // 読み直した = 前回の入札フローの痕跡は消えた。ここで印を外さないと
+      // このページは二度と再利用されず、毎回 goto する(地雷14へ逆戻りする)。
+      pagesTouchedByBidFlow.delete(page);
       // 読み直したなら描画を待つ。
       // ⚠️ 待ち時間は **必ず残り時間で上限を切る**(settleBudgetMs)。
       // 固定で15秒待つと、5秒前入札の予約だけが待っている間に終わる。
@@ -102,11 +145,12 @@ export async function placeBid(
     // ⚠️ 判定できなかったときは入札する側に倒す(catch → false)。
     // 誤って止める代償は「落札の機会を黙って失う」で、こちらの方が悪い。
     if (
-      await page
+      !opts.skipAlreadyHighestCheck &&
+      (await page
         .locator(selectors.highestBidderIndicator)
         .first()
         .isVisible()
-        .catch(() => false)
+        .catch(() => false))
     ) {
       return {
         outcome: "ALREADY_HIGHEST",
@@ -140,6 +184,9 @@ export async function placeBid(
       };
     }
     const urlBeforeBid = page.url();
+    // ⚠️ 押す **前** に印を付ける。押した後に付けると、途中で例外が飛んだ
+    // ページ(モーダルが開いたまま)が印なしで残り、次回そのまま再利用される。
+    pagesTouchedByBidFlow.add(page);
     await bidButton.click({ timeout: timeoutMs });
 
     await page.locator(selectors.priceInput).first().fill(String(amount), {

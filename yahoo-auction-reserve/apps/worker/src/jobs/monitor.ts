@@ -12,6 +12,7 @@ import type { ReservationJobData } from "../queues";
 import { notifyUser } from "../notify";
 import { launchBrowser, createYahooContext, markSessionExpired } from "../bidder/session";
 import { placeBid, checkResult } from "../bidder/placeBid";
+import { alreadyHighestGuard } from "../bidder/alreadyHighest";
 import { settlePage } from "../bidder/settle";
 import { measureYahooTimeOffset, offsetIsStale, sleepUntil, sleep, yahooNow } from "../time";
 import { tryAutoRaise } from "../autoRaise";
@@ -135,6 +136,11 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
   // 「スキップ」のまま終わり、結果通知が一度も届かない
   // (2026-09-04 実測: 04:48 入札成功 → 04:54 上限超過で EXPIRED → 決着通知なし)。
   let hasBid = false;
+  // この監視ジョブで直近に **入札が成立した** 額。未入札なら null。
+  // ⚠️ maxBidAmount とは別物。ヤフオクに預けてある自分の上限はこちらで、
+  // 走行中に Web や Telegram から maxBidAmount を上げても、入札しなおすまで
+  // ヤフオク側の上限は変わらない。alreadyHighestGuard が見るのはこの値。
+  let lastBidAmount: number | null = null;
   // 同じ価格で「高値更新されました」を何度も送らないための直前値。
   let outbidNotifiedPrice = 0;
 
@@ -310,10 +316,26 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
         );
       }
 
+      // ⚠️ 商品ページの「あなたが最高額入札者です」は、自動延長で再スナイプ
+      // する回に **古い表示のまま残る** ことがある(2026-09-19 の実害)。
+      // 根本原因は placeBid 側で直してあるが、この誤判定は「黙って落札機会を
+      // 失う」形で壊れるので、ページより確かな根拠で打ち消せるならここで
+      // 打ち消す(alreadyHighest.ts)。
+      const highestGuard = alreadyHighestGuard({
+        lastBidAmount,
+        currentPrice: info?.currentPrice ?? null,
+      });
+      if (!highestGuard.enabled) {
+        // ⚠️ 黙って無効化しない。入札するかどうかを変える判断なので、
+        // 後から「なぜ止まらなかった / 止まったのか」を追えるようにする。
+        logMonitor(reservation, `最高額入札者の表示を無視: ${highestGuard.reason}`);
+      }
+
       let result;
       try {
         result = await placeBid(page, reservation.auctionUrl, reservation.maxBidAmount, undefined, {
           dryRun: reservation.dryRun,
+          skipAlreadyHighestCheck: !highestGuard.enabled,
           // 描画待ちの上限を切るために残り時間を渡す(settleBudgetMs)。
           // これが無いと、5秒前入札の予約で描画を待っている間に終わる。
           remainingMs: endAt.getTime() - yahooNow().getTime(),
@@ -429,6 +451,10 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       // ここまで来たら「最高額入札者になれた可能性がある」。以後は上限超過で
       // 入札を見送っても、終了まで見届けて結果を出す。
       hasBid = true;
+      // ⚠️ ALREADY_HIGHEST の回は **入札していない** ので更新しない。
+      // ここで maxBidAmount を入れると「その額で入札済み」という嘘の前提が
+      // 残り、次の回の guard が高値更新を見逃す(実害と同じ形に戻る)。
+      if (result.outcome !== "ALREADY_HIGHEST") lastBidAmount = reservation.maxBidAmount;
     }
 
     // 終了を待って結果確認。自動延長ありの場合は延長を検知したらループ継続

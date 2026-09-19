@@ -43,8 +43,15 @@ function fakePage(
     rendered?: boolean;
     /** 今開いているページの URL(別の商品ページに居る場合の確認用) */
     currentUrl?: string;
-    /** 商品ページに「あなたが最高額入札者です」が出ているか */
+    /** 商品ページに「あなたが最高額入札者です」が出ているか(読み込んだ時点の値) */
     highestBidder?: boolean;
+    /**
+     * **読み直したとき** に「あなたが最高額入札者です」が出ているか
+     * = サーバ側の今の真実。既定は false(＝他人に高値更新された状態)。
+     * ⚠️ この2つを分けないと「古い DOM を読んでいる」という状態を作れず、
+     * 2026-09-19 の実害がテストで再現できない。
+     */
+    highestBidderAfterReload?: boolean;
   } = {},
 ): FakePage {
   const clicks: string[] = [];
@@ -52,6 +59,10 @@ function fakePage(
   const gotos: string[] = [];
   let confirmed = false;
   let settleProbes = 0;
+  // 「あなたが最高額入札者です」は固定値ではなく **状態**。
+  // 入札を確定すると生え、読み直すとサーバの今の状態に戻る。実物がそうなので、
+  // ここを固定値にすると placeBid が古い DOM を読んでいても気づけない。
+  let highestBidder = o.highestBidder === true;
 
   const bidHandle = { id: "bid" };
   const submitHandle = o.sameElement === true ? bidHandle : { id: "submit" };
@@ -75,7 +86,7 @@ function fakePage(
       },
       isVisible: async () => {
         if (sel === selectors.loginLink) return o.loginVisible === true;
-        if (sel === selectors.highestBidderIndicator) return o.highestBidder === true;
+        if (sel === selectors.highestBidderIndicator) return highestBidder;
         return false;
       },
       fill: async (v: string) => {
@@ -84,6 +95,9 @@ function fakePage(
       click: async () => {
         clicks.push(sel);
         if (sel === selectors.bidConfirmButton) confirmed = true;
+        // 入札が確定すると、その瞬間から商品ページは自分を最高額入札者として
+        // 表示する(2026-09-04 実測の h1)。
+        if (sel === selectors.bidSubmitButton) highestBidder = true;
       },
       textContent: async () => (sel === selectors.bidSubmitButton ? (o.submitLabel ?? SUBMIT_LABEL) : ""),
       // 実装はラベルを evaluate 経由で読む(`<input type=submit>` は value 側に入るため)
@@ -114,6 +128,9 @@ function fakePage(
     url: () => o.currentUrl ?? URL_,
     goto: async (u: string) => {
       gotos.push(u);
+      // 読み直し = サーバの今の状態を取り直す。モーダルも閉じる。
+      highestBidder = o.highestBidderAfterReload === true;
+      confirmed = false;
     },
     waitForLoadState: async () => {},
     // 描画待ちのポーリング間隔。テストでは待たない
@@ -366,5 +383,78 @@ describe("すでに自分が最高額入札者だったとき", () => {
     };
     const r = await placeBid(f.page, URL_, 5_000, 1_000);
     assert.equal(r.outcome, "SUCCESS");
+  });
+});
+
+// 2026-09-19 の実害の再現。
+//
+// 予約 cmu5d33ut0007yqj9yyod1oeb / 商品 l1244376785:
+//   02:27:30 入札 ¥22,500 → SUCCESS(自動延長で終了が 02:33 → 02:38 へ)
+//   02:32:30 再スナイプ。上限は手動で ¥31,500 に上げてあった
+//            価格確認: 現在 ¥29,000 ← 別経路の取得なので新鮮(=高値更新されている)
+//            入札実行: ¥31,500 → ALREADY_HIGHEST ← 5分前の DOM を読んだ
+//   02:38:11 結果判定: LOST
+//
+// ⚠️ ここで確かめたいのは「2回目に読み直したか」ではなく
+//    「2回目に入札が成立したか」。読み直しの有無は手段なので、
+//    手段だけを assert すると実装を変えた瞬間に意味を失う。
+describe("入札後に同じ page を使い回す回(自動延長の再スナイプ)", () => {
+  it("1回目の入札で生えた「最高額入札者」を2回目に読まず、ちゃんと入札する", async () => {
+    // highestBidderAfterReload: false = その間に他人が高値更新している
+    const f = fakePage({ highestBidderAfterReload: false });
+
+    const first = await placeBid(f.page, URL_, 22_500, 1_000);
+    assert.equal(first.outcome, "SUCCESS", "detail" in first ? first.detail : "");
+    assert.deepEqual(f.gotos, [], "初回は温めたページを使うはず(地雷14の対策)");
+
+    const second = await placeBid(f.page, URL_, 31_500, 1_000);
+    assert.equal(
+      second.outcome,
+      "SUCCESS",
+      `2回目が成立していない: ${JSON.stringify(second)}`,
+    );
+    assert.deepEqual(
+      f.fills.at(-1),
+      [selectors.priceInput, "31500"],
+      "2回目に入れた額が違う",
+    );
+  });
+
+  it("その回は読み直している(古い DOM を読まないための手段の確認)", async () => {
+    const f = fakePage({ highestBidderAfterReload: false });
+    await placeBid(f.page, URL_, 22_500, 1_000);
+    await placeBid(f.page, URL_, 31_500, 1_000);
+    assert.deepEqual(f.gotos, [URL_], "2回目に読み直していない");
+  });
+
+  // ⚠️ 陽性対照。これが無いと「ガードを消す」だけで上のテストが通ってしまう。
+  it("読み直しても本当に最高額入札者なら、2回目は止まる", async () => {
+    const f = fakePage({ highestBidderAfterReload: true });
+    const first = await placeBid(f.page, URL_, 22_500, 1_000);
+    assert.equal(first.outcome, "SUCCESS", "detail" in first ? first.detail : "");
+    const second = await placeBid(f.page, URL_, 31_500, 1_000);
+    assert.equal(second.outcome, "ALREADY_HIGHEST", JSON.stringify(second));
+  });
+
+  it("読み直した後は印が外れる(3回目以降も毎回 goto し続けない)", async () => {
+    const f = fakePage({ highestBidderAfterReload: false });
+    await placeBid(f.page, URL_, 22_500, 1_000); // 印が付く
+    await placeBid(f.page, URL_, 31_500, 1_000); // goto 1回目 → 印が外れ、また付く
+    await placeBid(f.page, URL_, 40_000, 1_000); // goto 2回目
+    assert.deepEqual(f.gotos, [URL_, URL_]);
+  });
+});
+
+describe("skipAlreadyHighestCheck(呼び出し側からの打ち消し)", () => {
+  it("渡すと、最高額入札者の表示が出ていても入札する", async () => {
+    const f = fakePage({ highestBidder: true });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000, { skipAlreadyHighestCheck: true });
+    assert.equal(r.outcome, "SUCCESS", JSON.stringify(r));
+  });
+
+  it("渡さなければ従来どおり止まる", async () => {
+    const f = fakePage({ highestBidder: true });
+    const r = await placeBid(f.page, URL_, 5_000, 1_000);
+    assert.equal(r.outcome, "ALREADY_HIGHEST");
   });
 });
