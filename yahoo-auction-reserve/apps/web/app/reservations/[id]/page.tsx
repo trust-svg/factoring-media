@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@yar/db";
 import { RESERVATION_STATUS_LABEL, ATTEMPT_OUTCOME_LABEL } from "@yar/shared/labels";
 import { judgeBuyNow } from "@yar/shared/judgement";
+import { cancelVerdict } from "@yar/shared";
 import { getSessionUser } from "@/lib/auth";
 import ReservationActions from "./ReservationActions";
 
@@ -40,6 +41,13 @@ export default async function ReservationDetailPage({
   const running =
     (reservation.status === "MONITORING" || reservation.status === "BIDDING") &&
     reservation.endAt.getTime() > Date.now();
+  // キャンセル可否は status だけでは決まらない。自動延長の再スナイプでは
+  // 入札成功後に status が MONITORING へ戻るので、入札済みかどうかは
+  // BidAttempt を見る(packages/shared/src/cancel.ts)。
+  const cancelable = cancelVerdict({
+    status: reservation.status,
+    hasSuccessfulBid: reservation.attempts.some((a) => a.outcome === "SUCCESS"),
+  }).ok;
   const buyNow = judgeBuyNow(reservation.maxBidAmount, reservation.buyNowPrice);
 
   return (
@@ -151,6 +159,7 @@ export default async function ReservationDetailPage({
         id={reservation.id}
         editable={editable}
         running={running}
+        cancelable={cancelable}
         currentPrice={reservation.currentPrice}
         maxBidAmount={reservation.maxBidAmount}
         snipeSecondsBefore={reservation.snipeSecondsBefore}

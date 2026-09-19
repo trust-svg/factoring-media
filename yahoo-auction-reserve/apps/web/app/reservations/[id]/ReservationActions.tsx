@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// 変更・キャンセルは SCHEDULED のときだけ(設計 §9)。
+// 上限額・実行タイミングの変更は SCHEDULED のときだけ(設計 §9)。
+// キャンセルはそれより広く、**まだ自分の入札が外に出ていない** あいだは
+// 監視中でも受ける(判定は packages/shared/src/cancel.ts)。
 // 実行系との競合を避けるため最終判断はサーバ側が行い、
 // ここでの制御はあくまで UI 上の目安。
 export default function ReservationActions({
   id,
   editable,
   running,
+  cancelable,
   currentPrice,
   maxBidAmount,
   snipeSecondsBefore,
@@ -19,6 +22,8 @@ export default function ReservationActions({
   editable: boolean;
   /** 走行中(監視中・入札中)で、まだ終了していない = 上限額の引き上げだけ可能 */
   running: boolean;
+  /** キャンセルを受け付けられる状態か(サーバ側の cancelVerdict と同じ判定) */
+  cancelable: boolean;
   currentPrice: number | null;
   maxBidAmount: number;
   snipeSecondsBefore: number;
@@ -57,13 +62,27 @@ export default function ReservationActions({
     router.refresh();
   }
 
+  async function onCancel() {
+    if (!confirm("この予約をキャンセルします。よろしいですか?")) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/v1/reservations/${id}`, { method: "DELETE" });
+    setBusy(false);
+    if (!res.ok) {
+      setError((await res.json()).error ?? "キャンセルに失敗しました");
+      return;
+    }
+    router.push("/dashboard");
+    router.refresh();
+  }
+
   if (!editable && running) {
     return (
       <div className="card">
         <h2>上限額を上げて再入札</h2>
         <p className="muted">
           実行中の予約です。変更できるのは上限額の引き上げだけです
-          (実行タイミング・テスト実行・キャンセルはできません)。
+          (実行タイミング・テスト実行は変更できません)。
           引き上げると、終了{snipeSecondsBefore}秒前の入札タイミングで
           同じ予約のまま入札しなおします。
         </p>
@@ -86,17 +105,45 @@ export default function ReservationActions({
             <button disabled={busy}>上限額を引き上げる</button>
           </div>
         </form>
+        {cancelable && (
+          <>
+            <hr />
+            <p className="hint">
+              まだ入札していないので、ここで降りられます。
+              ⚠️ 入札の直前(終了{snipeSecondsBefore}秒前の数秒間)に押した場合は、
+              取り消しが間に合わず入札が飛ぶことがあります。
+              入札が成立した後はキャンセルできません(ヤフオクの入札は取り消せません)。
+            </p>
+            <div className="row">
+              <button type="button" className="danger" disabled={busy} onClick={onCancel}>
+                予約をキャンセル
+              </button>
+            </div>
+          </>
+        )}
       </div>
     );
   }
 
   if (!editable) {
+    // 終了時刻を過ぎた監視中など、走行中の画面には入らないが
+    // まだ入札していない状態がありうる。そこで「できません」と言い切ると嘘になる。
     return (
       <div className="card">
         <h2>変更・キャンセル</h2>
         <p className="muted">
-          実行が始まっている(または終了している)ため、変更・キャンセルはできません。
+          {cancelable
+            ? "実行が始まっているため、上限額・実行タイミングの変更はできません。まだ入札していないのでキャンセルはできます。"
+            : "実行が始まっている(または終了している)ため、変更・キャンセルはできません。"}
         </p>
+        {error && <p className="error">{error}</p>}
+        {cancelable && (
+          <div className="row">
+            <button type="button" className="danger" disabled={busy} onClick={onCancel}>
+              予約をキャンセル
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -121,20 +168,6 @@ export default function ReservationActions({
       return;
     }
     setNotice("変更を保存しました");
-    router.refresh();
-  }
-
-  async function onCancel() {
-    if (!confirm("この予約をキャンセルします。よろしいですか?")) return;
-    setBusy(true);
-    setError(null);
-    const res = await fetch(`/api/v1/reservations/${id}`, { method: "DELETE" });
-    setBusy(false);
-    if (!res.ok) {
-      setError((await res.json()).error ?? "キャンセルに失敗しました");
-      return;
-    }
-    router.push("/dashboard");
     router.refresh();
   }
 
@@ -183,14 +216,16 @@ export default function ReservationActions({
             </p>
           </div>
           <button disabled={busy}>変更を保存</button>
-          <button
-            type="button"
-            className="danger"
-            disabled={busy}
-            onClick={onCancel}
-          >
-            予約をキャンセル
-          </button>
+          {cancelable && (
+            <button
+              type="button"
+              className="danger"
+              disabled={busy}
+              onClick={onCancel}
+            >
+              予約をキャンセル
+            </button>
+          )}
         </div>
       </form>
     </div>

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@yar/db";
 import {
+  cancelVerdict,
   editDeadlineSeconds,
   SNIPE_SECONDS_MAX,
   SNIPE_SECONDS_MIN,
@@ -132,7 +133,26 @@ export async function PATCH(
   });
 }
 
-// キャンセルは MONITORING 開始前まで(設計 §9)
+/**
+ * 予約のキャンセル。
+ *
+ * 受けるのは「まだ自分の入札が外に出ていない」あいだだけ(判定は cancelVerdict)。
+ * 設計 §9 は「MONITORING 開始前まで」だったが、既定の実行秒数(330秒)だと
+ * 終了の6分半前から押せなくなり、監視が始まったあと気が変わっても降りられない。
+ * worker 側は monitor がループ先頭とスナイプ直前に予約を読み直して CANCELLED
+ * なら降りるので(jobs/monitor.ts の syncReservation)、監視中の取り消しは
+ * もともと成立する。ここが狭かっただけ。
+ *
+ * ⚠️ 状態の確認と更新のあいだに worker が BIDDING へ進む窓がある。
+ * 読んだ結果で分岐して update すると、その隙にスナイプが始まった予約を
+ * CANCELLED で塗りつぶす(入札は飛んだのに画面はキャンセル)。
+ * だから最終的な書き込みは **status を where に入れた updateMany** で行い、
+ * 0件なら断る。cancelVerdict は「なぜ駄目か」を言うためのもので、
+ * 競合を防いでいるのはこの where。
+ *
+ * ⚠️ それでも、スナイプ直前の読み直しを過ぎてから入札が飛ぶまでの数秒は
+ * 止められない。UI にその旨を書くこと。
+ */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -141,13 +161,21 @@ export async function DELETE(
     const user = await requireUser();
     const reservation = await findOwned((await params).id, user.id);
     if (!reservation) return jsonError(404, "予約が見つかりません");
-    if (reservation.status !== "SCHEDULED") {
-      return jsonError(409, "実行が始まっているためキャンセルできません");
-    }
-    const updated = await prisma.bidReservation.update({
-      where: { id: reservation.id },
+
+    const verdict = cancelVerdict({
+      status: reservation.status,
+      hasSuccessfulBid: reservation.attempts.some((a) => a.outcome === "SUCCESS"),
+    });
+    if (!verdict.ok) return jsonError(409, verdict.message);
+
+    const res = await prisma.bidReservation.updateMany({
+      where: { id: reservation.id, status: { in: ["SCHEDULED", "MONITORING"] } },
       data: { status: "CANCELLED" },
     });
+    if (res.count === 0) {
+      return jsonError(409, "入札処理が始まったためキャンセルできませんでした");
+    }
+    const updated = await prisma.bidReservation.findUnique({ where: { id: reservation.id } });
     return NextResponse.json(updated);
   });
 }
