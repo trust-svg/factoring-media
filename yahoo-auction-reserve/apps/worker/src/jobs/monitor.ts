@@ -4,7 +4,7 @@ import { prisma, type BidReservation } from "@yar/db";
 import {
   EXTENSION_LOOP_MAX_COUNT,
   EXTENSION_LOOP_MAX_MS,
-  SNIPE_LATE_TOLERANCE_SECONDS,
+  classifySnipeLateness,
   fetchAuctionInfo,
   minimumBidToBeat,
 } from "@yar/shared";
@@ -174,6 +174,15 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
     }
     // スナイプ時刻。増額の締切としても使うので、通知より先に確定させる。
     const snipeAt = new Date(endAt.getTime() - reservation.snipeSecondsBefore * 1000);
+    // ⚠️ この時点で snipeAt が既に過去なら、その差は sleepUntil でも取り返せない
+    // = **どんなに worker が健康でも避けられない遅れ**。自動延長は終了を5分しか
+    // 伸ばさないので、snipeSecondsBefore がそれより大きい予約では必ずこうなる。
+    // 後段の警告から差し引くためにここで測る(延長幅をハードコードしないのが要点)。
+    const snipeComputedAtMs = yahooNow().getTime();
+    const unavoidableLateSec = Math.max(
+      0,
+      Math.round((snipeComputedAtMs - snipeAt.getTime()) / 1000),
+    );
 
     if (info?.currentPrice === undefined) {
       // 取れないまま入札には進む(上限額での入札自体はヤフオク側が弾く)。
@@ -253,19 +262,41 @@ async function snipeLoop(page: Page, reservation: BidReservation): Promise<void>
       }
     }
 
+    // ⚠️ ループ自身が使った時間は **待機に入る前** に測る。sleepUntil の後で
+    // 測ると待ち時間そのものを「ループ処理」に数えてしまい、予定どおりに
+    // 待った回まで「処理が異常に長い」と鳴る。
+    const loopWorkSec = Math.max(
+      0,
+      Math.round((yahooNow().getTime() - snipeComputedAtMs) / 1000),
+    );
+
     // スナイプ時刻まで待機
     await sleepUntil(snipeAt);
 
     // sleepUntil は過去時刻なら即座に返る。つまり「起動が遅れた」ケースは
     // 待たずに通過してしまい、設定より遅い入札が無言で成立する。
-    // スケジューラ側は snipeSecondsBefore からリードを算出しているので本来
-    // ここは 0 に近いはずで、大きくズレたら worker 停止や Redis 詰まりを疑う。
-    const lateBySec = Math.round((yahooNow().getTime() - snipeAt.getTime()) / 1000);
-    const lateNote =
-      lateBySec > SNIPE_LATE_TOLERANCE_SECONDS
-        ? `予定より${lateBySec}秒遅れて実行(monitor の起動遅れ)`
-        : null;
-    if (lateNote) console.warn(`[monitor] ${reservation.id} ${lateNote}`);
+    //
+    // ⚠️ ただし遅れ全部を monitor の責任にしてはいけない。自動延長ラウンドでは
+    // snipeAt が生まれた瞬間すでに過去で(上の unavoidableLateSec)、そのぶんは
+    // どうやっても取り返せない。ここを区別せず警告すると、延長のたびに鳴る
+    // 警報になり、本物の worker 停止・Redis 詰まりが同じ文面に埋もれる
+    // (2026-09-20 実測: 41秒のうち30秒が不可避分・残り11秒がループの仕事)。
+    const lateness = classifySnipeLateness({
+      lateBySec: Math.round((yahooNow().getTime() - snipeAt.getTime()) / 1000),
+      unavoidableSec: unavoidableLateSec,
+      // 余裕がある回は sleepUntil に吸収されるが、snipeAt が既に過去の回は
+      // そのまま遅れとして積み上がる(故障ではない)。
+      loopWorkSec,
+    });
+    const lateBySec = lateness.lateBySec;
+    const lateNote = lateness.note;
+    if (lateness.level === "DELAYED") {
+      console.warn(`[monitor] ${reservation.id} ${lateNote}`);
+    } else if (lateNote) {
+      // 正常動作なので warn では出さない。ただし黙らせもしない
+      // (入札が予定より終了寄りになった事実は結果の読み解きに要る)。
+      logMonitor(reservation, lateNote);
+    }
 
     // ⚠️ 入札の直前にもう一度読み直す。上の「高値更新」通知を見て上限を
     // 上げた場合、反映されるのはここだけ。待つ前の値のまま入札すると、
