@@ -3,7 +3,12 @@ import { prisma } from "@yar/db";
 import { YAHOO_AUCTION_URL_PATTERN, fetchAuctionInfo } from "@yar/shared";
 import { pageIdentityVerdict } from "../bidder/pageIdentity";
 import { selectors } from "../bidder/selectors";
-import { createYahooContext, launchBrowser, markSessionExpired } from "../bidder/session";
+import {
+  createYahooContext,
+  launchBrowser,
+  markSessionExpired,
+  refreshStoredCookies,
+} from "../bidder/session";
 import { settlePage } from "../bidder/settle";
 import { CAROUSEL_ANCESTOR_SELECTOR, watchlistScopeVerdict } from "../bidder/watchlistScope";
 import { notifyUser } from "../notify";
@@ -209,6 +214,10 @@ export async function runWatchlistSync(yahooSessionId: string): Promise<Watchlis
       );
       return result;
     }
+
+    // ウォッチリストの中身が読めた = ログインは確実に生きている。
+    // **連携を若返らせる唯一の定期経路**(1時間ごと)なのでここで書き戻す。
+    await refreshStoredCookies(context, yahooSessionId);
 
     // ⚠️ 商品と連携に **同じ時刻** を刻む。一覧は
     // 「lastSeenAt >= lastWatchlistSyncAt」で今回見えたものだけを出すので

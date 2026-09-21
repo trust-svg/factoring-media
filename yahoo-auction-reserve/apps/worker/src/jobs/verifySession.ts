@@ -1,7 +1,12 @@
 import type { Browser } from "playwright";
 import { prisma } from "@yar/db";
 import { selectors } from "../bidder/selectors";
-import { createYahooContext, launchBrowser, markSessionExpired } from "../bidder/session";
+import {
+  createYahooContext,
+  launchBrowser,
+  markSessionExpired,
+  refreshStoredCookies,
+} from "../bidder/session";
 import { notifyUser } from "../notify";
 import { judgeSession, planVerifyOutcome } from "../sessionVerdict";
 import { WATCHLIST_URL_CANDIDATES } from "./watchlist";
@@ -73,6 +78,13 @@ export async function verifySession(yahooSessionId: string): Promise<VerifySessi
       loggedInIndicatorCount: await page.locator(selectors.loggedInIndicator).count(),
     });
     result = { kind: verdict.verdict, reason: verdict.reason, url };
+
+    // ⚠️ ACTIVE と言い切れたときだけ書き戻す。UNKNOWN(判定不能)の一式を
+    // 保存すると、ログアウト後のページを読んでいた場合に生きている
+    // スナップショットを潰す。判定の非対称性は sessionVerdict.ts と同じ。
+    if (result.kind === "ACTIVE") {
+      await refreshStoredCookies(context, yahooSessionId);
+    }
   } finally {
     await browser?.close().catch(() => {});
   }

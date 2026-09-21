@@ -10,7 +10,12 @@ import {
 } from "@yar/shared";
 import type { ReservationJobData } from "../queues";
 import { notifyUser } from "../notify";
-import { launchBrowser, createYahooContext, markSessionExpired } from "../bidder/session";
+import {
+  launchBrowser,
+  createYahooContext,
+  markSessionExpired,
+  refreshStoredCookies,
+} from "../bidder/session";
 import { placeBid, checkResult } from "../bidder/placeBid";
 import { alreadyHighestGuard } from "../bidder/alreadyHighest";
 import { settlePage } from "../bidder/settle";
@@ -79,6 +84,12 @@ export async function runMonitorJob(job: Job<ReservationJobData>): Promise<void>
     );
 
     await snipeLoop(page, reservation);
+
+    // ⚠️ **必ず snipeLoop の後**。入札前に挟むと、時間に追われている
+    // 経路に DB 往復を足すことになる。ここまで来ればログインは生きていた
+    // (切れていれば連携が EXPIRED になっていて、書き戻し側の
+    //  status ガードが弾く)。
+    await refreshStoredCookies(context, reservation.yahooSessionId);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     console.error(`[monitor] ${reservation.id} failed:`, detail);
