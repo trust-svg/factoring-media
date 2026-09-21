@@ -271,6 +271,9 @@ enum SessionStatus {
   ACTIVE
   EXPIRED
   INVALID
+  // 人が解除した連携。Cookie は捨てるが、予約・ウォッチの履歴は外部キーで
+  // ぶら下がったまま残るので行自体は消せない(shared/sessionRemoval.ts)
+  REVOKED
 }
 
 enum AutoRaiseMode {

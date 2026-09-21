@@ -18,11 +18,15 @@
  * 行を消さないので、同期が失敗した日に候補が消えることもない。
  */
 
+import type { SessionStatusKey } from "./labels";
+
 export interface WatchFreshnessInput {
   /** その商品を最後に見つけた時刻 */
   lastSeenAt: Date;
   /** その商品を取り込んだ連携の、最後に成功した同期の時刻 */
   sessionLastSyncAt: Date | null;
+  /** その商品を取り込んだ連携のいまの状態 */
+  sessionStatus: SessionStatusKey;
 }
 
 /**
@@ -35,7 +39,14 @@ export interface WatchFreshnessInput {
  * いない)の商品を隠すと、直後に一覧が空になって原因も表示されない。
  */
 export function isSeenInLatestSync(input: WatchFreshnessInput): boolean {
-  const { lastSeenAt, sessionLastSyncAt } = input;
+  const { lastSeenAt, sessionLastSyncAt, sessionStatus } = input;
+  // ⚠️ 状態の判定を先に置く。有効でない連携は **二度と同期しない** ので、
+  //    その同期時刻は凍結する。「最後の同期で見えたもの」という条件は
+  //    そのまま真であり続け、死んだ連携の残骸が永久に現役の顔で並ぶ。
+  //    これは「分からない」ではなく「古いと確定している」側なので隠す。
+  //    (2026-09-22 実測: 失効した連携の5件が居座っていた。再連携しても
+  //     新しい連携は別レコードになるので、この行が生き返ることは無い)
+  if (sessionStatus !== "ACTIVE") return false;
   if (sessionLastSyncAt === null) return true;
   return lastSeenAt.getTime() >= sessionLastSyncAt.getTime();
 }

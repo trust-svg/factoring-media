@@ -86,12 +86,13 @@ export const ATTEMPT_OUTCOME_LABEL: Record<AttemptOutcomeKey, string> = {
   DRY_RUN: "テスト実行(確認画面まで到達・確定は押していない)",
 };
 
-export type SessionStatusKey = "ACTIVE" | "EXPIRED" | "INVALID";
+export type SessionStatusKey = "ACTIVE" | "EXPIRED" | "INVALID" | "REVOKED";
 
 export const SESSION_STATUS_LABEL: Record<SessionStatusKey, string> = {
   ACTIVE: "有効",
   EXPIRED: "失効(要再連携)",
   INVALID: "不正",
+  REVOKED: "解除済み",
 };
 
 

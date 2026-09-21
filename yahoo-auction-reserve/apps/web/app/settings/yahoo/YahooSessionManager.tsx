@@ -28,6 +28,10 @@ export default function YahooSessionManager({
   sessions: SessionRow[];
 }) {
   const router = useRouter();
+  // 解除済みは一覧から畳む。行は消せない(予約・ウォッチの外部キー)ので、
+  // 並べたままだと「解除できていない」ように見える
+  const live = sessions.filter((s) => s.status !== "REVOKED");
+  const revoked = sessions.filter((s) => s.status === "REVOKED");
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -67,7 +71,13 @@ export default function YahooSessionManager({
   }
 
   async function onDelete(session: SessionRow) {
-    if (!confirm(`「${session.label}」の連携を解除します。よろしいですか?`)) return;
+    if (
+      !confirm(
+        `「${session.label}」の連携を解除します。よろしいですか?\n` +
+          "保管している Cookie は消えます。過去の予約・落札の記録は残ります。",
+      )
+    )
+      return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -75,11 +85,14 @@ export default function YahooSessionManager({
       method: "DELETE",
     });
     setBusy(false);
+    const body = await res.json();
     if (!res.ok) {
-      setError((await res.json()).error ?? "連携解除に失敗しました");
+      setError(body.error ?? "連携解除に失敗しました");
       return;
     }
-    setNotice("連携を解除しました");
+    // ⚠️ 「消えた」と「解除して残った」を同じ文言にしない。一覧から
+    //    行が消えないので、黙っていると失敗したように見える
+    setNotice(body.message ?? "連携を解除して削除しました");
     router.refresh();
   }
 
@@ -89,12 +102,12 @@ export default function YahooSessionManager({
 
       <div className="card">
         <h2>連携済みアカウント</h2>
-        {sessions.length === 0 && (
+        {live.length === 0 && (
           <p className="muted">
             まだ連携がありません。下のフォームから Cookie を登録してください。
           </p>
         )}
-        {sessions.map((s) => (
+        {live.map((s) => (
           <div className="row" key={s.id} style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 12 }}>
             <div className="grow">
               <strong>{s.label}</strong>{" "}
@@ -125,13 +138,28 @@ export default function YahooSessionManager({
             </button>
           </div>
         ))}
+        {revoked.length > 0 && (
+          <details style={{ marginTop: 16 }}>
+            <summary className="muted">解除済みの連携 {revoked.length}件</summary>
+            <p className="muted">
+              Cookie は削除済みで、入札にも同期にも使われません。過去の予約・落札の
+              記録がぶら下がっているため、行だけが残っています。
+            </p>
+            {revoked.map((s) => (
+              <p className="muted" key={s.id}>
+                {s.label}(登録 {new Date(s.createdAt).toLocaleString("ja-JP")})
+              </p>
+            ))}
+          </details>
+        )}
       </div>
 
       <div className="card">
         <h2>Cookie を登録する</h2>
         <p className="muted">
           Yahoo! JAPAN のパスワードはお預かりしません。ログイン済みのセッション Cookie
-          だけを暗号化して保管し、入札実行時にのみ復号します。連携解除で即時削除されます。
+          だけを暗号化して保管し、入札実行時にのみ復号します。連携解除で Cookie は
+          即時削除されます(過去の予約・落札の記録は残ります)。
         </p>
         <details style={{ marginBottom: 12 }}>
           <summary>Cookie の取り出し方</summary>

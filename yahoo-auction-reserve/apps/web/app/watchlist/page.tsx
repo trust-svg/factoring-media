@@ -23,7 +23,7 @@ export default async function WatchlistPage() {
       // 連携ごとの最終同期時刻と突き合わせて「今回見えたもの」だけを出す。
       // 連携が複数あるときに他方の同期時刻で判定しないよう、商品ごとに
       // **その商品を取り込んだ連携** の時刻を見る
-      include: { yahooSession: { select: { lastWatchlistSyncAt: true } } },
+      include: { yahooSession: { select: { lastWatchlistSyncAt: true, status: true } } },
       take: 200,
     }),
     prisma.yahooSession.findMany({
@@ -53,6 +53,7 @@ export default async function WatchlistPage() {
     isSeenInLatestSync({
       lastSeenAt: i.lastSeenAt,
       sessionLastSyncAt: i.yahooSession.lastWatchlistSyncAt,
+      sessionStatus: i.yahooSession.status,
     }),
   );
   const hiddenStale = items.length - current.length;
@@ -68,7 +69,11 @@ export default async function WatchlistPage() {
     pastStatus: pastBy.get(i.auctionId) ?? null,
   }));
 
+  // ⚠️ 最終同期の表示は **いま生きている連携だけ** から取る。死んだ連携の
+  //    凍結した時刻を混ぜると、現役の連携が一度も同期できていなくても
+  //    「最終同期 9/21 14:09」と出て、止まっていることに気づけない
   const lastSync = sessions
+    .filter((s) => s.status === "ACTIVE")
     .map((s) => s.lastWatchlistSyncAt)
     .filter((d): d is Date => d != null)
     .sort((a, b) => b.getTime() - a.getTime())[0];
