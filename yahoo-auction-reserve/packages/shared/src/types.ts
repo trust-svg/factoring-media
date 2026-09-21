@@ -49,7 +49,8 @@ export type NotificationType =
   | "DAILY_SUMMARY" // 毎日の稼働サマリ(届かないこと自体が異常の合図)
   | "ALREADY_HIGHEST" // すでに最高額入札者だったので入札しなかった
   | "OUTBID" // 入札後に高値更新された(増額すればまだ間に合う)
-  | "DRY_RUN"; // テスト実行が確認画面まで到達した(実際には入札していない)
+  | "DRY_RUN" // テスト実行が確認画面まで到達した(実際には入札していない)
+  | "SESSION_DEAD_BEFORE_BID"; // 入札の前の事前確認で、その予約が使う連携が死んでいた
 
 // 通知の系統。ユーザー設定(NotificationSetting)で切れるのは RESULT と ERROR だけで、
 // ACTION(承認依頼)は切れない。入札の可否を決める問い合わせなので、
@@ -88,4 +89,9 @@ export const NOTIFICATION_CATEGORY: Record<NotificationType, NotificationCategor
   APPROVAL_REQUEST: "ACTION",
   DAILY_SUMMARY: "SUMMARY",
   DRY_RUN: "TEST",
+  // ⚠️ SESSION_EXPIRED と同じ ERROR にしない。ERROR はユーザー設定で切れる。
+  //    これは事後の報告ではなく「入札までに再連携してください」という
+  //    まだ間に合ううちの問い合わせで、届かないことがそのまま
+  //    「その予約は必ず失敗する」になる(OUTBID と同じ理由)。
+  SESSION_DEAD_BEFORE_BID: "ACTION",
 };

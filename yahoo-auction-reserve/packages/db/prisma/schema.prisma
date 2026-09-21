@@ -120,6 +120,14 @@ model BidReservation {
   // 失敗した場合もここは進める(失敗は marketSampleCount=null で区別する)。
   marketCheckedAt   DateTime?
 
+  // --- 入札前の事前確認(案 C) ---
+  // 事前確認を済ませた時刻。null のあいだだけ対象になる。
+  // ⚠️ 「通知した」印ではなく「一度見た」印。連携が生きていた場合も死んでいた
+  //    場合も等しく進める(同じ予約に何度も鳴らさないため)。
+  //    取り合いは updateMany({ where: { id, preflightAt: null } }) の
+  //    count === 1 で避ける。worker が2つ動いても片方しか動かない。
+  preflightAt DateTime?
+
   // --- グループ(どれか1つ落札したら残りをキャンセル) ---
   groupId String?
   group   ReservationGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)

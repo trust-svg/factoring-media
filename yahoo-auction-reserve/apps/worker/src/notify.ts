@@ -31,6 +31,7 @@ const SUBJECTS: Record<NotificationType, string> = {
   DRY_RUN: "【テスト実行】確認画面まで到達しました(入札はしていません)",
   ALREADY_HIGHEST: "【入札せず】すでにあなたが最高額入札者でした",
   OUTBID: "【要対応】高値更新されました(上限を上げれば再入札します)",
+  SESSION_DEAD_BEFORE_BID: "【要対応】入札までにヤフオク連携をやり直してください",
 };
 
 // payload のキーをそのまま出すと "maxBidAmount: 6000" のような画面になるので、
@@ -51,6 +52,10 @@ const FIELD_LABELS: Record<string, string> = {
   groupName: "グループ",
   detail: "結果",
   lateBySec: "予定との差",
+  auctionId: "オークションID",
+  sessionStatus: "連携の状態",
+  bidsAt: "入札予定",
+  remaining: "入札まで",
 };
 
 /** payload の "_lines" は見出しを付けずそのまま並べる(サマリ用) */

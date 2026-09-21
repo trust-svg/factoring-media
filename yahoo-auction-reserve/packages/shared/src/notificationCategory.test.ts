@@ -26,12 +26,24 @@ describe("通知の系統", () => {
     assert.notEqual(category, "ERROR");
   });
 
+  // 入札前の事前確認で「連携が死んでいる」と分かったときの通知。
+  // ⚠️ SESSION_EXPIRED と同じ ERROR にしてはいけない。ERROR は設定で切れる。
+  //    これは事後の報告ではなく「入札までに再連携してください」という
+  //    **まだ間に合ううちの問い合わせ**で、届かないことがそのまま
+  //    「その予約は必ず失敗する」に直結する。OUTBID と同じ理由。
+  it("入札前の連携切れ通知は、ユーザー設定で切れる系統に入れない", () => {
+    const category = NOTIFICATION_CATEGORY.SESSION_DEAD_BEFORE_BID;
+    assert.equal(category, "ACTION");
+    assert.notEqual(category, "RESULT");
+    assert.notEqual(category, "ERROR");
+  });
+
   it("全ての通知種別に系統が割り当てられている", () => {
     const types: NotificationType[] = [
       "WON", "LOST", "AUTO_RAISED", "GROUP_CANCELLED",
       "FAILED", "EXPIRED", "SESSION_EXPIRED", "RAISE_DECLINED",
       "REMINDER", "APPROVAL_REQUEST", "DAILY_SUMMARY", "DRY_RUN",
-      "ALREADY_HIGHEST", "OUTBID",
+      "ALREADY_HIGHEST", "OUTBID", "SESSION_DEAD_BEFORE_BID",
     ];
     for (const t of types) {
       assert.ok(NOTIFICATION_CATEGORY[t], `${t} に系統が無い`);

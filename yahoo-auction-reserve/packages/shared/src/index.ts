@@ -16,6 +16,7 @@ export * from "./access";
 export * from "./liveness";
 export * from "./watchFreshness";
 export * from "./sessionRemoval";
+export * from "./preflight";
 export * from "./watchlistSyncRequest";
 
 // labels / format は node:crypto を含まないので、クライアントコンポーネントからも

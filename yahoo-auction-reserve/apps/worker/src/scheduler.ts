@@ -10,6 +10,7 @@ import { runDailySummarySweep } from "./jobs/dailySummary";
 import { runWatchlistRequestSweep, runWatchlistSweep } from "./jobs/watchlist";
 import { runEnrichSweep } from "./jobs/enrich";
 import { runNewSessionVerifySweep, runVerifySessionSweep } from "./jobs/verifySession";
+import { runPreflightSweep } from "./jobs/preflight";
 import { beat } from "./jobs/heartbeat";
 import { sweepApprovals } from "./approvalPoller";
 import { runStuckSweep } from "./jobs/stuck";
@@ -48,6 +49,14 @@ const WATCHLIST_INTERVAL_MS = 60 * 60 * 1000;
 // 連携 Cookie の生存確認。走査自体は 15 分ごとに回すが、実際に開くのは
 // 前回の確認から 6 時間経った連携だけ(判定は jobs/verifySession.ts)。
 const VERIFY_SESSION_INTERVAL_MS = 15 * 60 * 1000;
+
+// 入札前の連携の事前確認(案 C)。
+//
+// ⚠️ 30秒の走査には載せない。ここはブラウザを起動しうるので、頻度を上げても
+// 同じ予約を何度も見るだけで得が無い(印を立てた予約は二度と対象にならない)。
+// 窓は monitor の起動より最短でも55分手前に開くので、5分間隔なら
+// 「窓に入った予約を必ず1回は拾う」が成り立つ。
+const PREFLIGHT_INTERVAL_MS = 5 * 60 * 1000;
 
 // 走行中のまま取り残された予約の掃除。監視ジョブの一覧を Redis から取り直すので
 // 30秒の走査には載せず、独立して粗く回す(対象の猶予が15分なので十分)。
@@ -96,6 +105,12 @@ export function startScheduler(): SchedulerHandle {
   );
   run("verifySession", runVerifySessionSweep);
 
+  const preflightTimer = setInterval(
+    () => run("preflight", runPreflightSweep),
+    PREFLIGHT_INTERVAL_MS,
+  );
+  run("preflight", runPreflightSweep);
+
   const stuckSweep = async () => {
     const live = await collectMonitorJobs();
     return runStuckSweep(new Set(live.keys()));
@@ -108,6 +123,7 @@ export function startScheduler(): SchedulerHandle {
       clearInterval(timer);
       clearInterval(watchlistTimer);
       clearInterval(verifyTimer);
+      clearInterval(preflightTimer);
       clearInterval(stuckTimer);
     },
   };
