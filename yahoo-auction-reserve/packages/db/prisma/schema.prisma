@@ -1,0 +1,366 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  passwordHash         String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  yahooSessions        YahooSession[]
+  reservations         BidReservation[]
+  notifications        Notification[]
+  watchlist            WatchlistItem[]
+  groups               ReservationGroup[]
+  notifySetting        NotificationSetting?
+  // --- 判断材料のしきい値(設計追補 2026-08-25) ---
+  // null なら判定しない。既定で判定を入れないのは、しきい値を推測で決めると
+  // 「なぜか予約できない」が起きるため(明示的に設定したときだけ効かせる)。
+  sellerRatingFloor    Int? // 良い評価の割合(%)の下限
+  sellerRatingMinCount Int? // 評価総数の下限(100%でも母数2件は判断材料にならない)
+  // true なら下限割れの出品者は予約自体を断る。false なら警告のみ。
+  blockLowRatedSeller  Boolean              @default(false)
+}
+
+// ヤフオクのログイン済みセッション(Cookie一式を暗号化して保管)
+model YahooSession {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id])
+  label           String
+  encryptedCookie String // AES-256-GCM 暗号化済みCookie JSON
+  status          SessionStatus    @default(ACTIVE)
+  lastVerifiedAt  DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  reservations    BidReservation[]
+  watchlist       WatchlistItem[]
+
+  // 生存確認(verifySession)を最後に **試みた** 時刻。成否は問わない。
+  // 成功時刻(lastVerifiedAt)で順番を決めると、失敗し続ける1件が毎回
+  // 先頭に来て他のセッションが永久に確認されない。
+  lastVerifyAttemptAt DateTime?
+
+  // ウォッチリスト同期がこのセッションで最後に成功した時刻。
+  // ウォッチリストはログイン必須なので、この同期自体が死活監視を兼ねる
+  // (開いてログイン画面に飛ばされたら EXPIRED にする)。
+  lastWatchlistSyncAt DateTime?
+
+  // 画面の「今すぐ更新」で立つ手動同期の要求。worker の30秒走査が拾って
+  // 1回だけ同期し、**成否に関わらず終わったら null に戻す**。
+  // ⚠️ 拾った時点ではなく終わってから下ろすこと。先に下ろすと、同期中
+  // (数十秒)のあいだ要求が消えて見えるので、連打の歯止めが効かなくなる。
+  watchlistSyncRequestedAt DateTime?
+}
+
+model BidReservation {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  yahooSessionId String
+  yahooSession   YahooSession @relation(fields: [yahooSessionId], references: [id])
+
+  auctionId        String // ヤフオクのオークションID (例: x1234567890)
+  auctionUrl       String
+  title            String
+  imageUrl         String?
+  sellerName       String?
+  hasAutoExtension Boolean  @default(false)
+  endAt            DateTime // 終了予定日時(自動延長で更新される)
+  originalEndAt    DateTime
+
+  maxBidAmount       Int
+  snipeSecondsBefore Int       @default(30) // 5〜600
+  currentPrice       Int?
+  priceCheckedAt     DateTime?
+  // 即決価格(設定されている出品だけ)。null は「即決なし」または未取得。
+  // ⚠️ maxBidAmount がこれ以上だと、終了直前を待たずに入札した時点で
+  // 即決成立＝その場で落札になる。スナイプの前提が崩れるので画面で警告する。
+  buyNowPrice        Int?
+
+  // --- テスト実行(2026-08-28 追加) ---
+  // true にすると、スケジューラ起動から確認画面到達までを本番と全く同じ経路で
+  // 実行し、**最後の確定クリックだけ行わない**。
+  // 確定ボタンの押下は取り消せないので、それ以外の全経路(終了直前の自動起動 /
+  // Cookie の復号 / フォーム入力 / 確認画面の判定 / 通知)を落札リスクゼロで
+  // 通すために置いている。
+  // ⚠️ 予約ごとのフラグにしてあるのは、環境変数のような全体スイッチだと
+  // 「切り忘れて全予約が空振り」と「入れ忘れて実入札が飛ぶ」がどちらも
+  // 全件に効いてしまうため。被害を1件に閉じ込める。
+  dryRun Boolean @default(false)
+
+  // --- 自動増額(2026-08-25 追加) ---
+  // maxBidAmount は「今回の入札で出す額」。高値更新されたときにこれを段階的に
+  // 引き上げるのが自動増額で、absoluteMaxAmount が絶対に超えない天井。
+  // OFF 以外では absoluteMaxAmount / autoRaiseStep / autoRaiseMaxCount が必須
+  // (API 側で検証する。DB 上は OFF の予約で null を許すため Optional)。
+  autoRaiseMode      AutoRaiseMode @default(OFF)
+  autoRaiseStep      Int?
+  autoRaiseMaxCount  Int?
+  autoRaiseUsedCount Int           @default(0)
+  absoluteMaxAmount  Int?
+
+  // --- 判断材料(取得できたときだけ入る。無いことと 0 は違う) ---
+  // shippingFee: 送料(円)。null=不明(条件により変動/記載なし)、0=送料無料。
+  //   null を 0 とみなして総額を出さないこと(「送料込みで安い」と誤読させる)。
+  shippingFee       Int?
+  shippingNote      String? // 「落札者負担」など、金額を確定できなかったときの原文
+  sellerRating      Int? // 「良い」評価の割合(%) 0〜100
+  sellerRatingCount Int? // 評価の総数。割合だけでは新規出品者と区別できない
+  marketMedianPrice Int?
+  marketSampleCount Int? // 0 = 調べたが該当なし。null = まだ調べていない/取得失敗
+  // 相場を調べた時刻。null のままだと毎走査で調べ直して永久にリトライするので、
+  // 失敗した場合もここは進める(失敗は marketSampleCount=null で区別する)。
+  marketCheckedAt   DateTime?
+
+  // --- 入札前の事前確認(案 C) ---
+  // 事前確認を済ませた時刻。null のあいだだけ対象になる。
+  // ⚠️ 「通知した」印ではなく「一度見た」印。連携が生きていた場合も死んでいた
+  //    場合も等しく進める(同じ予約に何度も鳴らさないため)。
+  //    取り合いは updateMany({ where: { id, preflightAt: null } }) の
+  //    count === 1 で避ける。worker が2つ動いても片方しか動かない。
+  preflightAt DateTime?
+
+  // --- グループ(どれか1つ落札したら残りをキャンセル) ---
+  groupId String?
+  group   ReservationGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  status        ReservationStatus  @default(SCHEDULED)
+  resultPrice   Int?
+  failureReason String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  attempts      BidAttempt[]
+  approvals     TelegramApproval[]
+
+  @@unique([userId, auctionId])
+  @@index([status, endAt])
+  @@index([groupId])
+}
+
+// 入札実行の試行ログ(自動延長で複数回実行される)
+model BidAttempt {
+  id            String         @id @default(cuid())
+  reservationId String
+  reservation   BidReservation @relation(fields: [reservationId], references: [id])
+  scheduledFor  DateTime
+  executedAt    DateTime?
+  bidAmount     Int?
+  outcome       AttemptOutcome
+  detail        String?
+  createdAt     DateTime       @default(now())
+}
+
+model Notification {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  type    String // WON / LOST / FAILED / SESSION_EXPIRED など
+  payload Json
+
+  // 送信結果は経路ごとに持つ。1本の sentAt にまとめると「メールは出たが
+  // Telegram は失敗した」が "送信済み" に見え、片方の経路が死んでも
+  // 通知そのものは届き続けるので誰も気づけない。
+  mailSentAt     DateTime?
+  telegramSentAt DateTime?
+  // 最後に失敗した経路とその理由(Bot トークンなどの秘匿値は入れない)
+  deliveryError  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// 通知設定(ユーザーごとに1つ)。Telegram の宛先と、何を送るかの選択。
+model NotificationSetting {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  // BotFather で作った Bot に対する宛先。未設定なら Telegram 送信は行わない
+  // (メールのみ)。Bot トークンは環境変数側に置き、DB には入れない。
+  telegramChatId String?
+
+  // 終了何分前にリマインドするか。複数指定でき、空配列なら送らない。
+  // 例: [60, 10] → 終了60分前と10分前
+  remindMinutesBefore Int[] @default([])
+
+  notifyResult Boolean @default(true) // 落札 / 落札ならず
+  notifyError  Boolean @default(true) // 失敗・セッション切れ・上限超過スキップ
+
+  // 毎日の稼働サマリ(死活監視兼用)を送る JST 時刻 "HH:MM"。null なら送らない。
+  dailySummaryAt     String?
+  // 最後にサマリを送った JST の日付 "YYYY-MM-DD"。同じ日に二度送らないための鍵。
+  // 時刻ではなく日付を持つのは、worker が再起動しても判定が変わらないようにするため。
+  lastDailySummaryOn String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ヤフオクのウォッチリストから取り込んだ商品。
+//
+// **ヤフオク側から消えてもこのレコードは消さない**。同期の一時的な失敗
+// (ページ構造変化・ログイン切れ・ページネーション取りこぼし)で
+// 「消えた」と誤認すると、予約候補が黙って一覧から落ちる。
+// 見えなくなったことは lastSeenAt が古いままになる形でしか表現しない。
+model WatchlistItem {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  yahooSessionId String
+  yahooSession   YahooSession @relation(fields: [yahooSessionId], references: [id])
+
+  auctionId        String
+  auctionUrl       String
+  title            String?
+  imageUrl         String?
+  currentPrice     Int?
+  endAt            DateTime?
+  hasAutoExtension Boolean?
+
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  // ユーザーが「これは予約しない」と伏せた時刻。伏せても再同期で復活はしない
+  dismissedAt DateTime?
+
+  @@unique([userId, auctionId])
+  @@index([userId, dismissedAt])
+}
+
+// 「どれか1つ落札できればいい」商品のまとまり。
+// 1件が落札された時点で、同じグループの他の予約をキャンセルする。
+model ReservationGroup {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  name   String
+
+  // 落札時に他をキャンセルするか。false なら単なるラベルとして機能する
+  cancelOthersOnWin Boolean @default(true)
+
+  reservations BidReservation[]
+  createdAt    DateTime         @default(now())
+
+  @@index([userId])
+}
+
+// 自動増額を Telegram で承認制にしたときの1回分の伺い。
+//
+// expiresAt は「入札に間に合う最終判断時刻」。ここを過ぎたら TIMEOUT にして
+// **増額せずに元の額で入札する**(承認が取れないことを増額の許可に読み替えない)。
+model TelegramApproval {
+  id            String         @id @default(cuid())
+  reservationId String
+  reservation   BidReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  currentAmount   Int
+  requestedAmount Int
+  // 送信した Telegram メッセージ。応答後に本文を差し替えるために持つ
+  chatId          String?
+  messageId       Int?
+
+  status      ApprovalStatus @default(PENDING)
+  respondedAt DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime       @default(now())
+
+  @@index([status, expiresAt])
+}
+
+enum SessionStatus {
+  ACTIVE
+  EXPIRED
+  INVALID
+  // 人が解除した連携。Cookie は捨てるが、予約・ウォッチの履歴は外部キーで
+  // ぶら下がったまま残るので行自体は消せない(shared/sessionRemoval.ts)
+  REVOKED
+}
+
+enum AutoRaiseMode {
+  OFF // 増額しない(既定)
+  AUTO // absoluteMaxAmount まで自動で増額する
+  APPROVAL // 増額前に Telegram で承認を取る
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  TIMEOUT // 期限までに応答が無かった(= 増額しない)
+}
+
+enum ReservationStatus {
+  SCHEDULED
+  MONITORING
+  BIDDING
+  WON
+  LOST
+  FAILED
+  CANCELLED
+  EXPIRED
+  // テスト実行(dryRun)が確認画面まで到達して終わった状態。
+  // WON/LOST と分けているのは、これを「入札した」と数えないため。
+  DRY_RUN
+}
+
+enum AttemptOutcome {
+  SUCCESS
+  OUTBID
+  PRICE_OVER_LIMIT
+  SESSION_EXPIRED
+  PAGE_ERROR
+  TIMEOUT
+  AUTO_RAISED // 高値更新を受けて増額のうえ再入札した
+  RAISE_DECLINED // 増額の承認が下りなかった / 期限切れ / 回数上限
+  GROUP_CANCELLED // 同グループの他商品が落札されたので取りやめた
+  // 入札の瞬間にすでに自分が最高額入札者だったので、押さずに見送った。
+  // ⚠️ 失敗ではない。TIMEOUT / PAGE_ERROR に混ぜると、原因調査のたびに
+  // 「入札できなかった回」として数えられる。
+  ALREADY_HIGHEST
+  // テスト実行。確認画面まで到達し、確定ボタンの4点ガードも通ったが押していない。
+  // ⚠️ SUCCESS と分けること。ここを SUCCESS にすると、テスト実行が
+  // 「入札できた実績」として集計に混ざる。
+  DRY_RUN
+}
+
+// 送信済みリマインドの記録。
+//
+// 鍵に endAt を含めるのは、自動延長で終了時刻が動いたら「新しい終了時刻に対する
+// リマインド」として送り直すため。reservationId + minutesBefore だけで鍵にすると、
+// 延長された予約は一度送ったきり二度と通知されない。
+// ⚠️ reservationId は **外部キーではない**(素の文字列)。予約を消しても
+// ここは残る。リマインドの重複送信を防ぐのが役目なので、予約が消えた後に
+// 行が残っていても害は無い一方、リレーションにすると予約削除のたびに
+// 送信済み記録まで消え、同じ予約 ID が再利用された場合に重複送信しうる。
+// 予約を消すコードを書くときは、ここも一緒に消すか意図して残すかを決めること。
+model ReminderSent {
+  id            String   @id @default(cuid())
+  reservationId String
+  minutesBefore Int
+  endAt         DateTime
+  sentAt        DateTime @default(now())
+
+  @@unique([reservationId, minutesBefore, endAt])
+  @@index([sentAt])
+}
+
+// worker(常駐プロセス)の鼓動。走査ごとに1行を上書きする。
+//
+// ⚠️ 行が増える設計にしない。履歴が欲しくなっても、鼓動は 30 秒ごとに打たれる
+// ので1日 2,880 行たまる。生死判定に必要なのは最後の1点だけ。
+//
+// ⚠️ 鼓動＝「走査が回っていること」。ジョブの成功を鼓動にすると、予約が
+// 1件も無い日と worker が死んでいる日が区別できなくなる。
+model WorkerHeartbeat {
+  id        String   @id @default("singleton")
+  beatAt    DateTime
+  startedAt DateTime @default(now())
+}

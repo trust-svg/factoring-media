@@ -30,3 +30,6 @@ README.md
 docs
 .claude
 CLAUDE.md
+
+# 別プロダクト(ヤフオク入札予約)。FACCEL のビルドには不要
+yahoo-auction-reserve
