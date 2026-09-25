@@ -223,7 +223,9 @@ frontmatter（---〜---）から本文末尾まで、完全なMarkdown記事を�
             }
         ],
     )
-    return message.content[0].text.strip()
+    return "".join(
+        b.text for b in message.content if getattr(b, "type", None) == "text"
+    ).strip()
 
 
 def generate_knowledge(article_slug: str, note_context: str) -> str:
@@ -267,7 +269,9 @@ frontmatter（---〜---）から本文末尾まで、完全なMarkdown記事を�
             }
         ],
     )
-    return message.content[0].text.strip()
+    return "".join(
+        b.text for b in message.content if getattr(b, "type", None) == "text"
+    ).strip()
 
 
 def main():
