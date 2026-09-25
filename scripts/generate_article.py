@@ -183,8 +183,10 @@ def generate_review(company_slug: str, article_slug: str, note_context: str) -> 
 
     client = anthropic.Anthropic()
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=os.getenv("CLAUDE_MODEL", "claude-sonnet-5"),
         max_tokens=4096,
+        # 記事1本を 4096 で書き切る用途。adaptive だと思考が枠を食い本文が切れる
+        thinking={"type": "disabled"},
         messages=[
             {
                 "role": "user",
@@ -235,8 +237,10 @@ def generate_knowledge(article_slug: str, note_context: str) -> str:
 
     client = anthropic.Anthropic()
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=os.getenv("CLAUDE_MODEL", "claude-sonnet-5"),
         max_tokens=4096,
+        # 記事1本を 4096 で書き切る用途。adaptive だと思考が枠を食い本文が切れる
+        thinking={"type": "disabled"},
         messages=[
             {
                 "role": "user",
