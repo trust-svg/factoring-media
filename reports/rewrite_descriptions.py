@@ -46,11 +46,12 @@ def rewrite_description(
 出力:"""
 
     msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=200,
+        model="claude-haiku-5-5",
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
+        extra_body={"output_config": {"effort": "low"}},
     )
-    return msg.content[0].text.strip().strip("「」")
+    return ("".join(b.text for b in msg.content if getattr(b, "type", None) == "text")).strip().strip("「」")
 
 
 def parse_frontmatter(text: str) -> dict:

@@ -92,11 +92,12 @@ def get_claude_suggestions(
 上記データをもとに、今週実行すべきSEO改善案を3〜5項目、優先度順に箇条書きで提案してください。具体的・実行可能な内容で、各項目は1〜2文で端的に。"""
 
     msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=600,
+        model="claude-haiku-5-5",
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
+        extra_body={"output_config": {"effort": "low"}},
     )
-    return msg.content[0].text
+    return "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")
 
 
 def main() -> None:

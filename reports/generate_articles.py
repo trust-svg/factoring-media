@@ -160,11 +160,12 @@ def generate_article_body(spec: dict) -> str:
         key_points=key_points_str,
     )
     msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=2500,
+        model="claude-haiku-5-5",
+        max_tokens=3524,
         messages=[{"role": "user", "content": prompt}],
+        extra_body={"output_config": {"effort": "low"}},
     )
-    return msg.content[0].text.strip()
+    return ("".join(b.text for b in msg.content if getattr(b, "type", None) == "text")).strip()
 
 
 def build_article(spec: dict, body: str) -> str:
