@@ -200,11 +200,12 @@ def generate_faq(title: str, body: str) -> str:
 出力:"""
 
     msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=600,
+        model="claude-haiku-5-5",
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
+        extra_body={"output_config": {"effort": "low"}},
     )
-    return "\n\n" + msg.content[0].text.strip()
+    return "\n\n" + ("".join(b.text for b in msg.content if getattr(b, "type", None) == "text")).strip()
 
 
 def build_related_links(slug: str) -> str:
