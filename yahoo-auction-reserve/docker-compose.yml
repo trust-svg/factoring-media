@@ -7,7 +7,9 @@ services:
       POSTGRES_PASSWORD: yar
       POSTGRES_DB: yar
     ports:
-      - "5432:5432"
+      # 127.0.0.1 を明示しないと 0.0.0.0 公開＝同じ Wi-Fi の機器から直接つながる。
+      # iPhone からは tailscale serve(127.0.0.1:3000 を見る)経由なので影響しない。
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +21,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -35,7 +37,7 @@ services:
       DATABASE_URL: postgresql://yar:yar@postgres:5432/yar
       REDIS_URL: redis://redis:6379
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
